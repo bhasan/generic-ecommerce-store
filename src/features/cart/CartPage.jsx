@@ -1,68 +1,121 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Trash2 } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 
 function CartPage() {
   const { cart, removeFromCart, updateCartQuantity, checkout } = useApp();
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  // ... (rest of your CartPage JSX)
   if (cart.length === 0) {
     return (
-      <div className="text-center py-12">
-        <ShoppingCart size={64} className="mx-auto text-gray-600 mb-4" />
-        <h2 className="text-2xl font-semibold text-gray-400">Your cart is empty</h2>
+      <div className="cart-empty-container">
+        <div className="cart-empty-content">
+          <ShoppingCart size={64} className="cart-empty-icon" />
+          <h2 className="cart-empty-title">Your cart is empty</h2>
+          <p className="cart-empty-subtitle">Add some products to get started!</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div>
-      <h2 className="text-3xl font-bold mb-6 text-white">Shopping Cart</h2>
-      <div className="bg-gray-800 rounded-lg shadow-md p-6 border border-gray-700">
-        {cart.map(item => (
-          <div key={item.id} className="flex items-center justify-between border-b border-gray-700 py-4 last:border-b-0">
-            <div className="flex items-center space-x-4">
-              <img src={item.image} alt={item.name} className="w-20 h-20 object-cover rounded" />
-              <div>
-                <h3 className="font-semibold text-white">{item.name}</h3>
-                <p className="text-gray-400">${item.price}</p>
+    <div className="cart-page-container">
+      <div className="cart-header">
+        <div>
+          <h2 className="page-title">Shopping Cart</h2>
+          <p className="page-subtitle">{cart.length} {cart.length === 1 ? 'item' : 'items'} in your cart</p>
+        </div>
+      </div>
+
+      <div className="cart-content">
+        <div className="cart-items">
+          {cart.map(item => (
+            <div key={item.id} className="cart-item">
+              <div className="cart-item-image-container">
+                <img 
+                  src={item.image} 
+                  alt={item.name} 
+                  className="cart-item-image"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/200x200?text=No+Image';
+                  }}
+                />
+              </div>
+
+              <div className="cart-item-details">
+                <h3 className="cart-item-name">{item.name}</h3>
+                <p className="cart-item-category">{item.category}</p>
+                <p className="cart-item-price">${item.price.toFixed(2)} each</p>
+              </div>
+
+              <div className="cart-item-actions">
+                <div className="quantity-controls">
+                  <button
+                    onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                    className="quantity-btn"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className="quantity-display">{item.quantity}</span>
+                  <button
+                    onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                    className="quantity-btn"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+
+                <div className="cart-item-total">
+                  ${(item.price * item.quantity).toFixed(2)}
+                </div>
+
+                <button
+                  onClick={() => removeFromCart(item.id)}
+                  className="btn-remove-item"
+                  aria-label="Remove item"
+                >
+                  <Trash2 size={20} />
+                </button>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                  className="bg-gray-700 text-white px-2 py-1 rounded hover:bg-gray-600"
-                >
-                  -
-                </button>
-                <span className="w-8 text-center text-white">{item.quantity}</span>
-                <button
-                  onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                  className="bg-gray-700 text-white px-2 py-1 rounded hover:bg-gray-600"
-                >
-                  +
-                </button>
-              </div>
-              <span className="font-semibold w-20 text-right text-white">${(item.price * item.quantity).toFixed(2)}</span>
-              <button
-                onClick={() => removeFromCart(item.id)}
-                className="text-red-500 hover:text-red-400"
-              >
-                <Trash2 size={20} />
-              </button>
+          ))}
+        </div>
+
+        <div className="cart-summary">
+          <h3 className="cart-summary-title">Order Summary</h3>
+          
+          <div className="cart-summary-details">
+            <div className="summary-row">
+              <span>Subtotal</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+            <div className="summary-row">
+              <span>Shipping</span>
+              <span className="shipping-free">Free</span>
+            </div>
+            <div className="summary-row">
+              <span>Tax (estimated)</span>
+              <span>${(total * 0.08).toFixed(2)}</span>
+            </div>
+            <div className="summary-divider"></div>
+            <div className="summary-row summary-total">
+              <span>Total</span>
+              <span>${(total * 1.08).toFixed(2)}</span>
             </div>
           </div>
-        ))}
-        <div className="mt-6 flex justify-between items-center">
-          <span className="text-2xl font-bold text-white">Total: ${total.toFixed(2)}</span>
+
           <button
             onClick={checkout}
-            className="bg-purple-800 text-white px-8 py-3 rounded-md hover:bg-purple-900 font-semibold"
+            className="btn-checkout"
           >
-            Checkout (Payment Processing)
+            Proceed to Checkout
           </button>
+
+          <p className="checkout-note">
+            Secure checkout powered by our payment processor
+          </p>
         </div>
       </div>
     </div>

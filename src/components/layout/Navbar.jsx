@@ -1,62 +1,78 @@
 import React from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Package, Users } from 'lucide-react';
+import { ShoppingCart, Package, Users, Store } from 'lucide-react';
 
 function Navbar() {
   const { currentUser, cart } = useApp();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const getLinkClass = ({ isActive }) =>
-    `flex items-center space-x-1 ${isActive ? 'text-purple-700' : 'text-gray-300 hover:text-purple-600'}`;
-
   return (
-    <nav className="bg-black shadow-lg border-b-2 border-purple-800">
-      <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-        <div className="flex items-center space-x-6">
-          <Link to="/products" className="text-3xl font-bold text-purple-700">Smoke Station</Link>
+    <nav className="navbar">
+      <div className="navbar-container">
+        <div className="navbar-left">
+          <Link to="/products" className="navbar-brand">
+            <Store size={32} />
+            <span>Smoke Station</span>
+          </Link>
           
-          {currentUser.role === 'CUSTOMER' && (
-            <>
-              <NavLink to="/products" className={getLinkClass}>
-                <Package size={20} />
-                <span>Products</span>
-              </NavLink>
-              <NavLink to="/orders" className={getLinkClass}>
-                <Package size={20} />
-                <span>My Orders</span>
-              </NavLink>
-            </>
-          )}
-          
-          {(currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN') && (
-            <>
-              <NavLink to="/orders" className={getLinkClass}>
-                <Package size={20} />
-                <span>Orders</span>
-              </NavLink>
-              <NavLink to="/manage-products" className={getLinkClass}>
-                <Users size={20} />
-                <span>Manage Products</span>
-              </NavLink>
-            </>
-          )}
+          <div className="navbar-links">
+            {currentUser.role === 'CUSTOMER' && (
+              <>
+                <NavLink 
+                  to="/products" 
+                  className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+                >
+                  <Package size={18} />
+                  <span>Products</span>
+                </NavLink>
+                <NavLink 
+                  to="/orders" 
+                  className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+                >
+                  <Package size={18} />
+                  <span>My Orders</span>
+                </NavLink>
+              </>
+            )}
+            
+            {(currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN') && (
+              <>
+                <NavLink 
+                  to="/orders" 
+                  className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+                >
+                  <Package size={18} />
+                  <span>Orders</span>
+                </NavLink>
+                <NavLink 
+                  to="/manage-products" 
+                  className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+                >
+                  <Users size={18} />
+                  <span>Manage Products</span>
+                </NavLink>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <span className="text-gray-300">{currentUser.name}</span>
+
+        <div className="navbar-right">
+          <div className="navbar-user">
+            <span className="user-greeting">Hello,</span>
+            <span className="user-name">{currentUser.name}</span>
+          </div>
           
           {currentUser.role === 'CUSTOMER' && (
-            <Link to="/cart" className="relative">
-              <ShoppingCart className="text-gray-300 hover:text-purple-600" size={24} />
+            <Link to="/cart" className="cart-button">
+              <ShoppingCart size={22} />
               {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-purple-800 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-                  {cartCount}
-                </span>
+                <span className="cart-badge">{cartCount}</span>
               )}
             </Link>
           )}
           
-          <Link to="/login" className="text-gray-300 hover:text-purple-600">
+          <Link to="/login" className="btn-login-nav">
             Login
           </Link>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { LogIn, User, Lock } from 'lucide-react';
 
 function LoginPage() {
   const { login } = useApp();
@@ -25,68 +26,105 @@ function LoginPage() {
     login(testEmail, 'test');
   };
 
-  // ... (rest of your LoginPage JSX)
   return (
-    <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-      <div className="bg-gray-800 p-8 rounded-lg shadow-2xl w-96 border border-gray-700">
-        <h1 className="text-3xl font-bold text-center mb-6 text-purple-700">Login</h1>
-        <div onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+    <div className="login-page-container">
+      <div className="login-card">
+        <div className="login-header">
+          <div className="login-logo">
+            <LogIn size={48} />
+          </div>
+          <h1 className="login-title">Welcome Back</h1>
+          <p className="login-subtitle">Sign in to your account to continue</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="login-form">
+          <div className="form-group">
+            <label htmlFor="email" className="form-label">
+              <User size={16} />
+              <span>Email Address</span>
+            </label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-700 text-white"
-              placeholder="Enter your email"
+              className="form-input"
+              placeholder="you@example.com"
               required
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+
+          <div className="form-group">
+            <label htmlFor="password" className="form-label">
+              <Lock size={16} />
+              <span>Password</span>
+            </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-700 text-white"
+              className="form-input"
               placeholder="Enter your password"
               required
             />
           </div>
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button
-            onClick={handleSubmit}
-            className="w-full bg-purple-800 text-white py-2 rounded-md hover:bg-purple-900 transition-colors font-medium"
-          >
-            Login
+
+          {error && (
+            <div className="login-error">
+              {error}
+            </div>
+          )}
+
+          <button type="submit" className="btn-login">
+            <LogIn size={18} />
+            <span>Sign In</span>
           </button>
+        </form>
+
+        <div className="login-divider">
+          <span>Or try a demo account</span>
         </div>
-        <div className="mt-6 text-sm text-gray-400">
-          <p className="font-semibold mb-2">Quick Login:</p>
-          <div className="space-y-2">
+
+        <div className="quick-login-section">
+          <p className="quick-login-label">Quick Login</p>
+          <div className="quick-login-buttons">
             <button
               onClick={() => quickLogin('customer@test.com')}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-md transition-colors"
+              className="btn-quick-login"
             >
-              Login as Customer
+              <User size={16} />
+              <div className="quick-login-text">
+                <span className="quick-login-role">Customer</span>
+                <span className="quick-login-email">customer@test.com</span>
+              </div>
             </button>
             <button
               onClick={() => quickLogin('manager@test.com')}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-md transition-colors"
+              className="btn-quick-login"
             >
-              Login as Manager
+              <User size={16} />
+              <div className="quick-login-text">
+                <span className="quick-login-role">Manager</span>
+                <span className="quick-login-email">manager@test.com</span>
+              </div>
             </button>
             <button
               onClick={() => quickLogin('admin@test.com')}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-gray-200 py-2 rounded-md transition-colors"
+              className="btn-quick-login"
             >
-              Login as Admin
+              <User size={16} />
+              <div className="quick-login-text">
+                <span className="quick-login-role">Admin</span>
+                <span className="quick-login-email">admin@test.com</span>
+              </div>
             </button>
           </div>
         </div>
+
         <button
           onClick={() => navigate('/products')}
-          className="w-full mt-4 text-gray-400 hover:text-purple-700 text-sm"
+          className="btn-guest"
         >
           Continue as Guest
         </button>

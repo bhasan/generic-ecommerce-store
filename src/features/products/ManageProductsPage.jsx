@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save } from 'lucide-react';
 
 function ManageProductsPage() {
   const { currentUser, products, addProduct, updateProduct, deleteProduct } = useApp();
@@ -10,13 +10,18 @@ function ManageProductsPage() {
     name: '', category: '', price: '', description: '', image: '', stock: ''
   });
   
-  // ... (rest of your ManageProductsPage logic and JSX)
   const handleEdit = (product) => {
     setEditingId(product.id);
     setFormData(product);
+    setShowAddForm(false);
   };
 
   const handleSave = () => {
+    if (!formData.name || !formData.category || !formData.price || !formData.stock) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
     if (editingId) {
       updateProduct(editingId, formData);
       setEditingId(null);
@@ -33,120 +38,195 @@ function ManageProductsPage() {
     setFormData({ name: '', category: '', price: '', description: '', image: '', stock: '' });
   };
 
+  const handleDelete = (productId, productName) => {
+    if (window.confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
+      deleteProduct(productId);
+    }
+  };
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-white">Manage Products</h2>
+    <div className="manage-products-container">
+      <div className="manage-products-header">
+        <div>
+          <h2 className="page-title">Manage Products</h2>
+          <p className="page-subtitle">Add, edit, or remove products from your inventory</p>
+        </div>
         <button
           onClick={() => setShowAddForm(true)}
-          className="bg-purple-800 text-white px-4 py-2 rounded-md hover:bg-purple-900 flex items-center space-x-1"
+          className="btn-add-product"
+          disabled={showAddForm || editingId}
         >
           <Plus size={20} />
-          <span>Add Product</span>
+          <span>Add New Product</span>
         </button>
       </div>
 
       {(showAddForm || editingId) && (
-        <div className="bg-gray-800 rounded-lg shadow-md p-6 mb-6 border border-gray-700">
-          <h3 className="text-xl font-semibold mb-4 text-white">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Product Name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="border border-gray-600 rounded-md px-3 py-2 bg-gray-700 text-white focus:ring-purple-700"
-            />
-            <input
-              type="text"
-              placeholder="Category"
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="border border-gray-600 rounded-md px-3 py-2 bg-gray-700 text-white focus:ring-purple-700"
-            />
-            <input
-              type="number"
-              placeholder="Price"
-              value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-              className="border border-gray-600 rounded-md px-3 py-2 bg-gray-700 text-white focus:ring-purple-700"
-            />
-            <input
-              type="number"
-              placeholder="Stock"
-              value={formData.stock}
-              onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-              className="border border-gray-600 rounded-md px-3 py-2 bg-gray-700 text-white focus:ring-purple-700"
-            />
-            <input
-              type="text"
-              placeholder="Image URL"
-              value={formData.image}
-              onChange={(e) => setFormData({ ...formData, image: e.storage.value })}
-              className="border border-gray-600 rounded-md px-3 py-2 bg-gray-700 text-white focus:ring-purple-700 col-span-2"
-            />
-            <textarea
-              placeholder="Description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="border border-gray-600 rounded-md px-3 py-2 bg-gray-700 text-white focus:ring-purple-700 col-span-2"
-              rows={3}
-            />
-          </div>
-          <div className="flex space-x-2 mt-4">
-            <button
-              onClick={handleSave}
-              className="bg-purple-800 text-white px-6 py-2 rounded-md hover:bg-purple-900"
-            >
-              Save
+        <div className="product-form-card">
+          <div className="form-header">
+            <h3 className="form-title">
+              {editingId ? 'Edit Product' : 'Add New Product'}
+            </h3>
+            <button onClick={handleCancel} className="btn-close">
+              <X size={20} />
             </button>
-            <button
-              onClick={handleCancel}
-              className="bg-gray-600 text-gray-200 px-6 py-2 rounded-md hover:bg-gray-500"
-            >
+          </div>
+          
+          <div className="form-grid">
+            <div className="form-group">
+              <label htmlFor="name">Product Name *</label>
+              <input
+                id="name"
+                type="text"
+                placeholder="e.g., Wireless Headphones"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="category">Category *</label>
+              <input
+                id="category"
+                type="text"
+                placeholder="e.g., Electronics"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="price">Price ($) *</label>
+              <input
+                id="price"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={formData.price}
+                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="stock">Stock Quantity *</label>
+              <input
+                id="stock"
+                type="number"
+                min="0"
+                placeholder="0"
+                value={formData.stock}
+                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group form-group-full">
+              <label htmlFor="image">Image URL</label>
+              <input
+                id="image"
+                type="text"
+                placeholder="https://example.com/image.jpg"
+                value={formData.image}
+                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group form-group-full">
+              <label htmlFor="description">Description</label>
+              <textarea
+                id="description"
+                placeholder="Describe the product features and details..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="form-textarea"
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <div className="form-actions">
+            <button onClick={handleSave} className="btn-save">
+              <Save size={18} />
+              <span>Save Product</span>
+            </button>
+            <button onClick={handleCancel} className="btn-cancel">
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map(product => (
-          <div key={product.id} className="bg-gray-800 rounded-lg shadow-md overflow-hidden border border-gray-700">
-            <img src={product.image} alt={product.name} className="w-full h-48 object-cover" />
-            <div className="p-4">
-              <h3 className="text-lg font-semibold mb-2 text-white">{product.name}</h3>
-              <p className="text-sm text-gray-400 mb-2">{product.description}</p>
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm text-gray-500">{product.category}</span>
-                <span className="text-sm text-gray-500">Stock: {product.stock}</span>
+      <div className="products-grid">
+        {products.length === 0 ? (
+          <div className="empty-state">
+            <p>No products found. Add your first product to get started!</p>
+          </div>
+        ) : (
+          products.map(product => (
+            <div key={product.id} className="product-card">
+              <div className="product-image-container">
+                <img 
+                  src={product.image} 
+                  alt={product.name} 
+                  className="product-image"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+                  }}
+                />
+                <div className="product-badge">
+                  {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-xl font-bold text-purple-600">${product.price}</span>
-                <div className="flex space-x-2">
+
+              <div className="product-content">
+                <div className="product-header">
+                  <h3 className="product-name">{product.name}</h3>
+                  <span className="product-category">{product.category}</span>
+                </div>
+
+                <p className="product-description">{product.description}</p>
+
+                <div className="product-meta">
+                  <div className="meta-item">
+                    <span className="meta-label">Price</span>
+                    <span className="product-price">${product.price}</span>
+                  </div>
+                  <div className="meta-item">
+                    <span className="meta-label">Stock</span>
+                    <span className={`stock-badge ${product.stock === 0 ? 'stock-empty' : product.stock < 10 ? 'stock-low' : 'stock-good'}`}>
+                      {product.stock} units
+                    </span>
+                  </div>
+                </div>
+
+                <div className="product-actions">
                   <button
                     onClick={() => handleEdit(product)}
-                    className="bg-purple-800 text-white p-2 rounded-md hover:bg-purple-900"
+                    className="btn-edit"
+                    disabled={editingId !== null || showAddForm}
                   >
                     <Edit size={16} />
+                    <span>Edit</span>
                   </button>
                   {currentUser.role === 'ADMIN' && (
                     <button
-                      onClick={() => {
-                        if (confirm('Are you sure you want to delete this product?')) {
-                          deleteProduct(product.id);
-                        }
-                      }}
-                      className="bg-red-600 text-white p-2 rounded-md hover:bg-red-700"
+                      onClick={() => handleDelete(product.id, product.name)}
+                      className="btn-delete"
                     >
                       <Trash2 size={16} />
+                      <span>Delete</span>
                     </button>
                   )}
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { Filter } from 'lucide-react';
 
 function ProductsPage() {
-  const { products, addToCart } = useApp();
+  const { products, addToCart, currentUser } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('All');
   
   const categories = ['All', ...new Set(products.map(p => p.category))];
@@ -10,45 +11,82 @@ function ProductsPage() {
     ? products 
     : products.filter(p => p.category === selectedCategory);
 
-  // ... (rest of your ProductsPage JSX)
   return (
-    <div>
-      <h2 className="text-3xl font-bold mb-6 text-white">Products</h2>
-      <div className="mb-6 flex space-x-2">
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-4 py-2 rounded-md ${selectedCategory === cat ? 'bg-purple-800 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
-          >
-            {cat}
-          </button>
-        ))}
+    <div className="products-page-container">
+      <div className="products-header">
+        <div>
+          <h2 className="page-title">Products</h2>
+          <p className="page-subtitle">Browse our collection of quality products</p>
+        </div>
+        {currentUser && (
+          <div className="user-welcome">
+            Welcome, <span className="user-name">{currentUser.name}</span>
+          </div>
+        )}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredProducts.map(product => (
-          <div key={product.id} className="bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-xl hover:shadow-purple-800/50 transition-shadow border border-gray-700">
-            <img src={product.image} alt={product.name} className="w-full h-48 object-cover" />
-            <div className="p-4">
-              <h3 className="text-lg font-semibold mb-2 text-white">{product.name}</h3>
-              <p className="text-sm text-gray-400 mb-2">{product.description}</p>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-500">{product.category}</span>
-                <span className="text-sm text-gray-500">Stock: {product.stock}</span>
+
+      <div className="category-filter">
+        <div className="filter-label">
+          <Filter size={18} />
+          <span>Filter by Category</span>
+        </div>
+        <div className="category-buttons">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`category-btn ${selectedCategory === cat ? 'category-btn-active' : ''}`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="products-grid">
+        {filteredProducts.length === 0 ? (
+          <div className="empty-state">
+            <p>No products found in this category.</p>
+          </div>
+        ) : (
+          filteredProducts.map(product => (
+            <div key={product.id} className="product-card">
+              <div className="product-image-container">
+                <img 
+                  src={product.image} 
+                  alt={product.name} 
+                  className="product-image"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+                  }}
+                />
+                <div className="product-badge">
+                  {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-2xl font-bold text-purple-600">${product.price}</span>
-                <button
-                  onClick={() => addToCart(product)}
-                  disabled={product.stock === 0}
-                  className="bg-purple-800 text-white px-4 py-2 rounded-md hover:bg-purple-900 disabled:bg-gray-600 disabled:cursor-not-allowed"
-                >
-                  Add to Cart
-                </button>
+
+              <div className="product-content">
+                <div className="product-header">
+                  <h3 className="product-name">{product.name}</h3>
+                  <span className="product-category">{product.category}</span>
+                </div>
+
+                <p className="product-description">{product.description}</p>
+
+                <div className="product-footer">
+                  <span className="product-price">${product.price.toFixed(2)}</span>
+                  <button
+                    onClick={() => addToCart(product)}
+                    disabled={product.stock === 0}
+                    className="btn-add-to-cart"
+                  >
+                    {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
