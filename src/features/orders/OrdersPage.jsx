@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Check, Trash2, Package, Clock, Truck, CheckCircle } from 'lucide-react';
+import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw } from 'lucide-react';
 
 function OrdersPage() {
   const { currentUser, orders, products, updateOrderStatus, deleteOrder } = useApp();
+  const [editingStatusId, setEditingStatusId] = useState(null);
+  
+  // Customers see only their orders, admins/managers see all
   const userOrders = currentUser.role === 'CUSTOMER' 
     ? orders.filter(o => o.userId === currentUser.id)
     : orders;
+  
+  // Only admins and managers can modify orders
+  const canModifyOrders = currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN';
+  
+  const statuses = ['PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'DELIVERED'];
   
   const getProductName = (productId) => {
     const product = products.find(p => p.id === productId);
@@ -43,6 +51,11 @@ function OrdersPage() {
     }
   };
 
+  const handleStatusChange = (orderId, newStatus) => {
+    updateOrderStatus(orderId, newStatus);
+    setEditingStatusId(null);
+  };
+
   return (
     <div className="orders-page-container">
       <div className="orders-header">
@@ -74,10 +87,44 @@ function OrdersPage() {
                     <span className="order-total">${order.total.toFixed(2)}</span>
                   </div>
                 </div>
-                <div className={`order-status ${getStatusClass(order.status)}`}>
-                  {getStatusIcon(order.status)}
-                  <span>{order.status.replace(/_/g, ' ')}</span>
-                </div>
+                
+                {editingStatusId === order.id && canModifyOrders ? (
+                  <div className="status-selector">
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                      className="status-select"
+                    >
+                      {statuses.map(status => (
+                        <option key={status} value={status}>
+                          {status.replace(/_/g, ' ')}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => setEditingStatusId(null)}
+                      className="btn-cancel-status"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="order-status-container">
+                    <div className={`order-status ${getStatusClass(order.status)}`}>
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.replace(/_/g, ' ')}</span>
+                    </div>
+                    {canModifyOrders && (
+                      <button
+                        onClick={() => setEditingStatusId(order.id)}
+                        className="btn-change-status"
+                        title="Change status"
+                      >
+                        <RefreshCw size={16} />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="order-items">
@@ -97,48 +144,19 @@ function OrdersPage() {
                 </div>
               </div>
 
-              {(currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN') && (
+              {canModifyOrders && currentUser.role === 'ADMIN' && (
                 <div className="order-actions">
-                  {order.status === 'PENDING' && (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'APPROVED')}
-                      className="btn-order-action btn-approve"
-                    >
-                      <Check size={16} />
-                      <span>Approve Payment</span>
-                    </button>
-                  )}
-                  {order.status === 'APPROVED' && (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'READY_FOR_DELIVERY')}
-                      className="btn-order-action btn-ready"
-                    >
-                      <Package size={16} />
-                      <span>Mark Ready for Delivery</span>
-                    </button>
-                  )}
-                  {order.status === 'READY_FOR_DELIVERY' && (
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'DELIVERED')}
-                      className="btn-order-action btn-deliver"
-                    >
-                      <Truck size={16} />
-                      <span>Mark as Delivered</span>
-                    </button>
-                  )}
-                  {currentUser.role === 'ADMIN' && (
-                    <button
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this order?')) {
-                          deleteOrder(order.id);
-                        }
-                      }}
-                      className="btn-order-action btn-delete-order"
-                    >
-                      <Trash2 size={16} />
-                      <span>Delete Order</span>
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to delete this order?')) {
+                        deleteOrder(order.id);
+                      }
+                    }}
+                    className="btn-order-action btn-delete-order"
+                  >
+                    <Trash2 size={16} />
+                    <span>Delete Order</span>
+                  </button>
                 </div>
               )}
             </div>

@@ -1,5 +1,5 @@
 import React, { useState, createContext, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { initialProducts, initialOrders } from '../data/mockData';
 
 // Context for authentication and global state
@@ -12,11 +12,23 @@ export const useApp = () => {
 };
 
 export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState({ id: 999, email: 'guest@smokstation.com', role: 'CUSTOMER', name: 'Guest' });
+  const [currentUser, setCurrentUser] = useState({ id: 999, email: 'guest@smokestation.com', role: 'CUSTOMER', name: 'Guest' });
   const [products, setProducts] = useState(initialProducts);
   const [orders, setOrders] = useState(initialOrders);
   const [cart, setCart] = useState([]);
+  const [notification, setNotification] = useState(null);
+  const [returnPath, setReturnPath] = useState(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Notification system
+  const showNotification = (message, type = 'success', action = null) => {
+    setNotification({ message, type, action });
+  };
+
+  const closeNotification = () => {
+    setNotification(null);
+  };
 
   const login = (email, password) => {
     // Mock login - in real app, this would call an API
@@ -29,17 +41,26 @@ export function AppProvider({ children }) {
     const user = users[email];
     if (user) {
       setCurrentUser(user);
-      // Use navigate instead of setView
-      navigate(user.role === 'CUSTOMER' ? '/products' : '/orders');
+      
+      // If there's a return path (e.g., guest tried to access orders), go there
+      if (returnPath) {
+        navigate(returnPath);
+        setReturnPath(null);
+      } else {
+        // Otherwise, default navigation based on role
+        navigate(user.role === 'CUSTOMER' ? '/products' : '/orders');
+      }
       return true;
     }
     return false;
   };
 
   const logout = () => {
-    setCurrentUser(null);
+    setCurrentUser({ id: 999, email: 'guest@smokestation.com', role: 'CUSTOMER', name: 'Guest' });
     setCart([]);
-    navigate('/login');
+    setReturnPath(null);
+    navigate('/products');
+    showNotification('You have been logged out', 'info');
   };
 
   const addToCart = (product) => {
@@ -55,9 +76,17 @@ export function AppProvider({ children }) {
       return [...prev, { ...product, quantity: 1 }];
     });
     
-    if (confirm('Item added to cart! Would you like to go to checkout?')) {
-      navigate('/cart');
-    }
+    showNotification(
+      `${product.name} added to cart!`,
+      'success',
+      {
+        label: 'View Cart',
+        onClick: () => {
+          navigate('/cart');
+          closeNotification();
+        }
+      }
+    );
   };
 
   const removeFromCart = (productId) => {
@@ -90,35 +119,183 @@ export function AppProvider({ children }) {
     };
     setOrders([...orders, newOrder]);
     setCart([]);
-    alert('Order placed successfully!');
-    navigate('/products');
+    showNotification('Order placed successfully! 🎉', 'success');
+    navigate('/orders');
   };
 
   const addProduct = (product) => {
-    setProducts([...products, { ...product, id: products.length + 1 }]);
+    setProducts([...products, { 
+      ...product, 
+      id: products.length + 1,
+      images: product.images || [product.image],
+      hidden: product.hidden || false,
+      stockEnabled: product.stockEnabled !== false,
+      reviews: []
+    }]);
+    showNotification('Product added successfully', 'success');
   };
 
   const updateProduct = (id, updates) => {
     setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+    showNotification('Product updated successfully', 'success');
   };
 
   const deleteProduct = (id) => {
     setProducts(prev => prev.filter(p => p.id !== id));
+    showNotification('Product deleted', 'info');
   };
 
   const updateOrderStatus = (orderId, status) => {
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
+    showNotification('Order status updated', 'success');
   };
 
   const deleteOrder = (orderId) => {
     setOrders(prev => prev.filter(o => o.id !== orderId));
+    showNotification('Order deleted', 'info');
+  };
+
+  const updateUserProfile = (updates) => {
+    setCurrentUser(prev => ({ ...prev, ...updates }));
+    showNotification('Profile updated successfully', 'success');
+  };
+
+  // Review management
+  const addReview = (productId, review) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        const newReview = {
+          id: (p.reviews?.length || 0) + 1,
+          userId: currentUser.id,
+          userName: currentUser.name,
+          rating: review.rating,
+          comment: review.comment,
+          date: new Date().toISOString().split('T')[0],
+          helpful: 0,
+          notHelpful: 0,
+          flagged: false,
+          replies: []
+        };
+        return { ...p, reviews: [...(p.reviews || []), newReview] };
+      }
+      return p;
+    }));
+    showNotification('Review posted successfully', 'success');
+  };
+
+  const updateReview = (productId, reviewId, updates) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          reviews: p.reviews.map(r => r.id === reviewId ? { ...r, ...updates } : r)
+        };
+      }
+      return p;
+    }));
+    showNotification('Review updated', 'success');
+  };
+
+  const deleteReview = (productId, reviewId) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return { ...p, reviews: p.reviews.filter(r => r.id !== reviewId) };
+      }
+      return p;
+    }));
+    showNotification('Review deleted', 'info');
+  };
+
+  const addReviewReply = (productId, reviewId, reply) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          reviews: p.reviews.map(r => {
+            if (r.id === reviewId) {
+              const newReply = {
+                id: (r.replies?.length || 0) + 1,
+                userId: currentUser.id,
+                userName: currentUser.name,
+                userRole: currentUser.role,
+                comment: reply,
+                date: new Date().toISOString().split('T')[0]
+              };
+              return { ...r, replies: [...(r.replies || []), newReply] };
+            }
+            return r;
+          })
+        };
+      }
+      return p;
+    }));
+    showNotification('Reply added', 'success');
+  };
+
+  const voteReview = (productId, reviewId, type) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          reviews: p.reviews.map(r => {
+            if (r.id === reviewId) {
+              if (type === 'helpful') {
+                return { ...r, helpful: r.helpful + 1 };
+              } else {
+                return { ...r, notHelpful: r.notHelpful + 1 };
+              }
+            }
+            return r;
+          })
+        };
+      }
+      return p;
+    }));
+  };
+
+  const flagReview = (productId, reviewId) => {
+    setProducts(prev => prev.map(p => {
+      if (p.id === productId) {
+        return {
+          ...p,
+          reviews: p.reviews.map(r => 
+            r.id === reviewId ? { ...r, flagged: true } : r
+          )
+        };
+      }
+      return p;
+    }));
+    showNotification('Review flagged for moderation', 'info');
   };
 
   const value = {
-    currentUser, login, logout, products, orders, cart,
-    addToCart, removeFromCart, updateCartQuantity, checkout,
-    addProduct, updateProduct, deleteProduct,
-    updateOrderStatus, deleteOrder
+    currentUser, 
+    login, 
+    logout, 
+    products, 
+    orders, 
+    cart,
+    addToCart, 
+    removeFromCart, 
+    updateCartQuantity, 
+    checkout,
+    addProduct, 
+    updateProduct, 
+    deleteProduct,
+    updateOrderStatus, 
+    deleteOrder,
+    updateUserProfile,
+    notification,
+    showNotification,
+    closeNotification,
+    returnPath,
+    setReturnPath,
+    addReview,
+    updateReview,
+    deleteReview,
+    addReviewReply,
+    voteReview,
+    flagReview
   };
 
   return (

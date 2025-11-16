@@ -1,47 +1,122 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload } from 'lucide-react';
 
 function ManageProductsPage() {
   const { currentUser, products, addProduct, updateProduct, deleteProduct } = useApp();
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', category: '', price: '', description: '', image: '', stock: ''
+    name: '', 
+    category: '', 
+    price: '', 
+    description: '', 
+    images: [''],
+    stock: '',
+    stockEnabled: true,
+    hidden: false
   });
   
   const handleEdit = (product) => {
     setEditingId(product.id);
-    setFormData(product);
+    setFormData({
+      ...product,
+      images: product.images || [product.image],
+      stockEnabled: product.stockEnabled !== false,
+      hidden: product.hidden || false
+    });
     setShowAddForm(false);
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.category || !formData.price || !formData.stock) {
+    if (!formData.name || !formData.category || !formData.price) {
       alert('Please fill in all required fields');
       return;
     }
 
+    if (formData.stockEnabled && !formData.stock) {
+      alert('Please enter stock quantity or disable stock tracking');
+      return;
+    }
+
+    const productData = {
+      ...formData,
+      price: parseFloat(formData.price),
+      stock: formData.stockEnabled ? parseInt(formData.stock) : 0,
+      images: formData.images.filter(img => img.trim() !== ''),
+      image: formData.images[0]
+    };
+
     if (editingId) {
-      updateProduct(editingId, formData);
+      updateProduct(editingId, productData);
       setEditingId(null);
     } else {
-      addProduct({ ...formData, price: parseFloat(formData.price), stock: parseInt(formData.stock) });
+      addProduct(productData);
       setShowAddForm(false);
     }
-    setFormData({ name: '', category: '', price: '', description: '', image: '', stock: '' });
+    setFormData({ 
+      name: '', 
+      category: '', 
+      price: '', 
+      description: '', 
+      images: [''],
+      stock: '',
+      stockEnabled: true,
+      hidden: false
+    });
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setShowAddForm(false);
-    setFormData({ name: '', category: '', price: '', description: '', image: '', stock: '' });
+    setFormData({ 
+      name: '', 
+      category: '', 
+      price: '', 
+      description: '', 
+      images: [''],
+      stock: '',
+      stockEnabled: true,
+      hidden: false
+    });
   };
 
   const handleDelete = (productId, productName) => {
     if (window.confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
       deleteProduct(productId);
     }
+  };
+
+  const addImageField = () => {
+    setFormData({ ...formData, images: [...formData.images, ''] });
+  };
+
+  const removeImageField = (index) => {
+    const newImages = formData.images.filter((_, i) => i !== index);
+    setFormData({ ...formData, images: newImages.length > 0 ? newImages : [''] });
+  };
+
+  const updateImageField = (index, value) => {
+    const newImages = [...formData.images];
+    newImages[index] = value;
+    setFormData({ ...formData, images: newImages });
+  };
+
+  const handleImageUpload = (index, event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // In a real app, you would upload to a server or cloud storage
+      // For now, we'll just show a placeholder
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        updateImageField(index, reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const toggleHidden = (productId, currentHidden) => {
+    updateProduct(productId, { hidden: !currentHidden });
   };
 
   return (
@@ -112,28 +187,74 @@ function ManageProductsPage() {
             </div>
 
             <div className="form-group">
-              <label htmlFor="stock">Stock Quantity *</label>
-              <input
-                id="stock"
-                type="number"
-                min="0"
-                placeholder="0"
-                value={formData.stock}
-                onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                className="form-input"
-              />
+              <label htmlFor="stock">Stock Quantity</label>
+              <div className={`stock-control-group ${!formData.stockEnabled ? 'stock-disabled' : ''}`}>
+                <input
+                  id="stock"
+                  type="number"
+                  min="0"
+                  placeholder={formData.stockEnabled ? "0" : "Disabled"}
+                  value={formData.stock}
+                  onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                  className="form-input"
+                  disabled={!formData.stockEnabled}
+                />
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.stockEnabled}
+                    onChange={(e) => setFormData({ ...formData, stockEnabled: e.target.checked })}
+                  />
+                  <span>Track Stock</span>
+                </label>
+              </div>
             </div>
 
             <div className="form-group form-group-full">
-              <label htmlFor="image">Image URL</label>
-              <input
-                id="image"
-                type="text"
-                placeholder="https://example.com/image.jpg"
-                value={formData.image}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                className="form-input"
-              />
+              <label>Product Images</label>
+              <div className="image-fields">
+                {formData.images.map((image, index) => (
+                  <div key={index} className="image-field-row">
+                    <div className="image-input-group">
+                      <input
+                        type="text"
+                        placeholder={`Image URL ${index + 1}`}
+                        value={image}
+                        onChange={(e) => updateImageField(index, e.target.value)}
+                        className="form-input"
+                      />
+                      <div className="image-upload-separator">or</div>
+                      <label className="btn-upload-image">
+                        <Upload size={16} />
+                        <span>Upload</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageUpload(index, e)}
+                          className="file-input-hidden"
+                        />
+                      </label>
+                    </div>
+                    {formData.images.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeImageField(index)}
+                        className="btn-remove-image"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addImageField}
+                  className="btn-add-image"
+                >
+                  <ImageIcon size={16} />
+                  <span>Add Another Image</span>
+                </button>
+              </div>
             </div>
 
             <div className="form-group form-group-full">
@@ -146,6 +267,17 @@ function ManageProductsPage() {
                 className="form-textarea"
                 rows={4}
               />
+            </div>
+
+            <div className="form-group form-group-full">
+              <label className="checkbox-label checkbox-label-large">
+                <input
+                  type="checkbox"
+                  checked={formData.hidden}
+                  onChange={(e) => setFormData({ ...formData, hidden: e.target.checked })}
+                />
+                <span>Hide this product from the Products page</span>
+              </label>
             </div>
           </div>
 
@@ -167,65 +299,92 @@ function ManageProductsPage() {
             <p>No products found. Add your first product to get started!</p>
           </div>
         ) : (
-          products.map(product => (
-            <div key={product.id} className="product-card">
-              <div className="product-image-container">
-                <img 
-                  src={product.image} 
-                  alt={product.name} 
-                  className="product-image"
-                  onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-                  }}
-                />
-                <div className="product-badge">
-                  {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                </div>
-              </div>
-
-              <div className="product-content">
-                <div className="product-header">
-                  <h3 className="product-name">{product.name}</h3>
-                  <span className="product-category">{product.category}</span>
-                </div>
-
-                <p className="product-description">{product.description}</p>
-
-                <div className="product-meta">
-                  <div className="meta-item">
-                    <span className="meta-label">Price</span>
-                    <span className="product-price">${product.price}</span>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-label">Stock</span>
-                    <span className={`stock-badge ${product.stock === 0 ? 'stock-empty' : product.stock < 10 ? 'stock-low' : 'stock-good'}`}>
-                      {product.stock} units
-                    </span>
-                  </div>
-                </div>
-
-                <div className="product-actions">
-                  <button
-                    onClick={() => handleEdit(product)}
-                    className="btn-edit"
-                    disabled={editingId !== null || showAddForm}
-                  >
-                    <Edit size={16} />
-                    <span>Edit</span>
-                  </button>
-                  {currentUser.role === 'ADMIN' && (
-                    <button
-                      onClick={() => handleDelete(product.id, product.name)}
-                      className="btn-delete"
-                    >
-                      <Trash2 size={16} />
-                      <span>Delete</span>
-                    </button>
+          products.map(product => {
+            const mainImage = product.images ? product.images[0] : product.image;
+            const imageCount = product.images ? product.images.length : 1;
+            const showStock = product.stockEnabled !== false;
+            
+            return (
+              <div key={product.id} className={`product-card ${product.hidden ? 'product-card-hidden' : ''}`}>
+                <div className="product-image-container">
+                  <img 
+                    src={mainImage} 
+                    alt={product.name} 
+                    className="product-image"
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+                    }}
+                  />
+                  {imageCount > 1 && (
+                    <div className="product-badge product-badge-images">
+                      <ImageIcon size={12} /> {imageCount} images
+                    </div>
+                  )}
+                  {product.hidden && (
+                    <div className="product-badge product-badge-hidden">
+                      Hidden
+                    </div>
+                  )}
+                  {showStock && (
+                    <div className="product-badge product-badge-stock">
+                      {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+                    </div>
                   )}
                 </div>
+
+                <div className="product-content">
+                  <div className="product-header">
+                    <h3 className="product-name">{product.name}</h3>
+                    <span className="product-category">{product.category}</span>
+                  </div>
+
+                  <p className="product-description">{product.description}</p>
+
+                  <div className="product-meta">
+                    <div className="meta-item">
+                      <span className="meta-label">Price</span>
+                      <span className="product-price">${product.price}</span>
+                    </div>
+                    {showStock && (
+                      <div className="meta-item">
+                        <span className="meta-label">Stock</span>
+                        <span className={`stock-badge ${product.stock === 0 ? 'stock-empty' : product.stock < 10 ? 'stock-low' : 'stock-good'}`}>
+                          {product.stock} units
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="product-actions">
+                    <button
+                      onClick={() => toggleHidden(product.id, product.hidden)}
+                      className="btn-visibility"
+                      title={product.hidden ? 'Show product' : 'Hide product'}
+                    >
+                      {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                    </button>
+                    <button
+                      onClick={() => handleEdit(product)}
+                      className="btn-edit"
+                      disabled={editingId !== null || showAddForm}
+                    >
+                      <Edit size={16} />
+                      <span>Edit</span>
+                    </button>
+                    {currentUser.role === 'ADMIN' && (
+                      <button
+                        onClick={() => handleDelete(product.id, product.name)}
+                        className="btn-delete"
+                      >
+                        <Trash2 size={16} />
+                        <span>Delete</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
