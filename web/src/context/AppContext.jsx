@@ -155,6 +155,60 @@ export function AppProvider({ children }) {
     showNotification('Order deleted', 'info');
   };
 
+  const addItemToOrder = (orderId, item) => {
+    setOrders(prev => prev.map(o => {
+      if (o.id === orderId) {
+        const newItem = {
+          ...item,
+          addedAfterSubmission: true
+        };
+        const newItems = [...o.items, newItem];
+        const newTotal = newItems.reduce((sum, i) => 
+          i.voided ? sum : sum + (i.price * i.quantity), 0
+        );
+        return { ...o, items: newItems, total: newTotal };
+      }
+      return o;
+    }));
+    showNotification('Item added to order', 'success');
+  };
+
+  const voidOrderItem = (orderId, itemIndex) => {
+    setOrders(prev => prev.map(o => {
+      if (o.id === orderId) {
+        const newItems = o.items.map((item, idx) => 
+          idx === itemIndex ? { ...item, voided: true } : item
+        );
+        const newTotal = newItems.reduce((sum, item) => 
+          item.voided ? sum : sum + (item.price * item.quantity), 0
+        );
+        return { ...o, items: newItems, total: newTotal };
+      }
+      return o;
+    }));
+    showNotification('Item voided', 'info');
+  };
+
+  const deleteOrderItem = (orderId, itemIndex) => {
+    setOrders(prev => prev.map(o => {
+      if (o.id === orderId) {
+        const newItems = o.items.filter((_, idx) => idx !== itemIndex);
+        const newTotal = newItems.reduce((sum, item) => 
+          item.voided ? sum : sum + (item.price * item.quantity), 0
+        );
+        return { ...o, items: newItems, total: newTotal };
+      }
+      return o;
+    }));
+    showNotification('Item removed from order', 'info');
+  };
+
+  const restoreOrder = (orderState) => {
+    setOrders(prev => prev.map(o => 
+      o.id === orderState.id ? orderState : o
+    ));
+  };
+
   const updateUserProfile = (updates) => {
     setCurrentUser(prev => ({ ...prev, ...updates }));
     showNotification('Profile updated successfully', 'success');
@@ -284,6 +338,10 @@ export function AppProvider({ children }) {
     deleteProduct,
     updateOrderStatus, 
     deleteOrder,
+    addItemToOrder,
+    voidOrderItem,
+    deleteOrderItem,
+    restoreOrder,
     updateUserProfile,
     notification,
     showNotification,

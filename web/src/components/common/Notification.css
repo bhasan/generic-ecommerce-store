@@ -4,10 +4,10 @@
 
 .notification-container {
   position: fixed;
-  top: 100px;
+  bottom: 2rem;
   right: 2rem;
   z-index: 1000;
-  animation: slideDown 0.3s ease-out;
+  animation: slideUp 0.3s ease-out;
 }
 
 .notification {
