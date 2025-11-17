@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # 1. The PostgreSQL Database Service
   db:
@@ -33,8 +31,10 @@ services:
 
   # 3. The Nginx/React Frontend Service
   web:
-    container_name: smoke-station-delivery-web
-    build: ./nginx # Tells Docker to build from the 'nginx' folder
+    container_name: smoke-station-delivery-web-proxy
+    build: 
+      context: .
+      dockerfile: nginx/Dockerfile # Tells Docker to build from the 'nginx' folder
     restart: always
     ports:
       - "80:80" # This is the ONLY port exposed to the outside world
