@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  # 1. The PostgreSQL Database Service
+  db:
+    image: postgres:16-alpine # Use a specific, lightweight version
+    container_name: smoke-station-delivery-db
+    restart: always
+    environment:
+      # These variables are used by Postgres to create the DB
+      POSTGRES_USER: backend_user
+      POSTGRES_PASSWORD: bfe4af37d97cd02d
+      POSTGRES_DB: smoke-station-delivery-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # This persists your data!
+    networks:
+      - sshtx_network
+
+  # 2. The Express.js Backend Service
+  backend:
+    container_name: smoke-station-delivery-backend
+    build: ./backend # Tells Docker to build from the 'backend' folder
+    restart: always
+    environment:
+      # This MUST match the 'db' service's credentials
+      # Note the hostname is 'db' (the service name), NOT 'localhost'
+      DATABASE_URL: "postgresql://backend_user:bfe4af37d97cd02d@db:5432/smoke-station-delivery-db"
+      PORT: 3000 # The port your Express app listens on *inside* the container
+    depends_on:
+      - db # Waits for the 'db' service to be healthy before starting
+    networks:
+      - sshtx_network
+
+  # 3. The Nginx/React Frontend Service
+  web:
+    container_name: smoke-station-delivery-web
+    build: ./nginx # Tells Docker to build from the 'nginx' folder
+    restart: always
+    ports:
+      - "80:80" # This is the ONLY port exposed to the outside world
+    depends_on:
+      - backend # Waits for the backend to be ready
+    networks:
+      - sshtx_network
+
+# Define the shared network
+networks:
+  sshtx_network:
+    driver: bridge
+
+# Define the named volume for data persistence
+volumes:
+  postgres_data:
+    driver: local
