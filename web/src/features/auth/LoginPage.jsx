@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './LoginPage.css';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { LogIn, User, Lock } from 'lucide-react';

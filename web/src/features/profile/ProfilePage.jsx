@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
 import { User, Mail, Save, Shield } from 'lucide-react';
 

@@ -1,0 +1,32 @@
+
+@media (max-width: 768px) {
+  .announcement-container {
+    padding: 0 1rem;
+  }
+
+  .announcement-message {
+    font-size: 0.875rem;
+  }
+
+  .reviews-modal {
+    max-height: 95vh;
+    margin: 1rem;
+  }
+
+  .product-footer-actions {
+    width: 100%;
+  }
+
+  .btn-add-to-cart {
+    flex: 1;
+  }
+
+  .flagged-review-actions {
+    flex-direction: column;
+  }
+
+  .btn-action {
+    width: 100%;
+    justify-content: center;
+  }
+}

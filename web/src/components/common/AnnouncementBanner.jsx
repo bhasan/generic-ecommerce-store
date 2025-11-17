@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './AnnouncementBanner.css';
 import { X, Megaphone } from 'lucide-react';
 
 function AnnouncementBanner() {

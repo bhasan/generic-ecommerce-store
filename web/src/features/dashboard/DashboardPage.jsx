@@ -1,4 +1,5 @@
 import React from 'react';
+import './DashboardPage.css';
 import { useApp } from '../../context/AppContext';
 import { Flag, Star, Trash2, Check } from 'lucide-react';
 

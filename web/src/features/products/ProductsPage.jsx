@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import './ProductCard.css';
+import './ProductsPage.css';
 import { useApp } from '../../context/AppContext';
 import { Filter, Star, MessageSquare } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import './ProductCard.css';
+import './ManageProductsPage.css';
 import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload } from 'lucide-react';
 

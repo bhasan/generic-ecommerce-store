@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import './Notification.css';
 import { useApp } from '../../context/AppContext';
 import { CheckCircle, Info, AlertTriangle, X } from 'lucide-react';
 

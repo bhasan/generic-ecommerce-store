@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import './ProductReviews.css';
 import { useApp } from '../../context/AppContext';
 import { Star, ThumbsUp, ThumbsDown, Flag, MessageCircle, Trash2, Send } from 'lucide-react';
 

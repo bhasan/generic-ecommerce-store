@@ -1,4 +1,5 @@
 import React from 'react';
+import './CartPage.css';
 import { useApp } from '../../context/AppContext';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 

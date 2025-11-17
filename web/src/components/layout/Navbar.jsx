@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import './Navbar.css';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ShoppingCart, Package, Users, Store, User, LogOut, Settings } from 'lucide-react';

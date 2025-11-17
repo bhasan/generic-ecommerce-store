@@ -1,0 +1,64 @@
+
+/* ============================================
+   ANNOUNCEMENT BANNER STYLES
+   ============================================ */
+
+.announcement-banner {
+  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+  border-bottom: 1px solid rgba(124, 58, 237, 0.3);
+  padding: 0.75rem 0;
+  animation: slideDown 0.3s ease-out;
+}
+
+.announcement-info {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.announcement-warning {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.announcement-success {
+  background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
+}
+
+.announcement-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.announcement-icon {
+  flex-shrink: 0;
+  color: white;
+  display: flex;
+}
+
+.announcement-message {
+  color: white;
+  font-weight: 500;
+  margin: 0;
+  text-align: center;
+  flex: 1;
+}
+
+.announcement-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: white;
+  opacity: 0.8;
+  padding: 0.25rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.announcement-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
