@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './ProductCard.css';
 import './ProductsPage.css';
 import { useApp } from '../../context/AppContext';
@@ -6,6 +7,7 @@ import { Filter, Star, MessageSquare } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
 
 function ProductsPage() {
+  const navigate = useNavigate();
   const { products, addToCart, currentUser } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -71,7 +73,12 @@ function ProductsPage() {
             const reviewCount = product.reviews?.length || 0;
             
             return (
-              <div key={product.id} className="product-card">
+              <div 
+                key={product.id} 
+                className="product-card"
+                onClick={() => navigate(`/products/${product.id}`)}
+                style={{ cursor: 'pointer' }}
+              >
                 <div className="product-image-container">
                   <img 
                     src={mainImage} 
@@ -117,14 +124,20 @@ function ProductsPage() {
                     <span className="product-price">${product.price.toFixed(2)}</span>
                     <div className="product-footer-actions">
                       <button
-                        onClick={() => addToCart(product)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToCart(product);
+                        }}
                         disabled={showStock && product.stock === 0}
                         className="btn-add-to-cart"
                       >
                         {showStock && product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                       </button>
                       <button
-                        onClick={() => setSelectedProduct(product.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedProduct(product.id);
+                        }}
                         className="btn-view-reviews"
                         title="View reviews"
                       >

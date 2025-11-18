@@ -7,6 +7,7 @@ import Notification from './components/common/Notification';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './features/auth/LoginPage';
 import ProductsPage from './features/products/ProductsPage';
+import ProductItemPage from './features/products/ProductItemPage';
 import CartPage from './features/cart/CartPage';
 import OrdersPage from './features/orders/OrdersPage';
 import ManageProductsPage from './features/products/ManageProductsPage';
@@ -24,6 +25,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/:id" element={<ProductItemPage />} />
             <Route path="/cart" element={<CartPage />} />
             
             {/* Profile Route - Protected for logged in users only */}
