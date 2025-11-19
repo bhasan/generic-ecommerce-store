@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import './CartPage.css';
 import { useApp } from '../../context/AppContext';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 
 function CartPage() {
-  const { cart, removeFromCart, updateCartQuantity, checkout } = useApp();
+  const navigate = useNavigate();
+  const { cart, removeFromCart, updateCartQuantity } = useApp();
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
   if (cart.length === 0) {
@@ -108,7 +110,7 @@ function CartPage() {
           </div>
 
           <button
-            onClick={checkout}
+            onClick={() => navigate('/checkout')}
             className="btn-checkout"
           >
             Proceed to Checkout

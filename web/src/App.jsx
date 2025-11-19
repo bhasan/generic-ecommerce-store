@@ -9,6 +9,8 @@ import LoginPage from './features/auth/LoginPage';
 import ProductsPage from './features/products/ProductsPage';
 import ProductItemPage from './features/products/ProductItemPage';
 import CartPage from './features/cart/CartPage';
+import CheckoutPage from './features/cart/CheckoutPage';
+import OrderSuccessPage from './features/cart/OrderSuccessPage';
 import OrdersPage from './features/orders/OrdersPage';
 import ManageProductsPage from './features/products/ManageProductsPage';
 import ProfilePage from './features/profile/ProfilePage';
@@ -24,9 +26,33 @@ function App() {
         <main className="container mx-auto px-4 py-8">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/products/:id" element={<ProductItemPage />} />
-            <Route path="/cart" element={<CartPage />} />
+            
+            {/* All routes below require login (no guest access) */}
+            <Route path="/products" element={
+              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProductsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/products/:id" element={
+              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProductItemPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/cart" element={
+              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <CartPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/checkout" element={
+              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <CheckoutPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/order-success" element={
+              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <OrderSuccessPage />
+              </ProtectedRoute>
+            } />
             
             {/* Profile Route - Protected for logged in users only */}
             <Route path="/profile" element={
