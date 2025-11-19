@@ -87,12 +87,13 @@ function ProductItemPage() {
                 e.target.src = 'https://via.placeholder.com/600x400?text=No+Image';
               }}
             />
-            {showStock && (
+            {/* HIDDEN: Stock badge - may re-enable later */}
+            {/* {showStock && (
               <div className={`stock-badge ${isOutOfStock ? 'out-of-stock' : product.stock <= 10 ? 'low-stock' : 'in-stock'}`}>
                 <Package size={16} />
                 {isOutOfStock ? 'Out of Stock' : product.stock <= 10 ? `Only ${product.stock} left` : 'In Stock'}
               </div>
-            )}
+            )} */}
           </div>
           
           {images.length > 1 && (
@@ -118,8 +119,8 @@ function ProductItemPage() {
           <div className="product-category-badge">{product.category}</div>
           <h1 className="product-title">{product.name}</h1>
           
-          {/* Rating Summary */}
-          {reviewCount > 0 && (
+          {/* HIDDEN: Rating Summary - may re-enable later */}
+          {/* {reviewCount > 0 && (
             <div className="rating-summary">
               <div className="stars-display">
                 {[1, 2, 3, 4, 5].map(i => (
@@ -134,7 +135,7 @@ function ProductItemPage() {
               <span className="rating-value">{averageRating}</span>
               <span className="review-count">({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
             </div>
-          )}
+          )} */}
           
           <div className="product-price-display">
             ${product.price.toFixed(2)}
@@ -142,15 +143,15 @@ function ProductItemPage() {
           
           <p className="product-description-full">{product.description}</p>
           
-          {/* Stock Information */}
-          {showStock && (
+          {/* HIDDEN: Stock Information - may re-enable later */}
+          {/* {showStock && (
             <div className="stock-info">
               <div className={`stock-indicator ${isOutOfStock ? 'indicator-out' : product.stock <= 10 ? 'indicator-low' : 'indicator-in'}`}></div>
               <span className="stock-text">
                 {isOutOfStock ? 'Out of stock' : product.stock <= 10 ? `Low stock - only ${product.stock} remaining` : 'In stock'}
               </span>
             </div>
-          )}
+          )} */}
           
           {/* Add to Cart Button */}
           <button
@@ -171,11 +172,11 @@ function ProductItemPage() {
         </div>
       </div>
       
-      {/* Reviews Section */}
-      <div className="reviews-section">
+      {/* HIDDEN: Reviews Section - may re-enable later */}
+      {/* <div className="reviews-section">
         <h2 className="reviews-section-title">Customer Reviews</h2>
         <ProductReviews productId={product.id} />
-      </div>
+      </div> */}
     </div>
   );
 }

@@ -88,11 +88,12 @@ function ProductsPage() {
                       e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
                     }}
                   />
-                  {showStock && (
+                  {/* HIDDEN: Stock indicator - may re-enable later */}
+                  {/* {showStock && (
                     <div className="product-badge">
                       {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 <div className="product-content">
@@ -101,7 +102,8 @@ function ProductsPage() {
                     <span className="product-category">{product.category}</span>
                   </div>
 
-                  {reviewCount > 0 && (
+                  {/* HIDDEN: Reviews and ratings - may re-enable later */}
+                  {/* {reviewCount > 0 && (
                     <div className="product-rating">
                       <div className="stars-small">
                         {[1, 2, 3, 4, 5].map(i => (
@@ -116,7 +118,7 @@ function ProductsPage() {
                       <span className="rating-text">{averageRating}</span>
                       <span className="review-count-text">({reviewCount})</span>
                     </div>
-                  )}
+                  )} */}
 
                   <p className="product-description">{product.description}</p>
 
@@ -133,7 +135,8 @@ function ProductsPage() {
                       >
                         {showStock && product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                       </button>
-                      <button
+                      {/* HIDDEN: View reviews button - may re-enable later */}
+                      {/* <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedProduct(product.id);
@@ -142,7 +145,7 @@ function ProductsPage() {
                         title="View reviews"
                       >
                         <MessageSquare size={18} />
-                      </button>
+                      </button> */}
                     </div>
                   </div>
                 </div>
@@ -152,8 +155,8 @@ function ProductsPage() {
         )}
       </div>
 
-      {/* Reviews Modal/Section */}
-      {selectedProduct && (
+      {/* HIDDEN: Reviews Modal - may re-enable later */}
+      {/* {selectedProduct && (
         <div className="reviews-modal-overlay" onClick={() => setSelectedProduct(null)}>
           <div className="reviews-modal" onClick={(e) => e.stopPropagation()}>
             <div className="reviews-modal-header">
@@ -170,7 +173,7 @@ function ProductsPage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }

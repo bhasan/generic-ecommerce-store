@@ -6,7 +6,8 @@ import { Star, ThumbsUp, ThumbsDown, Flag, MessageCircle, Trash2, Send } from 'l
 function ProductReviews({ productId }) {
   const { currentUser, products, addReview, updateReview, deleteReview, addReviewReply, voteReview, flagReview } = useApp();
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState(0); // Default to 0, not 5
+  const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
   const [replyText, setReplyText] = useState({});
   const [showReplyForm, setShowReplyForm] = useState({});
@@ -26,8 +27,12 @@ function ProductReviews({ productId }) {
       alert('Please login to leave a review');
       return;
     }
+    if (rating === 0) {
+      alert('Please select a rating');
+      return;
+    }
     addReview(productId, { rating, comment });
-    setRating(5);
+    setRating(0);
     setComment('');
     setShowReviewForm(false);
   };
@@ -83,12 +88,14 @@ function ProductReviews({ productId }) {
                   key={i}
                   type="button"
                   onClick={() => setRating(i)}
+                  onMouseEnter={() => setHoverRating(i)}
+                  onMouseLeave={() => setHoverRating(0)}
                   className="star-button"
                 >
                   <Star
                     size={28}
-                    fill={i <= rating ? '#fbbf24' : 'none'}
-                    color={i <= rating ? '#fbbf24' : '#9ca3af'}
+                    fill={i <= (hoverRating || rating) ? '#fbbf24' : 'none'}
+                    color={i <= (hoverRating || rating) ? '#fbbf24' : '#9ca3af'}
                   />
                 </button>
               ))}
@@ -115,7 +122,7 @@ function ProductReviews({ productId }) {
               onClick={() => {
                 setShowReviewForm(false);
                 setComment('');
-                setRating(5);
+                setRating(0);
               }}
               className="btn-cancel"
             >
@@ -159,7 +166,7 @@ function ProductReviews({ productId }) {
                 <div className="review-votes">
                   <button
                     onClick={() => voteReview(productId, review.id, 'helpful')}
-                    className="vote-button"
+                    className={`vote-button ${(review.votedByHelpful || []).includes(currentUser.id) ? 'vote-button-active vote-button-helpful' : ''}`}
                     disabled={isGuest}
                   >
                     <ThumbsUp size={16} />
@@ -167,7 +174,7 @@ function ProductReviews({ productId }) {
                   </button>
                   <button
                     onClick={() => voteReview(productId, review.id, 'notHelpful')}
-                    className="vote-button"
+                    className={`vote-button ${(review.votedByNotHelpful || []).includes(currentUser.id) ? 'vote-button-active vote-button-not-helpful' : ''}`}
                     disabled={isGuest}
                   >
                     <ThumbsDown size={16} />
@@ -194,16 +201,18 @@ function ProductReviews({ productId }) {
                         className="btn-delete-review"
                       >
                         <Trash2 size={16} />
+                        Delete
                       </button>
                     </>
                   )}
-                  {!isGuest && !review.flagged && (
+                  {!isGuest && (
                     <button
                       onClick={() => flagReview(productId, review.id)}
-                      className="btn-flag"
-                      title="Flag review"
+                      className={`btn-flag ${review.flagged ? 'btn-flag-active' : ''}`}
+                      title={review.flagged ? "Unflag review" : "Flag review"}
                     >
                       <Flag size={16} />
+                      {review.flagged ? 'Unflag' : 'Flag'}
                     </button>
                   )}
                 </div>

@@ -1,4 +1,3 @@
-
 .stock-disabled {
   opacity: 0.5;
   position: relative;
@@ -148,9 +147,9 @@
 
 .rating-input label {
   display: block;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-weight: 600;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .stars-input {
@@ -159,7 +158,7 @@
 }
 
 .star-button {
-  background: transparent;
+  background: none;
   border: none;
   padding: 0;
   cursor: pointer;
@@ -170,10 +169,42 @@
   transform: scale(1.1);
 }
 
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.form-textarea {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+}
+
 .btn-submit-review {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: white;
-  padding: 0.75rem 2rem;
+  padding: 0.75rem 1.5rem;
   border: none;
   border-radius: 0.5rem;
   font-weight: 600;
@@ -186,6 +217,22 @@
   box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
 }
 
+.btn-cancel {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
 /* Reviews List */
 .reviews-list {
   display: flex;
@@ -195,7 +242,7 @@
 
 .empty-reviews {
   text-align: center;
-  padding: 3rem;
+  padding: 3rem 1rem;
   color: var(--text-secondary);
 }
 
@@ -299,6 +346,33 @@
   cursor: not-allowed;
 }
 
+.vote-button-active {
+  font-weight: 600;
+  background: transparent;
+}
+
+.vote-button-helpful.vote-button-active {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.vote-button-helpful.vote-button-active:hover {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--color-secondary-dark);
+}
+
+.vote-button-not-helpful.vote-button-active {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.vote-button-not-helpful.vote-button-active:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--color-danger-dark);
+}
+
 .review-buttons {
   display: flex;
   gap: 0.5rem;
@@ -329,19 +403,34 @@
   color: var(--color-warning);
 }
 
+.btn-flag-active {
+  border-color: var(--color-warning);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  font-weight: 600;
+}
+
+.btn-flag-active:hover {
+  background: rgba(245, 158, 11, 0.15);
+}
+
 .btn-delete-review {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: var(--color-danger);
-  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.875rem;
 }
 
 .btn-delete-review:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: var(--color-danger);
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
 }
 
 /* Reply Form */
@@ -372,14 +461,14 @@
 
 .reply-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .btn-send-reply {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: var(--color-primary);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: white;
   padding: 0.5rem 1rem;
   border: none;
@@ -387,39 +476,42 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.875rem;
 }
 
 .btn-send-reply:hover {
-  background: var(--color-primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
 }
 
 .btn-cancel-reply {
-  background: var(--border-color);
-  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   padding: 0.5rem 1rem;
-  border: none;
   border-radius: 0.5rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.875rem;
 }
 
 .btn-cancel-reply:hover {
-  background: #4b5563;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 /* Replies Section */
 .replies-section {
   margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
+  padding-left: 1.5rem;
+  border-left: 2px solid var(--border-color);
 }
 
 .reply-card {
   background: var(--bg-primary);
   padding: 1rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--border-color);
   margin-bottom: 0.75rem;
 }
 
@@ -430,8 +522,9 @@
 .reply-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .reply-author {
@@ -442,11 +535,12 @@
 
 .store-badge {
   background: var(--color-primary-dark);
-  color: white;
+  color: var(--text-primary);
   padding: 0.125rem 0.5rem;
   border-radius: 0.25rem;
   font-size: 0.75rem;
   font-weight: 600;
+  text-transform: uppercase;
 }
 
 .reply-date {
@@ -457,7 +551,7 @@
 
 .reply-text {
   color: var(--text-primary);
-  font-size: 0.875rem;
-  line-height: 1.5;
+  line-height: 1.6;
   margin: 0;
+  font-size: 0.875rem;
 }

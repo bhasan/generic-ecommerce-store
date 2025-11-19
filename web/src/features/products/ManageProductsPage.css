@@ -1,4 +1,3 @@
-
 .manage-products-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -99,16 +98,15 @@
 }
 
 .btn-close:hover {
-  background: var(--border-color);
-  color: var(--text-primary);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
 }
 
-/* Form Grid */
-.form-grid {
+/* Form Fields */
+.product-form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
-  margin-bottom: 1.5rem;
 }
 
 .form-group {
@@ -122,40 +120,226 @@
 }
 
 .form-group label {
-  color: #d1d5db;
-  font-weight: 500;
+  color: var(--text-primary);
+  font-weight: 600;
   font-size: 0.875rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .form-input,
-.form-textarea {
+.form-select {
   background: var(--bg-tertiary);
-  border: 2px solid var(--border-color);
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
   color: var(--text-primary);
+  padding: 0.875rem;
+  border-radius: 0.5rem;
+  font-family: inherit;
   font-size: 1rem;
   transition: all 0.2s ease;
 }
 
 .form-input:focus,
+.form-select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.form-textarea {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.875rem;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  min-height: 100px;
+  transition: all 0.2s ease;
+}
+
 .form-textarea:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
 }
 
-.form-input::placeholder,
-.form-textarea::placeholder {
-  color: var(--text-tertiary);
+.form-select {
+  cursor: pointer;
 }
 
-.form-textarea {
-  resize: vertical;
-  min-height: 100px;
-  font-family: inherit;
+/* Checkbox Group */
+.checkbox-group {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+/* Number Input */
+.number-input-wrapper {
+  position: relative;
+}
+
+.number-input-wrapper.disabled {
+  opacity: 0.5;
+}
+
+.number-input-wrapper.disabled .form-input {
+  cursor: not-allowed;
+  background: var(--bg-primary);
+}
+
+.stock-disabled-label {
+  position: absolute;
+  top: -1.25rem;
+  left: 0;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Visibility Toggle */
+.visibility-toggle {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(124, 58, 237, 0.05);
+  border: 1px solid var(--color-primary-dark);
+  border-radius: 0.5rem;
+}
+
+.visibility-toggle input[type="checkbox"] {
+  width: 1.25rem;
+  height: 1.25rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.visibility-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* Image Fields */
+.image-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.image-field-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.image-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.image-input-group .form-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.image-upload-separator {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-upload-image {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-upload-image:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+}
+
+.file-input-hidden {
+  display: none;
+}
+
+.btn-remove-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--color-danger);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.btn-remove-image:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: var(--color-danger);
+}
+
+.btn-add-image {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: 2px dashed var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.btn-add-image:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
 }
 
 /* Form Actions */
@@ -163,110 +347,103 @@
   display: flex;
   gap: 1rem;
   justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
 }
 
-.btn-save {
+.btn-save,
+.btn-cancel-form {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
-  color: white;
-  padding: 0.75rem 2rem;
-  border: none;
+  padding: 0.875rem 1.75rem;
   border-radius: 0.5rem;
   font-weight: 600;
+  font-size: 1rem;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
+}
+
+.btn-save {
+  background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
+  color: white;
+  border: none;
 }
 
 .btn-save:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
-.btn-cancel {
-  background: var(--border-color);
-  color: #d1d5db;
-  padding: 0.75rem 2rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
+.btn-cancel-form {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
 }
 
-.btn-cancel:hover {
-  background: #4b5563;
-  color: var(--text-primary);
-}
-
-.stock-badge {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
-  display: inline-block;
-}
-
-.stock-good {
-  background: #064e3b;
-  color: var(--color-secondary);
-}
-
-.stock-low {
-  background: #78350f;
-  color: var(--color-warning);
-}
-
-.stock-empty {
-  background: #7f1d1d;
+.btn-cancel-form:hover {
+  border-color: var(--color-danger);
   color: var(--color-danger);
+}
+
+/* Product Cards in Edit Mode */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.editing-product-card {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--color-primary);
+  border-radius: 1rem;
+  padding: 2rem;
+  box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3);
+  animation: slideDown 0.3s ease-out;
 }
 
 /* Product Actions */
 .product-actions {
   display: flex;
-  gap: 0.75rem;
-  margin-top: auto;
+  gap: 0.5rem;
+  margin-top: 1rem;
 }
 
 .btn-edit,
 .btn-delete {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: none;
+  padding: 0.5rem 1rem;
   border-radius: 0.5rem;
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
   flex: 1;
+  justify-content: center;
 }
 
 .btn-edit {
-  background: var(--color-primary-dark);
-  color: white;
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  color: var(--color-primary-light);
 }
 
-.btn-edit:hover:not(:disabled) {
-  background: var(--color-primary);
-  transform: translateY(-2px);
-}
-
-.btn-edit:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.btn-edit:hover {
+  background: rgba(124, 58, 237, 0.1);
+  border-color: var(--color-primary-light);
 }
 
 .btn-delete {
-  background: #991b1b;
-  color: white;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: var(--color-danger);
 }
 
 .btn-delete:hover {
-  background: var(--color-danger-dark);
-  transform: translateY(-2px);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--color-danger);
 }

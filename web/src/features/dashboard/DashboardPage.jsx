@@ -37,11 +37,12 @@ function DashboardPage() {
       <div className="dashboard-header">
         <div>
           <h2 className="page-title">Store Dashboard</h2>
-          <p className="page-subtitle">Manage flagged reviews and moderation</p>
+          <p className="page-subtitle">Store management and analytics</p>
         </div>
       </div>
 
-      <div className="dashboard-stats">
+      {/* HIDDEN: Flagged Reviews Stats - may re-enable later */}
+      {/* <div className="dashboard-stats">
         <div className="stat-card">
           <div className="stat-icon stat-icon-warning">
             <Flag size={24} />
@@ -51,9 +52,10 @@ function DashboardPage() {
             <span className="stat-label">Flagged Reviews</span>
           </div>
         </div>
-      </div>
+      </div> */}
 
-      <div className="flagged-reviews-section">
+      {/* HIDDEN: Flagged Reviews Section - may re-enable later */}
+      {/* <div className="flagged-reviews-section">
         <h3 className="section-title">Flagged Reviews</h3>
         
         {flaggedReviews.length === 0 ? (
@@ -124,7 +126,7 @@ function DashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </div> */}
     </div>
   );
 }
