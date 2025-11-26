@@ -9,6 +9,8 @@ services:
       POSTGRES_USER: backend_user
       POSTGRES_PASSWORD: bfe4af37d97cd02d
       POSTGRES_DB: smoke-station-delivery-db
+    ports:
+      - "5432:5432"  # Add this to expose PostgreSQL to your host
     volumes:
       - postgres_data:/var/lib/postgresql/data # This persists your data!
     networks:
