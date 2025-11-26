@@ -14,7 +14,7 @@ export class OrderController {
         return;
       }
 
-      const orders = await orderService.getAllOrders(req.user.userId, req.user.role);
+      const orders = await orderService.getAllOrders(req.user.userId, req.user.roles);
       res.status(200).json(orders);
     } catch (error) {
       next(error);
@@ -38,7 +38,7 @@ export class OrderController {
         return;
       }
 
-      const order = await orderService.getOrderById(id, req.user.userId, req.user.role);
+      const order = await orderService.getOrderById(id, req.user.userId, req.user.roles);
       res.status(200).json(order);
     } catch (error) {
       next(error);

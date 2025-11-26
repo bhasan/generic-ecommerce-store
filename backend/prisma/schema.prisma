@@ -14,15 +14,15 @@ datasource db {
 
 // User model with role-based access control
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String   // Hashed with bcrypt
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String    // Hashed with bcrypt
   name      String
-  role      Role     @default(CUSTOMER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   // Relations
+  roles     UserRole[]
   orders    Order[]
   reviews   Review[]
   cartItems CartItem[]
@@ -30,11 +30,28 @@ model User {
   @@map("users")
 }
 
-enum Role {
-  GUEST
-  CUSTOMER
-  MANAGEMENT
-  ADMIN
+model Role {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  users     UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  roleId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
 }
 
 // Order model

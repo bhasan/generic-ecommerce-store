@@ -1,22 +1,23 @@
-import jwt from 'jsonwebtoken';
-import { Role } from '../generated/prisma';
+import jwt, { Secret, SignOptions } from 'jsonwebtoken';
+import { RoleName } from '../constants/roles';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
+const JWT_SECRET: Secret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-this-in-production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 export interface JwtPayload {
   userId: number;
   email: string;
-  role: Role;
+  roles: RoleName[];
 }
 
 /**
  * Generate a JWT token for a user
  */
 export const generateToken = (payload: JwtPayload): string => {
-  return jwt.sign(payload, JWT_SECRET, {
-    expiresIn: JWT_EXPIRES_IN,
-  });
+  const options: SignOptions = {
+    expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'],
+  };
+  return jwt.sign(payload, JWT_SECRET, options);
 };
 
 /**

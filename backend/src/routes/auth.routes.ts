@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import authController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { ROLE_NAMES } from '../constants/roles';
 
 const router = Router();
 
@@ -16,7 +17,9 @@ router.post(
     body('email').isEmail().withMessage('Valid email is required'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     body('name').notEmpty().withMessage('Name is required'),
-    body('role').optional().isIn(['CUSTOMER', 'MANAGEMENT', 'ADMIN']).withMessage('Invalid role')
+    body('role').optional().isIn(ROLE_NAMES).withMessage('Invalid role'),
+    body('roles').optional().isArray({ min: 1 }).withMessage('Roles must be a non-empty array'),
+    body('roles.*').optional().isIn(ROLE_NAMES).withMessage('Invalid role')
   ],
   authController.register
 );

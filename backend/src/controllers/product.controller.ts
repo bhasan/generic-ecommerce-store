@@ -9,7 +9,7 @@ export class ProductController {
    */
   async getAllProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const products = await productService.getAllProducts(req.user?.role);
+      const products = await productService.getAllProducts(req.user?.roles);
       res.status(200).json(products);
     } catch (error) {
       next(error);
@@ -28,7 +28,7 @@ export class ProductController {
         return;
       }
 
-      const product = await productService.getProductById(id, req.user?.role);
+      const product = await productService.getProductById(id, req.user?.roles);
       res.status(200).json(product);
     } catch (error) {
       next(error);

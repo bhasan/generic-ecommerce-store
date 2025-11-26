@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { Role, OrderStatus } from '../generated/prisma';
+import { OrderStatus } from '../../generated/prisma';
+import { RoleName, hasAnyRole } from '../constants/roles';
 
 interface CreateOrderData {
   userId: number;
@@ -23,10 +24,9 @@ export class OrderService {
   /**
    * Get all orders (with user filtering for customers)
    */
-  async getAllOrders(userId: number, userRole: Role) {
-    const where = userRole === Role.CUSTOMER 
-      ? { userId } 
-      : {};
+  async getAllOrders(userId: number, userRoles: RoleName[]) {
+    const isCustomerScoped = !hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN']);
+    const where = isCustomerScoped ? { userId } : {};
 
     return await prisma.order.findMany({
       where,
@@ -53,7 +53,7 @@ export class OrderService {
   /**
    * Get single order by ID
    */
-  async getOrderById(orderId: number, userId: number, userRole: Role) {
+  async getOrderById(orderId: number, userId: number, userRoles: RoleName[]) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -77,7 +77,7 @@ export class OrderService {
     }
 
     // Customers can only view their own orders
-    if (userRole === Role.CUSTOMER && order.userId !== userId) {
+    if (!hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN']) && order.userId !== userId) {
       throw new AppError('Access denied', 403);
     }
 

@@ -71,7 +71,7 @@ export class AuthController {
    * Logout user (client-side removes token)
    * POST /api/auth/logout
    */
-  async logout(req: Request, res: Response): Promise<void> {
+  async logout(_req: Request, res: Response): Promise<void> {
     res.status(200).json({ message: 'Logout successful' });
   }
 }

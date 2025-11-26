@@ -1,6 +1,6 @@
 import prisma from '../src/config/database';
 import { hashPassword } from '../src/utils/password.util';
-import { Role, OrderStatus } from '../generated/prisma';
+import { OrderStatus } from '../generated/prisma';
 
 async function seed() {
   console.log('🌱 Starting database seed...');
@@ -12,19 +12,45 @@ async function seed() {
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.product.deleteMany();
+  await prisma.userRole.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.role.deleteMany();
 
   // Create test users
   console.log('👥 Creating users...');
   
+  const roleNames = ['GUEST', 'CUSTOMER', 'MANAGEMENT', 'ADMIN'] as const;
+  type RoleName = (typeof roleNames)[number];
+
+  const roles = await Promise.all(
+    roleNames.map((name) =>
+      prisma.role.create({
+        data: { name },
+      })
+    )
+  );
+
+  const getRoleByName = (name: RoleName) =>
+    roles.find((role) => role.name === name) ?? (() => { throw new Error(`Missing role ${name}`); })();
+
+  const connectRoles = (names: RoleName[]) =>
+    names.map((name) => ({
+      role: {
+        connect: { id: getRoleByName(name).id },
+      },
+    }));
+
   const adminPassword = await hashPassword('admin123');
   const admin = await prisma.user.create({
     data: {
       email: 'admin@test.com',
       password: adminPassword,
       name: 'Admin User',
-      role: Role.ADMIN
-    }
+      roles: {
+        create: connectRoles(['ADMIN']),
+      },
+    },
+    include: { roles: { include: { role: true } } },
   });
 
   const managerPassword = await hashPassword('manager123');
@@ -33,8 +59,10 @@ async function seed() {
       email: 'manager@test.com',
       password: managerPassword,
       name: 'Jane Manager',
-      role: Role.MANAGEMENT
-    }
+      roles: {
+        create: connectRoles(['MANAGEMENT']),
+      },
+    },
   });
 
   const customerPassword = await hashPassword('customer123');
@@ -43,8 +71,10 @@ async function seed() {
       email: 'customer@test.com',
       password: customerPassword,
       name: 'John Customer',
-      role: Role.CUSTOMER
-    }
+      roles: {
+        create: connectRoles(['CUSTOMER']),
+      },
+    },
   });
 
   console.log('✅ Users created');

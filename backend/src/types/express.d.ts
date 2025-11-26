@@ -1,4 +1,4 @@
-import { Role } from '../generated/prisma';
+import { RoleName } from '../constants/roles';
 
 declare global {
   namespace Express {
@@ -6,7 +6,7 @@ declare global {
       user?: {
         userId: number;
         email: string;
-        role: Role;
+        roles: RoleName[];
       };
     }
   }

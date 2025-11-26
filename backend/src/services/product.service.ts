@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { Role } from '../generated/prisma';
+import { RoleName, hasAnyRole } from '../constants/roles';
 
 interface CreateProductData {
   name: string;
@@ -30,10 +30,9 @@ export class ProductService {
   /**
    * Get all products (filters hidden products for non-admin users)
    */
-  async getAllProducts(userRole?: Role) {
-    const where = userRole === Role.ADMIN || userRole === Role.MANAGEMENT 
-      ? {} 
-      : { hidden: false };
+  async getAllProducts(userRoles?: RoleName[]) {
+    const canViewHidden = hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT']);
+    const where = canViewHidden ? {} : { hidden: false };
 
     return await prisma.product.findMany({
       where,
@@ -62,7 +61,7 @@ export class ProductService {
   /**
    * Get a single product by ID
    */
-  async getProductById(id: number, userRole?: Role) {
+  async getProductById(id: number, userRoles?: RoleName[]) {
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -88,7 +87,7 @@ export class ProductService {
     }
 
     // Check if product is hidden and user is not admin/management
-    if (product.hidden && userRole !== Role.ADMIN && userRole !== Role.MANAGEMENT) {
+    if (product.hidden && !hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) {
       throw new AppError('Product not found', 404);
     }
 

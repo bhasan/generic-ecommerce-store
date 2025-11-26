@@ -26,7 +26,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
  * Optional authentication - doesn't fail if no token provided
  * Useful for routes that work differently for authenticated vs non-authenticated users
  */
-export const optionalAuthenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const optionalAuthenticate = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
   try {
     const token = extractTokenFromHeader(req.headers.authorization);
 
