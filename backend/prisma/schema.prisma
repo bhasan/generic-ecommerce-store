@@ -1,13 +1,10 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
-  output   = "../generated/prisma"
+  output        = "../generated/prisma"
 }
 
 datasource db {
@@ -15,11 +12,138 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Example Model: A Product for your Ecommerce store
+// User model with role-based access control
+model User {
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String    // Hashed with bcrypt
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  roles     UserRole[]
+  orders    Order[]
+  reviews   Review[]
+  cartItems CartItem[]
+
+  @@map("users")
+}
+
+model Role {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  users     UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  roleId    Int
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+// Order model
+model Order {
+  id        Int         @id @default(autoincrement())
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    OrderStatus @default(PENDING)
+  total     Float
+  items     OrderItem[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  NOT_FULFILLING
+  READY_FOR_DELIVERY
+  OUT_FOR_DELIVERY
+  DELIVERED
+}
+
+// Order item model with void tracking
+model OrderItem {
+  id                   Int      @id @default(autoincrement())
+  orderId              Int
+  order                Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId            Int
+  product              Product  @relation(fields: [productId], references: [id])
+  quantity             Int
+  price                Float    // Price at time of order
+  voided               Boolean  @default(false)
+  addedAfterSubmission Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  @@map("order_items")
+}
+
+// Enhanced Product model
 model Product {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  price       Float
-  createdAt   DateTime @default(now())
+  id           Int         @id @default(autoincrement())
+  name         String
+  category     String
+  price        Float
+  description  String?
+  image        String?     // Primary image URL
+  images       String[]    // Array of image URLs
+  stock        Int         @default(0)
+  stockEnabled Boolean     @default(true)
+  hidden       Boolean     @default(false)
+  orderItems   OrderItem[]
+  reviews      Review[]
+  cartItems    CartItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("products")
+}
+
+// Review model
+model Review {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId         Int
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating            Int      // 1-5
+  comment           String
+  helpful           Int      @default(0)
+  notHelpful        Int      @default(0)
+  flagged           Boolean  @default(false)
+  votedByHelpful    Int[]    // Array of user IDs who voted helpful
+  votedByNotHelpful Int[]    // Array of user IDs who voted not helpful
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("reviews")
+}
+
+// Shopping cart model
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("cart_items")
 }
