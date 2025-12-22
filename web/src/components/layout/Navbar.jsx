@@ -12,6 +12,16 @@ function Navbar() {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const isGuest = currentUser.email === 'guest@smokestation.com';
 
+  // Helper to check if user has a role (supports both old and new format)
+  const hasRole = (role) => {
+    const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
+    return userRoles.includes(role);
+  };
+
+  const isCustomer = hasRole('CUSTOMER') && !hasRole('MANAGEMENT') && !hasRole('ADMIN');
+  const isManagement = hasRole('MANAGEMENT') || hasRole('ADMIN');
+  const isAdmin = hasRole('ADMIN');
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
@@ -48,7 +58,7 @@ function Navbar() {
             </NavLink>
 
             {/* Customer-specific links */}
-            {currentUser.role === 'CUSTOMER' && !isGuest && (
+            {isCustomer && !isGuest && (
               <NavLink 
                 to="/orders" 
                 className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
@@ -59,7 +69,7 @@ function Navbar() {
             )}
             
             {/* Admin/Manager links */}
-            {(currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN') && (
+            {isManagement && (
               <>
                 <NavLink 
                   to="/orders" 
@@ -83,6 +93,17 @@ function Navbar() {
                   <span>Dashboard</span>
                 </NavLink>
               </>
+            )}
+
+            {/* Admin-only links */}
+            {isAdmin && (
+              <NavLink 
+                to="/users" 
+                className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+              >
+                <Users size={18} />
+                <span>Users</span>
+              </NavLink>
             )}
           </div>
         </div>

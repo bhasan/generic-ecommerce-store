@@ -15,6 +15,7 @@ import OrdersPage from './features/orders/OrdersPage';
 import ManageProductsPage from './features/products/ManageProductsPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import UsersPage from './features/users/UsersPage';
 
 function App() {
   return (
@@ -79,6 +80,13 @@ function App() {
             <Route path="/dashboard" element={
               <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
                 <DashboardPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Users Management - Admin only */}
+            <Route path="/users" element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <UsersPage />
               </ProtectedRoute>
             } />
 

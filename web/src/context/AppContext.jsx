@@ -1,6 +1,9 @@
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { initialProducts, initialOrders } from '../data/mockData';
+import * as authApi from '../services/authApi';
+import * as usersApi from '../services/usersApi';
+import { getAuthToken } from '../services/api';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -12,7 +15,27 @@ export const useApp = () => {
 };
 
 export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState({ id: 999, email: 'guest@smokestation.com', role: 'CUSTOMER', name: 'Guest' });
+  // Initialize user from localStorage or default guest
+  const getInitialUser = () => {
+    const storedUser = localStorage.getItem('userData');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        // Ensure roles array exists (for backward compatibility)
+        if (!user.roles && user.role) {
+          user.roles = [user.role];
+        }
+        return user;
+      } catch (e) {
+        console.error('Error parsing stored user data:', e);
+      }
+    }
+    return { id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' };
+  };
+
+  const [currentUser, setCurrentUser] = useState(getInitialUser);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [products, setProducts] = useState(initialProducts);
   const [orders, setOrders] = useState(initialOrders);
   const [cart, setCart] = useState([]);
@@ -20,6 +43,34 @@ export function AppProvider({ children }) {
   const [returnPath, setReturnPath] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = getAuthToken();
+      if (token) {
+        try {
+          const user = await authApi.getProfile();
+          // Ensure roles array exists
+          if (!user.roles && user.role) {
+            user.roles = [user.role];
+          }
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+        } catch (error) {
+          // Token invalid or expired
+          console.error('Auth check failed:', error);
+          setCurrentUser({ id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' });
+          setIsAuthenticated(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+      }
+      setIsLoading(false);
+    };
+
+    checkAuth();
+  }, []);
 
   // Notification system
   const showNotification = (message, type = 'success', action = null) => {
@@ -30,37 +81,72 @@ export function AppProvider({ children }) {
     setNotification(null);
   };
 
-  const login = (email, password) => {
-    // Mock login - in real app, this would call an API
-    const users = {
-      'customer@test.com': { id: 2, email: 'customer@test.com', role: 'CUSTOMER', name: 'John Customer' },
-      'manager@test.com': { id: 3, email: 'manager@test.com', role: 'MANAGEMENT', name: 'Jane Manager' },
-      'admin@test.com': { id: 1, email: 'admin@test.com', role: 'ADMIN', name: 'Admin User' },
-    };
-    
-    const user = users[email];
-    if (user) {
+  const login = async (email, password) => {
+    try {
+      const { user } = await authApi.login(email, password);
+      
+      // Ensure roles array exists
+      if (!user.roles && user.role) {
+        user.roles = [user.role];
+      }
+      
       setCurrentUser(user);
+      setIsAuthenticated(true);
       
       // If there's a return path (e.g., guest tried to access orders), go there
       if (returnPath) {
         navigate(returnPath);
         setReturnPath(null);
       } else {
-        // Otherwise, default navigation based on role
-        navigate(user.role === 'CUSTOMER' ? '/products' : '/orders');
+        // Otherwise, default navigation based on primary role
+        const primaryRole = user.roles?.[0] || 'CUSTOMER';
+        navigate(primaryRole === 'CUSTOMER' ? '/products' : '/orders');
       }
+      
+      showNotification('Login successful!', 'success');
       return true;
+    } catch (error) {
+      const errorMessage = error.message || 'Login failed. Please check your credentials.';
+      showNotification(errorMessage, 'error');
+      return false;
     }
-    return false;
   };
 
-  const logout = () => {
-    setCurrentUser({ id: 999, email: 'guest@smokestation.com', role: 'CUSTOMER', name: 'Guest' });
-    setCart([]);
-    setReturnPath(null);
-    navigate('/products');
-    showNotification('You have been logged out', 'info');
+  const register = async (data) => {
+    try {
+      const { user } = await authApi.register(data);
+      
+      // Ensure roles array exists
+      if (!user.roles && user.role) {
+        user.roles = [user.role];
+      }
+      
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      
+      showNotification('Registration successful!', 'success');
+      navigate('/products');
+      return true;
+    } catch (error) {
+      const errorMessage = error.message || 'Registration failed. Please try again.';
+      showNotification(errorMessage, 'error');
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setCurrentUser({ id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' });
+      setIsAuthenticated(false);
+      setCart([]);
+      setReturnPath(null);
+      navigate('/products');
+      showNotification('You have been logged out', 'info');
+    }
   };
 
   const addToCart = (product) => {
@@ -209,9 +295,22 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const updateUserProfile = (updates) => {
-    setCurrentUser(prev => ({ ...prev, ...updates }));
-    showNotification('Profile updated successfully', 'success');
+  const updateUserProfile = async (updates) => {
+    try {
+      const updatedUser = await usersApi.updateUser(currentUser.id, updates);
+      
+      // Ensure roles array exists
+      if (!updatedUser.roles && updatedUser.role) {
+        updatedUser.roles = [updatedUser.role];
+      }
+      
+      setCurrentUser(updatedUser);
+      showNotification('Profile updated successfully', 'success');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to update profile. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
   // Review management
@@ -271,7 +370,7 @@ export function AppProvider({ children }) {
                 id: (r.replies?.length || 0) + 1,
                 userId: currentUser.id,
                 userName: currentUser.name,
-                userRole: currentUser.role,
+                userRole: currentUser.roles?.[0] || 'CUSTOMER',
                 comment: reply,
                 date: new Date().toISOString().split('T')[0]
               };
@@ -324,7 +423,10 @@ export function AppProvider({ children }) {
 
   const value = {
     currentUser, 
-    login, 
+    isAuthenticated,
+    isLoading,
+    login,
+    register,
     logout, 
     products, 
     orders,
