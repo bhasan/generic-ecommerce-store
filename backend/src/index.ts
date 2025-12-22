@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
 import productRoutes from './routes/product.routes';
 import orderRoutes from './routes/order.routes';
+import userRoutes from './routes/user.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -73,6 +74,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/products', generalLimiter, productRoutes);
 app.use('/api/orders', generalLimiter, orderRoutes);
+app.use('/api/users', generalLimiter, userRoutes);
 
 // ========================================
 // ERROR HANDLING

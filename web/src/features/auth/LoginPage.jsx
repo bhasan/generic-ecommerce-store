@@ -10,21 +10,51 @@ function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const success = login(email, password);
-    if (success) {
-      setError('');
-    } else {
-      setError('Invalid credentials');
+    setError('');
+    setIsLoading(true);
+    
+    try {
+      const success = await login(email, password);
+      if (success) {
+        setError('');
+        // Navigation is handled in AppContext
+      } else {
+        setError('Invalid credentials. Please try again.');
+      }
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
   
-  const quickLogin = (testEmail) => {
+  const quickLogin = async (testEmail) => {
     setEmail(testEmail);
-    setPassword('test');
-    login(testEmail, 'test');
+    setPassword('test123'); // Use actual password from backend seed
+    setError('');
+    setIsLoading(true);
+    
+    try {
+      // Use actual passwords from backend seed data
+      const passwords = {
+        'customer@test.com': 'customer123',
+        'manager@test.com': 'manager123',
+        'admin@test.com': 'admin123'
+      };
+      
+      const success = await login(testEmail, passwords[testEmail] || 'test123');
+      if (!success) {
+        setError('Quick login failed. Please try again.');
+      }
+    } catch (err) {
+      setError(err.message || 'Quick login failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -77,9 +107,9 @@ function LoginPage() {
             </div>
           )}
 
-          <button type="submit" className="btn-login">
+          <button type="submit" className="btn-login" disabled={isLoading}>
             <LogIn size={18} />
-            <span>Sign In</span>
+            <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
           </button>
         </form>
 
