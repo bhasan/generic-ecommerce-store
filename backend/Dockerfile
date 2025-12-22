@@ -20,9 +20,12 @@ RUN npx prisma generate
 # 7. Copy the rest of your backend source code
 COPY . .
 
-# 8. Expose the port your app will run on
+# 8. Build TypeScript during Docker build (not at runtime)
+RUN npm run build
+
+# 9. Expose the port your app will run on
 EXPOSE 3000
 
-# 9. The command to run your app
+# 10. The command to run your app
 # IMPORTANT: See the package.json note below!
 CMD [ "npm", "run", "start:prod" ]

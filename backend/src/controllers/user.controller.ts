@@ -7,7 +7,7 @@ export class UserController {
    * Get all users
    * GET /api/users
    */
-  async getAllUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAllUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const users = await userService.getAllUsers();
       res.status(200).json(users);
