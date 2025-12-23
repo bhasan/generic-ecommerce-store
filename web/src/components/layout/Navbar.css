@@ -128,3 +128,165 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
 }
+
+/* Admin Dropdown Styles */
+.admin-dropdown {
+  position: relative;
+}
+
+.admin-chevron {
+  transition: transform 0.2s ease;
+  margin-left: 0.25rem;
+}
+
+.admin-chevron-open {
+  transform: rotate(180deg);
+}
+
+.admin-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 200px;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--color-primary-dark);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 40px rgba(107, 33, 168, 0.3);
+  padding: 0.5rem;
+  animation: slideDown 0.2s ease-out;
+  z-index: 100;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.admin-menu-item:hover {
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--color-primary-light);
+}
+
+.admin-menu-item-active {
+  background: rgba(124, 58, 237, 0.15);
+  color: var(--color-primary-light);
+}
+
+/* Profile Dropdown Styles (moved from ProfilePage.css for consistency) */
+.profile-dropdown {
+  position: relative;
+}
+
+.profile-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(124, 58, 237, 0.1);
+  border: 1px solid var(--color-primary-dark);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.profile-button:hover {
+  background: rgba(124, 58, 237, 0.2);
+  border-color: var(--color-primary);
+}
+
+.profile-name {
+  font-size: 0.875rem;
+}
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 240px;
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--color-primary-dark);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 40px rgba(107, 33, 168, 0.3);
+  padding: 0.5rem;
+  animation: slideDown 0.2s ease-out;
+  z-index: 100;
+}
+
+.profile-menu-header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 0.5rem;
+}
+
+.profile-menu-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem 0;
+}
+
+.profile-menu-email {
+  font-size: 0.875rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.profile-menu-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0.5rem 0;
+}
+
+.profile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.profile-menu-item:hover {
+  background: rgba(124, 58, 237, 0.1);
+  color: var(--color-primary-light);
+}
+
+.profile-menu-logout {
+  color: var(--color-danger);
+}
+
+.profile-menu-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--color-danger);
+}

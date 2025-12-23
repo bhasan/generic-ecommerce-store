@@ -139,6 +139,17 @@ export const put = (url, data, options = {}) => {
 };
 
 /**
+ * PATCH request
+ */
+export const patch = (url, data, options = {}) => {
+  return apiClient(url, {
+    ...options,
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+};
+
+/**
  * DELETE request
  */
 export const del = (url, options = {}) => {

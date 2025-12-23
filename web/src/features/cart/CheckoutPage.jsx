@@ -7,7 +7,7 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 
 function CheckoutPage() {
   const navigate = useNavigate();
-  const { cart, currentUser } = useApp();
+  const { cart, currentUser, checkout } = useApp();
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -79,31 +79,41 @@ function CheckoutPage() {
     setShowConfirmModal(true);
   };
 
-  const confirmOrder = () => {
+  const confirmOrder = async () => {
     // Prevent duplicate submissions
     setIsSubmitting(true);
     setShowConfirmModal(false);
 
-    // Format full address
-    const fullAddress = [
-      address.street,
-      address.apartment ? `Apt ${address.apartment}` : '',
-      `${address.city}, ${address.state} ${address.zipCode}`
-    ].filter(Boolean).join('\n');
+    try {
+      // Call checkout function which creates order via API
+      const newOrder = await checkout();
+      
+      // Format full address for display
+      const fullAddress = [
+        address.street,
+        address.apartment ? `Apt ${address.apartment}` : '',
+        `${address.city}, ${address.state} ${address.zipCode}`
+      ].filter(Boolean).join('\n');
 
-    // Navigate to success page with order data
-    navigate('/order-success', {
-      state: {
-        deliveryAddress: fullAddress,
-        addressDetails: address,
-        specialInstructions,
-        cashAppUsername,
-        subtotal,
-        tax,
-        total,
-        items: cart
-      }
-    });
+      // Navigate to success page with order data from API and additional checkout details
+      navigate('/order-success', {
+        state: {
+          order: newOrder, // Order from API
+          deliveryAddress: fullAddress,
+          addressDetails: address,
+          specialInstructions,
+          cashAppUsername,
+          subtotal,
+          tax,
+          total,
+          items: cart
+        }
+      });
+    } catch (error) {
+      // Error is already handled in checkout function
+      setIsSubmitting(false);
+      // Don't navigate on error
+    }
   };
 
   return (

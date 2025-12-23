@@ -116,9 +116,22 @@ export class ProductService {
       throw new AppError('Product not found', 404);
     }
 
+    // Filter out non-updatable fields (reviews, id, createdAt, updatedAt, etc.)
+    const allowedFields: (keyof UpdateProductData)[] = [
+      'name', 'category', 'price', 'description', 
+      'image', 'images', 'stock', 'stockEnabled', 'hidden'
+    ];
+    
+    const filteredData: Partial<UpdateProductData> = {};
+    for (const key of allowedFields) {
+      if (key in data && data[key] !== undefined) {
+        (filteredData as any)[key] = data[key];
+      }
+    }
+
     return await prisma.product.update({
       where: { id },
-      data
+      data: filteredData
     });
   }
 

@@ -1,14 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Package, Users, Store, User, LogOut, Settings } from 'lucide-react';
+import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard } from 'lucide-react';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
   const profileRef = useRef(null);
+  const adminRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const isGuest = currentUser.email === 'guest@smokestation.com';
 
@@ -27,11 +30,19 @@ function Navbar() {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setShowProfileMenu(false);
       }
+      if (adminRef.current && !adminRef.current.contains(event.target)) {
+        setShowAdminMenu(false);
+      }
     }
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Close admin menu when route changes
+  useEffect(() => {
+    setShowAdminMenu(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     setShowProfileMenu(false);
@@ -85,25 +96,47 @@ function Navbar() {
                   <Users size={18} />
                   <span>Manage Products</span>
                 </NavLink>
-                <NavLink 
-                  to="/dashboard" 
-                  className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-                >
-                  <Settings size={18} />
-                  <span>Dashboard</span>
-                </NavLink>
               </>
             )}
 
-            {/* Admin-only links */}
+            {/* Admin-only dropdown menu */}
             {isAdmin && (
-              <NavLink 
-                to="/users" 
-                className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-              >
-                <Users size={18} />
-                <span>Users</span>
-              </NavLink>
+              <div className="admin-dropdown" ref={adminRef}>
+                <button
+                  className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users') ? 'nav-link-active' : ''}`}
+                  onClick={() => setShowAdminMenu(!showAdminMenu)}
+                  aria-label="Admin menu"
+                >
+                  <Settings size={18} />
+                  <span>Admin</span>
+                  <ChevronDown size={16} className={`admin-chevron ${showAdminMenu ? 'admin-chevron-open' : ''}`} />
+                </button>
+
+                {showAdminMenu && (
+                  <div className="admin-menu">
+                    <button
+                      onClick={() => {
+                        setShowAdminMenu(false);
+                        navigate('/dashboard');
+                      }}
+                      className={`admin-menu-item ${location.pathname === '/dashboard' ? 'admin-menu-item-active' : ''}`}
+                    >
+                      <LayoutDashboard size={16} />
+                      <span>Dashboard</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAdminMenu(false);
+                        navigate('/users');
+                      }}
+                      className={`admin-menu-item ${location.pathname === '/users' ? 'admin-menu-item-active' : ''}`}
+                    >
+                      <Users size={16} />
+                      <span>Users</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
