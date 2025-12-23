@@ -1,8 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { initialProducts, initialOrders } from '../data/mockData';
 import * as authApi from '../services/authApi';
 import * as usersApi from '../services/usersApi';
+import * as productsApi from '../services/productsApi';
+import * as ordersApi from '../services/ordersApi';
 import { getAuthToken } from '../services/api';
 
 // Context for authentication and global state
@@ -36,8 +37,10 @@ export function AppProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(getInitialUser);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [products, setProducts] = useState(initialProducts);
-  const [orders, setOrders] = useState(initialOrders);
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [cart, setCart] = useState([]);
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
@@ -71,6 +74,51 @@ export function AppProvider({ children }) {
 
     checkAuth();
   }, []);
+
+  // Load products on mount (after auth check)
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setIsLoadingProducts(true);
+        const productsData = await productsApi.getAllProducts();
+        setProducts(productsData);
+      } catch (error) {
+        console.error('Failed to load products:', error);
+        // Don't show error notification on initial load, just log it
+        // Products will remain empty array
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  // Load orders on mount (after auth check, only if authenticated)
+  useEffect(() => {
+    const loadOrders = async () => {
+      if (!isAuthenticated) {
+        setOrders([]);
+        return;
+      }
+
+      try {
+        setIsLoadingOrders(true);
+        const ordersData = await ordersApi.getAllOrders();
+        setOrders(ordersData);
+      } catch (error) {
+        console.error('Failed to load orders:', error);
+        // Don't show error notification on initial load, just log it
+        // Orders will remain empty array
+      } finally {
+        setIsLoadingOrders(false);
+      }
+    };
+
+    if (!isLoading) {
+      loadOrders();
+    }
+  }, [isAuthenticated, isLoading]);
 
   // Notification system
   const showNotification = (message, type = 'success', action = null) => {
@@ -189,104 +237,199 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const checkout = () => {
-    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const newOrder = {
-      id: orders.length + 1,
-      userId: currentUser.id,
-      status: 'PENDING',
-      total,
-      items: cart.map(item => ({
+  const checkout = async () => {
+    try {
+      // Convert cart items to API format
+      const items = cart.map(item => ({
         productId: item.id,
-        quantity: item.quantity,
-        price: item.price
-      })),
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setOrders([...orders, newOrder]);
-    setCart([]);
-    showNotification('Order placed successfully! 🎉', 'success');
-    navigate('/orders');
+        quantity: item.quantity
+      }));
+
+      // Create order via API
+      const newOrder = await ordersApi.createOrder(items);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      // Clear cart
+      setCart([]);
+      
+      showNotification('Order placed successfully! 🎉', 'success');
+      
+      // Return order for caller to handle navigation with additional data
+      return newOrder;
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to place order. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const addProduct = (product) => {
-    setProducts([...products, { 
-      ...product, 
-      id: products.length + 1,
-      images: product.images || [product.image],
-      hidden: product.hidden || false,
-      stockEnabled: product.stockEnabled !== false,
-      reviews: []
-    }]);
-    showNotification('Product added successfully', 'success');
+  const addProduct = async (product) => {
+    try {
+      await productsApi.createProduct(product);
+      
+      // Refresh products list
+      const productsData = await productsApi.getAllProducts();
+      setProducts(productsData);
+      
+      showNotification('Product added successfully', 'success');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to add product. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const updateProduct = (id, updates) => {
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
-    showNotification('Product updated successfully', 'success');
+  const updateProduct = async (id, updates) => {
+    try {
+      await productsApi.updateProduct(id, updates);
+      
+      // Refresh products list
+      const productsData = await productsApi.getAllProducts();
+      setProducts(productsData);
+      
+      showNotification('Product updated successfully', 'success');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to update product. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const deleteProduct = (id) => {
-    setProducts(prev => prev.filter(p => p.id !== id));
-    showNotification('Product deleted', 'info');
+  const deleteProduct = async (id) => {
+    try {
+      await productsApi.deleteProduct(id);
+      
+      // Refresh products list
+      const productsData = await productsApi.getAllProducts();
+      setProducts(productsData);
+      
+      showNotification('Product deleted', 'info');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to delete product. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const updateOrderStatus = (orderId, status) => {
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status } : o));
-    showNotification('Order status updated', 'success');
+  const updateOrderStatus = async (orderId, status) => {
+    try {
+      await ordersApi.updateOrderStatus(orderId, status);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      showNotification('Order status updated', 'success');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to update order status. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const deleteOrder = (orderId) => {
-    setOrders(prev => prev.filter(o => o.id !== orderId));
-    showNotification('Order deleted', 'info');
+  const deleteOrder = async (orderId) => {
+    try {
+      await ordersApi.deleteOrder(orderId);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      showNotification('Order deleted', 'info');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to delete order. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const addItemToOrder = (orderId, item) => {
-    setOrders(prev => prev.map(o => {
-      if (o.id === orderId) {
-        const newItem = {
-          ...item,
-          addedAfterSubmission: true
-        };
-        const newItems = [...o.items, newItem];
-        const newTotal = newItems.reduce((sum, i) => 
-          i.voided ? sum : sum + (i.price * i.quantity), 0
-        );
-        return { ...o, items: newItems, total: newTotal };
+  const addItemToOrder = async (orderId, productIdOrItem, quantity) => {
+    try {
+      // Handle both old format (object with productId, quantity, price) and new format (productId, quantity)
+      let productId, itemQuantity;
+      if (typeof productIdOrItem === 'object' && productIdOrItem.productId) {
+        // Old format: addItemToOrder(orderId, { productId, quantity, price })
+        productId = productIdOrItem.productId;
+        itemQuantity = productIdOrItem.quantity;
+      } else {
+        // New format: addItemToOrder(orderId, productId, quantity)
+        productId = productIdOrItem;
+        itemQuantity = quantity;
       }
-      return o;
-    }));
-    showNotification('Item added to order', 'success');
+
+      await ordersApi.addItemToOrder(orderId, productId, itemQuantity);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      showNotification('Item added to order', 'success');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to add item to order. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const voidOrderItem = (orderId, itemIndex) => {
-    setOrders(prev => prev.map(o => {
-      if (o.id === orderId) {
-        const newItems = o.items.map((item, idx) => 
-          idx === itemIndex ? { ...item, voided: true } : item
-        );
-        const newTotal = newItems.reduce((sum, item) => 
-          item.voided ? sum : sum + (item.price * item.quantity), 0
-        );
-        return { ...o, items: newItems, total: newTotal };
+  const voidOrderItem = async (orderId, itemIdOrIndex) => {
+    try {
+      // Handle both itemId (from API) and itemIndex (array index from old code)
+      let itemId = itemIdOrIndex;
+      
+      // If it's an index, find the actual item ID from the order
+      if (typeof itemIdOrIndex === 'number' && itemIdOrIndex >= 0) {
+        const order = orders.find(o => o.id === orderId);
+        if (order && order.items && order.items[itemIdOrIndex]) {
+          // Check if items have id field (from API) or use index
+          const item = order.items[itemIdOrIndex];
+          itemId = item.id || itemIdOrIndex;
+        }
       }
-      return o;
-    }));
-    showNotification('Item voided', 'info');
+
+      await ordersApi.voidOrderItem(orderId, itemId);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      showNotification('Item voided', 'info');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to void item. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
-  const deleteOrderItem = (orderId, itemIndex) => {
-    setOrders(prev => prev.map(o => {
-      if (o.id === orderId) {
-        const newItems = o.items.filter((_, idx) => idx !== itemIndex);
-        const newTotal = newItems.reduce((sum, item) => 
-          item.voided ? sum : sum + (item.price * item.quantity), 0
-        );
-        return { ...o, items: newItems, total: newTotal };
+  const deleteOrderItem = async (orderId, itemIdOrIndex) => {
+    try {
+      // Handle both itemId (from API) and itemIndex (array index from old code)
+      let itemId = itemIdOrIndex;
+      
+      // If it's an index, find the actual item ID from the order
+      if (typeof itemIdOrIndex === 'number' && itemIdOrIndex >= 0) {
+        const order = orders.find(o => o.id === orderId);
+        if (order && order.items && order.items[itemIdOrIndex]) {
+          // Check if items have id field (from API) or use index
+          const item = order.items[itemIdOrIndex];
+          itemId = item.id || itemIdOrIndex;
+        }
       }
-      return o;
-    }));
-    showNotification('Item removed from order', 'info');
+
+      await ordersApi.deleteOrderItem(orderId, itemId);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      showNotification('Item removed from order', 'info');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to remove item from order. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
   };
 
   const restoreOrder = (orderState) => {
@@ -425,6 +568,8 @@ export function AppProvider({ children }) {
     currentUser, 
     isAuthenticated,
     isLoading,
+    isLoadingProducts,
+    isLoadingOrders,
     login,
     register,
     logout, 

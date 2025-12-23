@@ -8,6 +8,7 @@ function OrdersPage() {
     currentUser, 
     orders, 
     products, 
+    isLoadingOrders,
     updateOrderStatus, 
     deleteOrder,
     addItemToOrder,
@@ -23,13 +24,20 @@ function OrdersPage() {
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [confirmDialog, setConfirmDialog] = useState(null);
   
+  // Helper to check if user has a role (supports both old and new format)
+  const hasRole = (role) => {
+    const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
+    return userRoles.includes(role);
+  };
+  
   // Customers see only their orders, admins/managers see all
-  const userOrders = currentUser.role === 'CUSTOMER' 
+  const isCustomerOnly = hasRole('CUSTOMER') && !hasRole('MANAGEMENT') && !hasRole('ADMIN');
+  const userOrders = isCustomerOnly
     ? orders.filter(o => o.userId === currentUser.id)
     : orders;
   
   // Only admins and managers can modify orders
-  const canModifyOrders = currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN';
+  const canModifyOrders = hasRole('MANAGEMENT') || hasRole('ADMIN');
   
   const statuses = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
   
@@ -207,7 +215,7 @@ function OrdersPage() {
       <div className="orders-header">
         <div>
           <h2 className="page-title">
-            {currentUser.role === 'CUSTOMER' ? 'My Orders' : 'All Orders'}
+            {isCustomerOnly ? 'My Orders' : 'All Orders'}
           </h2>
           <p className="page-subtitle">
             {userOrders.length} {userOrders.length === 1 ? 'order' : 'orders'} found
@@ -216,7 +224,12 @@ function OrdersPage() {
       </div>
 
       <div className="orders-list">
-        {userOrders.length === 0 ? (
+        {isLoadingOrders ? (
+          <div className="empty-state">
+            <Package size={64} className="empty-icon" />
+            <p>Loading orders...</p>
+          </div>
+        ) : userOrders.length === 0 ? (
           <div className="empty-state">
             <Package size={64} className="empty-icon" />
             <p>No orders found.</p>
@@ -297,48 +310,51 @@ function OrdersPage() {
                 <div className="order-items">
                   <h4 className="order-items-title">Order Items</h4>
                   <div className="order-items-list">
-                    {order.items.map((item, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`order-item ${item.voided ? 'order-item-voided' : ''} ${item.addedAfterSubmission ? 'order-item-added' : ''}`}
-                      >
-                        <div className="order-item-info">
-                          <span className="order-item-name">
-                            {getProductName(item.productId)}
-                            {item.voided && (
-                              <span className="order-item-badge badge-voided">Voided</span>
+                    {order.items.map((item, idx) => {
+                      const itemId = item.id || idx; // Use item.id from API if available, fallback to index
+                      return (
+                        <div 
+                          key={itemId} 
+                          className={`order-item ${item.voided ? 'order-item-voided' : ''} ${item.addedAfterSubmission ? 'order-item-added' : ''}`}
+                        >
+                          <div className="order-item-info">
+                            <span className="order-item-name">
+                              {getProductName(item.productId)}
+                              {item.voided && (
+                                <span className="order-item-badge badge-voided">Voided</span>
+                              )}
+                              {item.addedAfterSubmission && (
+                                <span className="order-item-badge badge-added">Added</span>
+                              )}
+                            </span>
+                            <span className="order-item-quantity">× {item.quantity}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span className="order-item-price">
+                              ${(item.price * item.quantity).toFixed(2)}
+                            </span>
+                            {isEditing && !item.voided && (
+                              <div className="order-item-actions">
+                                <button
+                                  onClick={() => handleVoidItem(order.id, itemId, getProductName(item.productId))}
+                                  className="btn-item-action btn-item-void"
+                                  title="Void item"
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteItem(order.id, itemId, getProductName(item.productId))}
+                                  className="btn-item-action btn-item-delete"
+                                  title="Delete item"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             )}
-                            {item.addedAfterSubmission && (
-                              <span className="order-item-badge badge-added">Added</span>
-                            )}
-                          </span>
-                          <span className="order-item-quantity">× {item.quantity}</span>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <span className="order-item-price">
-                            ${(item.price * item.quantity).toFixed(2)}
-                          </span>
-                          {isEditing && !item.voided && (
-                            <div className="order-item-actions">
-                              <button
-                                onClick={() => handleVoidItem(order.id, idx, getProductName(item.productId))}
-                                className="btn-item-action btn-item-void"
-                                title="Void item"
-                              >
-                                <Minus size={14} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteItem(order.id, idx, getProductName(item.productId))}
-                                className="btn-item-action btn-item-delete"
-                                title="Delete item"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Add Item Section - Only show when editing */}
@@ -436,7 +452,7 @@ function OrdersPage() {
                 )}
 
                 {/* Delete Order Button - Only show when editing and user is Admin */}
-                {isEditing && currentUser.role === 'ADMIN' && (
+                {isEditing && hasRole('ADMIN') && (
                   <div className="order-actions">
                     <button
                       onClick={() => {

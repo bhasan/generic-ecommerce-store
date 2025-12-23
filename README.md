@@ -27,6 +27,10 @@ docker-compose up --build
 
 Access the application at: **http://localhost:80**
 
+Command to update only backend Docker container:
+
+`docker compose up --build --force-recreate -d backend`
+
 ### What Gets Started
 
 - PostgreSQL database (port 5432)
