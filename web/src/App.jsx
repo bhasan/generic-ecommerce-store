@@ -90,8 +90,8 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Default Route */}
-            <Route path="*" element={<Navigate to="/products" replace />} />
+            {/* Default Route - Redirect to login for unauthenticated users */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </main>
       </div>
