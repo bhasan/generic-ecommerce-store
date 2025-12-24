@@ -1,4 +1,4 @@
-# Smoke Station Delivery
+# Smoke Station
 
 E-commerce platform with React frontend, Express backend, PostgreSQL database, and Nginx reverse proxy.
 
@@ -122,6 +122,163 @@ Access Prisma Studio at: **http://localhost:5555**
 
 ---
 
+## Database Migrations
+
+Database migrations manage schema changes (adding tables, columns, modifying structure) in a version-controlled way.
+
+### Local Development Workflow
+
+When you modify the Prisma schema (`backend/prisma/schema.prisma`), create a migration:
+
+```bash
+cd backend
+
+# 1. Create and apply migration
+npm run prisma:migrate
+# Or: npx prisma migrate dev --name your_migration_name
+
+# When prompted, enter a descriptive migration name:
+# Example: "add_user_roles_table" or "remove_product_relations"
+```
+
+This command:
+- Creates a migration file in `prisma/migrations/`
+- Applies the migration to your local database
+- Regenerates the Prisma client automatically
+
+**Example:**
+```bash
+cd backend
+npx prisma migrate dev --name remove_relations_and_rename_product
+```
+
+### Reviewing Migrations
+
+Before committing, review the generated SQL:
+
+```bash
+# View the latest migration SQL
+cat backend/prisma/migrations/*/migration.sql
+
+# Or list all migrations
+ls -la backend/prisma/migrations/
+```
+
+### Production Migration Workflow
+
+Migrations are **automatically applied** when the Docker container starts:
+
+1. **During Docker Build**: `npx prisma generate` runs (generates Prisma client)
+2. **At Container Startup**: `npx prisma migrate deploy` runs (applies pending migrations)
+
+#### Production Deployment Steps
+
+```bash
+# 1. Create migration locally (as shown above)
+cd backend
+npx prisma migrate dev --name your_migration_name
+
+# 2. Commit migration files to Git
+git add backend/prisma/migrations/
+git commit -m "Add migration: your_migration_name"
+git push
+
+# 3. Deploy to production (rebuild Docker)
+docker-compose up --build
+```
+
+The container will automatically:
+- Generate Prisma client with updated schema
+- Apply any pending migrations on startup
+- Start the application
+
+#### Manual Production Migration (if needed)
+
+If you need to run migrations manually in production:
+
+```bash
+# Run migrations inside the backend container
+docker exec smoke-station-delivery-backend npx prisma migrate deploy
+
+# Check migration status
+docker exec smoke-station-delivery-backend npx prisma migrate status
+```
+
+### Migration Best Practices
+
+1. **Always test migrations locally first**
+   - Create and test migrations in development
+   - Verify the migration SQL is correct
+   - Test with sample data
+
+2. **Use descriptive migration names**
+   ```bash
+   # Good
+   npx prisma migrate dev --name add_user_roles_table
+   npx prisma migrate dev --name remove_product_relations
+   
+   # Avoid
+   npx prisma migrate dev --name migration1
+   ```
+
+3. **Review migration SQL before deploying**
+   - Check `prisma/migrations/XXXXX_name/migration.sql`
+   - Ensure it's safe for production data
+   - Verify no data loss will occur
+
+4. **Backup production database before major migrations**
+   ```bash
+   # If you have direct database access
+   pg_dump -h your-db-host -U user -d database > backup.sql
+   ```
+
+5. **Commit migration files to version control**
+   - Migration files in `prisma/migrations/` should be committed
+   - Never edit migration files after they've been applied
+   - Create new migrations for schema changes
+
+### Migration Commands Reference
+
+| Command | Use Case | Description |
+|---------|----------|-------------|
+| `prisma migrate dev` | Development | Creates migration + applies it + regenerates client |
+| `prisma migrate deploy` | Production | Only applies existing migrations (doesn't create new ones) |
+| `prisma migrate status` | Any | Shows which migrations are applied/pending |
+| `prisma generate` | After schema changes | Regenerates Prisma client (auto-run in Docker build) |
+
+### Troubleshooting Migrations
+
+**Migration fails in production:**
+```bash
+# Check migration status
+docker exec smoke-station-delivery-backend npx prisma migrate status
+
+# View backend logs
+docker-compose logs backend
+
+# If needed, manually resolve and re-run
+docker exec smoke-station-delivery-backend npx prisma migrate deploy
+```
+
+**Prisma client out of sync:**
+```bash
+# Regenerate Prisma client
+cd backend
+npm run prisma:generate
+
+# Or in Docker
+docker exec smoke-station-delivery-backend npx prisma generate
+```
+
+**Reset database (development only):**
+```bash
+# WARNING: This deletes all data!
+cd backend
+npx prisma migrate reset
+```
+
+---
+
 ## Deploying Changes to Docker
 
 After making code changes, rebuild and redeploy the Docker containers:
@@ -166,13 +323,21 @@ docker-compose up -d web
 
 ### Deploy Database Changes (Migrations)
 
-```bash
-# Run new migrations inside the backend container
-docker exec smoke-station-delivery-backend npm run prisma:migrate
+**Note**: Migrations run automatically on container startup via `prisma migrate deploy`. If you've created new migrations locally:
 
-# Or if migrations should run automatically on startup
-docker-compose restart backend
+```bash
+# 1. Commit migration files to Git
+git add backend/prisma/migrations/
+git commit -m "Add migration: migration_name"
+
+# 2. Rebuild and restart backend (migrations apply automatically)
+docker-compose up --build backend
+
+# Or manually apply migrations if needed
+docker exec smoke-station-delivery-backend npx prisma migrate deploy
 ```
+
+See the [Database Migrations](#database-migrations) section for detailed workflow.
 
 ### Quick Restart (No Rebuild)
 
