@@ -34,52 +34,52 @@ export class ProductService {
     const canViewHidden = hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT']);
     const where = canViewHidden ? {} : { hidden: false };
 
-    return await prisma.product.findMany({
+    const products = await prisma.productItem.findMany({
       where,
-      include: {
-        reviews: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
-      },
       orderBy: {
         createdAt: 'desc'
       }
     });
+
+    // Fetch reviews with users for each product
+    const productIds = products.map(p => p.id);
+    const reviews = await prisma.review.findMany({
+      where: { productId: { in: productIds } },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const userIds = [...new Set(reviews.map(r => r.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true }
+    });
+
+    // Join reviews with users and attach to products
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const reviewsByProduct = new Map<number, any[]>();
+    
+    for (const review of reviews) {
+      if (!reviewsByProduct.has(review.productId)) {
+        reviewsByProduct.set(review.productId, []);
+      }
+      reviewsByProduct.get(review.productId)!.push({
+        ...review,
+        user: userMap.get(review.userId) || null
+      });
+    }
+
+    return products.map(product => ({
+      ...product,
+      reviews: reviewsByProduct.get(product.id) || []
+    }));
   }
 
   /**
    * Get a single product by ID
    */
   async getProductById(id: number, userRoles?: RoleName[]) {
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        reviews: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
-            }
-          },
-          orderBy: {
-            createdAt: 'desc'
-          }
-        }
-      }
+    const product = await prisma.productItem.findUnique({
+      where: { id }
     });
 
     if (!product) {
@@ -91,14 +91,35 @@ export class ProductService {
       throw new AppError('Product not found', 404);
     }
 
-    return product;
+    // Fetch reviews with users
+    const reviews = await prisma.review.findMany({
+      where: { productId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const userIds = [...new Set(reviews.map(r => r.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true }
+    });
+
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const reviewsWithUsers = reviews.map(review => ({
+      ...review,
+      user: userMap.get(review.userId) || null
+    }));
+
+    return {
+      ...product,
+      reviews: reviewsWithUsers
+    };
   }
 
   /**
    * Create a new product (Management/Admin only)
    */
   async createProduct(data: CreateProductData) {
-    return await prisma.product.create({
+    return await prisma.productItem.create({
       data: {
         ...data,
         images: data.images || []
@@ -110,7 +131,7 @@ export class ProductService {
    * Update a product (Management/Admin only)
    */
   async updateProduct(id: number, data: UpdateProductData) {
-    const product = await prisma.product.findUnique({ where: { id } });
+    const product = await prisma.productItem.findUnique({ where: { id } });
 
     if (!product) {
       throw new AppError('Product not found', 404);
@@ -129,7 +150,7 @@ export class ProductService {
       }
     }
 
-    return await prisma.product.update({
+    return await prisma.productItem.update({
       where: { id },
       data: filteredData
     });
@@ -139,13 +160,13 @@ export class ProductService {
    * Delete a product (Admin only)
    */
   async deleteProduct(id: number) {
-    const product = await prisma.product.findUnique({ where: { id } });
+    const product = await prisma.productItem.findUnique({ where: { id } });
 
     if (!product) {
       throw new AppError('Product not found', 404);
     }
 
-    await prisma.product.delete({ where: { id } });
+    await prisma.productItem.delete({ where: { id } });
     return { message: 'Product deleted successfully' };
   }
 }

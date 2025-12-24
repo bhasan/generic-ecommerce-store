@@ -44,29 +44,49 @@ export class AuthService {
       data: {
         email,
         password: hashedPassword,
-        name,
-        roles: {
-          create: roleConnections
-        }
-      },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
+        name
       }
     });
 
+    // Create user roles
+    await prisma.userRole.createMany({
+      data: roleConnections.map(role => ({
+        userId: user.id,
+        roleId: role.id
+      }))
+    });
+
+    // Fetch user roles for response
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: user.id }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
     // Generate token
+    const roleNames = rolesWithNames
+      .map(ur => ur.role?.name)
+      .filter((name): name is RoleName => isRoleName(name));
+
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      roles: this.toRoleNames(user.roles)
+      roles: roleNames
     });
 
     return {
-      user: this.formatUser(user),
+      user: this.formatUser({
+        ...user,
+        roles: rolesWithNames
+      }),
       token
     };
   }
@@ -79,14 +99,7 @@ export class AuthService {
 
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      }
+      where: { email }
     });
 
     if (!user) {
@@ -100,15 +113,37 @@ export class AuthService {
       throw new AppError('Invalid email or password', 401);
     }
 
+    // Fetch user roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: user.id }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
     // Generate token
+    const roleNames = rolesWithNames
+      .map(ur => ur.role?.name)
+      .filter((name): name is RoleName => isRoleName(name));
+
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      roles: this.toRoleNames(user.roles)
+      roles: roleNames
     });
 
     return {
-      user: this.formatUser(user),
+      user: this.formatUser({
+        ...user,
+        roles: rolesWithNames
+      }),
       token
     };
   }
@@ -118,22 +153,31 @@ export class AuthService {
    */
   async getProfile(userId: number) {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      }
+      where: { id: userId }
     });
 
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
+    // Fetch user roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
     return this.formatUser({
       ...user,
+      roles: rolesWithNames,
       updatedAt: user.updatedAt
     });
   }
@@ -167,11 +211,7 @@ export class AuthService {
       throw new AppError(`Invalid roles: ${missing.join(', ')}`, 400);
     }
 
-    return dbRoles.map((dbRole) => ({
-      role: {
-        connect: { id: dbRole.id }
-      }
-    }));
+    return dbRoles;
   }
 
   private toRoleNames(userRoles: Array<{ role: { name: string } | null }>): RoleName[] {

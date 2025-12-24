@@ -21,12 +21,6 @@ model User {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  // Relations
-  roles     UserRole[]
-  orders    Order[]
-  reviews   Review[]
-  cartItems CartItem[]
-
   @@map("users")
 }
 
@@ -35,8 +29,6 @@ model Role {
   name      String     @unique
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-
-  users     UserRole[]
 
   @@map("roles")
 }
@@ -47,9 +39,6 @@ model UserRole {
   roleId    Int
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
-
   @@unique([userId, roleId])
   @@map("user_roles")
 }
@@ -58,10 +47,8 @@ model UserRole {
 model Order {
   id        Int         @id @default(autoincrement())
   userId    Int
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   status    OrderStatus @default(PENDING)
   total     Float
-  items     OrderItem[]
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -81,9 +68,7 @@ enum OrderStatus {
 model OrderItem {
   id                   Int      @id @default(autoincrement())
   orderId              Int
-  order                Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId            Int
-  product              Product  @relation(fields: [productId], references: [id])
   quantity             Int
   price                Float    // Price at time of order
   voided               Boolean  @default(false)
@@ -93,8 +78,8 @@ model OrderItem {
   @@map("order_items")
 }
 
-// Enhanced Product model
-model Product {
+// Enhanced ProductItem model (renamed from Product)
+model ProductItem {
   id           Int         @id @default(autoincrement())
   name         String
   category     String
@@ -105,9 +90,6 @@ model Product {
   stock        Int         @default(0)
   stockEnabled Boolean     @default(true)
   hidden       Boolean     @default(false)
-  orderItems   OrderItem[]
-  reviews      Review[]
-  cartItems    CartItem[]
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -118,9 +100,7 @@ model Product {
 model Review {
   id                Int      @id @default(autoincrement())
   userId            Int
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId         Int
-  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   rating            Int      // 1-5
   comment           String
   helpful           Int      @default(0)
@@ -138,9 +118,7 @@ model Review {
 model CartItem {
   id        Int      @id @default(autoincrement())
   userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId Int
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   quantity  Int
   createdAt DateTime @default(now())
 

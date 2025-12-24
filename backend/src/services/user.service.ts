@@ -17,19 +17,39 @@ export class UserService {
    */
   async getAllUsers() {
     const users = await prisma.user.findMany({
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      },
       orderBy: {
         createdAt: 'desc'
       }
     });
 
-    return users.map(user => this.formatUser(user));
+    // Fetch user roles
+    const userIds = users.map(u => u.id);
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: { in: userIds } }
+    });
+
+    const roleIds = [...new Set(userRoles.map(ur => ur.roleId))];
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    // Group roles by user
+    const rolesByUser = new Map<number, Array<{ role: { name: string } | null }>>();
+    for (const userRole of userRoles) {
+      if (!rolesByUser.has(userRole.userId)) {
+        rolesByUser.set(userRole.userId, []);
+      }
+      const role = roleMap.get(userRole.roleId);
+      rolesByUser.get(userRole.userId)!.push({
+        role: role ? { name: role.name } : null
+      });
+    }
+
+    return users.map(user => this.formatUser({
+      ...user,
+      roles: rolesByUser.get(user.id) || []
+    }));
   }
 
   /**
@@ -38,14 +58,7 @@ export class UserService {
    */
   async getUserById(userId: number, requestingUserId?: number, requestingUserRoles?: RoleName[]) {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      }
+      where: { id: userId }
     });
 
     if (!user) {
@@ -62,7 +75,25 @@ export class UserService {
       throw new AppError('Access denied. You can only view your own profile.', 403);
     }
 
-    return this.formatUser(user);
+    // Fetch user roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    return this.formatUser({
+      ...user,
+      roles: rolesWithNames
+    });
   }
 
   /**
@@ -149,29 +180,40 @@ export class UserService {
         where: { userId }
       });
 
-      updateData.roles = {
-        create: dbRoles.map((dbRole) => ({
-          role: {
-            connect: { id: dbRole.id }
-          }
+      // Create new user roles
+      await prisma.userRole.createMany({
+        data: dbRoles.map(dbRole => ({
+          userId,
+          roleId: dbRole.id
         }))
-      };
+      });
     }
 
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: updateData,
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      }
+      data: updateData
     });
 
-    return this.formatUser(updatedUser);
+    // Fetch updated roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    return this.formatUser({
+      ...updatedUser,
+      roles: rolesWithNames
+    });
   }
 
   /**
