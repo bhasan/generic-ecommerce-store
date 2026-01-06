@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
 import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save } from 'lucide-react';
@@ -9,6 +9,7 @@ function OrdersPage() {
     orders, 
     products, 
     isLoadingOrders,
+    loadOrders,
     updateOrderStatus, 
     deleteOrder,
     addItemToOrder,
@@ -23,6 +24,23 @@ function OrdersPage() {
   const [newItemProductId, setNewItemProductId] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  
+  // Refresh orders on page load and when page comes into focus
+  useEffect(() => {
+    // Refresh on initial load
+    loadOrders();
+
+    // Refresh when page comes into focus (e.g., after marking as delivered on Delivery page)
+    const handleFocus = () => {
+      loadOrders();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadOrders]);
   
   // Helper to check if user has a role (supports both old and new format)
   const hasRole = (role) => {
@@ -221,6 +239,15 @@ function OrdersPage() {
             {userOrders.length} {userOrders.length === 1 ? 'order' : 'orders'} found
           </p>
         </div>
+        <button
+          onClick={() => loadOrders()}
+          className="btn-refresh-orders"
+          title="Refresh orders"
+          disabled={isLoadingOrders}
+        >
+          <RefreshCw size={18} className={isLoadingOrders ? 'spinning' : ''} />
+          <span>Refresh</span>
+        </button>
       </div>
 
       <div className="orders-list">

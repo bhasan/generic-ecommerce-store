@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './DashboardPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
@@ -12,12 +12,7 @@ function DashboardPage() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [userToReject, setUserToReject] = useState(null);
   
-  // Load pending registrations
-  useEffect(() => {
-    loadPendingRegistrations();
-  }, []);
-
-  const loadPendingRegistrations = async () => {
+  const loadPendingRegistrations = useCallback(async () => {
     try {
       setIsLoadingPending(true);
       const pending = await usersApi.getPendingRegistrations();
@@ -27,7 +22,12 @@ function DashboardPage() {
     } finally {
       setIsLoadingPending(false);
     }
-  };
+  }, []);
+
+  // Load pending registrations
+  useEffect(() => {
+    loadPendingRegistrations();
+  }, [loadPendingRegistrations]);
 
   const handleApproveUser = async (userId, userName) => {
     if (!window.confirm(`Approve registration for "${userName}"?`)) {

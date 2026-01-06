@@ -111,3 +111,16 @@ export const deleteUser = async (id) => {
   }
 };
 
+/**
+ * Get all available roles
+ * @returns {Promise<Array>} Array of role names
+ */
+export const getAllRoles = async () => {
+  try {
+    const response = await get('/users/roles');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+

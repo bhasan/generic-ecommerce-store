@@ -22,6 +22,45 @@ export class OrderController {
   }
 
   /**
+   * Get ready-for-delivery orders
+   * GET /api/orders/ready-for-delivery
+   */
+  async getReadyForDeliveryOrders(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const orders = await orderService.getReadyForDeliveryOrders();
+      res.status(200).json(orders);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get out-for-delivery orders
+   * GET /api/orders/out-for-delivery
+   */
+  async getOutForDeliveryOrders(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const orders = await orderService.getOutForDeliveryOrders();
+      res.status(200).json(orders);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get delivered orders
+   * GET /api/orders/delivered
+   */
+  async getDeliveredOrders(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const orders = await orderService.getDeliveredOrders();
+      res.status(200).json(orders);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Get order by ID
    * GET /api/orders/:id
    */
@@ -94,7 +133,27 @@ export class OrderController {
         return;
       }
 
-      const order = await orderService.updateOrderStatus(id, req.body);
+      // Check authorization: Management/Admin can update to any status, Delivery Driver can only mark as DELIVERED
+      if (!req.user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const userRoles = req.user.roles || [];
+      const isManagementOrAdmin = userRoles.includes('MANAGEMENT') || userRoles.includes('ADMIN');
+      const isDeliveryDriver = userRoles.includes('DELIVERY_DRIVER') && !isManagementOrAdmin;
+
+      if (isDeliveryDriver && req.body.status !== 'DELIVERED') {
+        res.status(403).json({ error: 'Delivery drivers can only mark orders as DELIVERED' });
+        return;
+      }
+
+      if (!isManagementOrAdmin && !isDeliveryDriver) {
+        res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
+        return;
+      }
+
+      const order = await orderService.updateOrderStatus(id, req.body, userRoles);
       res.status(200).json({
         message: 'Order status updated successfully',
         order

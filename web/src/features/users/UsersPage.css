@@ -120,6 +120,16 @@
   color: #ffffff;
 }
 
+.role-badge-delivery-driver {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.role-badge-guest {
+  background: #6b7280;
+  color: #ffffff;
+}
+
 .user-actions-cell {
   display: flex;
   align-items: center;

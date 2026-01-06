@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as authApi from '../services/authApi';
 import * as usersApi from '../services/usersApi';
@@ -75,55 +75,57 @@ export function AppProvider({ children }) {
     checkAuth();
   }, []);
 
+  // Load products function (can be called manually)
+  const loadProducts = useCallback(async () => {
+    try {
+      setIsLoadingProducts(true);
+      const productsData = await productsApi.getAllProducts();
+      setProducts(productsData);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      // Don't show error notification on initial load, just log it
+      // Products will remain empty array
+    } finally {
+      setIsLoadingProducts(false);
+    }
+  }, []);
+
   // Load products on mount (after auth check)
   useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        setIsLoadingProducts(true);
-        const productsData = await productsApi.getAllProducts();
-        setProducts(productsData);
-      } catch (error) {
-        console.error('Failed to load products:', error);
-        // Don't show error notification on initial load, just log it
-        // Products will remain empty array
-      } finally {
-        setIsLoadingProducts(false);
-      }
-    };
-
     loadProducts();
   }, []);
 
+  // Load orders function (can be called manually)
+  const loadOrders = useCallback(async () => {
+    if (!isAuthenticated) {
+      setOrders([]);
+      return;
+    }
+
+    try {
+      setIsLoadingOrders(true);
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+      // Don't show error notification on initial load, just log it
+      // Orders will remain empty array
+    } finally {
+      setIsLoadingOrders(false);
+    }
+  }, [isAuthenticated]);
+
   // Load orders on mount (after auth check, only if authenticated)
   useEffect(() => {
-    const loadOrders = async () => {
-      if (!isAuthenticated) {
-        setOrders([]);
-        return;
-      }
-
-      try {
-        setIsLoadingOrders(true);
-        const ordersData = await ordersApi.getAllOrders();
-        setOrders(ordersData);
-      } catch (error) {
-        console.error('Failed to load orders:', error);
-        // Don't show error notification on initial load, just log it
-        // Orders will remain empty array
-      } finally {
-        setIsLoadingOrders(false);
-      }
-    };
-
     if (!isLoading) {
       loadOrders();
     }
   }, [isAuthenticated, isLoading]);
 
   // Notification system
-  const showNotification = (message, type = 'success', action = null) => {
+  const showNotification = useCallback((message, type = 'success', action = null) => {
     setNotification({ message, type, action });
-  };
+  }, []);
 
   const closeNotification = () => {
     setNotification(null);
@@ -568,8 +570,10 @@ export function AppProvider({ children }) {
     register,
     logout, 
     products, 
+    loadProducts,
     orders,
     setOrders,
+    loadOrders,
     cart,
     setCart,
     addToCart, 

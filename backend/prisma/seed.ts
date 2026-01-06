@@ -19,7 +19,7 @@ async function seed() {
   // Create test users
   console.log('👥 Creating users...');
   
-  const roleNames = ['GUEST', 'CUSTOMER', 'MANAGEMENT', 'ADMIN'] as const;
+  const roleNames = ['GUEST', 'CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
   type RoleName = (typeof roleNames)[number];
 
   const roles = await Promise.all(
@@ -42,6 +42,7 @@ async function seed() {
       email: 'admin@test.com',
       password: adminPassword,
       name: 'Admin User',
+      approved: true,
     },
   });
   await prisma.userRole.createMany({
@@ -54,6 +55,7 @@ async function seed() {
       email: 'manager@test.com',
       password: managerPassword,
       name: 'Jane Manager',
+      approved: true,
     },
   });
   await prisma.userRole.createMany({
@@ -66,6 +68,10 @@ async function seed() {
       email: 'customer@test.com',
       password: customerPassword,
       name: 'John Customer',
+      address: '123 Main Street, Austin, TX 78701',
+      cashapp: '$JohnCustomer',
+      phoneNumber: '(512) 555-0101',
+      approved: true,
     },
   });
   await prisma.userRole.createMany({
@@ -79,6 +85,10 @@ async function seed() {
       email: 'sarah@test.com',
       password: sarahPassword,
       name: 'Sarah Johnson',
+      address: '456 Oak Avenue, Austin, TX 78702',
+      cashapp: '$SarahJ',
+      phoneNumber: '(512) 555-0102',
+      approved: true,
     },
   });
   await prisma.userRole.createMany({
@@ -91,6 +101,9 @@ async function seed() {
       email: 'mike@test.com',
       password: mikePassword,
       name: 'Mike Thompson',
+      address: '789 Pine Road, Austin, TX 78703',
+      cashapp: '$MikeT',
+      approved: true,
     },
   });
   await prisma.userRole.createMany({
@@ -103,6 +116,10 @@ async function seed() {
       email: 'emily@test.com',
       password: emilyPassword,
       name: 'Emily Chen',
+      address: '321 Elm Street, Austin, TX 78704',
+      cashapp: '$EmilyC',
+      phoneNumber: '(512) 555-0104',
+      approved: true,
     },
   });
   await prisma.userRole.createMany({
@@ -115,16 +132,34 @@ async function seed() {
       email: 'david@test.com',
       password: davidPassword,
       name: 'David Williams',
+      address: '654 Maple Drive, Austin, TX 78705',
+      cashapp: '$DavidW',
+      approved: true,
     },
   });
   await prisma.userRole.createMany({
     data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: david.id, roleId }))
   });
 
+  // Create delivery driver user
+  const driverPassword = await hashPassword('driver123');
+  const driver = await prisma.user.create({
+    data: {
+      email: 'driver@test.com',
+      password: driverPassword,
+      name: 'Delivery Driver',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['DELIVERY_DRIVER']).map(roleId => ({ userId: driver.id, roleId }))
+  });
+
   console.log('✅ Users created');
   console.log('   Admin:', admin.email, '/ admin123');
   console.log('   Manager:', manager.email, '/ manager123');
   console.log('   Customer:', customer.email, '/ customer123');
+  console.log('   Driver:', driver.email, '/ driver123');
   console.log('   Sarah:', sarah.email, '/ customer123');
   console.log('   Mike:', mike.email, '/ customer123');
   console.log('   Emily:', emily.email, '/ customer123');
@@ -301,45 +336,115 @@ async function seed() {
   console.log('🛒 Creating orders...');
 
   // Order 1: PENDING - Wireless Headphones
-  await prisma.order.create({
+  // Order 1: PENDING - Wireless Headphones
+  const order1 = await prisma.order.create({
     data: {
       userId: customer.id, // John Customer (userId 2 in mockData)
       status: OrderStatus.PENDING,
       total: 99.99,
-      items: {
-        create: [
-          {
-            productId: products[0].id, // Wireless Headphones
-            quantity: 1,
-            price: products[0].price
-          }
-        ]
-      },
       createdAt: new Date('2024-11-10')
+    }
+  });
+  await prisma.orderItem.create({
+    data: {
+      orderId: order1.id,
+      productId: products[0].id, // Wireless Headphones
+      quantity: 1,
+      price: products[0].price
     }
   });
 
   // Order 2: APPROVED - Smart Watch + USB-C Cable
-  await prisma.order.create({
+  const order2 = await prisma.order.create({
     data: {
       userId: customer.id, // John Customer (userId 2 in mockData)
       status: OrderStatus.APPROVED,
       total: 249.98,
-      items: {
-        create: [
-          {
-            productId: products[1].id, // Smart Watch
-            quantity: 1,
-            price: products[1].price
-          },
-          {
-            productId: products[3].id, // USB-C Cable
-            quantity: 1,
-            price: products[3].price
-          }
-        ]
-      },
       createdAt: new Date('2024-11-09')
+    }
+  });
+  await prisma.orderItem.createMany({
+    data: [
+      {
+        orderId: order2.id,
+        productId: products[1].id, // Smart Watch
+        quantity: 1,
+        price: products[1].price
+      },
+      {
+        orderId: order2.id,
+        productId: products[3].id, // USB-C Cable
+        quantity: 1,
+        price: products[3].price
+      }
+    ]
+  });
+
+  // Order 3: READY_FOR_DELIVERY - For delivery driver testing
+  const order3 = await prisma.order.create({
+    data: {
+      userId: sarah.id, // Sarah Johnson
+      status: OrderStatus.READY_FOR_DELIVERY,
+      total: 99.99,
+      createdAt: new Date('2024-11-11T10:00:00')
+    }
+  });
+  await prisma.orderItem.create({
+    data: {
+      orderId: order3.id,
+      productId: products[0].id, // Wireless Headphones
+      quantity: 1,
+      price: products[0].price
+    }
+  });
+
+  // Order 4: READY_FOR_DELIVERY - Multiple items
+  const order4 = await prisma.order.create({
+    data: {
+      userId: emily.id, // Emily Chen
+      status: OrderStatus.READY_FOR_DELIVERY,
+      total: 264.97,
+      createdAt: new Date('2024-11-11T09:30:00')
+    }
+  });
+  await prisma.orderItem.createMany({
+    data: [
+      {
+        orderId: order4.id,
+        productId: products[1].id, // Smart Watch
+        quantity: 1,
+        price: products[1].price
+      },
+      {
+        orderId: order4.id,
+        productId: products[2].id, // Laptop Bag
+        quantity: 1,
+        price: products[2].price
+      },
+      {
+        orderId: order4.id,
+        productId: products[3].id, // USB-C Cable
+        quantity: 1,
+        price: products[3].price
+      }
+    ]
+  });
+
+  // Order 5: READY_FOR_DELIVERY - Another order
+  const order5 = await prisma.order.create({
+    data: {
+      userId: mike.id, // Mike Thompson
+      status: OrderStatus.READY_FOR_DELIVERY,
+      total: 49.99,
+      createdAt: new Date('2024-11-11T08:15:00')
+    }
+  });
+  await prisma.orderItem.create({
+    data: {
+      orderId: order5.id,
+      productId: products[2].id, // Laptop Bag
+      quantity: 1,
+      price: products[2].price
     }
   });
 
@@ -349,15 +454,16 @@ async function seed() {
   console.log('🎉 Database seeded successfully!');
   console.log('');
   console.log('📋 Summary:');
-  console.log(`   Users: ${7}`);
+  console.log(`   Users: ${8}`); // admin, manager, customer, driver, sarah, mike, emily, david
   console.log(`   Products: ${products.length}`);
   console.log(`   Reviews: ${6}`);
-  console.log(`   Orders: ${2}`);
+  console.log(`   Orders: ${5} (2 regular, 3 ready for delivery)`);
   console.log('');
   console.log('🔐 Test Accounts:');
   console.log('   Admin:    admin@test.com / admin123');
   console.log('   Manager:  manager@test.com / manager123');
   console.log('   Customer: customer@test.com / customer123');
+  console.log('   Driver:   driver@test.com / driver123');
   console.log('   Sarah:    sarah@test.com / customer123');
   console.log('   Mike:     mike@test.com / customer123');
   console.log('   Emily:    emily@test.com / customer123');

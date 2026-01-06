@@ -15,6 +15,13 @@ const router = Router();
 router.get('/', authenticate, authorizeManagement, userController.getAllUsers);
 
 /**
+ * @route   GET /api/users/roles
+ * @desc    Get all available roles
+ * @access  Private (Management/Admin only)
+ */
+router.get('/roles', authenticate, authorizeManagement, userController.getAllRoles);
+
+/**
  * @route   GET /api/users/pending
  * @desc    Get pending registrations
  * @access  Private (Management/Admin only)
