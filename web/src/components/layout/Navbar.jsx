@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, UserX } from 'lucide-react';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();
@@ -103,7 +103,7 @@ function Navbar() {
             {isAdmin && (
               <div className="admin-dropdown" ref={adminRef}>
                 <button
-                  className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users') ? 'nav-link-active' : ''}`}
+                  className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users') ? 'nav-link-active' : ''}`}
                   onClick={() => setShowAdminMenu(!showAdminMenu)}
                   aria-label="Admin menu"
                 >
@@ -133,6 +133,16 @@ function Navbar() {
                     >
                       <Users size={16} />
                       <span>Users</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAdminMenu(false);
+                        navigate('/rejected-users');
+                      }}
+                      className={`admin-menu-item ${location.pathname === '/rejected-users' ? 'admin-menu-item-active' : ''}`}
+                    >
+                      <UserX size={16} />
+                      <span>Rejected Users</span>
                     </button>
                   </div>
                 )}

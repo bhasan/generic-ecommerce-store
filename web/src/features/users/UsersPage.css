@@ -151,6 +151,93 @@
   font-size: 0.75rem;
 }
 
+.role-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #111827;
+  border-radius: 0.5rem;
+  border: 1px solid #374151;
+}
+
+.role-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.role-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.role-checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+}
+
+.role-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-edit-roles {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-edit-roles:hover {
+  background: #1d4ed8;
+}
+
+.btn-save-roles {
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-save-roles:hover {
+  background: #047857;
+}
+
+.btn-cancel-roles {
+  background: #6b7280;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-cancel-roles:hover {
+  background: #4b5563;
+}
+
 @media (max-width: 768px) {
   .users-page-container {
     padding: 1rem;

@@ -162,23 +162,17 @@ export function AppProvider({ children }) {
 
   const register = async (data) => {
     try {
-      const { user } = await authApi.register(data);
+      const response = await authApi.register(data);
       
-      // Ensure roles array exists
-      if (!user.roles && user.role) {
-        user.roles = [user.role];
-      }
-      
-      setCurrentUser(user);
-      setIsAuthenticated(true);
-      
-      showNotification('Registration successful!', 'success');
-      navigate('/products');
-      return true;
+      // Registration successful but user needs approval
+      // Don't set authentication state, just return success
+      const message = response.message || 'Registration successful! Please visit the store to get approved.';
+      showNotification(message, 'success');
+      return { success: true, message };
     } catch (error) {
       const errorMessage = error.message || 'Registration failed. Please try again.';
       showNotification(errorMessage, 'error');
-      return false;
+      throw error;
     }
   };
 

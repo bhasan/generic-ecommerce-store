@@ -60,11 +60,13 @@
   margin-top: 0.25rem;
 }
 
+.pending-registrations-section,
 .flagged-reviews-section {
   background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
   border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 2rem;
+  margin-bottom: 2rem;
 }
 
 .section-title {
@@ -72,6 +74,121 @@
   font-weight: 700;
   color: var(--text-primary);
   margin: 0 0 1.5rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pending-registrations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.pending-registration-card {
+  background: var(--bg-tertiary);
+  border: 2px solid rgba(250, 204, 21, 0.3);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.pending-registration-card:hover {
+  border-color: rgba(250, 204, 21, 0.5);
+  box-shadow: 0 4px 12px rgba(250, 204, 21, 0.1);
+}
+
+.pending-registration-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.pending-user-name {
+  color: var(--text-primary);
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem 0;
+}
+
+.pending-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pending-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  flex-wrap: wrap;
+}
+
+.info-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 0.25rem;
+}
+
+.info-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.info-value-empty {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(250, 204, 21, 0.1);
+  color: #facc15;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.pending-registration-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.pending-date {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+.pending-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.payment-method-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 0.5rem;
+}
+
+.payment-method-value {
+  color: var(--color-primary-light);
+  font-weight: 600;
+}
+
+.payment-method-value-empty {
+  color: var(--text-tertiary);
+  font-style: italic;
+  font-weight: 500;
 }
 
 .flagged-reviews-list {
@@ -164,6 +281,16 @@
 .btn-approve:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-reject {
+  background: linear-gradient(135deg, var(--color-danger) 0%, var(--color-danger-dark) 100%);
+  color: white;
+}
+
+.btn-reject:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
 }
 
 .btn-delete-flagged {

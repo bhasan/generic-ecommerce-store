@@ -14,12 +14,18 @@ datasource db {
 
 // User model with role-based access control
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  password  String    // Hashed with bcrypt
-  name      String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  email         String    @unique
+  password      String    // Hashed with bcrypt
+  name          String
+  address       String?   // Optional delivery address
+  cashapp       String?   // Optional CashApp handle (payment method)
+  phoneNumber   String?   // Optional 5-star rewards phone number
+  approved      Boolean   @default(false) // Admin approval status
+  rejected      Boolean   @default(false) // Rejection status
+  rejectionNote String?   // Optional note explaining rejection
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@map("users")
 }

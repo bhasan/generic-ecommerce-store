@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './LoginPage.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { LogIn, User, Lock } from 'lucide-react';
 
@@ -164,6 +164,10 @@ function LoginPage() {
               </div>
             </button>
           </div>
+        </div>
+
+        <div className="login-footer">
+          <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
         </div>
       </div>
     </div>

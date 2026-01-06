@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import './UsersPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
-import { User, Mail, Shield, Calendar, Trash2, Edit } from 'lucide-react';
+import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
 
 function UsersPage() {
   const { currentUser, showNotification } = useApp();
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingRoles, setEditingRoles] = useState([]);
 
   useEffect(() => {
     loadUsers();
@@ -43,6 +45,39 @@ function UsersPage() {
       showNotification(errorMessage, 'error');
     }
   };
+
+  const handleEditRoles = (user) => {
+    setEditingUserId(user.id);
+    setEditingRoles([...user.roles] || []);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingUserId(null);
+    setEditingRoles([]);
+  };
+
+  const handleSaveRoles = async (userId) => {
+    try {
+      await usersApi.updateUser(userId, { roles: editingRoles });
+      showNotification('User roles updated successfully', 'success');
+      setEditingUserId(null);
+      setEditingRoles([]);
+      loadUsers(); // Reload users list
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to update user roles';
+      showNotification(errorMessage, 'error');
+    }
+  };
+
+  const toggleRole = (role) => {
+    if (editingRoles.includes(role)) {
+      setEditingRoles(editingRoles.filter(r => r !== role));
+    } else {
+      setEditingRoles([...editingRoles, role]);
+    }
+  };
+
+  const availableRoles = ['CUSTOMER', 'MANAGEMENT', 'ADMIN'];
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -134,17 +169,50 @@ function UsersPage() {
                       </div>
                     </td>
                     <td>
-                      <div className="user-roles-cell">
-                        {user.roles && user.roles.length > 0 ? (
-                          user.roles.map((role, idx) => (
-                            <span key={idx} className={getRoleBadgeClass([role])}>
-                              {role}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="role-badge role-badge-customer">CUSTOMER</span>
-                        )}
-                      </div>
+                      {editingUserId === user.id ? (
+                        <div className="role-editor">
+                          <div className="role-checkboxes">
+                            {availableRoles.map(role => (
+                              <label key={role} className="role-checkbox-label">
+                                <input
+                                  type="checkbox"
+                                  checked={editingRoles.includes(role)}
+                                  onChange={() => toggleRole(role)}
+                                />
+                                <span className={getRoleBadgeClass([role])}>{role}</span>
+                              </label>
+                            ))}
+                          </div>
+                          <div className="role-editor-actions">
+                            <button
+                              onClick={() => handleSaveRoles(user.id)}
+                              className="btn-save-roles"
+                              title="Save roles"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="btn-cancel-roles"
+                              title="Cancel"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="user-roles-cell">
+                          {user.roles && user.roles.length > 0 ? (
+                            user.roles.map((role, idx) => (
+                              <span key={idx} className={getRoleBadgeClass([role])}>
+                                {role}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="role-badge role-badge-customer">CUSTOMER</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <div className="user-date-cell">
@@ -154,17 +222,28 @@ function UsersPage() {
                     </td>
                     <td>
                       <div className="user-actions-cell">
-                        {user.id !== currentUser.id && (
-                          <button
-                            onClick={() => handleDeleteUser(user.id, user.name)}
-                            className="btn-delete-user"
-                            title="Delete user"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                        {user.id === currentUser.id && (
-                          <span className="current-user-badge">You</span>
+                        {editingUserId !== user.id && (
+                          <>
+                            <button
+                              onClick={() => handleEditRoles(user)}
+                              className="btn-edit-roles"
+                              title="Edit roles"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            {user.id !== currentUser.id && (
+                              <button
+                                onClick={() => handleDeleteUser(user.id, user.name)}
+                                className="btn-delete-user"
+                                title="Delete user"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            )}
+                            {user.id === currentUser.id && (
+                              <span className="current-user-badge">You</span>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

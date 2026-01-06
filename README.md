@@ -22,7 +22,7 @@ npm run build
 cd ..
 
 # 2. Start all services (database, backend, nginx)
-docker-compose up --build
+docker-compose up --build -d
 ```
 
 Access the application at: **http://localhost:80**
@@ -30,6 +30,21 @@ Access the application at: **http://localhost:80**
 Command to update only backend Docker container:
 
 `docker compose up --build --force-recreate -d backend`
+
+```bash
+# 1. Build web using npm install && npm run build
+# 2. Migrate if any schema changes
+
+cd backend
+npx prisma migrate dev --name add_user_rejected_field
+# Apply the migration to docker
+docker exec smoke-station-delivery-backend npx prisma migrate deploy
+cd ..
+
+# Build specific directories otherwise use docker-compose up --build
+# Below is same as running docker-compose build web && docker-compose up -d web
+docker-compose up --build -d web
+```
 
 ### What Gets Started
 
