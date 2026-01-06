@@ -15,6 +15,20 @@ const router = Router();
 router.get('/', authenticate, authorizeManagement, userController.getAllUsers);
 
 /**
+ * @route   GET /api/users/pending
+ * @desc    Get pending registrations
+ * @access  Private (Management/Admin only)
+ */
+router.get('/pending', authenticate, authorizeManagement, userController.getPendingRegistrations);
+
+/**
+ * @route   GET /api/users/rejected
+ * @desc    Get rejected users
+ * @access  Private (Admin only)
+ */
+router.get('/rejected', authenticate, authorizeAdmin, userController.getRejectedUsers);
+
+/**
  * @route   GET /api/users/:id
  * @desc    Get user by ID
  * @access  Private (Own profile or Management/Admin)
@@ -38,6 +52,20 @@ router.put(
   ],
   userController.updateUser
 );
+
+/**
+ * @route   POST /api/users/:id/approve
+ * @desc    Approve user registration
+ * @access  Private (Management/Admin only)
+ */
+router.post('/:id/approve', authenticate, authorizeManagement, userController.approveUser);
+
+/**
+ * @route   POST /api/users/:id/reject
+ * @desc    Reject user registration (marks as rejected)
+ * @access  Private (Management/Admin only)
+ */
+router.post('/:id/reject', authenticate, authorizeManagement, userController.rejectUser);
 
 /**
  * @route   DELETE /api/users/:id

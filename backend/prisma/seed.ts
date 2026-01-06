@@ -11,7 +11,7 @@ async function seed() {
   await prisma.review.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
-  await prisma.product.deleteMany();
+  await prisma.productItem.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
@@ -33,12 +33,8 @@ async function seed() {
   const getRoleByName = (name: RoleName) =>
     roles.find((role) => role.name === name) ?? (() => { throw new Error(`Missing role ${name}`); })();
 
-  const connectRoles = (names: RoleName[]) =>
-    names.map((name) => ({
-      role: {
-        connect: { id: getRoleByName(name).id },
-      },
-    }));
+  const getRoleIds = (names: RoleName[]) =>
+    names.map((name) => getRoleByName(name).id);
 
   const adminPassword = await hashPassword('admin123');
   const admin = await prisma.user.create({
@@ -46,11 +42,10 @@ async function seed() {
       email: 'admin@test.com',
       password: adminPassword,
       name: 'Admin User',
-      roles: {
-        create: connectRoles(['ADMIN']),
-      },
     },
-    include: { roles: { include: { role: true } } },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['ADMIN']).map(roleId => ({ userId: admin.id, roleId }))
   });
 
   const managerPassword = await hashPassword('manager123');
@@ -59,10 +54,10 @@ async function seed() {
       email: 'manager@test.com',
       password: managerPassword,
       name: 'Jane Manager',
-      roles: {
-        create: connectRoles(['MANAGEMENT']),
-      },
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['MANAGEMENT']).map(roleId => ({ userId: manager.id, roleId }))
   });
 
   const customerPassword = await hashPassword('customer123');
@@ -71,10 +66,10 @@ async function seed() {
       email: 'customer@test.com',
       password: customerPassword,
       name: 'John Customer',
-      roles: {
-        create: connectRoles(['CUSTOMER']),
-      },
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: customer.id, roleId }))
   });
 
   // Create additional users for reviews (matching mockData.js)
@@ -84,10 +79,10 @@ async function seed() {
       email: 'sarah@test.com',
       password: sarahPassword,
       name: 'Sarah Johnson',
-      roles: {
-        create: connectRoles(['CUSTOMER']),
-      },
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: sarah.id, roleId }))
   });
 
   const mikePassword = await hashPassword('customer123');
@@ -96,10 +91,10 @@ async function seed() {
       email: 'mike@test.com',
       password: mikePassword,
       name: 'Mike Thompson',
-      roles: {
-        create: connectRoles(['CUSTOMER']),
-      },
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: mike.id, roleId }))
   });
 
   const emilyPassword = await hashPassword('customer123');
@@ -108,10 +103,10 @@ async function seed() {
       email: 'emily@test.com',
       password: emilyPassword,
       name: 'Emily Chen',
-      roles: {
-        create: connectRoles(['CUSTOMER']),
-      },
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: emily.id, roleId }))
   });
 
   const davidPassword = await hashPassword('customer123');
@@ -120,10 +115,10 @@ async function seed() {
       email: 'david@test.com',
       password: davidPassword,
       name: 'David Williams',
-      roles: {
-        create: connectRoles(['CUSTOMER']),
-      },
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: david.id, roleId }))
   });
 
   console.log('✅ Users created');
@@ -140,7 +135,7 @@ async function seed() {
 
   const products = await Promise.all([
     // Product 1: Wireless Headphones
-    prisma.product.create({
+    prisma.productItem.create({
       data: {
         name: 'Wireless Headphones',
         category: 'Electronics',
@@ -157,7 +152,7 @@ async function seed() {
       }
     }),
     // Product 2: Smart Watch
-    prisma.product.create({
+    prisma.productItem.create({
       data: {
         name: 'Smart Watch',
         category: 'Electronics',
@@ -175,7 +170,7 @@ async function seed() {
       }
     }),
     // Product 3: Laptop Bag
-    prisma.product.create({
+    prisma.productItem.create({
       data: {
         name: 'Laptop Bag',
         category: 'Accessories',
@@ -191,7 +186,7 @@ async function seed() {
       }
     }),
     // Product 4: USB-C Cable
-    prisma.product.create({
+    prisma.productItem.create({
       data: {
         name: 'USB-C Cable',
         category: 'Accessories',

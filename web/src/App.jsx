@@ -6,6 +6,7 @@ import Navbar from './components/layout/Navbar';
 import Notification from './components/common/Notification';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './features/auth/LoginPage';
+import RegisterPage from './features/auth/RegisterPage';
 import ProductsPage from './features/products/ProductsPage';
 import ProductItemPage from './features/products/ProductItemPage';
 import CartPage from './features/cart/CartPage';
@@ -16,6 +17,7 @@ import ManageProductsPage from './features/products/ManageProductsPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import UsersPage from './features/users/UsersPage';
+import RejectedUsersPage from './features/users/RejectedUsersPage';
 
 function App() {
   return (
@@ -27,6 +29,7 @@ function App() {
         <main className="container mx-auto px-4 py-8">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             
             {/* All routes below require login (no guest access) */}
             <Route path="/products" element={
@@ -90,8 +93,15 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Default Route */}
-            <Route path="*" element={<Navigate to="/products" replace />} />
+            {/* Rejected Users - Admin only */}
+            <Route path="/rejected-users" element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <RejectedUsersPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Default Route - Redirect to login for unauthenticated users */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </main>
       </div>

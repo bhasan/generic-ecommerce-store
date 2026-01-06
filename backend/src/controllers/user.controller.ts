@@ -79,6 +79,76 @@ export class UserController {
   }
 
   /**
+   * Get pending registrations
+   * GET /api/users/pending
+   */
+  async getPendingRegistrations(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const pendingUsers = await userService.getPendingRegistrations();
+      res.status(200).json(pendingUsers);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Approve user
+   * POST /api/users/:id/approve
+   */
+  async approveUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      
+      if (isNaN(userId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const approvedUser = await userService.approveUser(userId);
+      res.status(200).json({
+        message: 'User approved successfully',
+        user: approvedUser
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get rejected users
+   * GET /api/users/rejected
+   */
+  async getRejectedUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rejectedUsers = await userService.getRejectedUsers();
+      res.status(200).json(rejectedUsers);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reject user registration
+   * POST /api/users/:id/reject
+   */
+  async rejectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      
+      if (isNaN(userId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const { rejectionNote } = req.body;
+      const result = await userService.rejectUser(userId, rejectionNote);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Delete user
    * DELETE /api/users/:id
    */

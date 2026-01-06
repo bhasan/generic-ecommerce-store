@@ -17,19 +17,39 @@ export class UserService {
    */
   async getAllUsers() {
     const users = await prisma.user.findMany({
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      },
       orderBy: {
         createdAt: 'desc'
       }
     });
 
-    return users.map(user => this.formatUser(user));
+    // Fetch user roles
+    const userIds = users.map(u => u.id);
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: { in: userIds } }
+    });
+
+    const roleIds = [...new Set(userRoles.map(ur => ur.roleId))];
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    // Group roles by user
+    const rolesByUser = new Map<number, Array<{ role: { name: string } | null }>>();
+    for (const userRole of userRoles) {
+      if (!rolesByUser.has(userRole.userId)) {
+        rolesByUser.set(userRole.userId, []);
+      }
+      const role = roleMap.get(userRole.roleId);
+      rolesByUser.get(userRole.userId)!.push({
+        role: role ? { name: role.name } : null
+      });
+    }
+
+    return users.map(user => this.formatUser({
+      ...user,
+      roles: rolesByUser.get(user.id) || []
+    }));
   }
 
   /**
@@ -38,14 +58,7 @@ export class UserService {
    */
   async getUserById(userId: number, requestingUserId?: number, requestingUserRoles?: RoleName[]) {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      }
+      where: { id: userId }
     });
 
     if (!user) {
@@ -62,7 +75,25 @@ export class UserService {
       throw new AppError('Access denied. You can only view your own profile.', 403);
     }
 
-    return this.formatUser(user);
+    // Fetch user roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    return this.formatUser({
+      ...user,
+      roles: rolesWithNames
+    });
   }
 
   /**
@@ -149,29 +180,222 @@ export class UserService {
         where: { userId }
       });
 
-      updateData.roles = {
-        create: dbRoles.map((dbRole) => ({
-          role: {
-            connect: { id: dbRole.id }
-          }
+      // Create new user roles
+      await prisma.userRole.createMany({
+        data: dbRoles.map(dbRole => ({
+          userId,
+          roleId: dbRole.id
         }))
-      };
+      });
     }
 
     // Update user
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: updateData,
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
+      data: updateData
+    });
+
+    // Fetch updated roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    return this.formatUser({
+      ...updatedUser,
+      roles: rolesWithNames
+    });
+  }
+
+  /**
+   * Approve user (Admin only)
+   */
+  async approveUser(userId: number) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    if (user.approved) {
+      throw new AppError('User is already approved', 400);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { approved: true }
+    });
+
+    // Fetch user roles for response
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    return this.formatUser({
+      ...updatedUser,
+      roles: rolesWithNames
+    });
+  }
+
+  /**
+   * Reject user registration (Management/Admin only)
+   * Marks user as rejected instead of deleting
+   */
+  async rejectUser(userId: number, rejectionNote?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    if (user.approved) {
+      throw new AppError('Cannot reject an approved user', 400);
+    }
+
+    if (user.rejected) {
+      throw new AppError('User is already rejected', 400);
+    }
+
+    // Mark user as rejected instead of deleting
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        rejected: true,
+        rejectionNote: rejectionNote || null
       }
     });
 
-    return this.formatUser(updatedUser);
+    // Fetch user roles for response
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    return {
+      message: 'User registration rejected',
+      user: this.formatUser({
+        ...updatedUser,
+        roles: rolesWithNames
+      })
+    };
+  }
+
+  /**
+   * Get pending registrations (Admin/Management only)
+   * Excludes rejected users
+   */
+  async getPendingRegistrations() {
+    const users = await prisma.user.findMany({
+      where: { 
+        approved: false,
+        rejected: false
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Fetch user roles
+    const userIds = users.map(u => u.id);
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: { in: userIds } }
+    });
+
+    const roleIds = [...new Set(userRoles.map(ur => ur.roleId))];
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    // Group roles by user
+    const rolesByUser = new Map<number, Array<{ role: { name: string } | null }>>();
+    for (const userRole of userRoles) {
+      if (!rolesByUser.has(userRole.userId)) {
+        rolesByUser.set(userRole.userId, []);
+      }
+      const role = roleMap.get(userRole.roleId);
+      rolesByUser.get(userRole.userId)!.push({
+        role: role ? { name: role.name } : null
+      });
+    }
+
+    return users.map(user => this.formatUser({
+      ...user,
+      roles: rolesByUser.get(user.id) || []
+    }));
+  }
+
+  /**
+   * Get rejected users (Admin only)
+   */
+  async getRejectedUsers() {
+    const users = await prisma.user.findMany({
+      where: { rejected: true },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Fetch user roles
+    const userIds = users.map(u => u.id);
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: { in: userIds } }
+    });
+
+    const roleIds = [...new Set(userRoles.map(ur => ur.roleId))];
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    // Group roles by user
+    const rolesByUser = new Map<number, Array<{ role: { name: string } | null }>>();
+    for (const userRole of userRoles) {
+      if (!rolesByUser.has(userRole.userId)) {
+        rolesByUser.set(userRole.userId, []);
+      }
+      const role = roleMap.get(userRole.roleId);
+      rolesByUser.get(userRole.userId)!.push({
+        role: role ? { name: role.name } : null
+      });
+    }
+
+    return users.map(user => this.formatUser({
+      ...user,
+      roles: rolesByUser.get(user.id) || []
+    }));
   }
 
   /**
@@ -198,12 +422,18 @@ export class UserService {
   /**
    * Format user response (exclude password, format roles)
    */
-  private formatUser<T extends { id: number; email: string; name: string; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
-    const { id, email, name, createdAt, updatedAt } = user;
+  private formatUser<T extends { id: number; email: string; name: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
+    const { id, email, name, address, cashapp, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
     return {
       id,
       email,
       name,
+      ...(address ? { address } : {}),
+      ...(cashapp ? { cashapp } : {}),
+      ...(phoneNumber ? { phoneNumber } : {}),
+      ...(approved !== undefined ? { approved } : {}),
+      ...(rejected !== undefined ? { rejected } : {}),
+      ...(rejectionNote ? { rejectionNote } : {}),
       roles: this.toRoleNames(user.roles),
       createdAt,
       ...(updatedAt ? { updatedAt } : {})

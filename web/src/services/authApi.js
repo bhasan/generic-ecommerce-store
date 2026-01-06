@@ -31,26 +31,26 @@ export const login = async (email, password) => {
 
 /**
  * Register new user
- * @param {object} data - Registration data {email, password, name, role/roles}
- * @returns {Promise<{user: object, token: string}>}
+ * @param {object} data - Registration data {email, password, name, cashapp?, phoneNumber?}
+ * @returns {Promise<{user: object, message: string}>}
  */
 export const register = async (data) => {
   try {
     const response = await post('/auth/register', data);
     
-    // Store token
+    // New registrations don't get a token (require approval)
+    // Only store token if provided (shouldn't happen for new registrations)
     if (response.token) {
       setAuthToken(response.token);
     }
     
-    // Store user data in localStorage for persistence
-    if (response.user) {
-      localStorage.setItem('userData', JSON.stringify(response.user));
-    }
+    // Don't store user data for unapproved registrations
+    // They need to wait for approval before logging in
     
     return {
       user: response.user,
-      token: response.token,
+      message: response.message,
+      token: response.token // Will be undefined for new registrations
     };
   } catch (error) {
     throw error;
