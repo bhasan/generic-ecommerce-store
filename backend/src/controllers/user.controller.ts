@@ -167,6 +167,19 @@ export class UserController {
       next(error);
     }
   }
+
+  /**
+   * Get all roles
+   * GET /api/users/roles
+   */
+  async getAllRoles(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const roles = await userService.getAllRoles();
+      res.status(200).json(roles);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new UserController();

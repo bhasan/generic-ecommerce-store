@@ -14,6 +14,19 @@ export const getAllOrders = async () => {
 };
 
 /**
+ * Get ready-for-delivery orders
+ * @returns {Promise<Array>} Array of ready-for-delivery order objects
+ */
+export const getReadyForDeliveryOrders = async () => {
+  try {
+    const response = await get('/orders/ready-for-delivery');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
  * Get order by ID
  * @param {number} id - Order ID
  * @returns {Promise<object>} Order object
@@ -110,6 +123,32 @@ export const deleteOrderItem = async (orderId, itemId) => {
 export const deleteOrder = async (id) => {
   try {
     const response = await del(`/orders/${id}`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Get delivered orders
+ * @returns {Promise<Array>} Array of delivered order objects
+ */
+export const getDeliveredOrders = async () => {
+  try {
+    const response = await get('/orders/delivered');
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
+ * Get out-for-delivery orders
+ * @returns {Promise<Array>} Array of out-for-delivery order objects
+ */
+export const getOutForDeliveryOrders = async () => {
+  try {
+    const response = await get('/orders/out-for-delivery');
     return response;
   } catch (error) {
     throw error;

@@ -26,6 +26,7 @@ services:
       # Note the hostname is 'db' (the service name), NOT 'localhost'
       DATABASE_URL: "postgresql://backend_user:bfe4af37d97cd02d@db:5432/smoke-station-delivery-db"
       PORT: 3000 # The port your Express app listens on *inside* the container
+      NODE_ENV: "development" # Set to development to skip rate limiting
     depends_on:
       - db # Waits for the 'db' service to be healthy before starting
     networks:

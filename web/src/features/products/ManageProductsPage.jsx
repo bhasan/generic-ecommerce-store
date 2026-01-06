@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ProductCard.css';
 import './ManageProductsPage.css';
 import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload } from 'lucide-react';
 
 function ManageProductsPage() {
-  const { currentUser, products, isLoadingProducts, addProduct, updateProduct, deleteProduct } = useApp();
+  const { currentUser, products, isLoadingProducts, loadProducts, addProduct, updateProduct, deleteProduct } = useApp();
+  
+  // Refresh products on page load
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({

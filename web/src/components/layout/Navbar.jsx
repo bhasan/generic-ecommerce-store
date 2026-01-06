@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, UserX } from 'lucide-react';
+import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, UserX, Truck, CheckCircle } from 'lucide-react';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();
@@ -21,9 +21,10 @@ function Navbar() {
     return userRoles.includes(role);
   };
 
-  const isCustomer = hasRole('CUSTOMER') && !hasRole('MANAGEMENT') && !hasRole('ADMIN');
+  const isCustomer = hasRole('CUSTOMER') && !hasRole('MANAGEMENT') && !hasRole('ADMIN') && !hasRole('DELIVERY_DRIVER');
   const isManagement = hasRole('MANAGEMENT') || hasRole('ADMIN');
   const isAdmin = hasRole('ADMIN');
+  const isDeliveryDriver = hasRole('DELIVERY_DRIVER');
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -79,6 +80,17 @@ function Navbar() {
               </NavLink>
             )}
             
+            {/* Delivery Driver link */}
+            {isDeliveryDriver && (
+              <NavLink 
+                to="/delivery-dashboard" 
+                className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+              >
+                <Truck size={18} />
+                <span>Delivery</span>
+              </NavLink>
+            )}
+
             {/* Admin/Manager links */}
             {isManagement && (
               <>
@@ -87,7 +99,7 @@ function Navbar() {
                   className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
                 >
                   <Package size={18} />
-                  <span>Orders</span>
+                  <span>Manage Orders</span>
                 </NavLink>
                 <NavLink 
                   to="/manage-products" 
@@ -96,6 +108,13 @@ function Navbar() {
                   <Users size={18} />
                   <span>Manage Products</span>
                 </NavLink>
+                <NavLink 
+                  to="/delivery-dashboard" 
+                  className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+                >
+                  <Truck size={18} />
+                  <span>Delivery</span>
+                </NavLink>
               </>
             )}
 
@@ -103,7 +122,7 @@ function Navbar() {
             {isAdmin && (
               <div className="admin-dropdown" ref={adminRef}>
                 <button
-                  className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users') ? 'nav-link-active' : ''}`}
+                  className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users' || location.pathname === '/delivered-orders') ? 'nav-link-active' : ''}`}
                   onClick={() => setShowAdminMenu(!showAdminMenu)}
                   aria-label="Admin menu"
                 >
@@ -143,6 +162,16 @@ function Navbar() {
                     >
                       <UserX size={16} />
                       <span>Rejected Users</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowAdminMenu(false);
+                        navigate('/delivered-orders');
+                      }}
+                      className={`admin-menu-item ${location.pathname === '/delivered-orders' ? 'admin-menu-item-active' : ''}`}
+                    >
+                      <CheckCircle size={16} />
+                      <span>Delivered Orders</span>
                     </button>
                   </div>
                 )}

@@ -420,6 +420,19 @@ export class UserService {
   }
 
   /**
+   * Get all roles from database
+   */
+  async getAllRoles() {
+    const roles = await prisma.role.findMany({
+      orderBy: {
+        name: 'asc'
+      }
+    });
+
+    return roles.map(role => role.name);
+  }
+
+  /**
    * Format user response (exclude password, format roles)
    */
   private formatUser<T extends { id: number; email: string; name: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {

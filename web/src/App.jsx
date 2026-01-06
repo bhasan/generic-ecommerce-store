@@ -18,6 +18,8 @@ import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import UsersPage from './features/users/UsersPage';
 import RejectedUsersPage from './features/users/RejectedUsersPage';
+import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
+import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
 
 function App() {
   return (
@@ -97,6 +99,20 @@ function App() {
             <Route path="/rejected-users" element={
               <ProtectedRoute roles={['ADMIN']}>
                 <RejectedUsersPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Delivered Orders - Admin only */}
+            <Route path="/delivered-orders" element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <DeliveredOrdersPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
+            <Route path="/delivery-dashboard" element={
+              <ProtectedRoute roles={['ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER']}>
+                <DeliveryDriverDashboard />
               </ProtectedRoute>
             } />
 

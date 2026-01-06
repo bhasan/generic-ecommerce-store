@@ -25,7 +25,7 @@ export class OrderService {
    * Get all orders (with user filtering for customers)
    */
   async getAllOrders(userId: number, userRoles: RoleName[]) {
-    const isCustomerScoped = !hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN']);
+    const isCustomerScoped = !hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']);
     const where = isCustomerScoped ? { userId } : {};
 
     const orders = await prisma.order.findMany({
@@ -77,6 +77,242 @@ export class OrderService {
   }
 
   /**
+   * Get delivered orders (latest first)
+   */
+  async getDeliveredOrders() {
+    const orders = await prisma.order.findMany({
+      where: {
+        status: 'DELIVERED'
+      },
+      orderBy: {
+        updatedAt: 'desc' // Latest first
+      }
+    });
+
+    // Fetch users for orders
+    const userIds = [...new Set(orders.map(o => o.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    // Fetch order items
+    const orderIds = orders.map(o => o.id);
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: { in: orderIds } }
+    });
+
+    // Fetch products for order items
+    const productIds = [...new Set(orderItems.map(oi => oi.productId))];
+    const products = await prisma.productItem.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true, price: true, image: true }
+    });
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // Group items by order
+    const itemsByOrder = new Map<number, typeof orderItems>();
+    for (const item of orderItems) {
+      if (!itemsByOrder.has(item.orderId)) {
+        itemsByOrder.set(item.orderId, []);
+      }
+      itemsByOrder.get(item.orderId)!.push(item);
+    }
+
+    return orders.map(order => {
+      const user = userMap.get(order.userId);
+      const items = itemsByOrder.get(order.id) || [];
+      
+      return {
+        id: order.id,
+        status: order.status,
+        total: order.total,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        user: user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          address: user.address,
+          phoneNumber: user.phoneNumber
+        } : null,
+        items: items.map(item => {
+          const product = productMap.get(item.productId);
+          return {
+            id: item.id,
+            productId: item.productId,
+            productName: product?.name || 'Unknown Product',
+            productImage: product?.image || null,
+            quantity: item.quantity,
+            price: item.price,
+            voided: item.voided,
+            addedAfterSubmission: item.addedAfterSubmission
+          };
+        })
+      };
+    });
+  }
+
+  /**
+   * Get out-for-delivery orders (for delivery drivers)
+   */
+  async getOutForDeliveryOrders() {
+    const orders = await prisma.order.findMany({
+      where: {
+        status: 'OUT_FOR_DELIVERY'
+      },
+      orderBy: {
+        createdAt: 'asc' // Oldest first
+      }
+    });
+
+    // Fetch users for orders
+    const userIds = [...new Set(orders.map(o => o.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    // Fetch order items
+    const orderIds = orders.map(o => o.id);
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: { in: orderIds } }
+    });
+
+    // Fetch products for order items
+    const productIds = [...new Set(orderItems.map(oi => oi.productId))];
+    const products = await prisma.productItem.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true, price: true, image: true }
+    });
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // Group order items by order
+    const itemsByOrder = new Map<number, typeof orderItems>();
+    for (const item of orderItems) {
+      if (!itemsByOrder.has(item.orderId)) {
+        itemsByOrder.set(item.orderId, []);
+      }
+      itemsByOrder.get(item.orderId)!.push(item);
+    }
+
+    // Format orders with user and items
+    return orders.map(order => {
+      const user = userMap.get(order.userId);
+      const items = itemsByOrder.get(order.id) || [];
+      
+      return {
+        id: order.id,
+        status: order.status,
+        total: order.total,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        user: user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          address: user.address,
+          phoneNumber: user.phoneNumber
+        } : null,
+        items: items.map(item => {
+          const product = productMap.get(item.productId);
+          return {
+            id: item.id,
+            productId: item.productId,
+            productName: product?.name || 'Unknown Product',
+            productImage: product?.image || null,
+            quantity: item.quantity,
+            price: item.price,
+            voided: item.voided,
+            addedAfterSubmission: item.addedAfterSubmission
+          };
+        })
+      };
+    });
+  }
+
+  /**
+   * Get ready-for-delivery orders (for delivery drivers)
+   */
+  async getReadyForDeliveryOrders() {
+    const orders = await prisma.order.findMany({
+      where: {
+        status: 'READY_FOR_DELIVERY'
+      },
+      orderBy: {
+        createdAt: 'asc' // Oldest first
+      }
+    });
+
+    // Fetch users for orders
+    const userIds = [...new Set(orders.map(o => o.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+    });
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    // Fetch order items
+    const orderIds = orders.map(o => o.id);
+    const orderItems = await prisma.orderItem.findMany({
+      where: { orderId: { in: orderIds } }
+    });
+
+    // Fetch products for order items
+    const productIds = [...new Set(orderItems.map(oi => oi.productId))];
+    const products = await prisma.productItem.findMany({
+      where: { id: { in: productIds } },
+      select: { id: true, name: true, price: true, image: true }
+    });
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // Group order items by order
+    const itemsByOrder = new Map<number, typeof orderItems>();
+    for (const item of orderItems) {
+      if (!itemsByOrder.has(item.orderId)) {
+        itemsByOrder.set(item.orderId, []);
+      }
+      itemsByOrder.get(item.orderId)!.push(item);
+    }
+
+    // Format orders with user and items
+    return orders.map(order => {
+      const user = userMap.get(order.userId);
+      const items = itemsByOrder.get(order.id) || [];
+      
+      return {
+        id: order.id,
+        status: order.status,
+        total: order.total,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        user: user ? {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          address: user.address,
+          phoneNumber: user.phoneNumber
+        } : null,
+        items: items.map(item => {
+          const product = productMap.get(item.productId);
+          return {
+            id: item.id,
+            productId: item.productId,
+            productName: product?.name || 'Unknown Product',
+            productImage: product?.image || null,
+            quantity: item.quantity,
+            price: item.price,
+            voided: item.voided,
+            addedAfterSubmission: item.addedAfterSubmission
+          };
+        })
+      };
+    });
+  }
+
+  /**
    * Get single order by ID
    */
   async getOrderById(orderId: number, userId: number, userRoles: RoleName[]) {
@@ -89,7 +325,7 @@ export class OrderService {
     }
 
     // Customers can only view their own orders
-    if (!hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN']) && order.userId !== userId) {
+    if (!hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']) && order.userId !== userId) {
       throw new AppError('Access denied', 403);
     }
 
@@ -215,13 +451,26 @@ export class OrderService {
   }
 
   /**
-   * Update order status (Management/Admin only)
+   * Update order status
+   * Management/Admin can update to any status
+   * Delivery Driver can only update to DELIVERED
    */
-  async updateOrderStatus(orderId: number, data: UpdateOrderStatusData) {
+  async updateOrderStatus(orderId: number, data: UpdateOrderStatusData, userRoles?: RoleName[]) {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
 
     if (!order) {
       throw new AppError('Order not found', 404);
+    }
+
+    // Check if user is delivery driver trying to set status other than DELIVERED
+    if (userRoles && hasAnyRole(userRoles, ['DELIVERY_DRIVER']) && !hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN'])) {
+      if (data.status !== 'DELIVERED') {
+        throw new AppError('Delivery drivers can only mark orders as DELIVERED', 403);
+      }
+      // Delivery drivers can only mark READY_FOR_DELIVERY orders as DELIVERED
+      if (order.status !== 'READY_FOR_DELIVERY') {
+        throw new AppError('Can only mark READY_FOR_DELIVERY orders as DELIVERED', 400);
+      }
     }
 
     const updatedOrder = await prisma.order.update({

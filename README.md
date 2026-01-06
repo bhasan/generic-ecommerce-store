@@ -488,6 +488,9 @@ JWT_EXPIRES_IN="24h"
 PORT=3000
 NODE_ENV="development"
 CORS_ORIGIN="*"
+# Rate limiting (optional)
+AUTH_RATE_LIMIT_MAX=20  # Max auth requests per 15 minutes (default: 20)
+DISABLE_RATE_LIMIT=false  # Set to "true" to disable rate limiting in development
 ```
 
 ### Frontend (optional)

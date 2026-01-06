@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import orderController from '../controllers/order.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { authorizeManagement, authorizeAdmin } from '../middleware/role.middleware';
+import { authorizeManagement, authorizeAdmin, authorize } from '../middleware/role.middleware';
 
 const router = Router();
 
@@ -12,6 +12,27 @@ const router = Router();
  * @access  Private (All authenticated users)
  */
 router.get('/', authenticate, orderController.getAllOrders);
+
+/**
+ * @route   GET /api/orders/ready-for-delivery
+ * @desc    Get ready-for-delivery orders
+ * @access  Private (Admin, Management, Delivery Driver)
+ */
+router.get('/ready-for-delivery', authenticate, authorize('ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER'), orderController.getReadyForDeliveryOrders);
+
+/**
+ * @route   GET /api/orders/out-for-delivery
+ * @desc    Get out-for-delivery orders
+ * @access  Private (Admin, Management, Delivery Driver)
+ */
+router.get('/out-for-delivery', authenticate, authorize('ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER'), orderController.getOutForDeliveryOrders);
+
+/**
+ * @route   GET /api/orders/delivered
+ * @desc    Get delivered orders
+ * @access  Private (Admin only)
+ */
+router.get('/delivered', authenticate, authorizeAdmin, orderController.getDeliveredOrders);
 
 /**
  * @route   GET /api/orders/:id
@@ -39,12 +60,11 @@ router.post(
 /**
  * @route   PATCH /api/orders/:id/status
  * @desc    Update order status
- * @access  Private (Management/Admin only)
+ * @access  Private (Management/Admin for all statuses, Delivery Driver for DELIVERED only)
  */
 router.patch(
   '/:id/status',
   authenticate,
-  authorizeManagement,
   [
     body('status')
       .isIn(['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'])

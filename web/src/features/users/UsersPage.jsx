@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './UsersPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
@@ -11,12 +11,9 @@ function UsersPage() {
   const [error, setError] = useState('');
   const [editingUserId, setEditingUserId] = useState(null);
   const [editingRoles, setEditingRoles] = useState([]);
+  const [availableRoles, setAvailableRoles] = useState([]);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       setError('');
@@ -29,7 +26,23 @@ function UsersPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const rolesData = await usersApi.getAllRoles();
+      setAvailableRoles(rolesData);
+    } catch (err) {
+      console.error('Failed to load roles:', err);
+      // Fallback to default roles if API fails
+      setAvailableRoles(['CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'GUEST']);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+    loadRoles();
+  }, [loadUsers, loadRoles]);
 
   const handleDeleteUser = async (userId, userName) => {
     if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
@@ -77,8 +90,6 @@ function UsersPage() {
     }
   };
 
-  const availableRoles = ['CUSTOMER', 'MANAGEMENT', 'ADMIN'];
-
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -92,11 +103,21 @@ function UsersPage() {
     }
   };
 
-  const getRoleBadgeClass = (roles) => {
-    if (!roles || roles.length === 0) return 'role-badge role-badge-customer';
-    if (roles.includes('ADMIN')) return 'role-badge role-badge-admin';
-    if (roles.includes('MANAGEMENT')) return 'role-badge role-badge-management';
-    return 'role-badge role-badge-customer';
+  const getRoleBadgeClass = (role) => {
+    const roleName = Array.isArray(role) ? role[0] : role;
+    switch (roleName) {
+      case 'ADMIN':
+        return 'role-badge role-badge-admin';
+      case 'MANAGEMENT':
+        return 'role-badge role-badge-management';
+      case 'DELIVERY_DRIVER':
+        return 'role-badge role-badge-delivery-driver';
+      case 'GUEST':
+        return 'role-badge role-badge-guest';
+      case 'CUSTOMER':
+      default:
+        return 'role-badge role-badge-customer';
+    }
   };
 
   if (isLoading) {
@@ -179,7 +200,7 @@ function UsersPage() {
                                   checked={editingRoles.includes(role)}
                                   onChange={() => toggleRole(role)}
                                 />
-                                <span className={getRoleBadgeClass([role])}>{role}</span>
+                                <span className={getRoleBadgeClass(role)}>{role}</span>
                               </label>
                             ))}
                           </div>
@@ -204,7 +225,7 @@ function UsersPage() {
                         <div className="user-roles-cell">
                           {user.roles && user.roles.length > 0 ? (
                             user.roles.map((role, idx) => (
-                              <span key={idx} className={getRoleBadgeClass([role])}>
+                              <span key={idx} className={getRoleBadgeClass(role)}>
                                 {role}
                               </span>
                             ))

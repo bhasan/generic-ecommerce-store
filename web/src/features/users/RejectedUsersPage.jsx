@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './RejectedUsersPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
@@ -9,11 +9,7 @@ function RejectedUsersPage() {
   const [rejectedUsers, setRejectedUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadRejectedUsers();
-  }, []);
-
-  const loadRejectedUsers = async () => {
+  const loadRejectedUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       const rejected = await usersApi.getRejectedUsers();
@@ -23,7 +19,11 @@ function RejectedUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []); // showNotification is stable (wrapped in useCallback in AppContext)
+
+  useEffect(() => {
+    loadRejectedUsers();
+  }, [loadRejectedUsers]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
