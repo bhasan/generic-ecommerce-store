@@ -22,3 +22,20 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files (keep .env.prod and .env.production for version control)
+.env
+.env.local
+
+# SSL certificates
+nginx/ssl/
+*.pem
+*.key
+*.crt
+
+# Backups
+*.sql
+backups/
+
+# Ensure Prisma migrations are tracked
+!backend/prisma/migrations/
