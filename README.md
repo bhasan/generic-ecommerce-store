@@ -2,6 +2,8 @@
 
 E-commerce platform with React frontend, Express backend, PostgreSQL database, and Nginx reverse proxy.
 
+> **📘 Production Deployment**: See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) for complete production deployment instructions.
+
 ## Prerequisites
 
 - **Node.js** v18+ (v24.11.1 recommended)
