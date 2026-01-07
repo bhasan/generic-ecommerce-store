@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './DeliveryDriverDashboard.css';
 import * as ordersApi from '../../services/ordersApi';
 import { useApp } from '../../context/AppContext';
-import { Truck, Package, MapPin, Calendar, CheckCircle, Edit, X, Plus } from 'lucide-react';
+import { Truck, Package, MapPin, CheckCircle, Edit, X, Plus } from 'lucide-react';
 
 const MAX_ROUTE_ORDERS = 5;
 
@@ -35,21 +35,6 @@ function DeliveryDriverDashboard() {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (e) {
-      return dateString;
-    }
-  };
 
   const handleToggleOrderSelection = (orderId) => {
     const newSelected = new Set(selectedOrderIds);
@@ -109,85 +94,70 @@ function DeliveryDriverDashboard() {
     }
   };
 
-  const renderOrderCard = (order, isInRoute = false, showCheckbox = false) => (
-    <div key={order.id} className={`delivery-order-card ${isInRoute ? 'route-order' : ''}`}>
-      {showCheckbox && (
-        <div className="order-checkbox-container">
+  const renderOrderCard = (order, isInRoute = false, showCheckbox = false) => {
+    const itemsSummary = order.items && order.items.length > 0
+      ? order.items
+          .filter(item => !item.voided)
+          .map(item => `${item.productName} (${item.quantity})`)
+          .join(', ')
+      : 'No items';
+
+    const handleCardClick = (e) => {
+      // Don't toggle if clicking on the delivered button or checkbox
+      if (e.target.closest('.btn-delivered-small') || e.target.type === 'checkbox') {
+        return;
+      }
+      // Toggle selection when clicking anywhere else on the card
+      if (isEditingRoute) {
+        handleToggleOrderSelection(order.id);
+      }
+    };
+
+    return (
+      <div 
+        key={order.id} 
+        className={`delivery-order-item ${isInRoute ? 'route-order' : ''} ${selectedOrderIds.has(order.id) && isEditingRoute ? 'selected' : ''} ${isEditingRoute ? 'editable' : ''}`}
+        onClick={isEditingRoute ? handleCardClick : undefined}
+      >
+        {showCheckbox && (
           <input
             type="checkbox"
             checked={selectedOrderIds.has(order.id)}
             onChange={() => handleToggleOrderSelection(order.id)}
             disabled={!isEditingRoute}
             className="order-checkbox"
+            onClick={(e) => e.stopPropagation()}
           />
-        </div>
-      )}
-      <div className="delivery-order-header">
-        <div className="delivery-order-id">
-          <Package size={20} />
-          <span>Order #{order.id}</span>
-        </div>
-      </div>
-
-      {order.user && order.user.address && (
-        <div className="delivery-customer-info">
-          <div className="customer-details">
-            <div className="customer-detail-item customer-address">
-              <MapPin size={16} />
+        )}
+        <div className="order-item-content">
+          <div className="order-item-header">
+            <span className="order-id">Order: #{order.id}</span>
+            {isInRoute && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMarkDelivered(order.id);
+                }}
+                className="btn-delivered-small"
+                title="Mark as delivered"
+              >
+                <CheckCircle size={16} />
+              </button>
+            )}
+          </div>
+          {order.user && order.user.address && (
+            <div className="order-address">
+              <MapPin size={14} />
               <span>{order.user.address}</span>
             </div>
+          )}
+          <div className="order-items-summary">
+            <span>{itemsSummary}</span>
           </div>
         </div>
-      )}
-
-      <div className="delivery-order-items">
-        <h5 className="order-items-title">Order Items:</h5>
-        <div className="order-items-list">
-          {order.items && order.items.length > 0 ? (
-            order.items
-              .filter(item => !item.voided)
-              .map(item => (
-                <div key={item.id} className="order-item-row">
-                  <div className="order-item-info">
-                    {item.productImage && (
-                      <img 
-                        src={item.productImage} 
-                        alt={item.productName}
-                        className="order-item-image"
-                      />
-                    )}
-                    <div className="order-item-details">
-                      <span className="order-item-name">{item.productName}</span>
-                      <span className="order-item-quantity">
-                        Quantity: {item.quantity}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-          ) : (
-            <p className="no-items">No items in this order</p>
-          )}
-        </div>
       </div>
-
-      <div className="delivery-order-footer">
-        <div className="delivery-order-date">
-          <Calendar size={16} />
-          <span>Ready: {formatDate(order.createdAt)}</span>
-        </div>
-        {isInRoute && (
-          <button
-            onClick={() => handleMarkDelivered(order.id)}
-            className="btn-delivered"
-          >
-            <CheckCircle size={18} />
-            <span>Delivered</span>
-          </button>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="delivery-dashboard-container">
@@ -201,24 +171,62 @@ function DeliveryDriverDashboard() {
         </div>
       </div>
 
-      {/* Current Route Section */}
-      {routeOrders.length > 0 && (
-        <div className="current-route-section">
-          <div className="route-header">
+      {/* Split View Container */}
+      <div className="delivery-split-view">
+        {/* Left Panel: Ready for Delivery */}
+        <div className="delivery-panel delivery-panel-left">
+          <div className="panel-header">
             <div>
-              <h3 className="route-title">
-                <Truck size={20} />
-                Current Route ({routeOrders.length}/{MAX_ROUTE_ORDERS})
+              <h3 className="panel-title">
+                <Package size={20} />
+                Ready for Delivery
               </h3>
-              <p className="route-subtitle">Orders out for delivery</p>
+              <p className="panel-subtitle">
+                {isEditingRoute 
+                  ? `${selectedOrderIds.size}/${MAX_ROUTE_ORDERS} selected`
+                  : `${readyOrders.length} available`
+                }
+              </p>
             </div>
-            {!isEditingRoute && (
+          </div>
+          <div className="panel-content">
+            {isLoading ? (
+              <div className="empty-state-small">
+                <Package size={32} className="empty-icon" />
+                <p>Loading orders...</p>
+              </div>
+            ) : readyOrders.length === 0 ? (
+              <div className="empty-state-small">
+                <Package size={32} className="empty-icon" />
+                <p>No orders ready for delivery</p>
+              </div>
+            ) : (
+              <div className="orders-list">
+                {readyOrders.map(order => renderOrderCard(order, false, isEditingRoute))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Panel: Out for Delivery */}
+        <div className="delivery-panel delivery-panel-right">
+          <div className="panel-header">
+            <div>
+              <h3 className="panel-title">
+                <Truck size={20} />
+                Out for Delivery
+              </h3>
+              <p className="panel-subtitle">
+                {routeOrders.length > 0 ? `${routeOrders.length}/${MAX_ROUTE_ORDERS} orders` : 'No active route'}
+              </p>
+            </div>
+            {routeOrders.length > 0 && !isEditingRoute && (
               <button
                 onClick={() => setIsEditingRoute(true)}
                 className="btn-edit-route"
               >
-                <Edit size={18} />
-                <span>Edit Route</span>
+                <Edit size={16} />
+                <span>Edit</span>
               </button>
             )}
             {isEditingRoute && (
@@ -227,63 +235,41 @@ function DeliveryDriverDashboard() {
                   onClick={handleSaveRoute}
                   className="btn-save-route"
                 >
-                  <CheckCircle size={18} />
-                  <span>Save Route</span>
+                  <CheckCircle size={16} />
+                  <span>Save</span>
                 </button>
                 <button
                   onClick={handleCancelEditRoute}
                   className="btn-cancel-route"
                 >
-                  <X size={18} />
+                  <X size={16} />
                   <span>Cancel</span>
                 </button>
               </div>
             )}
           </div>
-          <div className="route-orders-list">
-            {routeOrders.map(order => renderOrderCard(order, true, isEditingRoute))}
-          </div>
-        </div>
-      )}
-
-      {/* Ready for Delivery Section */}
-      <div className="ready-orders-section">
-        <div className="section-header">
-          <h3 className="section-title">
-            <Package size={20} />
-            Ready for Delivery
-            {isEditingRoute && (
-              <span className="selection-info">
-                ({selectedOrderIds.size}/{MAX_ROUTE_ORDERS} selected)
-              </span>
+          <div className="panel-content">
+            {routeOrders.length === 0 ? (
+              <div className="empty-state-small">
+                <Truck size={32} className="empty-icon" />
+                <p>No active route</p>
+                {!isEditingRoute && (
+                  <button
+                    onClick={() => setIsEditingRoute(true)}
+                    className="btn-start-route"
+                  >
+                    <Plus size={16} />
+                    <span>Start Route</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="orders-list">
+                {routeOrders.map(order => renderOrderCard(order, true, isEditingRoute))}
+              </div>
             )}
-          </h3>
-          {routeOrders.length === 0 && !isEditingRoute && (
-            <button
-              onClick={() => setIsEditingRoute(true)}
-              className="btn-start-route"
-            >
-              <Plus size={18} />
-              <span>Start Route</span>
-            </button>
-          )}
+          </div>
         </div>
-
-        {isLoading ? (
-          <div className="empty-state">
-            <Package size={64} className="empty-icon" />
-            <p>Loading orders...</p>
-          </div>
-        ) : readyOrders.length === 0 ? (
-          <div className="empty-state">
-            <Package size={64} className="empty-icon" />
-            <p>No orders ready for delivery at this time.</p>
-          </div>
-        ) : (
-          <div className="delivery-orders-list">
-            {readyOrders.map(order => renderOrderCard(order, false, isEditingRoute))}
-          </div>
-        )}
       </div>
     </div>
   );
