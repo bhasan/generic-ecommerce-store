@@ -1,0 +1,265 @@
+.users-page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.users-header {
+  margin-bottom: 2rem;
+}
+
+.page-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.5rem;
+}
+
+.page-subtitle {
+  color: #9ca3af;
+  font-size: 1rem;
+}
+
+.users-content {
+  background: #1f2937;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.users-error {
+  padding: 1rem;
+  margin: 1rem 0;
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-radius: 0.5rem;
+}
+
+.users-empty {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #9ca3af;
+}
+
+.users-empty svg {
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.users-table-container {
+  overflow-x: auto;
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table thead {
+  background: #111827;
+}
+
+.users-table th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #ffffff;
+  border-bottom: 2px solid #374151;
+}
+
+.users-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #374151;
+  color: #d1d5db;
+}
+
+.users-table tbody tr:hover {
+  background: #111827;
+}
+
+.user-name-cell,
+.user-email-cell,
+.user-date-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-name-cell svg,
+.user-email-cell svg,
+.user-date-cell svg {
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.user-roles-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.role-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.role-badge-admin {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.role-badge-management {
+  background: #059669;
+  color: #ffffff;
+}
+
+.role-badge-customer {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.role-badge-delivery-driver {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
+.role-badge-guest {
+  background: #6b7280;
+  color: #ffffff;
+}
+
+.user-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-delete-user {
+  background: #dc2626;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-delete-user:hover {
+  background: #b91c1c;
+}
+
+.current-user-badge {
+  padding: 0.25rem 0.75rem;
+  background: #374151;
+  color: #9ca3af;
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+}
+
+.role-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: #111827;
+  border-radius: 0.5rem;
+  border: 1px solid #374151;
+}
+
+.role-checkboxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.role-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.role-checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  width: 1rem;
+  height: 1rem;
+}
+
+.role-editor-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-edit-roles {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-edit-roles:hover {
+  background: #1d4ed8;
+}
+
+.btn-save-roles {
+  background: #059669;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-save-roles:hover {
+  background: #047857;
+}
+
+.btn-cancel-roles {
+  background: #6b7280;
+  color: #ffffff;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.btn-cancel-roles:hover {
+  background: #4b5563;
+}
+
+@media (max-width: 768px) {
+  .users-page-container {
+    padding: 1rem;
+  }
+
+  .users-table {
+    font-size: 0.875rem;
+  }
+
+  .users-table th,
+  .users-table td {
+    padding: 0.75rem 0.5rem;
+  }
+}
+

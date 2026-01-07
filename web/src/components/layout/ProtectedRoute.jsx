@@ -27,8 +27,14 @@ function ProtectedRoute({ children, roles }) {
   }
   
   // If roles specified and user doesn't have permission
-  if (roles && !roles.includes(currentUser.role)) {
-    return <Navigate to="/products" replace />;
+  if (roles) {
+    // Support both old format (single role) and new format (roles array)
+    const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
+    const hasRequiredRole = roles.some(role => userRoles.includes(role));
+    
+    if (!hasRequiredRole) {
+      return <Navigate to="/products" replace />;
+    }
   }
 
   return children;

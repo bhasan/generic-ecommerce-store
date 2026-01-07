@@ -6,6 +6,7 @@ import Navbar from './components/layout/Navbar';
 import Notification from './components/common/Notification';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './features/auth/LoginPage';
+import RegisterPage from './features/auth/RegisterPage';
 import ProductsPage from './features/products/ProductsPage';
 import ProductItemPage from './features/products/ProductItemPage';
 import CartPage from './features/cart/CartPage';
@@ -15,6 +16,10 @@ import OrdersPage from './features/orders/OrdersPage';
 import ManageProductsPage from './features/products/ManageProductsPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import UsersPage from './features/users/UsersPage';
+import RejectedUsersPage from './features/users/RejectedUsersPage';
+import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
+import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
 
 function App() {
   return (
@@ -26,6 +31,7 @@ function App() {
         <main className="container mx-auto px-4 py-8">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
             
             {/* All routes below require login (no guest access) */}
             <Route path="/products" element={
@@ -82,8 +88,36 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Default Route */}
-            <Route path="*" element={<Navigate to="/products" replace />} />
+            {/* Users Management - Admin only */}
+            <Route path="/users" element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <UsersPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Rejected Users - Admin only */}
+            <Route path="/rejected-users" element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <RejectedUsersPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Delivered Orders - Admin only */}
+            <Route path="/delivered-orders" element={
+              <ProtectedRoute roles={['ADMIN']}>
+                <DeliveredOrdersPage />
+              </ProtectedRoute>
+            } />
+
+            {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
+            <Route path="/delivery-dashboard" element={
+              <ProtectedRoute roles={['ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER']}>
+                <DeliveryDriverDashboard />
+              </ProtectedRoute>
+            } />
+
+            {/* Default Route - Redirect to login for unauthenticated users */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </main>
       </div>

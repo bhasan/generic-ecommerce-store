@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.routes';
 import productRoutes from './routes/product.routes';
 import orderRoutes from './routes/order.routes';
+import userRoutes from './routes/user.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -34,10 +35,14 @@ app.use(cors({
 // Rate limiting for authentication routes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
+  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '20', 10), // Limit each IP to 20 requests per windowMs (configurable via env)
   message: 'Too many authentication attempts, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (_req) => {
+    // Skip rate limiting in development mode
+    return process.env.NODE_ENV === 'development';
+  },
 });
 
 // General rate limiter
@@ -46,6 +51,10 @@ const generalLimiter = rateLimit({
   max: 100, // Limit each IP to 100 requests per windowMs
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (_req) => {
+    // Skip rate limiting in development mode
+    return process.env.NODE_ENV === 'development';
+  },
 });
 
 // ========================================
@@ -73,6 +82,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/products', generalLimiter, productRoutes);
 app.use('/api/orders', generalLimiter, orderRoutes);
+app.use('/api/users', generalLimiter, userRoutes);
 
 // ========================================
 // ERROR HANDLING

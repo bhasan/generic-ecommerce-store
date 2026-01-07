@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ProductCard.css';
 import './ManageProductsPage.css';
 import { useApp } from '../../context/AppContext';
 import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload } from 'lucide-react';
 
 function ManageProductsPage() {
-  const { currentUser, products, addProduct, updateProduct, deleteProduct } = useApp();
+  const { currentUser, products, isLoadingProducts, loadProducts, addProduct, updateProduct, deleteProduct } = useApp();
+  
+  // Refresh products on page load
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -296,7 +301,11 @@ function ManageProductsPage() {
       )}
 
       <div className="products-grid">
-        {products.length === 0 ? (
+        {isLoadingProducts ? (
+          <div className="empty-state">
+            <p>Loading products...</p>
+          </div>
+        ) : products.length === 0 ? (
           <div className="empty-state">
             <p>No products found. Add your first product to get started!</p>
           </div>

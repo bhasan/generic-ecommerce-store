@@ -1,0 +1,84 @@
+services:
+  # 1. The PostgreSQL Database Service
+  db:
+    image: postgres:16-alpine
+    container_name: smoke-station-delivery-db-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+    networks:
+      - sshtx_network
+    # Remove port exposure in production (only accessible within Docker network)
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. The Express.js Backend Service
+  backend:
+    container_name: smoke-station-delivery-backend-prod
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}"
+      PORT: 3000
+      NODE_ENV: "production"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-20}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sshtx_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 3. The Nginx/React Frontend Service
+  web:
+    container_name: smoke-station-delivery-web-prod
+    build: 
+      context: .
+      dockerfile: nginx/Dockerfile
+    restart: always
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    depends_on:
+      - backend
+    networks:
+      - sshtx_network
+    volumes:
+      # Mount SSL certificates if using HTTPS
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      # Mount custom nginx config if needed
+      - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# Define the shared network
+networks:
+  sshtx_network:
+    driver: bridge
+
+# Define the named volume for data persistence
+volumes:
+  postgres_data_prod:
+    driver: local
+

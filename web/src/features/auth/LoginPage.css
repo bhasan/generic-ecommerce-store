@@ -199,3 +199,22 @@
   border-color: var(--color-primary);
   color: var(--color-primary-light);
 }
+
+.login-footer {
+  margin-top: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.login-link {
+  color: var(--color-primary-light);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.login-link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}

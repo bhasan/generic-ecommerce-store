@@ -8,11 +8,22 @@ import './ProductItemPage.css';
 function ProductItemPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { products, addToCart, currentUser } = useApp();
+  const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   
   // Find the product by ID
   const product = products.find(p => p.id === parseInt(id));
+  
+  // Show loading state
+  if (isLoadingProducts) {
+    return (
+      <div className="product-item-container">
+        <div className="product-not-found">
+          <p>Loading product...</p>
+        </div>
+      </div>
+    );
+  }
   
   // If product not found, show error
   if (!product) {

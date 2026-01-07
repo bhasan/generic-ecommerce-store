@@ -11,7 +11,7 @@ async function seed() {
   await prisma.review.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
-  await prisma.product.deleteMany();
+  await prisma.productItem.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
@@ -19,7 +19,7 @@ async function seed() {
   // Create test users
   console.log('👥 Creating users...');
   
-  const roleNames = ['GUEST', 'CUSTOMER', 'MANAGEMENT', 'ADMIN'] as const;
+  const roleNames = ['GUEST', 'CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
   type RoleName = (typeof roleNames)[number];
 
   const roles = await Promise.all(
@@ -33,12 +33,8 @@ async function seed() {
   const getRoleByName = (name: RoleName) =>
     roles.find((role) => role.name === name) ?? (() => { throw new Error(`Missing role ${name}`); })();
 
-  const connectRoles = (names: RoleName[]) =>
-    names.map((name) => ({
-      role: {
-        connect: { id: getRoleByName(name).id },
-      },
-    }));
+  const getRoleIds = (names: RoleName[]) =>
+    names.map((name) => getRoleByName(name).id);
 
   const adminPassword = await hashPassword('admin123');
   const admin = await prisma.user.create({
@@ -46,11 +42,11 @@ async function seed() {
       email: 'admin@test.com',
       password: adminPassword,
       name: 'Admin User',
-      roles: {
-        create: connectRoles(['ADMIN']),
-      },
+      approved: true,
     },
-    include: { roles: { include: { role: true } } },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['ADMIN']).map(roleId => ({ userId: admin.id, roleId }))
   });
 
   const managerPassword = await hashPassword('manager123');
@@ -59,10 +55,11 @@ async function seed() {
       email: 'manager@test.com',
       password: managerPassword,
       name: 'Jane Manager',
-      roles: {
-        create: connectRoles(['MANAGEMENT']),
-      },
+      approved: true,
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['MANAGEMENT']).map(roleId => ({ userId: manager.id, roleId }))
   });
 
   const customerPassword = await hashPassword('customer123');
@@ -71,95 +68,171 @@ async function seed() {
       email: 'customer@test.com',
       password: customerPassword,
       name: 'John Customer',
-      roles: {
-        create: connectRoles(['CUSTOMER']),
-      },
+      address: '123 Main Street, Austin, TX 78701',
+      cashapp: '$JohnCustomer',
+      phoneNumber: '(512) 555-0101',
+      approved: true,
     },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: customer.id, roleId }))
+  });
+
+  // Create additional users for reviews (matching mockData.js)
+  const sarahPassword = await hashPassword('customer123');
+  const sarah = await prisma.user.create({
+    data: {
+      email: 'sarah@test.com',
+      password: sarahPassword,
+      name: 'Sarah Johnson',
+      address: '456 Oak Avenue, Austin, TX 78702',
+      cashapp: '$SarahJ',
+      phoneNumber: '(512) 555-0102',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: sarah.id, roleId }))
+  });
+
+  const mikePassword = await hashPassword('customer123');
+  const mike = await prisma.user.create({
+    data: {
+      email: 'mike@test.com',
+      password: mikePassword,
+      name: 'Mike Thompson',
+      address: '789 Pine Road, Austin, TX 78703',
+      cashapp: '$MikeT',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: mike.id, roleId }))
+  });
+
+  const emilyPassword = await hashPassword('customer123');
+  const emily = await prisma.user.create({
+    data: {
+      email: 'emily@test.com',
+      password: emilyPassword,
+      name: 'Emily Chen',
+      address: '321 Elm Street, Austin, TX 78704',
+      cashapp: '$EmilyC',
+      phoneNumber: '(512) 555-0104',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: emily.id, roleId }))
+  });
+
+  const davidPassword = await hashPassword('customer123');
+  const david = await prisma.user.create({
+    data: {
+      email: 'david@test.com',
+      password: davidPassword,
+      name: 'David Williams',
+      address: '654 Maple Drive, Austin, TX 78705',
+      cashapp: '$DavidW',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: david.id, roleId }))
+  });
+
+  // Create delivery driver user
+  const driverPassword = await hashPassword('driver123');
+  const driver = await prisma.user.create({
+    data: {
+      email: 'driver@test.com',
+      password: driverPassword,
+      name: 'Delivery Driver',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['DELIVERY_DRIVER']).map(roleId => ({ userId: driver.id, roleId }))
   });
 
   console.log('✅ Users created');
   console.log('   Admin:', admin.email, '/ admin123');
   console.log('   Manager:', manager.email, '/ manager123');
   console.log('   Customer:', customer.email, '/ customer123');
+  console.log('   Driver:', driver.email, '/ driver123');
+  console.log('   Sarah:', sarah.email, '/ customer123');
+  console.log('   Mike:', mike.email, '/ customer123');
+  console.log('   Emily:', emily.email, '/ customer123');
+  console.log('   David:', david.email, '/ customer123');
 
-  // Create products
+  // Create products from mockData.js
   console.log('📦 Creating products...');
 
   const products = await Promise.all([
-    prisma.product.create({
+    // Product 1: Wireless Headphones
+    prisma.productItem.create({
       data: {
-        name: 'Premium Vape Pen',
-        category: 'Vaporizers',
+        name: 'Wireless Headphones',
+        category: 'Electronics',
+        price: 99.99,
+        description: 'High-quality wireless headphones with noise cancellation',
+        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
+        images: [
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
+          'https://images.unsplash.com/photo-1484704849700-f032a568e944?w=400'
+        ],
+        stock: 15,
+        stockEnabled: true,
+        hidden: false
+      }
+    }),
+    // Product 2: Smart Watch
+    prisma.productItem.create({
+      data: {
+        name: 'Smart Watch',
+        category: 'Electronics',
+        price: 199.99,
+        description: 'Feature-rich smartwatch with health tracking',
+        image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
+        images: [
+          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
+          'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=400',
+          'https://images.unsplash.com/photo-1434494878577-86c23bcb06b9?w=400'
+        ],
+        stock: 8,
+        stockEnabled: true,
+        hidden: false
+      }
+    }),
+    // Product 3: Laptop Bag
+    prisma.productItem.create({
+      data: {
+        name: 'Laptop Bag',
+        category: 'Accessories',
         price: 49.99,
-        description: 'High-quality rechargeable vape pen with temperature control',
-        image: 'https://images.unsplash.com/photo-1564859228273-274232fdb516?w=400',
+        description: 'Durable laptop bag with multiple compartments',
+        image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400',
         images: [
-          'https://images.unsplash.com/photo-1564859228273-274232fdb516?w=400',
-          'https://images.unsplash.com/photo-1564859228273-274232fdb516?w=400'
+          'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'
         ],
-        stock: 50,
+        stock: 20,
         stockEnabled: true,
         hidden: false
       }
     }),
-    prisma.product.create({
+    // Product 4: USB-C Cable
+    prisma.productItem.create({
       data: {
-        name: 'Glass Water Pipe',
-        category: 'Glass',
-        price: 89.99,
-        description: 'Handcrafted borosilicate glass water pipe with ice catcher',
-        image: 'https://images.unsplash.com/photo-1585662016823-080a0d84a4ec?w=400',
-        images: [
-          'https://images.unsplash.com/photo-1585662016823-080a0d84a4ec?w=400',
-          'https://images.unsplash.com/photo-1585662016823-080a0d84a4ec?w=400'
-        ],
-        stock: 25,
-        stockEnabled: true,
-        hidden: false
-      }
-    }),
-    prisma.product.create({
-      data: {
-        name: 'Rolling Papers - King Size',
+        name: 'USB-C Cable',
         category: 'Accessories',
-        price: 4.99,
-        description: 'Premium slow-burning rolling papers, 32 leaves per pack',
-        image: 'https://images.unsplash.com/photo-1565313797544-c42f8c5ec6ca?w=400',
+        price: 14.99,
+        description: 'Fast charging USB-C cable',
+        image: 'https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=400',
         images: [
-          'https://images.unsplash.com/photo-1565313797544-c42f8c5ec6ca?w=400'
+          'https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=400'
         ],
-        stock: 200,
-        stockEnabled: true,
-        hidden: false
-      }
-    }),
-    prisma.product.create({
-      data: {
-        name: 'Herb Grinder',
-        category: 'Accessories',
-        price: 24.99,
-        description: 'Aluminum 4-piece grinder with pollen catcher',
-        image: 'https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400',
-        images: [
-          'https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=400'
-        ],
-        stock: 75,
-        stockEnabled: true,
-        hidden: false
-      }
-    }),
-    prisma.product.create({
-      data: {
-        name: 'CBD Oil - 1000mg',
-        category: 'CBD Products',
-        price: 59.99,
-        description: 'Full-spectrum CBD oil, 30ml bottle',
-        image: 'https://images.unsplash.com/photo-1605543667908-92c15e27e0e8?w=400',
-        images: [
-          'https://images.unsplash.com/photo-1605543667908-92c15e27e0e8?w=400'
-        ],
-        stock: 40,
-        stockEnabled: true,
+        stock: 0,
+        stockEnabled: false, // Stock tracking disabled for this item
         hidden: false
       }
     })
@@ -167,17 +240,19 @@ async function seed() {
 
   console.log(`✅ Created ${products.length} products`);
 
-  // Create sample reviews
+  // Create reviews from mockData.js
   console.log('⭐ Creating reviews...');
 
+  // Reviews for Wireless Headphones (product 0)
   await prisma.review.create({
     data: {
-      userId: customer.id,
+      userId: customer.id, // John Customer
       productId: products[0].id,
       rating: 5,
-      comment: 'Amazing vape pen! Great vapor quality and battery life.',
-      helpful: 3,
-      notHelpful: 0,
+      comment: 'Amazing sound quality! The noise cancellation is fantastic. Best headphones I have ever owned.',
+      helpful: 12,
+      notHelpful: 1,
+      flagged: false,
       votedByHelpful: [],
       votedByNotHelpful: []
     }
@@ -185,12 +260,71 @@ async function seed() {
 
   await prisma.review.create({
     data: {
-      userId: manager.id,
+      userId: sarah.id, // Sarah Johnson
+      productId: products[0].id,
+      rating: 4,
+      comment: 'Very comfortable for long listening sessions. Battery life is impressive. Only minor issue is the Bluetooth range could be better.',
+      helpful: 8,
+      notHelpful: 0,
+      flagged: false,
+      votedByHelpful: [],
+      votedByNotHelpful: []
+    }
+  });
+
+  await prisma.review.create({
+    data: {
+      userId: mike.id, // Mike Thompson
+      productId: products[0].id,
+      rating: 5,
+      comment: 'Perfect for work from home! The noise cancellation helps me focus. Highly recommend!',
+      helpful: 15,
+      notHelpful: 2,
+      flagged: false,
+      votedByHelpful: [],
+      votedByNotHelpful: []
+    }
+  });
+
+  // Reviews for Smart Watch (product 1)
+  await prisma.review.create({
+    data: {
+      userId: customer.id, // John Customer
       productId: products[1].id,
       rating: 4,
-      comment: 'Beautiful piece, very well made. Highly recommend!',
+      comment: 'Great health tracking features. Sleep monitoring is accurate. Would give 5 stars if battery lasted longer.',
       helpful: 5,
+      notHelpful: 0,
+      flagged: false,
+      votedByHelpful: [],
+      votedByNotHelpful: []
+    }
+  });
+
+  await prisma.review.create({
+    data: {
+      userId: emily.id, // Emily Chen
+      productId: products[1].id,
+      rating: 5,
+      comment: 'Love this watch! All the features I need for fitness tracking. The heart rate monitor is very accurate.',
+      helpful: 10,
       notHelpful: 1,
+      flagged: false,
+      votedByHelpful: [],
+      votedByNotHelpful: []
+    }
+  });
+
+  // Review for Laptop Bag (product 2)
+  await prisma.review.create({
+    data: {
+      userId: david.id, // David Williams
+      productId: products[2].id,
+      rating: 5,
+      comment: 'Perfect size for my 15-inch laptop. Great quality materials and lots of pockets for organization.',
+      helpful: 7,
+      notHelpful: 0,
+      flagged: false,
       votedByHelpful: [],
       votedByNotHelpful: []
     }
@@ -198,45 +332,119 @@ async function seed() {
 
   console.log('✅ Reviews created');
 
-  // Create sample orders
+  // Create orders from mockData.js
   console.log('🛒 Creating orders...');
 
+  // Order 1: PENDING - Wireless Headphones
+  // Order 1: PENDING - Wireless Headphones
   const order1 = await prisma.order.create({
     data: {
-      userId: customer.id,
+      userId: customer.id, // John Customer (userId 2 in mockData)
       status: OrderStatus.PENDING,
-      total: 54.98,
-      items: {
-        create: [
-          {
-            productId: products[0].id,
-            quantity: 1,
-            price: products[0].price
-          },
-          {
-            productId: products[2].id,
-            quantity: 1,
-            price: products[2].price
-          }
-        ]
-      }
+      total: 99.99,
+      createdAt: new Date('2024-11-10')
+    }
+  });
+  await prisma.orderItem.create({
+    data: {
+      orderId: order1.id,
+      productId: products[0].id, // Wireless Headphones
+      quantity: 1,
+      price: products[0].price
     }
   });
 
+  // Order 2: APPROVED - Smart Watch + USB-C Cable
   const order2 = await prisma.order.create({
     data: {
-      userId: customer.id,
-      status: OrderStatus.DELIVERED,
-      total: 89.99,
-      items: {
-        create: [
-          {
-            productId: products[1].id,
-            quantity: 1,
-            price: products[1].price
-          }
-        ]
+      userId: customer.id, // John Customer (userId 2 in mockData)
+      status: OrderStatus.APPROVED,
+      total: 249.98,
+      createdAt: new Date('2024-11-09')
+    }
+  });
+  await prisma.orderItem.createMany({
+    data: [
+      {
+        orderId: order2.id,
+        productId: products[1].id, // Smart Watch
+        quantity: 1,
+        price: products[1].price
+      },
+      {
+        orderId: order2.id,
+        productId: products[3].id, // USB-C Cable
+        quantity: 1,
+        price: products[3].price
       }
+    ]
+  });
+
+  // Order 3: READY_FOR_DELIVERY - For delivery driver testing
+  const order3 = await prisma.order.create({
+    data: {
+      userId: sarah.id, // Sarah Johnson
+      status: OrderStatus.READY_FOR_DELIVERY,
+      total: 99.99,
+      createdAt: new Date('2024-11-11T10:00:00')
+    }
+  });
+  await prisma.orderItem.create({
+    data: {
+      orderId: order3.id,
+      productId: products[0].id, // Wireless Headphones
+      quantity: 1,
+      price: products[0].price
+    }
+  });
+
+  // Order 4: READY_FOR_DELIVERY - Multiple items
+  const order4 = await prisma.order.create({
+    data: {
+      userId: emily.id, // Emily Chen
+      status: OrderStatus.READY_FOR_DELIVERY,
+      total: 264.97,
+      createdAt: new Date('2024-11-11T09:30:00')
+    }
+  });
+  await prisma.orderItem.createMany({
+    data: [
+      {
+        orderId: order4.id,
+        productId: products[1].id, // Smart Watch
+        quantity: 1,
+        price: products[1].price
+      },
+      {
+        orderId: order4.id,
+        productId: products[2].id, // Laptop Bag
+        quantity: 1,
+        price: products[2].price
+      },
+      {
+        orderId: order4.id,
+        productId: products[3].id, // USB-C Cable
+        quantity: 1,
+        price: products[3].price
+      }
+    ]
+  });
+
+  // Order 5: READY_FOR_DELIVERY - Another order
+  const order5 = await prisma.order.create({
+    data: {
+      userId: mike.id, // Mike Thompson
+      status: OrderStatus.READY_FOR_DELIVERY,
+      total: 49.99,
+      createdAt: new Date('2024-11-11T08:15:00')
+    }
+  });
+  await prisma.orderItem.create({
+    data: {
+      orderId: order5.id,
+      productId: products[2].id, // Laptop Bag
+      quantity: 1,
+      price: products[2].price
     }
   });
 
@@ -246,14 +454,20 @@ async function seed() {
   console.log('🎉 Database seeded successfully!');
   console.log('');
   console.log('📋 Summary:');
-  console.log(`   Users: ${3}`);
+  console.log(`   Users: ${8}`); // admin, manager, customer, driver, sarah, mike, emily, david
   console.log(`   Products: ${products.length}`);
-  console.log(`   Orders: ${2}`);
+  console.log(`   Reviews: ${6}`);
+  console.log(`   Orders: ${5} (2 regular, 3 ready for delivery)`);
   console.log('');
   console.log('🔐 Test Accounts:');
   console.log('   Admin:    admin@test.com / admin123');
   console.log('   Manager:  manager@test.com / manager123');
   console.log('   Customer: customer@test.com / customer123');
+  console.log('   Driver:   driver@test.com / driver123');
+  console.log('   Sarah:    sarah@test.com / customer123');
+  console.log('   Mike:     mike@test.com / customer123');
+  console.log('   Emily:    emily@test.com / customer123');
+  console.log('   David:    david@test.com / customer123');
   console.log('');
 }
 

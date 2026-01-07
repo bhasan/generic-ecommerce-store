@@ -1,19 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
 import { User, Mail, Save, Shield } from 'lucide-react';
+import * as authApi from '../../services/authApi';
 
 function ProfilePage() {
-  const { currentUser, updateUserProfile } = useApp();
+  const { currentUser, updateUserProfile, showNotification } = useApp();
   const [formData, setFormData] = useState({
-    name: currentUser.name,
-    email: currentUser.email,
+    name: currentUser.name || '',
+    email: currentUser.email || '',
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e) => {
+  // Load user profile on mount
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        setIsLoadingProfile(true);
+        const user = await authApi.getProfile();
+        setFormData({
+          name: user.name || '',
+          email: user.email || '',
+        });
+      } catch (err) {
+        setError(err.message || 'Failed to load profile');
+        showNotification(err.message || 'Failed to load profile', 'error');
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    // Only load if we have a real user (not guest)
+    if (currentUser.id !== 999) {
+      loadProfile();
+    } else {
+      setIsLoadingProfile(false);
+    }
+  }, [currentUser.id, showNotification]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    updateUserProfile(formData);
+    setError('');
+    setIsLoading(true);
+    
+    try {
+      await updateUserProfile(formData);
+      // Success notification is handled in AppContext
+    } catch (err) {
+      setError(err.message || 'Failed to update profile');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  // Get primary role for display
+  const primaryRole = currentUser.roles?.[0] || currentUser.role || 'CUSTOMER';
+  const rolesDisplay = currentUser.roles?.join(', ') || primaryRole;
+
+  if (isLoadingProfile) {
+    return (
+      <div className="profile-page-container">
+        <div className="profile-header">
+          <div>
+            <h2 className="page-title">Loading Profile...</h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-page-container">
@@ -64,14 +120,20 @@ function ProfilePage() {
             <div className="profile-info-box">
               <Shield size={20} />
               <div>
-                <p className="info-title">Account Role</p>
-                <p className="info-value">{currentUser.role}</p>
+                <p className="info-title">Account Role{currentUser.roles?.length > 1 ? 's' : ''}</p>
+                <p className="info-value">{rolesDisplay}</p>
               </div>
             </div>
 
-            <button type="submit" className="btn-save-profile">
+            {error && (
+              <div className="profile-error" style={{ color: '#ef4444', marginBottom: '1rem' }}>
+                {error}
+              </div>
+            )}
+
+            <button type="submit" className="btn-save-profile" disabled={isLoading || isLoadingProfile}>
               <Save size={18} />
-              <span>Save Changes</span>
+              <span>{isLoading ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </form>
         </div>
@@ -85,8 +147,8 @@ function ProfilePage() {
                 <span className="stat-value">#{currentUser.id}</span>
               </div>
               <div className="stat-item">
-                <span className="stat-label">Role</span>
-                <span className="stat-value">{currentUser.role}</span>
+                <span className="stat-label">Role{currentUser.roles?.length > 1 ? 's' : ''}</span>
+                <span className="stat-value">{rolesDisplay}</span>
               </div>
               <div className="stat-item">
                 <span className="stat-label">Status</span>

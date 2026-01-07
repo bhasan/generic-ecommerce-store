@@ -8,6 +8,9 @@ interface RegisterData {
   email: string;
   password: string;
   name: string;
+  address?: string;
+  cashapp?: string;
+  phoneNumber?: string;
   role?: RoleName;
   roles?: RoleName[];
 }
@@ -19,11 +22,13 @@ interface LoginData {
 
 export class AuthService {
   /**
-   * Register a new user
+   * Register a new user (requires admin approval)
    */
   async register(data: RegisterData) {
-    const { email, password, name } = data;
-    const requestedRoles = this.normalizeRolesInput(data.roles, data.role);
+    const { email, password, name, address, cashapp, phoneNumber } = data;
+    
+    // New registrations always get CUSTOMER role and require approval
+    const requestedRoles: RoleName[] = ['CUSTOMER'];
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -39,35 +44,51 @@ export class AuthService {
 
     const roleConnections = await this.resolveRoleConnections(requestedRoles);
 
-    // Create user
+    // Create user (not approved by default)
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        roles: {
-          create: roleConnections
-        }
-      },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
+        address: address || null,
+        cashapp: cashapp || null,
+        phoneNumber: phoneNumber || null,
+        approved: false // Requires admin approval
       }
     });
 
-    // Generate token
-    const token = generateToken({
-      userId: user.id,
-      email: user.email,
-      roles: this.toRoleNames(user.roles)
+    // Create user roles
+    await prisma.userRole.createMany({
+      data: roleConnections.map(role => ({
+        userId: user.id,
+        roleId: role.id
+      }))
     });
 
+    // Fetch user roles for response
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: user.id }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    // Don't generate token for unapproved users
+    // They need to wait for admin approval before logging in
+
     return {
-      user: this.formatUser(user),
-      token
+      user: this.formatUser({
+        ...user,
+        roles: rolesWithNames
+      }),
+      message: 'Registration successful. Please visit the store to get approved before logging in.'
     };
   }
 
@@ -79,14 +100,7 @@ export class AuthService {
 
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      }
+      where: { email }
     });
 
     if (!user) {
@@ -100,15 +114,42 @@ export class AuthService {
       throw new AppError('Invalid email or password', 401);
     }
 
+    // Check if user is approved
+    if (!user.approved) {
+      throw new AppError('Your account is pending approval. Please visit the store to get approved.', 403);
+    }
+
+    // Fetch user roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId: user.id }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
     // Generate token
+    const roleNames = rolesWithNames
+      .map(ur => ur.role?.name)
+      .filter((name): name is RoleName => isRoleName(name));
+
     const token = generateToken({
       userId: user.id,
       email: user.email,
-      roles: this.toRoleNames(user.roles)
+      roles: roleNames
     });
 
     return {
-      user: this.formatUser(user),
+      user: this.formatUser({
+        ...user,
+        roles: rolesWithNames
+      }),
       token
     };
   }
@@ -118,37 +159,33 @@ export class AuthService {
    */
   async getProfile(userId: number) {
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        roles: {
-          include: {
-            role: true
-          }
-        }
-      }
+      where: { id: userId }
     });
 
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
+    // Fetch user roles
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
     return this.formatUser({
       ...user,
+      roles: rolesWithNames,
       updatedAt: user.updatedAt
     });
-  }
-
-  private normalizeRolesInput(roles?: RoleName[] | null, role?: RoleName | null): RoleName[] {
-    const allRoles = [
-      ...(Array.isArray(roles) ? roles : []),
-      ...(role ? [role] : [])
-    ].filter((value): value is RoleName => isRoleName(value));
-
-    if (allRoles.length === 0) {
-      return ['CUSTOMER'];
-    }
-
-    return Array.from(new Set(allRoles));
   }
 
   private async resolveRoleConnections(roleNames: RoleName[]) {
@@ -167,11 +204,7 @@ export class AuthService {
       throw new AppError(`Invalid roles: ${missing.join(', ')}`, 400);
     }
 
-    return dbRoles.map((dbRole) => ({
-      role: {
-        connect: { id: dbRole.id }
-      }
-    }));
+    return dbRoles;
   }
 
   private toRoleNames(userRoles: Array<{ role: { name: string } | null }>): RoleName[] {
@@ -180,12 +213,18 @@ export class AuthService {
       .filter((name): name is RoleName => isRoleName(name));
   }
 
-  private formatUser<T extends { id: number; email: string; name: string; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
-    const { id, email, name, createdAt, updatedAt } = user;
+  private formatUser<T extends { id: number; email: string; name: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
+    const { id, email, name, address, cashapp, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
     return {
       id,
       email,
       name,
+      ...(address ? { address } : {}),
+      ...(cashapp ? { cashapp } : {}),
+      ...(phoneNumber ? { phoneNumber } : {}),
+      ...(approved !== undefined ? { approved } : {}),
+      ...(rejected !== undefined ? { rejected } : {}),
+      ...(rejectionNote ? { rejectionNote } : {}),
       roles: this.toRoleNames(user.roles),
       createdAt,
       ...(updatedAt ? { updatedAt } : {})

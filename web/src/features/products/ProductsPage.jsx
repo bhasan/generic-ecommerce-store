@@ -8,7 +8,7 @@ import ProductReviews from '../../components/product/ProductReviews';
 
 function ProductsPage() {
   const navigate = useNavigate();
-  const { products, addToCart, currentUser } = useApp();
+  const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedProduct, setSelectedProduct] = useState(null);
   
@@ -61,7 +61,11 @@ function ProductsPage() {
       </div>
 
       <div className="products-grid">
-        {filteredProducts.length === 0 ? (
+        {isLoadingProducts ? (
+          <div className="empty-state">
+            <p>Loading products...</p>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="empty-state">
             <p>No products found in this category.</p>
           </div>
