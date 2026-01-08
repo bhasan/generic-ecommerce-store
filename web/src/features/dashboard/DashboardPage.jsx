@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './DashboardPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
+import * as announcementsApi from '../../services/announcementsApi';
 import RejectUserModal from '../../components/common/RejectUserModal';
-import { Flag, Star, Trash2, Check, UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin } from 'lucide-react';
+import AnnouncementModal from '../../components/common/AnnouncementModal';
+import { Flag, Star, Trash2, Check, UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin, Megaphone, Edit, Power, PowerOff } from 'lucide-react';
 
 function DashboardPage() {
   const { products, updateReview, deleteReview, showNotification } = useApp();
@@ -11,6 +13,10 @@ function DashboardPage() {
   const [isLoadingPending, setIsLoadingPending] = useState(true);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [userToReject, setUserToReject] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+  const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
+  const [announcementModalOpen, setAnnouncementModalOpen] = useState(false);
+  const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   
   const loadPendingRegistrations = useCallback(async () => {
     try {
@@ -28,6 +34,80 @@ function DashboardPage() {
   useEffect(() => {
     loadPendingRegistrations();
   }, [loadPendingRegistrations]);
+
+  const loadAnnouncements = useCallback(async () => {
+    try {
+      setIsLoadingAnnouncements(true);
+      const data = await announcementsApi.getAllAnnouncements();
+      setAnnouncements(data);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load announcements', 'error');
+    } finally {
+      setIsLoadingAnnouncements(false);
+    }
+  }, [showNotification]);
+
+  useEffect(() => {
+    loadAnnouncements();
+  }, [loadAnnouncements]);
+
+  const handleCreateAnnouncement = () => {
+    setEditingAnnouncement(null);
+    setAnnouncementModalOpen(true);
+  };
+
+  const handleEditAnnouncement = (announcement) => {
+    setEditingAnnouncement(announcement);
+    setAnnouncementModalOpen(true);
+  };
+
+  const handleSaveAnnouncement = async (data) => {
+    try {
+      if (editingAnnouncement) {
+        await announcementsApi.updateAnnouncement(editingAnnouncement.id, data);
+        showNotification('Announcement updated successfully', 'success');
+      } else {
+        await announcementsApi.createAnnouncement(data);
+        showNotification('Announcement created successfully', 'success');
+      }
+      setAnnouncementModalOpen(false);
+      setEditingAnnouncement(null);
+      loadAnnouncements();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save announcement', 'error');
+    }
+  };
+
+  const handleDeleteAnnouncement = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this announcement?')) {
+      return;
+    }
+
+    try {
+      await announcementsApi.deleteAnnouncement(id);
+      showNotification('Announcement deleted successfully', 'success');
+      loadAnnouncements();
+    } catch (error) {
+      showNotification(error.message || 'Failed to delete announcement', 'error');
+    }
+  };
+
+  const handleToggleAnnouncement = async (announcement) => {
+    try {
+      await announcementsApi.updateAnnouncement(announcement.id, {
+        enabled: !announcement.enabled
+      });
+      showNotification(
+        announcement.enabled 
+          ? 'Announcement disabled successfully' 
+          : 'Announcement enabled successfully',
+        'success'
+      );
+      loadAnnouncements();
+    } catch (error) {
+      showNotification(error.message || 'Failed to toggle announcement', 'error');
+    }
+  };
 
   const handleApproveUser = async (userId, userName) => {
     if (!window.confirm(`Approve registration for "${userName}"?`)) {
@@ -201,12 +281,110 @@ function DashboardPage() {
         )}
       </div>
 
+      {/* Announcements Section */}
+      <div className="announcements-section">
+        <div className="section-header-with-action">
+          <h3 className="section-title">
+            <Megaphone size={24} />
+            Announcements
+          </h3>
+          <button
+            onClick={handleCreateAnnouncement}
+            className="btn-action btn-primary"
+          >
+            <Megaphone size={16} />
+            <span>Create Announcement</span>
+          </button>
+        </div>
+        
+        {isLoadingAnnouncements ? (
+          <div className="empty-state">
+            <Clock size={64} className="empty-icon" />
+            <p>Loading announcements...</p>
+          </div>
+        ) : announcements.length === 0 ? (
+          <div className="empty-state">
+            <Megaphone size={64} className="empty-icon" />
+            <p>No announcements created yet. Create one to display to users!</p>
+          </div>
+        ) : (
+          <div className="announcements-list">
+            {announcements.map(announcement => (
+              <div key={announcement.id} className={`announcement-card ${!announcement.enabled ? 'announcement-disabled' : ''}`}>
+                <div className="announcement-card-header">
+                  <div className="announcement-card-info">
+                    <div className={`announcement-type-badge announcement-type-badge-${announcement.type.toLowerCase()}`}>
+                      <span>{announcement.type}</span>
+                    </div>
+                    <span className={`announcement-status-badge ${announcement.enabled ? 'status-enabled' : 'status-disabled'}`}>
+                      {announcement.enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                    {announcement.dismissible && (
+                      <span className="announcement-dismissible-badge">
+                        Dismissible
+                      </span>
+                    )}
+                  </div>
+                  <div className="announcement-card-actions">
+                    <button
+                      onClick={() => handleToggleAnnouncement(announcement)}
+                      className="btn-action btn-toggle"
+                      title={announcement.enabled ? 'Disable' : 'Enable'}
+                    >
+                      {announcement.enabled ? <PowerOff size={16} /> : <Power size={16} />}
+                    </button>
+                    <button
+                      onClick={() => handleEditAnnouncement(announcement)}
+                      className="btn-action btn-edit"
+                    >
+                      <Edit size={16} />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAnnouncement(announcement.id)}
+                      className="btn-action btn-delete"
+                    >
+                      <Trash2 size={16} />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="announcement-card-body">
+                  <p className="announcement-message-display">{announcement.message}</p>
+                  <div className="announcement-card-footer">
+                    <span className="announcement-date">
+                      Created: {formatDate(announcement.createdAt)}
+                    </span>
+                    {announcement.updatedAt !== announcement.createdAt && (
+                      <span className="announcement-date">
+                        Updated: {formatDate(announcement.updatedAt)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Reject User Modal */}
       <RejectUserModal
         isOpen={rejectModalOpen}
         onClose={handleRejectCancel}
         onConfirm={handleRejectConfirm}
         userName={userToReject?.name || ''}
+      />
+
+      {/* Announcement Modal */}
+      <AnnouncementModal
+        isOpen={announcementModalOpen}
+        onClose={() => {
+          setAnnouncementModalOpen(false);
+          setEditingAnnouncement(null);
+        }}
+        onSave={handleSaveAnnouncement}
+        announcement={editingAnnouncement}
       />
 
       {/* HIDDEN: Flagged Reviews Stats - may re-enable later */}

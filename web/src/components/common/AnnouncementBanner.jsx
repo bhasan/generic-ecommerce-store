@@ -1,21 +1,60 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './AnnouncementBanner.css';
 import { X, Megaphone } from 'lucide-react';
+import * as announcementsApi from '../../services/announcementsApi';
 
 function AnnouncementBanner() {
   const [isVisible, setIsVisible] = useState(true);
-  
-  // In a real app, this would come from an API or admin panel
-  const announcement = {
-    message: "Test Annoucement message",
-    type: "info", // info, warning, success
-    dismissible: true
-  };
+  const [announcement, setAnnouncement] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!isVisible || !announcement.message) return null;
+  const loadAnnouncements = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const announcements = await announcementsApi.getActiveAnnouncements();
+      console.log('Loaded announcements:', announcements);
+      // Show the first active announcement
+      if (announcements && announcements.length > 0) {
+        const activeAnnouncement = announcements.find(a => a.enabled !== false) || announcements[0];
+        if (activeAnnouncement && activeAnnouncement.message) {
+          setAnnouncement(activeAnnouncement);
+          setIsVisible(true);
+        } else {
+          setAnnouncement(null);
+        }
+      } else {
+        setAnnouncement(null);
+      }
+    } catch (error) {
+      console.error('Failed to load announcements:', error);
+      console.error('Error details:', error.message, error.status);
+      setAnnouncement(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAnnouncements();
+  }, [loadAnnouncements]);
+
+  // Refresh announcements when window regains focus (e.g., after creating one)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadAnnouncements();
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [loadAnnouncements]);
+
+  if (isLoading || !isVisible || !announcement || !announcement.message) return null;
+
+  // Map backend type (INFO, WARNING, SUCCESS) to CSS class (info, warning, success)
+  const typeClass = announcement.type ? announcement.type.toLowerCase() : 'info';
 
   return (
-    <div className={`announcement-banner announcement-${announcement.type}`}>
+    <div className={`announcement-banner announcement-${typeClass}`}>
       <div className="announcement-container">
         <div className="announcement-icon">
           <Megaphone size={20} />
