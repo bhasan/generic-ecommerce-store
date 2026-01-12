@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, UserX, Truck, CheckCircle } from 'lucide-react';
+import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle } from 'lucide-react';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();
@@ -147,30 +147,6 @@ function Navbar() {
               >
                 <LayoutDashboard size={16} />
                 <span>Dashboard</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/users');
-                  setShowAdminMenu(false);
-                  setShowMobileMenu(false);
-                }}
-                className={`admin-menu-item ${location.pathname === '/users' ? 'admin-menu-item-active' : ''}`}
-              >
-                <Users size={16} />
-                <span>Users</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/rejected-users');
-                  setShowAdminMenu(false);
-                  setShowMobileMenu(false);
-                }}
-                className={`admin-menu-item ${location.pathname === '/rejected-users' ? 'admin-menu-item-active' : ''}`}
-              >
-                <UserX size={16} />
-                <span>Rejected Users</span>
               </button>
               <button
                 type="button"

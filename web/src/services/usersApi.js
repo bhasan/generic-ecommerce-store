@@ -98,6 +98,20 @@ export const rejectUser = async (id, rejectionNote) => {
 };
 
 /**
+ * Un-reject user (move back to pending)
+ * @param {number} id - User ID
+ * @returns {Promise<object>} Success message
+ */
+export const unRejectUser = async (id) => {
+  try {
+    const response = await post(`/users/${id}/unreject`);
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
+/**
  * Delete user
  * @param {number} id - User ID
  * @returns {Promise<object>} Success message

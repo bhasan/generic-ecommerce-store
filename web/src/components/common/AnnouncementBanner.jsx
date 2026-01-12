@@ -38,16 +38,6 @@ function AnnouncementBanner() {
     loadAnnouncements();
   }, [loadAnnouncements]);
 
-  // Refresh announcements when window regains focus (e.g., after creating one)
-  useEffect(() => {
-    const handleFocus = () => {
-      loadAnnouncements();
-    };
-
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [loadAnnouncements]);
-
   if (isLoading || !isVisible || !announcement || !announcement.message) return null;
 
   // Map backend type (INFO, WARNING, SUCCESS) to CSS class (info, warning, success)

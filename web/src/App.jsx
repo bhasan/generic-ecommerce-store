@@ -16,8 +16,6 @@ import OrdersPage from './features/orders/OrdersPage';
 import ManageProductsPage from './features/products/ManageProductsPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
-import UsersPage from './features/users/UsersPage';
-import RejectedUsersPage from './features/users/RejectedUsersPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
 
@@ -88,19 +86,6 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Users Management - Admin only */}
-            <Route path="/users" element={
-              <ProtectedRoute roles={['ADMIN']}>
-                <UsersPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Rejected Users - Admin only */}
-            <Route path="/rejected-users" element={
-              <ProtectedRoute roles={['ADMIN']}>
-                <RejectedUsersPage />
-              </ProtectedRoute>
-            } />
 
             {/* Delivered Orders - Admin only */}
             <Route path="/delivered-orders" element={
