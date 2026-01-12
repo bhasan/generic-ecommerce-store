@@ -13,6 +13,7 @@ import announcementRoutes from './routes/announcement.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
+import { requestLogger } from './middleware/logger.middleware';
 
 // Load environment variables
 dotenv.config();
@@ -66,6 +67,13 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ========================================
+// LOGGING MIDDLEWARE
+// ========================================
+
+// Request logging (must be after body parsing to capture request body)
+app.use(requestLogger);
+
+// ========================================
 // ROUTES
 // ========================================
 
@@ -108,16 +116,20 @@ app.listen(PORT, () => {
   console.log('========================================');
 });
 
+import { logger } from './utils/logger';
+
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Promise Rejection', reason instanceof Error ? reason : new Error(String(reason)), {
+    promise: String(promise),
+  });
   // In production, you might want to exit the process
   // process.exit(1);
 });
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+  logger.error('Uncaught Exception', error);
   // In production, you should exit the process
   process.exit(1);
 });

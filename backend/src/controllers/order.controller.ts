@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import orderService from '../services/order.service';
+import { logger } from '../utils/logger';
 
 export class OrderController {
   /**
@@ -91,19 +92,38 @@ export class OrderController {
   async createOrder(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       if (!req.user) {
+        logger.warn('Order creation failed: authentication required', {
+          path: req.path,
+          ip: req.ip,
+        });
         res.status(401).json({ error: 'Authentication required' });
         return;
       }
 
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('Order creation failed: validation errors', {
+          userId: req.user.userId,
+          errors: errors.array(),
+        });
         res.status(400).json({ errors: errors.array() });
         return;
       }
 
+      logger.info('Order creation request received', {
+        userId: req.user.userId,
+        itemCount: req.body.items?.length || 0,
+      });
+
       const order = await orderService.createOrder({
         userId: req.user.userId,
         items: req.body.items
+      });
+
+      logger.info('Order created successfully via API', {
+        orderId: order.id,
+        userId: req.user.userId,
+        total: order.total,
       });
 
       res.status(201).json({
