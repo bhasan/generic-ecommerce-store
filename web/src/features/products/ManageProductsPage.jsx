@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './ProductCard.css';
 import './ManageProductsPage.css';
 import { useApp } from '../../context/AppContext';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload } from 'lucide-react';
 
 function ManageProductsPage() {
@@ -13,6 +14,8 @@ function ManageProductsPage() {
   }, [loadProducts]);
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [deleteProductModalOpen, setDeleteProductModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
   const [formData, setFormData] = useState({
     name: '', 
     category: '', 
@@ -88,10 +91,21 @@ function ManageProductsPage() {
     });
   };
 
-  const handleDelete = (productId, productName) => {
-    if (window.confirm(`Are you sure you want to delete "${productName}"? This action cannot be undone.`)) {
-      deleteProduct(productId);
-    }
+  const handleDeleteClick = (productId, productName) => {
+    setProductToDelete({ id: productId, name: productName });
+    setDeleteProductModalOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!productToDelete) return;
+    deleteProduct(productToDelete.id);
+    setDeleteProductModalOpen(false);
+    setProductToDelete(null);
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteProductModalOpen(false);
+    setProductToDelete(null);
   };
 
   const addImageField = () => {
@@ -384,7 +398,7 @@ function ManageProductsPage() {
                     </button>
                     {currentUser.role === 'ADMIN' && (
                       <button
-                        onClick={() => handleDelete(product.id, product.name)}
+                        onClick={() => handleDeleteClick(product.id, product.name)}
                         className="btn-delete"
                       >
                         <Trash2 size={16} />
@@ -398,6 +412,25 @@ function ManageProductsPage() {
           })
         )}
       </div>
+
+      {/* Delete Product Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteProductModalOpen}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Product"
+        message={
+          <>
+            Are you sure you want to delete <strong>"{productToDelete?.name || ''}"</strong>?
+            <br />
+            <br />
+            This action cannot be undone.
+          </>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 }

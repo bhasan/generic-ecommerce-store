@@ -130,6 +130,13 @@
   color: #ffffff;
 }
 
+.role-badge-no-roles {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  font-style: italic;
+}
+
 .user-actions-cell {
   display: flex;
   align-items: center;

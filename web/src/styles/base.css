@@ -1,38 +1,15 @@
+/* ============================================
+   BASE STYLES
+   ============================================
+   Global reset, typography, and base element styles
+   ============================================ */
+
+@import './theme.css';
 
 :root {
-  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  /* Color Palette for E-commerce */
-  --color-primary: #7c3aed;
-  --color-primary-dark: #6b21a8;
-  --color-primary-light: #a855f7;
-  --color-secondary: #10b981;
-  --color-secondary-dark: #059669;
-  --color-danger: #ef4444;
-  --color-danger-dark: #b91c1c;
-  --color-warning: #f59e0b;
-  
-  /* Backgrounds */
-  --bg-primary: #0f1419;
-  --bg-secondary: #1f2937;
-  --bg-tertiary: #111827;
-  --bg-card: #1f2937;
-  
-  /* Text Colors */
-  --text-primary: rgba(255, 255, 255, 0.87);
-  --text-secondary: #9ca3af;
-  --text-tertiary: #6b7280;
-  
-  /* Borders */
-  --border-color: #374151;
-  --border-color-hover: #6b21a8;
-
   color-scheme: light dark;
   color: var(--text-primary);
   background-color: var(--bg-primary);
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,6 +27,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: var(--bg-primary);
+  font-family: var(--font-family);
+  line-height: var(--line-height-normal);
+  font-weight: var(--font-weight-normal);
 }
 
 #root {
@@ -58,41 +38,42 @@ body {
 }
 
 a {
-  font-weight: 500;
-  color: var(--color-primary-light);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-link);
   text-decoration: inherit;
-  transition: color 0.2s ease;
+  transition: var(--transition-base);
 }
 
 a:hover {
-  color: var(--color-primary);
+  color: var(--text-link-hover);
 }
 
 h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
-  line-height: 1.2;
+  line-height: var(--line-height-tight);
   margin-top: 0;
+  font-weight: var(--font-weight-bold);
 }
 
 h1 {
-  font-size: 3.2em;
+  font-size: var(--font-size-5xl);
   line-height: 1.1;
 }
 
 button {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--bg-secondary);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: var(--transition-all);
 }
 
 button:hover {
-  border-color: var(--color-primary-light);
+  border-color: var(--border-color-hover);
 }
 
 button:focus,
@@ -109,11 +90,13 @@ input, textarea, select {
   font-family: inherit;
 }
 
-/* Utility Classes */
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
 .container {
-  max-width: 1400px;
+  max-width: var(--container-max-width);
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 var(--spacing-md);
 }
 
 .text-gradient {
@@ -123,7 +106,20 @@ input, textarea, select {
   background-clip: text;
 }
 
-/* Loading and Animations */
+/* Layout Utilities */
+.app-wrapper {
+  min-height: 100vh;
+  background: var(--bg-primary);
+  width: 100%;
+}
+
+.main-content {
+  padding: var(--spacing-xl) var(--spacing-md);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
 @keyframes fadeIn {
   from {
     opacity: 0;

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './UsersPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
 
 function UsersPage() {
@@ -12,6 +13,8 @@ function UsersPage() {
   const [editingUserId, setEditingUserId] = useState(null);
   const [editingRoles, setEditingRoles] = useState([]);
   const [availableRoles, setAvailableRoles] = useState([]);
+  const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -44,19 +47,31 @@ function UsersPage() {
     loadRoles();
   }, [loadUsers, loadRoles]);
 
-  const handleDeleteUser = async (userId, userName) => {
-    if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteUserClick = (userId, userName) => {
+    setUserToDelete({ id: userId, name: userName });
+    setDeleteUserModalOpen(true);
+  };
+
+  const handleDeleteUserConfirm = async () => {
+    if (!userToDelete) return;
 
     try {
-      await usersApi.deleteUser(userId);
+      await usersApi.deleteUser(userToDelete.id);
       showNotification('User deleted successfully', 'success');
+      setDeleteUserModalOpen(false);
+      setUserToDelete(null);
       loadUsers(); // Reload users list
     } catch (err) {
       const errorMessage = err.message || 'Failed to delete user';
       showNotification(errorMessage, 'error');
+      setDeleteUserModalOpen(false);
+      setUserToDelete(null);
     }
+  };
+
+  const handleDeleteUserCancel = () => {
+    setDeleteUserModalOpen(false);
+    setUserToDelete(null);
   };
 
   const handleEditRoles = (user) => {
@@ -72,7 +87,10 @@ function UsersPage() {
   const handleSaveRoles = async (userId) => {
     try {
       await usersApi.updateUser(userId, { roles: editingRoles });
-      showNotification('User roles updated successfully', 'success');
+      const message = editingRoles.length === 0 
+        ? 'All roles removed. User will appear in Pending Registrations.'
+        : 'User roles updated successfully';
+      showNotification(message, 'success');
       setEditingUserId(null);
       setEditingRoles([]);
       loadUsers(); // Reload users list
@@ -229,8 +247,14 @@ function UsersPage() {
                                 {role}
                               </span>
                             ))
+                          ) : user.role ? (
+                            <span className={getRoleBadgeClass(user.role)}>
+                              {user.role}
+                            </span>
                           ) : (
-                            <span className="role-badge role-badge-customer">CUSTOMER</span>
+                            <span className="role-badge role-badge-no-roles" title="No roles - appears in Pending Registrations">
+                              No Roles
+                            </span>
                           )}
                         </div>
                       )}
@@ -254,7 +278,7 @@ function UsersPage() {
                             </button>
                             {user.id !== currentUser.id && (
                               <button
-                                onClick={() => handleDeleteUser(user.id, user.name)}
+                                onClick={() => handleDeleteUserClick(user.id, user.name)}
                                 className="btn-delete-user"
                                 title="Delete user"
                               >
@@ -275,6 +299,25 @@ function UsersPage() {
           </div>
         )}
       </div>
+
+      {/* Delete User Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteUserModalOpen}
+        onClose={handleDeleteUserCancel}
+        onConfirm={handleDeleteUserConfirm}
+        title="Delete User"
+        message={
+          <>
+            Are you sure you want to delete user <strong>"{userToDelete?.name || ''}"</strong>?
+            <br />
+            <br />
+            This action cannot be undone.
+          </>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 }
