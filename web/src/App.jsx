@@ -22,11 +22,11 @@ import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
 function App() {
   return (
     <AppProvider>
-      <div className="min-h-screen bg-gray-900">
+      <div className="app-wrapper">
         <AnnouncementBanner />
         <Navbar />
         <Notification />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container main-content">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />

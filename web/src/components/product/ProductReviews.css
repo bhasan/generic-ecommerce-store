@@ -14,7 +14,7 @@
   position: absolute;
   top: -1.5rem;
   left: 0;
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   font-style: italic;
 }
@@ -27,33 +27,33 @@
 .image-input-group {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--spacing-lg);
   flex: 1;
 }
 
 .image-upload-separator {
   color: var(--text-tertiary);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
 }
 
 .btn-upload-image {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  background: rgba(124, 58, 237, 0.1);
+  gap: var(--spacing-sm);
+  background: var(--bg-hover);
   border: 1px solid var(--color-primary-dark);
   color: var(--color-primary-light);
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  padding: var(--spacing-lg) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
   white-space: nowrap;
 }
 
 .btn-upload-image:hover {
-  background: rgba(124, 58, 237, 0.2);
+  background: var(--bg-active);
   border-color: var(--color-primary);
 }
 
@@ -67,94 +67,94 @@
    ============================================ */
 
 .product-reviews-section {
-  margin-top: 2rem;
-  padding: 2rem;
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  background: var(--bg-dashboard-sidebar);
   border: 1px solid var(--border-color);
-  border-radius: 1rem;
+  border-radius: var(--radius-xl);
 }
 
 .reviews-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
+  margin-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-md);
   border-bottom: 1px solid var(--border-color);
 }
 
 .reviews-title {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
-  margin: 0 0 1rem 0;
+  margin: 0 0 var(--spacing-md) 0;
 }
 
 .reviews-stats {
-  margin-top: 0.5rem;
+  margin-top: var(--spacing-sm);
 }
 
 .rating-display {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--spacing-lg);
 }
 
 .rating-number {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-4xl);
+  font-weight: var(--font-weight-bold);
   color: var(--color-primary-light);
 }
 
 .stars-display {
   display: flex;
-  gap: 0.25rem;
+  gap: var(--spacing-xs);
 }
 
 .review-count {
   color: var(--text-tertiary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .btn-write-review {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  color: white;
-  padding: 0.75rem 1.5rem;
+  color: var(--text-on-primary);
+  padding: var(--spacing-lg) var(--spacing-lg);
   border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
 }
 
 .btn-write-review:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+  box-shadow: var(--shadow-primary-lg);
 }
 
 /* Review Form */
 .review-form {
   background: var(--bg-tertiary);
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  margin-bottom: 2rem;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-xl);
   border: 1px solid var(--border-color);
 }
 
 .rating-input {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-lg);
 }
 
 .rating-input label {
   display: block;
   color: var(--text-primary);
-  font-weight: 600;
-  margin-bottom: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-lg);
 }
 
 .stars-input {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .star-button {
@@ -162,7 +162,7 @@
   border: none;
   padding: 0;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform var(--transition-base);
 }
 
 .star-button:hover {
@@ -170,14 +170,14 @@
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--spacing-lg);
 }
 
 .form-group label {
   display: block;
   color: var(--text-primary);
-  font-weight: 600;
-  margin-bottom: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--spacing-lg);
 }
 
 .form-textarea {
@@ -185,8 +185,8 @@
   background: var(--bg-primary);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.75rem;
-  border-radius: 0.5rem;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
   font-family: inherit;
   resize: vertical;
 }
@@ -198,34 +198,34 @@
 
 .form-actions {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .btn-submit-review {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  color: white;
-  padding: 0.75rem 1.5rem;
+  color: var(--text-on-primary);
+  padding: var(--spacing-lg) var(--spacing-lg);
   border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
 }
 
 .btn-submit-review:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+  box-shadow: var(--shadow-primary-lg);
 }
 
 .btn-cancel {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.75rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  padding: var(--spacing-lg) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
 }
 
 .btn-cancel:hover {
@@ -237,21 +237,21 @@
 .reviews-list {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--spacing-lg);
 }
 
 .empty-reviews {
   text-align: center;
-  padding: 3rem 1rem;
+  padding: var(--spacing-2xl) var(--spacing-md);
   color: var(--text-secondary);
 }
 
 .review-card {
   background: var(--bg-tertiary);
-  padding: 1.5rem;
-  border-radius: 0.75rem;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
 }
 
 .review-card:hover {
@@ -267,18 +267,18 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .reviewer-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--spacing-lg);
   flex-wrap: wrap;
 }
 
 .reviewer-name {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 
@@ -289,51 +289,51 @@
 
 .review-date {
   color: var(--text-tertiary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .flagged-badge {
   background: var(--color-warning);
-  color: #1f2937;
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 700;
+  color: var(--bg-primary);
+  padding: var(--spacing-xs) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
 }
 
 .review-comment {
   color: var(--text-primary);
-  line-height: 1.6;
-  margin: 0 0 1rem 0;
+  line-height: var(--line-height-normal);
+  margin: 0 0 var(--spacing-md) 0;
 }
 
 .review-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-  padding-top: 1rem;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-md);
   border-top: 1px solid var(--border-color);
 }
 
 .review-votes {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .vote-button {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
+  transition: var(--transition-all);
+  font-size: var(--font-size-sm);
 }
 
 .vote-button:hover:not(:disabled) {
@@ -347,7 +347,7 @@
 }
 
 .vote-button-active {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   background: transparent;
 }
 
@@ -375,22 +375,22 @@
 
 .review-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
 }
 
 .btn-reply,
 .btn-flag {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
+  transition: var(--transition-all);
+  font-size: var(--font-size-sm);
 }
 
 .btn-reply:hover {
@@ -407,7 +407,7 @@
   border-color: var(--color-warning);
   background: rgba(245, 158, 11, 0.1);
   color: var(--color-warning);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .btn-flag-active:hover {
@@ -417,15 +417,15 @@
 .btn-delete-review {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
+  transition: var(--transition-all);
+  font-size: var(--font-size-sm);
 }
 
 .btn-delete-review:hover {
@@ -435,10 +435,10 @@
 
 /* Reply Form */
 .reply-form {
-  margin-top: 1rem;
-  padding: 1rem;
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
   background: var(--bg-primary);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
 }
 
@@ -447,9 +447,9 @@
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  padding: 0.75rem;
-  border-radius: 0.5rem;
-  margin-bottom: 0.75rem;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
   resize: vertical;
   font-family: inherit;
 }
@@ -461,39 +461,39 @@
 
 .reply-actions {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--spacing-lg);
 }
 
 .btn-send-reply {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  color: white;
-  padding: 0.5rem 1rem;
+  color: var(--text-on-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
   border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
+  transition: var(--transition-all);
+  font-size: var(--font-size-sm);
 }
 
 .btn-send-reply:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+  box-shadow: var(--shadow-primary);
 }
 
 .btn-cancel-reply {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
+  transition: var(--transition-all);
+  font-size: var(--font-size-sm);
 }
 
 .btn-cancel-reply:hover {
@@ -503,16 +503,16 @@
 
 /* Replies Section */
 .replies-section {
-  margin-top: 1rem;
-  padding-left: 1.5rem;
+  margin-top: var(--spacing-md);
+  padding-left: var(--spacing-lg);
   border-left: 2px solid var(--border-color);
 }
 
 .reply-card {
   background: var(--bg-primary);
-  padding: 1rem;
-  border-radius: 0.5rem;
-  margin-bottom: 0.75rem;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
 }
 
 .reply-card:last-child {
@@ -522,36 +522,36 @@
 .reply-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-sm);
   flex-wrap: wrap;
 }
 
 .reply-author {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .store-badge {
   background: var(--color-primary-dark);
   color: var(--text-primary);
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: 0.125rem var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
 }
 
 .reply-date {
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   margin-left: auto;
 }
 
 .reply-text {
   color: var(--text-primary);
-  line-height: 1.6;
+  line-height: var(--line-height-normal);
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
