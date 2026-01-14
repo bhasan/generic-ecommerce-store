@@ -4,7 +4,7 @@ import { RoleName, hasAnyRole } from '../constants/roles';
 
 interface CreateProductData {
   name: string;
-  category: string;
+  categoryId: number;
   price: number;
   description?: string;
   image?: string;
@@ -12,11 +12,13 @@ interface CreateProductData {
   stock?: number;
   stockEnabled?: boolean;
   hidden?: boolean;
+  sortOrder?: number;
+  cardSize?: string;
 }
 
 interface UpdateProductData {
   name?: string;
-  category?: string;
+  categoryId?: number;
   price?: number;
   description?: string;
   image?: string;
@@ -24,9 +26,17 @@ interface UpdateProductData {
   stock?: number;
   stockEnabled?: boolean;
   hidden?: boolean;
+  sortOrder?: number;
+  cardSize?: string;
 }
 
 export class ProductService {
+  private normalizeCategoryId(value: unknown): number | undefined {
+    if (value === undefined || value === null) return undefined;
+    const parsed = typeof value === 'string' ? parseInt(value, 10) : value;
+    return Number.isFinite(parsed as number) ? (parsed as number) : undefined;
+  }
+
   /**
    * Get all products (filters hidden products for non-admin users)
    */
@@ -36,9 +46,16 @@ export class ProductService {
 
     const products = await prisma.productItem.findMany({
       where,
-      orderBy: {
-        createdAt: 'desc'
-      }
+      include: {
+        category: {
+          include: { parent: true }
+        }
+      },
+      orderBy: [
+        { category: { sortOrder: 'asc' } },
+        { sortOrder: 'asc' },
+        { createdAt: 'desc' }
+      ]
     });
 
     // Fetch reviews with users for each product
@@ -79,7 +96,12 @@ export class ProductService {
    */
   async getProductById(id: number, userRoles?: RoleName[]) {
     const product = await prisma.productItem.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        category: {
+          include: { parent: true }
+        }
+      }
     });
 
     if (!product) {
@@ -119,9 +141,20 @@ export class ProductService {
    * Create a new product (Management/Admin only)
    */
   async createProduct(data: CreateProductData) {
+    const categoryId = this.normalizeCategoryId(data.categoryId);
+    if (!categoryId) {
+      throw new AppError('Category is required', 400);
+    }
+
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) {
+      throw new AppError('Category not found', 400);
+    }
+
     return await prisma.productItem.create({
       data: {
         ...data,
+        categoryId,
         images: data.images || []
       }
     });
@@ -139,14 +172,30 @@ export class ProductService {
 
     // Filter out non-updatable fields (reviews, id, createdAt, updatedAt, etc.)
     const allowedFields: (keyof UpdateProductData)[] = [
-      'name', 'category', 'price', 'description', 
-      'image', 'images', 'stock', 'stockEnabled', 'hidden'
+      'name', 'categoryId', 'price', 'description',
+      'image', 'images', 'stock', 'stockEnabled', 'hidden',
+      'sortOrder', 'cardSize'
     ];
-    
+
+    const normalizedCategoryId = this.normalizeCategoryId(data.categoryId);
+    if (data.categoryId !== undefined) {
+      if (!normalizedCategoryId) {
+        throw new AppError('Category is invalid', 400);
+      }
+      const category = await prisma.category.findUnique({ where: { id: normalizedCategoryId } });
+      if (!category) {
+        throw new AppError('Category not found', 400);
+      }
+    }
+
     const filteredData: Partial<UpdateProductData> = {};
     for (const key of allowedFields) {
       if (key in data && data[key] !== undefined) {
-        (filteredData as any)[key] = data[key];
+        if (key === 'categoryId') {
+          (filteredData as any)[key] = normalizedCategoryId;
+        } else {
+          (filteredData as any)[key] = data[key];
+        }
       }
     }
 

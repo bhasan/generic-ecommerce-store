@@ -3,6 +3,7 @@ import './UsersPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 function UsersPage() {
   const { currentUser, showNotification } = useApp();
@@ -134,7 +135,8 @@ function UsersPage() {
   }
 
   return (
-    <div className="users-page-container">
+    <AdminLayout>
+      <div className="users-page-container">
       <div className="users-header">
         <div>
           <h2 className="page-title">Users Management</h2>
@@ -275,7 +277,8 @@ function UsersPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
 

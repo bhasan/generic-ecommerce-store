@@ -31,7 +31,7 @@ router.post(
   authorizeManagement,
   [
     body('name').notEmpty().withMessage('Product name is required'),
-    body('category').notEmpty().withMessage('Category is required'),
+    body('categoryId').isInt({ min: 1 }).withMessage('Category is required').toInt(),
     body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
     body('description').optional().isString(),
     body('image').optional().isString(),
@@ -54,7 +54,7 @@ router.put(
   authorizeManagement,
   [
     body('name').optional().notEmpty().withMessage('Product name cannot be empty'),
-    body('category').optional().notEmpty().withMessage('Category cannot be empty'),
+    body('categoryId').optional().isInt({ min: 1 }).withMessage('Category cannot be empty').toInt(),
     body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
     body('description').optional().isString(),
     body('image').optional().isString(),

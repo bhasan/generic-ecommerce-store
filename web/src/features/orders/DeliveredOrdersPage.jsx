@@ -5,7 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { Package, User, MapPin, Phone, Mail, Calendar, CheckCircle } from 'lucide-react';
 
 function DeliveredOrdersPage() {
-  const { showNotification } = useApp();
+  const { showNotification, currentUser } = useApp();
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -46,6 +46,9 @@ function DeliveredOrdersPage() {
       currency: 'USD'
     }).format(amount);
   };
+
+  const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
+  const canViewSensitive = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
 
   return (
     <div className="delivered-orders-container">
@@ -89,26 +92,28 @@ function DeliveredOrdersPage() {
                     <User size={18} />
                     <h4 className="customer-name">{order.user.name}</h4>
                   </div>
-                  <div className="customer-details">
-                    {order.user.email && (
-                      <div className="customer-detail-item">
-                        <Mail size={16} />
-                        <span>{order.user.email}</span>
-                      </div>
-                    )}
-                    {order.user.phoneNumber && (
-                      <div className="customer-detail-item">
-                        <Phone size={16} />
-                        <span>{order.user.phoneNumber}</span>
-                      </div>
-                    )}
-                    {order.user.address && (
-                      <div className="customer-detail-item customer-address">
-                        <MapPin size={16} />
-                        <span>{order.user.address}</span>
-                      </div>
-                    )}
-                  </div>
+                  {canViewSensitive && (
+                    <div className="customer-details">
+                      {order.user.email && (
+                        <div className="customer-detail-item">
+                          <Mail size={16} />
+                          <span>{order.user.email}</span>
+                        </div>
+                      )}
+                      {order.user.phoneNumber && (
+                        <div className="customer-detail-item">
+                          <Phone size={16} />
+                          <span>{order.user.phoneNumber}</span>
+                        </div>
+                      )}
+                      {order.user.address && (
+                        <div className="customer-detail-item customer-address">
+                          <MapPin size={16} />
+                          <span>{order.user.address}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

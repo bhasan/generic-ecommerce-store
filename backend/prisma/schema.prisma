@@ -84,11 +84,28 @@ model OrderItem {
   @@map("order_items")
 }
 
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?
+  parentId    Int?
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryParent")
+  products ProductItem[]
+
+  @@unique([name, parentId])
+  @@map("categories")
+}
+
 // Enhanced ProductItem model (renamed from Product)
 model ProductItem {
   id           Int         @id @default(autoincrement())
   name         String
-  category     String
+  categoryId   Int
   price        Float
   description  String?
   image        String?     // Primary image URL
@@ -96,10 +113,24 @@ model ProductItem {
   stock        Int         @default(0)
   stockEnabled Boolean     @default(true)
   hidden       Boolean     @default(false)
+  sortOrder    Int         @default(0)
+  cardSize     String      @default("standard")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
+  category     Category    @relation(fields: [categoryId], references: [id])
+
   @@map("products")
+}
+
+model UiSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ui_settings")
 }
 
 // Review model

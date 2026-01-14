@@ -1,31 +1,120 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ProductCard.css';
 import './ProductsPage.css';
 import { useApp } from '../../context/AppContext';
-import { Filter, Star, MessageSquare } from 'lucide-react';
-import ProductReviews from '../../components/product/ProductReviews';
 
 function ProductsPage() {
   const navigate = useNavigate();
-  const { products, addToCart, currentUser, isLoadingProducts } = useApp();
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  
-  // Filter out hidden products for customers and guests
-  const visibleProducts = currentUser.role === 'CUSTOMER' || currentUser.email === 'guest@smokestation.com'
-    ? products.filter(p => !p.hidden)
-    : products;
-  
-  const categories = ['All', ...new Set(visibleProducts.map(p => p.category))];
-  const filteredProducts = selectedCategory === 'All' 
-    ? visibleProducts 
-    : visibleProducts.filter(p => p.category === selectedCategory);
+  const {
+    products,
+    addToCart,
+    currentUser,
+    isLoadingProducts,
+    categories,
+    isLoadingCategories,
+    loadCategories
+  } = useApp();
 
-  const getAverageRating = (product) => {
-    if (!product.reviews || product.reviews.length === 0) return 0;
-    const sum = product.reviews.reduce((acc, review) => acc + review.rating, 0);
-    return (sum / product.reviews.length).toFixed(1);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
+  const isCustomer = currentUser.role === 'CUSTOMER' || currentUser.email === 'guest@smokestation.com';
+  const visibleProducts = isCustomer ? products.filter(product => !product.hidden) : products;
+
+  const getCategoryLabel = (product) => {
+    if (product?.category && typeof product.category === 'object') {
+      return product.category.parent
+        ? `${product.category.parent.name} > ${product.category.name}`
+        : product.category.name;
+    }
+    return product?.category || 'Uncategorized';
+  };
+
+  const groupProducts = () => {
+    if (!categories || categories.length === 0) {
+      return { flat: visibleProducts };
+    }
+
+    const byCategoryId = new Map();
+    visibleProducts.forEach(product => {
+      const id = product.categoryId || product.category?.id;
+      if (!id) return;
+      if (!byCategoryId.has(id)) byCategoryId.set(id, []);
+      byCategoryId.get(id).push(product);
+    });
+
+    const topLevel = categories
+      .filter(category => !category.parentId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
+
+    const children = categories
+      .filter(category => category.parentId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
+
+    const childrenByParent = children.reduce((acc, category) => {
+      acc[category.parentId] = acc[category.parentId] || [];
+      acc[category.parentId].push(category);
+      return acc;
+    }, {});
+
+    return { topLevel, childrenByParent, byCategoryId };
+  };
+
+  const { topLevel, childrenByParent, byCategoryId, flat } = groupProducts();
+
+  const sortedProducts = (list) =>
+    [...list].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
+
+  const renderProductCard = (product) => {
+    const mainImage = product.images ? product.images[0] : product.image;
+    const showStock = product.stockEnabled !== false;
+
+    return (
+      <div
+        key={product.id}
+        className="product-card"
+        onClick={() => navigate(`/products/${product.id}`)}
+        style={{ cursor: 'pointer' }}
+      >
+        <div className="product-image-container">
+          <img
+            src={mainImage}
+            alt={product.name}
+            className="product-image"
+            onError={(e) => {
+              e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+            }}
+          />
+        </div>
+
+        <div className="product-content">
+          <div className="product-header">
+            <h3 className="product-name">{product.name}</h3>
+            <span className="product-category">{getCategoryLabel(product)}</span>
+          </div>
+
+          <p className="product-description">{product.description}</p>
+
+          <div className="product-footer">
+            <span className="product-price">${product.price.toFixed(2)}</span>
+            <div className="product-footer-actions">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  addToCart(product);
+                }}
+                disabled={showStock && product.stock === 0}
+                className="btn-add-to-cart"
+              >
+                {showStock && product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -42,142 +131,56 @@ function ProductsPage() {
         )}
       </div>
 
-      <div className="category-filter">
-        <div className="filter-label">
-          <Filter size={18} />
-          <span>Filter by Category</span>
+      {isLoadingProducts || isLoadingCategories ? (
+        <div className="empty-state">
+          <p>Loading products...</p>
         </div>
-        <div className="category-buttons">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`category-btn ${selectedCategory === cat ? 'category-btn-active' : ''}`}
-            >
-              {cat}
-            </button>
-          ))}
+      ) : flat ? (
+        <div className="products-grid">
+          {sortedProducts(flat).map(renderProductCard)}
         </div>
-      </div>
+      ) : (
+        topLevel.map(parent => {
+          const parentProducts = byCategoryId.get(parent.id) || [];
+          const childCategories = childrenByParent[parent.id] || [];
 
-      <div className="products-grid">
-        {isLoadingProducts ? (
-          <div className="empty-state">
-            <p>Loading products...</p>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="empty-state">
-            <p>No products found in this category.</p>
-          </div>
-        ) : (
-          filteredProducts.map(product => {
-            const mainImage = product.images ? product.images[0] : product.image;
-            const showStock = product.stockEnabled !== false;
-            const averageRating = getAverageRating(product);
-            const reviewCount = product.reviews?.length || 0;
-            
-            return (
-              <div 
-                key={product.id} 
-                className="product-card"
-                onClick={() => navigate(`/products/${product.id}`)}
-                style={{ cursor: 'pointer' }}
-              >
-                <div className="product-image-container">
-                  <img 
-                    src={mainImage} 
-                    alt={product.name} 
-                    className="product-image"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-                    }}
-                  />
-                  {/* HIDDEN: Stock indicator - may re-enable later */}
-                  {/* {showStock && (
-                    <div className="product-badge">
-                      {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                    </div>
-                  )} */}
-                </div>
-
-                <div className="product-content">
-                  <div className="product-header">
-                    <h3 className="product-name">{product.name}</h3>
-                    <span className="product-category">{product.category}</span>
-                  </div>
-
-                  {/* HIDDEN: Reviews and ratings - may re-enable later */}
-                  {/* {reviewCount > 0 && (
-                    <div className="product-rating">
-                      <div className="stars-small">
-                        {[1, 2, 3, 4, 5].map(i => (
-                          <Star
-                            key={i}
-                            size={14}
-                            fill={i <= Math.round(averageRating) ? '#fbbf24' : 'none'}
-                            color={i <= Math.round(averageRating) ? '#fbbf24' : '#9ca3af'}
-                          />
-                        ))}
-                      </div>
-                      <span className="rating-text">{averageRating}</span>
-                      <span className="review-count-text">({reviewCount})</span>
-                    </div>
-                  )} */}
-
-                  <p className="product-description">{product.description}</p>
-
-                  <div className="product-footer">
-                    <span className="product-price">${product.price.toFixed(2)}</span>
-                    <div className="product-footer-actions">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          addToCart(product);
-                        }}
-                        disabled={showStock && product.stock === 0}
-                        className="btn-add-to-cart"
-                      >
-                        {showStock && product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-                      </button>
-                      {/* HIDDEN: View reviews button - may re-enable later */}
-                      {/* <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedProduct(product.id);
-                        }}
-                        className="btn-view-reviews"
-                        title="View reviews"
-                      >
-                        <MessageSquare size={18} />
-                      </button> */}
-                    </div>
-                  </div>
-                </div>
+          return (
+            <div key={parent.id} className="category-section">
+              <div className="category-section-header">
+                <h3 className="category-section-title">{parent.name}</h3>
+                {parent.description && (
+                  <p className="category-section-description">{parent.description}</p>
+                )}
               </div>
-            );
-          })
-        )}
-      </div>
 
-      {/* HIDDEN: Reviews Modal - may re-enable later */}
-      {/* {selectedProduct && (
-        <div className="reviews-modal-overlay" onClick={() => setSelectedProduct(null)}>
-          <div className="reviews-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="reviews-modal-header">
-              <h3>Product Reviews</h3>
-              <button
-                onClick={() => setSelectedProduct(null)}
-                className="btn-close-modal"
-              >
-                ×
-              </button>
+              {sortedProducts(parentProducts).length > 0 && (
+                <div className="products-grid">
+                  {sortedProducts(parentProducts).map(renderProductCard)}
+                </div>
+              )}
+
+              {childCategories.map(child => {
+                const childProducts = byCategoryId.get(child.id) || [];
+                if (childProducts.length === 0) return null;
+
+                return (
+                  <div key={child.id} className="subcategory-section">
+                    <div className="category-section-header">
+                      <h4 className="subcategory-section-title">{child.name}</h4>
+                      {child.description && (
+                        <p className="category-section-description">{child.description}</p>
+                      )}
+                    </div>
+                    <div className="products-grid">
+                      {sortedProducts(childProducts).map(renderProductCard)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="reviews-modal-content">
-              <ProductReviews productId={selectedProduct} />
-            </div>
-          </div>
-        </div>
-      )} */}
+          );
+        })
+      )}
     </div>
   );
 }

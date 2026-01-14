@@ -29,7 +29,7 @@ export const getProductById = async (id) => {
 
 /**
  * Create product
- * @param {object} data - Product data {name, category, price, description?, image?, images?, stock?, stockEnabled?, hidden?}
+ * @param {object} data - Product data {name, categoryId, price, description?, image?, images?, stock?, stockEnabled?, hidden?}
  * @returns {Promise<object>} Created product object
  */
 export const createProduct = async (data) => {

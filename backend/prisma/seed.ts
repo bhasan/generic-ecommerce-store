@@ -12,6 +12,7 @@ async function seed() {
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.productItem.deleteMany();
+  await prisma.category.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
@@ -165,6 +166,23 @@ async function seed() {
   console.log('   Emily:', emily.email, '/ customer123');
   console.log('   David:', david.email, '/ customer123');
 
+  // Create categories
+  console.log('🗂️ Creating categories...');
+
+  const electronicsCategory = await prisma.category.create({
+    data: {
+      name: 'Electronics',
+      description: 'Audio, wearables, and smart devices'
+    }
+  });
+
+  const accessoriesCategory = await prisma.category.create({
+    data: {
+      name: 'Accessories',
+      description: 'Bags, cables, and everyday add-ons'
+    }
+  });
+
   // Create products from mockData.js
   console.log('📦 Creating products...');
 
@@ -173,7 +191,7 @@ async function seed() {
     prisma.productItem.create({
       data: {
         name: 'Wireless Headphones',
-        category: 'Electronics',
+        categoryId: electronicsCategory.id,
         price: 99.99,
         description: 'High-quality wireless headphones with noise cancellation',
         image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
@@ -190,7 +208,7 @@ async function seed() {
     prisma.productItem.create({
       data: {
         name: 'Smart Watch',
-        category: 'Electronics',
+        categoryId: electronicsCategory.id,
         price: 199.99,
         description: 'Feature-rich smartwatch with health tracking',
         image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
@@ -208,7 +226,7 @@ async function seed() {
     prisma.productItem.create({
       data: {
         name: 'Laptop Bag',
-        category: 'Accessories',
+        categoryId: accessoriesCategory.id,
         price: 49.99,
         description: 'Durable laptop bag with multiple compartments',
         image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400',
@@ -224,7 +242,7 @@ async function seed() {
     prisma.productItem.create({
       data: {
         name: 'USB-C Cable',
-        category: 'Accessories',
+        categoryId: accessoriesCategory.id,
         price: 14.99,
         description: 'Fast charging USB-C cable',
         image: 'https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=400',

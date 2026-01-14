@@ -20,6 +20,7 @@ import UsersPage from './features/users/UsersPage';
 import RejectedUsersPage from './features/users/RejectedUsersPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
+import CategoriesPage from './features/categories/CategoriesPage';
 
 function App() {
   return (
@@ -78,6 +79,12 @@ function App() {
             <Route path="/manage-products" element={
               <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
                 <ManageProductsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/categories" element={
+              <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
+                <CategoriesPage />
               </ProtectedRoute>
             } />
 

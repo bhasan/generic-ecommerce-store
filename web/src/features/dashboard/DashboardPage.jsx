@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import RejectUserModal from '../../components/common/RejectUserModal';
 import { Flag, Star, Trash2, Check, UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin } from 'lucide-react';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 function DashboardPage() {
   const { products, updateReview, deleteReview, showNotification } = useApp();
@@ -109,7 +110,8 @@ function DashboardPage() {
   };
 
   return (
-    <div className="dashboard-page-container">
+    <AdminLayout>
+      <div className="dashboard-page-container">
       <div className="dashboard-header">
         <div>
           <h2 className="page-title">Store Dashboard</h2>
@@ -295,7 +297,8 @@ function DashboardPage() {
           </div>
         )}
       </div> */}
-    </div>
+      </div>
+    </AdminLayout>
   );
 }
 
