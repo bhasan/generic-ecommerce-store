@@ -11,16 +11,13 @@ COPY package*.json ./
 # 4. Install all dependencies
 RUN npm install
 
-# 5. Copy the Prisma schema
-COPY prisma ./prisma/
-
-# 6. Generate the Prisma client
-RUN npx prisma generate
-
-# 7. Copy the rest of your backend source code
+# 5. Copy the backend source code (including Prisma schema)
 COPY . .
 
-# 8. Build TypeScript during Docker build (not at runtime)
+# 6. Generate the Prisma client from the current schema
+RUN npx prisma generate
+
+# 7. Build TypeScript during Docker build (not at runtime)
 RUN npm run build
 
 # 9. Expose the port your app will run on

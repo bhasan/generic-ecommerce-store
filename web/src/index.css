@@ -1,6 +1,9 @@
 
-/* Base styles - CSS variables, global resets, animations */
-@import './base.css';
+/* Design System - Theme tokens */
+@import './styles/theme.css';
+
+/* Base styles - Global resets, typography, base elements */
+@import './styles/base.css';
 
 /* Responsive overrides */
 @import './responsive.css';

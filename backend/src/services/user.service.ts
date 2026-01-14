@@ -152,21 +152,23 @@ export class UserService {
     }
 
     // Update roles if provided and user has permission
-    if (data.roles && hasManagementAccess) {
-      // Validate roles
+    if (data.roles !== undefined && hasManagementAccess) {
+      // Validate roles (allow empty array)
       const validRoles = data.roles.filter(role => isRoleName(role));
       if (validRoles.length !== data.roles.length) {
         throw new AppError('Invalid roles provided', 400);
       }
 
       // Get role IDs
-      const dbRoles = await prisma.role.findMany({
-        where: {
-          name: {
-            in: validRoles
-          }
-        }
-      });
+      const dbRoles = validRoles.length > 0
+        ? await prisma.role.findMany({
+            where: {
+              name: {
+                in: validRoles
+              }
+            }
+          })
+        : [];
 
       if (dbRoles.length !== validRoles.length) {
         const missing = validRoles.filter(
@@ -180,13 +182,20 @@ export class UserService {
         where: { userId }
       });
 
-      // Create new user roles
-      await prisma.userRole.createMany({
-        data: dbRoles.map(dbRole => ({
-          userId,
-          roleId: dbRole.id
-        }))
-      });
+      // Create new user roles (if any)
+      if (dbRoles.length > 0) {
+        await prisma.userRole.createMany({
+          data: dbRoles.map(dbRole => ({
+            userId,
+            roleId: dbRole.id
+          }))
+        });
+      }
+
+      // If all roles are removed, set approved to false so user appears in pending registrations
+      if (validRoles.length === 0) {
+        updateData.approved = false;
+      }
     }
 
     // Update user
@@ -218,6 +227,7 @@ export class UserService {
 
   /**
    * Approve user (Admin only)
+   * Assigns CUSTOMER role by default if user has no roles
    */
   async approveUser(userId: number) {
     const user = await prisma.user.findUnique({
@@ -230,6 +240,30 @@ export class UserService {
 
     if (user.approved) {
       throw new AppError('User is already approved', 400);
+    }
+
+    // Check if user has any roles
+    const existingUserRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    // If user has no roles, assign CUSTOMER role by default
+    if (existingUserRoles.length === 0) {
+      const customerRole = await prisma.role.findUnique({
+        where: { name: 'CUSTOMER' }
+      });
+
+      if (!customerRole) {
+        throw new AppError('CUSTOMER role not found in database', 500);
+      }
+
+      // Assign CUSTOMER role
+      await prisma.userRole.create({
+        data: {
+          userId,
+          roleId: customerRole.id
+        }
+      });
     }
 
     const updatedUser = await prisma.user.update({
@@ -313,11 +347,64 @@ export class UserService {
   }
 
   /**
+   * Un-reject user (move back to pending) (Management/Admin only)
+   * Sets rejected: false, approved: false, and clears rejection note
+   */
+  async unRejectUser(userId: number) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404);
+    }
+
+    if (!user.rejected) {
+      throw new AppError('User is not rejected', 400);
+    }
+
+    // Move user back to pending (un-reject)
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        rejected: false,
+        approved: false,
+        rejectionNote: null
+      }
+    });
+
+    // Fetch user roles for response
+    const userRoles = await prisma.userRole.findMany({
+      where: { userId }
+    });
+
+    const roleIds = userRoles.map(ur => ur.roleId);
+    const roles = await prisma.role.findMany({
+      where: { id: { in: roleIds } }
+    });
+    const roleMap = new Map(roles.map(r => [r.id, r]));
+
+    const rolesWithNames = userRoles.map(ur => ({
+      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
+    }));
+
+    return {
+      message: 'User moved back to pending registrations',
+      user: this.formatUser({
+        ...updatedUser,
+        roles: rolesWithNames
+      })
+    };
+  }
+
+  /**
    * Get pending registrations (Admin/Management only)
-   * Excludes rejected users
+   * Includes users who are not approved and not rejected,
+   * or users with no roles (all roles removed)
    */
   async getPendingRegistrations() {
-    const users = await prisma.user.findMany({
+    // Get all users that are not approved and not rejected
+    const unapprovedUsers = await prisma.user.findMany({
       where: { 
         approved: false,
         rejected: false
@@ -327,13 +414,47 @@ export class UserService {
       }
     });
 
-    // Fetch user roles
-    const userIds = users.map(u => u.id);
+    // Get all users that are not approved and not rejected, and check for those with no roles
+    const allUsers = await prisma.user.findMany({
+      where: {
+        approved: false,
+        rejected: false
+      }
+    });
+
+    const userIds = allUsers.map(u => u.id);
     const userRoles = await prisma.userRole.findMany({
       where: { userId: { in: userIds } }
     });
 
-    const roleIds = [...new Set(userRoles.map(ur => ur.roleId))];
+    // Find users with no roles (only from unapproved users)
+    const usersWithRoles = new Set(userRoles.map(ur => ur.userId));
+    const usersWithoutRoles = allUsers.filter(u => !usersWithRoles.has(u.id));
+
+    // Combine unapproved users and users without roles, remove duplicates
+    const pendingUserIds = new Set([
+      ...unapprovedUsers.map(u => u.id),
+      ...usersWithoutRoles.map(u => u.id)
+    ]);
+
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: Array.from(pendingUserIds) },
+        approved: false, // Ensure we only return unapproved users
+        rejected: false
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    // Fetch user roles for the final user list
+    const finalUserIds = users.map(u => u.id);
+    const finalUserRoles = await prisma.userRole.findMany({
+      where: { userId: { in: finalUserIds } }
+    });
+
+    const roleIds = [...new Set(finalUserRoles.map(ur => ur.roleId))];
     const roles = await prisma.role.findMany({
       where: { id: { in: roleIds } }
     });
@@ -341,7 +462,7 @@ export class UserService {
 
     // Group roles by user
     const rolesByUser = new Map<number, Array<{ role: { name: string } | null }>>();
-    for (const userRole of userRoles) {
+    for (const userRole of finalUserRoles) {
       if (!rolesByUser.has(userRole.userId)) {
         rolesByUser.set(userRole.userId, []);
       }

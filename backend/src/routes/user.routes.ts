@@ -54,7 +54,7 @@ router.put(
     body('email').optional().isEmail().withMessage('Valid email is required'),
     body('name').optional().notEmpty().withMessage('Name cannot be empty'),
     body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-    body('roles').optional().isArray({ min: 1 }).withMessage('Roles must be a non-empty array'),
+    body('roles').optional().isArray().withMessage('Roles must be an array'),
     body('roles.*').optional().isIn(ROLE_NAMES).withMessage('Invalid role')
   ],
   userController.updateUser
@@ -73,6 +73,13 @@ router.post('/:id/approve', authenticate, authorizeManagement, userController.ap
  * @access  Private (Management/Admin only)
  */
 router.post('/:id/reject', authenticate, authorizeManagement, userController.rejectUser);
+
+/**
+ * @route   POST /api/users/:id/unreject
+ * @desc    Un-reject user (move back to pending)
+ * @access  Private (Management/Admin only)
+ */
+router.post('/:id/unreject', authenticate, authorizeManagement, userController.unRejectUser);
 
 /**
  * @route   DELETE /api/users/:id

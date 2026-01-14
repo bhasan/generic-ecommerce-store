@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, UserX, Truck, CheckCircle, Layers } from 'lucide-react';
+import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle } from 'lucide-react';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();

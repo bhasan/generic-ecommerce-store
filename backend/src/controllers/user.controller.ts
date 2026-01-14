@@ -149,6 +149,26 @@ export class UserController {
   }
 
   /**
+   * Un-reject user (move back to pending)
+   * POST /api/users/:id/unreject
+   */
+  async unRejectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      
+      if (isNaN(userId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const result = await userService.unRejectUser(userId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Delete user
    * DELETE /api/users/:id
    */

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './ProductReviews.css';
 import { useApp } from '../../context/AppContext';
+import ConfirmationModal from '../common/ConfirmationModal';
 import { Star, ThumbsUp, ThumbsDown, Flag, MessageCircle, Trash2, Send } from 'lucide-react';
 
 function ProductReviews({ productId }) {
@@ -11,6 +12,8 @@ function ProductReviews({ productId }) {
   const [comment, setComment] = useState('');
   const [replyText, setReplyText] = useState({});
   const [showReplyForm, setShowReplyForm] = useState({});
+  const [deleteReviewModalOpen, setDeleteReviewModalOpen] = useState(false);
+  const [reviewToDelete, setReviewToDelete] = useState(null);
   
   const product = products.find(p => p.id === productId);
   const reviews = product?.reviews || [];
@@ -194,9 +197,8 @@ function ProductReviews({ productId }) {
                       </button>
                       <button
                         onClick={() => {
-                          if (window.confirm('Delete this review?')) {
-                            deleteReview(productId, review.id);
-                          }
+                          setReviewToDelete({ productId, reviewId: review.id, userName: review.userName });
+                          setDeleteReviewModalOpen(true);
                         }}
                         className="btn-delete-review"
                       >
@@ -265,6 +267,34 @@ function ProductReviews({ productId }) {
           ))
         )}
       </div>
+
+      {/* Delete Review Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteReviewModalOpen}
+        onClose={() => {
+          setDeleteReviewModalOpen(false);
+          setReviewToDelete(null);
+        }}
+        onConfirm={() => {
+          if (reviewToDelete) {
+            deleteReview(reviewToDelete.productId, reviewToDelete.reviewId);
+            setDeleteReviewModalOpen(false);
+            setReviewToDelete(null);
+          }
+        }}
+        title="Delete Review"
+        message={
+          <>
+            Are you sure you want to delete this review by <strong>{reviewToDelete?.userName || ''}</strong>?
+            <br />
+            <br />
+            This action cannot be undone.
+          </>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
     </div>
   );
 }

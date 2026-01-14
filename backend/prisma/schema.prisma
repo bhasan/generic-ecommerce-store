@@ -70,6 +70,12 @@ enum OrderStatus {
   DELIVERED
 }
 
+enum AnnouncementType {
+  INFO
+  WARNING
+  SUCCESS
+}
+
 // Order item model with void tracking
 model OrderItem {
   id                   Int      @id @default(autoincrement())
@@ -161,4 +167,17 @@ model CartItem {
 
   @@unique([userId, productId])
   @@map("cart_items")
+}
+
+// Announcement model
+model Announcement {
+  id          Int               @id @default(autoincrement())
+  message     String
+  type        AnnouncementType  @default(INFO)
+  enabled     Boolean           @default(true)
+  dismissible Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("announcements")
 }

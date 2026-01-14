@@ -1,16 +1,16 @@
 .navbar {
-  background: linear-gradient(135deg, #000000 0%, #1a1a2e 100%);
+  background: var(--bg-navbar);
   border-bottom: 2px solid var(--color-primary-dark);
-  box-shadow: 0 4px 20px rgba(107, 33, 168, 0.3);
+  box-shadow: var(--shadow-primary);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: var(--z-sticky);
 }
 
 .navbar-container {
-  max-width: 1400px;
+  max-width: var(--container-max-width);
   margin: 0 auto;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem var(--spacing-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -25,14 +25,14 @@
 .navbar-brand {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1.5rem;
-  font-weight: 700;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary-dark) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  transition: transform 0.2s ease;
+  transition: var(--transition-base);
   white-space: nowrap;
 }
 
@@ -50,17 +50,17 @@
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.5rem 0.875rem;
+  padding: var(--spacing-sm) 0.875rem;
   color: var(--text-secondary);
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
-  font-weight: 500;
-  font-size: 0.875rem;
+  border-radius: var(--radius-md);
+  transition: var(--transition-all);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
   white-space: nowrap;
 }
 
 .nav-link:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--bg-hover);
   color: var(--color-primary-light);
 }
 
@@ -82,16 +82,16 @@
   justify-content: center;
   align-items: center;
   gap: 4px;
-  padding: 0.5rem;
+  padding: var(--spacing-sm);
   background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
 }
 
 .hamburger-btn:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--bg-hover);
   border-color: var(--color-primary);
 }
 
@@ -122,8 +122,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 99;
+  background: var(--bg-overlay);
+  z-index: var(--z-modal-backdrop);
 }
 
 .mobile-menu-overlay.open {
@@ -137,13 +137,13 @@
   top: 60px;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+  background: var(--bg-navbar-mobile);
   border-bottom: 2px solid var(--color-primary-dark);
-  padding: 1rem;
-  z-index: 100;
+  padding: var(--spacing-md);
+  z-index: var(--z-sticky);
   max-height: calc(100vh - 60px);
   overflow-y: auto;
-  animation: slideDown 0.2s ease-out;
+  animation: slideDown var(--transition-fast) ease-out;
 }
 
 .mobile-menu.open {
@@ -192,14 +192,14 @@
 
 .cart-button {
   position: relative;
-  padding: 0.5rem;
+  padding: var(--spacing-sm);
   color: var(--text-secondary);
-  transition: all 0.2s ease;
-  border-radius: 0.5rem;
+  transition: var(--transition-all);
+  border-radius: var(--radius-md);
 }
 
 .cart-button:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--bg-hover);
   color: var(--color-primary-light);
 }
 
@@ -208,27 +208,27 @@
   top: -4px;
   right: -4px;
   background: var(--color-danger);
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 700;
+  color: var(--text-on-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
   padding: 0.125rem 0.375rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   min-width: 1.25rem;
   text-align: center;
 }
 
 .btn-login-nav {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  color: white;
-  padding: 0.625rem 1.5rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
+  color: var(--text-on-primary);
+  padding: 0.625rem var(--spacing-lg);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
+  transition: var(--transition-all);
 }
 
 .btn-login-nav:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+  box-shadow: var(--shadow-primary-lg);
 }
 
 /* Admin Dropdown Styles */
@@ -247,16 +247,16 @@
 
 .admin-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + var(--spacing-sm));
   left: 0;
   min-width: 200px;
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  background: var(--bg-dashboard-sidebar);
   border: 2px solid var(--color-primary-dark);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 40px rgba(107, 33, 168, 0.3);
-  padding: 0.5rem;
-  animation: slideDown 0.2s ease-out;
-  z-index: 100;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: var(--spacing-sm);
+  animation: slideDown var(--transition-fast) ease-out;
+  z-index: var(--z-dropdown);
 }
 
 @keyframes slideDown {
@@ -273,27 +273,27 @@
 .admin-menu-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--spacing-lg);
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: var(--spacing-lg) var(--spacing-md);
   background: transparent;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-all);
   text-align: left;
   font-size: 0.95rem;
 }
 
 .admin-menu-item:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--bg-hover);
   color: var(--color-primary-light);
 }
 
 .admin-menu-item-active {
-  background: rgba(124, 58, 237, 0.15);
+  background: var(--bg-active);
   color: var(--color-primary-light);
 }
 
@@ -305,19 +305,19 @@
 .profile-button {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: rgba(124, 58, 237, 0.1);
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-hover);
   border: 1px solid var(--color-primary-dark);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-weight: 500;
+  transition: var(--transition-all);
+  font-weight: var(--font-weight-medium);
 }
 
 .profile-button:hover {
-  background: rgba(124, 58, 237, 0.2);
+  background: var(--bg-active);
   border-color: var(--color-primary);
 }
 
@@ -327,16 +327,16 @@
 
 .profile-menu {
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + var(--spacing-sm));
   right: 0;
   min-width: 240px;
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  background: var(--bg-dashboard-sidebar);
   border: 2px solid var(--color-primary-dark);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 40px rgba(107, 33, 168, 0.3);
-  padding: 0.5rem;
-  animation: slideDown 0.2s ease-out;
-  z-index: 100;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: var(--spacing-sm);
+  animation: slideDown var(--transition-fast) ease-out;
+  z-index: var(--z-dropdown);
 }
 
 .profile-menu-header {
@@ -380,7 +380,7 @@
 }
 
 .profile-menu-item:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--bg-hover);
   color: var(--color-primary-light);
 }
 

@@ -16,8 +16,6 @@ import OrdersPage from './features/orders/OrdersPage';
 import ManageProductsPage from './features/products/ManageProductsPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
-import UsersPage from './features/users/UsersPage';
-import RejectedUsersPage from './features/users/RejectedUsersPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
 import CategoriesPage from './features/categories/CategoriesPage';
@@ -25,11 +23,11 @@ import CategoriesPage from './features/categories/CategoriesPage';
 function App() {
   return (
     <AppProvider>
-      <div className="min-h-screen bg-gray-900">
+      <div className="app-wrapper">
         <AnnouncementBanner />
         <Navbar />
         <Notification />
-        <main className="container mx-auto px-4 py-8">
+        <main className="container main-content">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -95,19 +93,6 @@ function App() {
               </ProtectedRoute>
             } />
 
-            {/* Users Management - Admin only */}
-            <Route path="/users" element={
-              <ProtectedRoute roles={['ADMIN']}>
-                <UsersPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Rejected Users - Admin only */}
-            <Route path="/rejected-users" element={
-              <ProtectedRoute roles={['ADMIN']}>
-                <RejectedUsersPage />
-              </ProtectedRoute>
-            } />
 
             {/* Delivered Orders - Admin only */}
             <Route path="/delivered-orders" element={
