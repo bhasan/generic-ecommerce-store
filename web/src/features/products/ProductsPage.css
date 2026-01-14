@@ -195,6 +195,33 @@
   overflow-y: auto;
 }
 
+.category-section {
+  margin-bottom: 32px;
+}
+
+.category-section-header {
+  margin-bottom: 12px;
+}
+
+.category-section-title {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+
+.subcategory-section {
+  margin-top: 20px;
+}
+
+.subcategory-section-title {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.category-section-description {
+  color: var(--text-secondary);
+  margin: 0;
+}
+
 /* Product Rating Styles */
 .product-rating {
   display: flex;

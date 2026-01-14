@@ -4,6 +4,7 @@ import * as authApi from '../services/authApi';
 import * as usersApi from '../services/usersApi';
 import * as productsApi from '../services/productsApi';
 import * as ordersApi from '../services/ordersApi';
+import * as categoriesApi from '../services/categoriesApi';
 import { getAuthToken } from '../services/api';
 
 // Context for authentication and global state
@@ -41,6 +42,8 @@ export function AppProvider({ children }) {
   const [orders, setOrders] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [cart, setCart] = useState([]);
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
@@ -90,10 +93,27 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      setIsLoadingCategories(true);
+      const categoriesData = await categoriesApi.getAllCategories();
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  }, []);
+
   // Load products on mount (after auth check)
   useEffect(() => {
     loadProducts();
-  }, []);
+  }, [loadProducts]);
+
+  // Load categories on mount
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   // Load orders function (can be called manually)
   const loadOrders = useCallback(async () => {
@@ -305,6 +325,45 @@ export function AppProvider({ children }) {
       showNotification('Product deleted', 'info');
     } catch (error) {
       const errorMessage = error.message || 'Failed to delete product. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
+  };
+
+  const createCategory = async (data) => {
+    try {
+      await categoriesApi.createCategory(data);
+      const categoriesData = await categoriesApi.getAllCategories();
+      setCategories(categoriesData);
+      showNotification('Category created successfully', 'success');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to create category. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
+  };
+
+  const updateCategory = async (id, updates) => {
+    try {
+      await categoriesApi.updateCategory(id, updates);
+      const categoriesData = await categoriesApi.getAllCategories();
+      setCategories(categoriesData);
+      showNotification('Category updated successfully', 'success');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to update category. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
+  };
+
+  const deleteCategory = async (id) => {
+    try {
+      await categoriesApi.deleteCategory(id);
+      const categoriesData = await categoriesApi.getAllCategories();
+      setCategories(categoriesData);
+      showNotification('Category deleted', 'info');
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to delete category. Please try again.';
       showNotification(errorMessage, 'error');
       throw error;
     }
@@ -566,11 +625,14 @@ export function AppProvider({ children }) {
     isLoading,
     isLoadingProducts,
     isLoadingOrders,
+    isLoadingCategories,
     login,
     register,
     logout, 
     products, 
     loadProducts,
+    categories,
+    loadCategories,
     orders,
     setOrders,
     loadOrders,
@@ -583,6 +645,9 @@ export function AppProvider({ children }) {
     addProduct, 
     updateProduct, 
     deleteProduct,
+    createCategory,
+    updateCategory,
+    deleteCategory,
     updateOrderStatus, 
     deleteOrder,
     addItemToOrder,

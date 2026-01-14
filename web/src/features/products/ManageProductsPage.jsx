@@ -6,19 +6,35 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload } from 'lucide-react';
 
 function ManageProductsPage() {
-  const { currentUser, products, isLoadingProducts, loadProducts, addProduct, updateProduct, deleteProduct } = useApp();
+  const {
+    currentUser,
+    products,
+    isLoadingProducts,
+    loadProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    categories,
+    isLoadingCategories,
+    loadCategories
+  } = useApp();
   
   // Refresh products on page load
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [categoryQuery, setCategoryQuery] = useState('');
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [deleteProductModalOpen, setDeleteProductModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [formData, setFormData] = useState({
     name: '', 
-    category: '', 
+    categoryId: '', 
     price: '', 
     description: '', 
     images: [''],
@@ -26,20 +42,40 @@ function ManageProductsPage() {
     stockEnabled: true,
     hidden: false
   });
+
+  const getCategoryLabel = (category) => {
+    if (!category) return 'Uncategorized';
+    if (category.parent) return `${category.parent.name} > ${category.name}`;
+    return category.name;
+  };
+
+  const getProductCategoryLabel = (product) => {
+    if (product?.category && typeof product.category === 'object') {
+      return getCategoryLabel(product.category);
+    }
+    return product?.category || 'Uncategorized';
+  };
+
+  const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
+  const canManageProducts = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
   
   const handleEdit = (product) => {
+    const selectedCategoryId = product.categoryId || product.category?.id || '';
+    const selectedCategoryLabel = product.category ? getCategoryLabel(product.category) : '';
     setEditingId(product.id);
     setFormData({
       ...product,
+      categoryId: selectedCategoryId,
       images: product.images || [product.image],
       stockEnabled: product.stockEnabled !== false,
       hidden: product.hidden || false
     });
+    setCategoryQuery(selectedCategoryLabel);
     setShowAddForm(false);
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.category || !formData.price) {
+    if (!formData.name || !formData.categoryId || !formData.price) {
       alert('Please fill in all required fields');
       return;
     }
@@ -51,6 +87,7 @@ function ManageProductsPage() {
 
     const productData = {
       ...formData,
+      categoryId: parseInt(formData.categoryId, 10),
       price: parseFloat(formData.price),
       stock: formData.stockEnabled ? parseInt(formData.stock) : 0,
       images: formData.images.filter(img => img.trim() !== ''),
@@ -66,7 +103,7 @@ function ManageProductsPage() {
     }
     setFormData({ 
       name: '', 
-      category: '', 
+      categoryId: '', 
       price: '', 
       description: '', 
       images: [''],
@@ -74,6 +111,7 @@ function ManageProductsPage() {
       stockEnabled: true,
       hidden: false
     });
+    setCategoryQuery('');
   };
 
   const handleCancel = () => {
@@ -81,7 +119,7 @@ function ManageProductsPage() {
     setShowAddForm(false);
     setFormData({ 
       name: '', 
-      category: '', 
+      categoryId: '', 
       price: '', 
       description: '', 
       images: [''],
@@ -89,6 +127,7 @@ function ManageProductsPage() {
       stockEnabled: true,
       hidden: false
     });
+    setCategoryQuery('');
   };
 
   const handleDeleteClick = (productId, productName) => {
@@ -147,17 +186,19 @@ function ManageProductsPage() {
           <h2 className="page-title">Manage Products</h2>
           <p className="page-subtitle">Add, edit, or remove products from your inventory</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="btn-add-product"
-          disabled={showAddForm || editingId}
-        >
-          <Plus size={20} />
-          <span>Add New Product</span>
-        </button>
+        {canManageProducts && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="btn-add-product"
+            disabled={showAddForm || editingId}
+          >
+            <Plus size={20} />
+            <span>Add New Product</span>
+          </button>
+        )}
       </div>
 
-      {(showAddForm || editingId) && (
+      {canManageProducts && (showAddForm || editingId) && (
         <div className="product-form-card">
           <div className="form-header">
             <h3 className="form-title">
@@ -183,14 +224,47 @@ function ManageProductsPage() {
 
             <div className="form-group">
               <label htmlFor="category">Category *</label>
-              <input
-                id="category"
-                type="text"
-                placeholder="e.g., Electronics"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="form-input"
-              />
+              <div className="category-select">
+                <input
+                  id="category"
+                  type="text"
+                  placeholder="Search categories..."
+                  value={categoryQuery}
+                  onFocus={() => setShowCategoryDropdown(true)}
+                  onChange={(e) => {
+                    setCategoryQuery(e.target.value);
+                    setShowCategoryDropdown(true);
+                  }}
+                  className="form-input"
+                />
+                {showCategoryDropdown && (
+                  <div className="category-dropdown">
+                    {isLoadingCategories ? (
+                      <div className="category-option">Loading...</div>
+                    ) : categories.length === 0 ? (
+                      <div className="category-option">No categories</div>
+                    ) : (
+                      categories
+                        .map(category => ({ ...category, label: getCategoryLabel(category) }))
+                        .filter(category => category.label.toLowerCase().includes(categoryQuery.toLowerCase()))
+                        .map(category => (
+                          <button
+                            key={category.id}
+                            type="button"
+                            className="category-option"
+                            onClick={() => {
+                              setFormData({ ...formData, categoryId: category.id });
+                              setCategoryQuery(category.label);
+                              setShowCategoryDropdown(false);
+                            }}
+                          >
+                            {category.label}
+                          </button>
+                        ))
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="form-group">
@@ -360,7 +434,7 @@ function ManageProductsPage() {
                 <div className="product-content">
                   <div className="product-header">
                     <h3 className="product-name">{product.name}</h3>
-                    <span className="product-category">{product.category}</span>
+                  <span className="product-category">{getProductCategoryLabel(product)}</span>
                   </div>
 
                   <p className="product-description">{product.description}</p>
@@ -380,32 +454,34 @@ function ManageProductsPage() {
                     )}
                   </div>
 
-                  <div className="product-actions">
-                    <button
-                      onClick={() => toggleHidden(product.id, product.hidden)}
-                      className="btn-visibility"
-                      title={product.hidden ? 'Show product' : 'Hide product'}
-                    >
-                      {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
-                    </button>
-                    <button
-                      onClick={() => handleEdit(product)}
-                      className="btn-edit"
-                      disabled={editingId !== null || showAddForm}
-                    >
-                      <Edit size={16} />
-                      <span>Edit</span>
-                    </button>
-                    {currentUser.role === 'ADMIN' && (
+                  {canManageProducts && (
+                    <div className="product-actions">
                       <button
-                        onClick={() => handleDeleteClick(product.id, product.name)}
-                        className="btn-delete"
+                        onClick={() => toggleHidden(product.id, product.hidden)}
+                        className="btn-visibility"
+                        title={product.hidden ? 'Show product' : 'Hide product'}
                       >
-                        <Trash2 size={16} />
-                        <span>Delete</span>
+                        {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
                       </button>
-                    )}
-                  </div>
+                      <button
+                        onClick={() => handleEdit(product)}
+                        className="btn-edit"
+                        disabled={editingId !== null || showAddForm}
+                      >
+                        <Edit size={16} />
+                        <span>Edit</span>
+                      </button>
+                      {currentUser.role === 'ADMIN' && (
+                        <button
+                          onClick={() => handleDeleteClick(product.id, product.name)}
+                          className="btn-delete"
+                        >
+                          <Trash2 size={16} />
+                          <span>Delete</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

@@ -152,7 +152,8 @@ function UsersPage() {
   }
 
   return (
-    <div className="users-page-container">
+    <AdminLayout>
+      <div className="users-page-container">
       <div className="users-header">
         <div>
           <h2 className="page-title">Users Management</h2>
@@ -299,7 +300,6 @@ function UsersPage() {
           </div>
         )}
       </div>
-
       {/* Delete User Confirmation Modal */}
       <ConfirmationModal
         isOpen={deleteUserModalOpen}
