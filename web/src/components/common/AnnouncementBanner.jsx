@@ -49,7 +49,12 @@ function AnnouncementBanner() {
         <div className="announcement-icon">
           <Megaphone size={20} />
         </div>
-        <p className="announcement-message">{announcement.message}</p>
+        <div className="announcement-content">
+          <div className="announcement-title">
+            Announcement
+          </div>
+          <p className="announcement-message">{announcement.message}</p>
+        </div>
         {announcement.dismissible && (
           <button 
             onClick={() => setIsVisible(false)}

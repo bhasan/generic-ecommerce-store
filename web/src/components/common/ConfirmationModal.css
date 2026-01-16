@@ -97,27 +97,27 @@
 
 .modal-actions {
   display: flex;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-lg);
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
   padding-top: 0;
   border-top: 1px solid var(--border-color);
-  margin-top: var(--spacing-lg);
+  margin-top: var(--spacing-md);
 }
 
 .btn-modal-cancel,
 .btn-modal-confirm {
   flex: 1;
-  padding: var(--spacing-lg) var(--spacing-lg);
+  padding: 0.5rem 0.875rem;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: var(--transition-all);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-sm);
+  gap: 0.4rem;
 }
 
 .btn-modal-cancel {
