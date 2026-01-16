@@ -3,7 +3,178 @@ import './ProductCard.css';
 import './ManageProductsPage.css';
 import { useApp } from '../../context/AppContext';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
-import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload } from 'lucide-react';
+import * as productsApi from '../../services/productsApi';
+import * as categoriesApi from '../../services/categoriesApi';
+import { Plus, Edit, Trash2, X, Save, Image as ImageIcon, Eye, EyeOff, Upload, GripVertical } from 'lucide-react';
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+function SortableProductCard({
+  product,
+  dragEnabled,
+  onToggleHidden,
+  onEdit,
+  onDeleteClick,
+  canDelete,
+  canManage,
+  getCategoryLabel,
+  editingDisabled
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: product.id,
+    disabled: !dragEnabled
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  const mainImage = product.images ? product.images[0] : product.image;
+  const imageCount = product.images ? product.images.length : 1;
+  const showStock = product.stockEnabled !== false;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`product-card ${product.hidden ? 'product-card-hidden' : ''} ${isDragging ? 'product-card-dragging' : ''}`}
+    >
+      <div className="product-image-container">
+        <img
+          src={mainImage}
+          alt={product.name}
+          className="product-image"
+          onError={(e) => {
+            e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+          }}
+        />
+        {imageCount > 1 && (
+          <div className="product-badge product-badge-images">
+            <ImageIcon size={12} /> {imageCount} images
+          </div>
+        )}
+        {product.hidden && (
+          <div className="product-badge product-badge-hidden">
+            Hidden
+          </div>
+        )}
+        {showStock && (
+          <div className="product-badge product-badge-stock">
+            {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+          </div>
+        )}
+      </div>
+
+      <div className="product-content">
+        <div className="product-header">
+          <h3 className="product-name">{product.name}</h3>
+          <span className="product-category">{getCategoryLabel(product)}</span>
+        </div>
+
+        <p className="product-description">{product.description}</p>
+
+        <div className="product-meta">
+          <div className="meta-item">
+            <span className="meta-label">Price</span>
+            <span className="product-price">${product.price}</span>
+          </div>
+          {showStock && (
+            <div className="meta-item">
+              <span className="meta-label">Stock</span>
+              <span className={`stock-badge ${product.stock === 0 ? 'stock-empty' : product.stock < 10 ? 'stock-low' : 'stock-good'}`}>
+                {product.stock} units
+              </span>
+            </div>
+          )}
+        </div>
+
+        {canManage && (
+          <div className="product-actions">
+            {dragEnabled && (
+              <button type="button" className="product-drag-handle" {...attributes} {...listeners} aria-label="Reorder product">
+                <GripVertical size={16} />
+              </button>
+            )}
+            <button
+              onClick={() => onToggleHidden(product.id, product.hidden)}
+              className="btn-visibility"
+              title={product.hidden ? 'Show product' : 'Hide product'}
+            >
+              {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+            </button>
+            <button
+              onClick={() => onEdit(product)}
+              className="btn-edit"
+              disabled={editingDisabled}
+            >
+              <Edit size={16} />
+              <span>Edit</span>
+            </button>
+            {canDelete && (
+              <button
+                onClick={() => onDeleteClick(product.id, product.name)}
+                className="btn-delete"
+              >
+                <Trash2 size={16} />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SortableCategoryGroup({ category, isChild, onEdit, onDelete, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: category.id
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  return (
+    <section
+      ref={setNodeRef}
+      style={style}
+      className={`manage-category-group ${isChild ? 'manage-category-group-child' : ''} ${isDragging ? 'manage-category-group-dragging' : ''}`}
+    >
+      <div className="manage-category-header">
+        <div className="manage-category-title">
+          <button type="button" className="manage-category-drag-handle" {...attributes} {...listeners} aria-label="Reorder category">
+            <GripVertical size={16} />
+          </button>
+          <div>
+            <h3>{category.name}</h3>
+            {category.description && <p>{category.description}</p>}
+          </div>
+        </div>
+        {(onEdit || onDelete) && (
+          <div className="manage-category-actions">
+            {onEdit && (
+              <button onClick={() => onEdit(category)} className="btn-edit">
+                <Edit size={14} />
+                <span>Edit</span>
+              </button>
+            )}
+            {onDelete && (
+              <button onClick={() => onDelete(category)} className="btn-delete">
+                <Trash2 size={14} />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 function ManageProductsPage() {
   const {
@@ -32,6 +203,10 @@ function ManageProductsPage() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [deleteProductModalOpen, setDeleteProductModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
+  const [orderedProducts, setOrderedProducts] = useState([]);
+  const [topLevelCategories, setTopLevelCategories] = useState([]);
+  const [childCategoriesByParent, setChildCategoriesByParent] = useState({});
+  const [productsByCategory, setProductsByCategory] = useState({});
   const [formData, setFormData] = useState({
     name: '', 
     categoryId: '', 
@@ -58,6 +233,44 @@ function ManageProductsPage() {
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
   const canManageProducts = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
+
+  useEffect(() => {
+    const sorted = [...products].sort(
+      (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+    );
+    setOrderedProducts(sorted);
+
+    const groupedProducts = sorted.reduce((acc, product) => {
+      const categoryId = product.categoryId || product.category?.id || 'uncategorized';
+      if (!acc[categoryId]) acc[categoryId] = [];
+      acc[categoryId].push(product);
+      return acc;
+    }, {});
+    setProductsByCategory(groupedProducts);
+  }, [products]);
+
+  useEffect(() => {
+    const topLevel = categories
+      .filter(category => !category.parentId)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
+
+    const childrenMap = categories.reduce((acc, category) => {
+      if (category.parentId) {
+        acc[category.parentId] = acc[category.parentId] || [];
+        acc[category.parentId].push(category);
+      }
+      return acc;
+    }, {});
+
+    Object.keys(childrenMap).forEach(parentId => {
+      childrenMap[parentId].sort((a, b) =>
+        (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+      );
+    });
+
+    setTopLevelCategories(topLevel);
+    setChildCategoriesByParent(childrenMap);
+  }, [categories]);
   
   const handleEdit = (product) => {
     const selectedCategoryId = product.categoryId || product.category?.id || '';
@@ -145,6 +358,64 @@ function ManageProductsPage() {
   const handleDeleteCancel = () => {
     setDeleteProductModalOpen(false);
     setProductToDelete(null);
+  };
+
+  const persistSortOrder = async (list) => {
+    const updates = list
+      .map((item, index) =>
+        item.sortOrder !== index
+          ? productsApi.updateProduct(item.id, { sortOrder: index })
+          : null
+      )
+      .filter(Boolean);
+
+    if (updates.length) {
+      await Promise.all(updates);
+      await loadProducts();
+    }
+  };
+
+  const handleDragEnd = async ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = orderedProducts.findIndex(item => item.id === active.id);
+    const newIndex = orderedProducts.findIndex(item => item.id === over.id);
+    const next = arrayMove(orderedProducts, oldIndex, newIndex);
+    setOrderedProducts(next);
+    await persistSortOrder(next);
+  };
+
+  const persistCategorySortOrder = async (list) => {
+    const updates = list
+      .map((item, index) =>
+        item.sortOrder !== index
+          ? categoriesApi.updateCategory(item.id, { sortOrder: index })
+          : null
+      )
+      .filter(Boolean);
+
+    if (updates.length) {
+      await Promise.all(updates);
+      await loadCategories();
+    }
+  };
+
+  const handleCategoryDragEnd = async ({ active, over }) => {
+    if (!over || active.id === over.id) return;
+    const oldIndex = topLevelCategories.findIndex(item => item.id === active.id);
+    const newIndex = topLevelCategories.findIndex(item => item.id === over.id);
+    const next = arrayMove(topLevelCategories, oldIndex, newIndex);
+    setTopLevelCategories(next);
+    await persistCategorySortOrder(next);
+  };
+
+  const handleProductDragEnd = async (categoryId, { active, over }) => {
+    if (!over || active.id === over.id) return;
+    const list = productsByCategory[categoryId] || [];
+    const oldIndex = list.findIndex(item => item.id === active.id);
+    const newIndex = list.findIndex(item => item.id === over.id);
+    const next = arrayMove(list, oldIndex, newIndex);
+    setProductsByCategory({ ...productsByCategory, [categoryId]: next });
+    await persistSortOrder(next);
   };
 
   const addImageField = () => {
@@ -388,106 +659,90 @@ function ManageProductsPage() {
         </div>
       )}
 
-      <div className="products-grid">
-        {isLoadingProducts ? (
-          <div className="empty-state">
-            <p>Loading products...</p>
-          </div>
-        ) : products.length === 0 ? (
-          <div className="empty-state">
-            <p>No products found. Add your first product to get started!</p>
-          </div>
-        ) : (
-          products.map(product => {
-            const mainImage = product.images ? product.images[0] : product.image;
-            const imageCount = product.images ? product.images.length : 1;
-            const showStock = product.stockEnabled !== false;
-            
-            return (
-              <div key={product.id} className={`product-card ${product.hidden ? 'product-card-hidden' : ''}`}>
-                <div className="product-image-container">
-                  <img 
-                    src={mainImage} 
-                    alt={product.name} 
-                    className="product-image"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
-                    }}
-                  />
-                  {imageCount > 1 && (
-                    <div className="product-badge product-badge-images">
-                      <ImageIcon size={12} /> {imageCount} images
-                    </div>
-                  )}
-                  {product.hidden && (
-                    <div className="product-badge product-badge-hidden">
-                      Hidden
-                    </div>
-                  )}
-                  {showStock && (
-                    <div className="product-badge product-badge-stock">
-                      {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
-                    </div>
-                  )}
-                </div>
-
-                <div className="product-content">
-                  <div className="product-header">
-                    <h3 className="product-name">{product.name}</h3>
-                  <span className="product-category">{getProductCategoryLabel(product)}</span>
-                  </div>
-
-                  <p className="product-description">{product.description}</p>
-
-                  <div className="product-meta">
-                    <div className="meta-item">
-                      <span className="meta-label">Price</span>
-                      <span className="product-price">${product.price}</span>
-                    </div>
-                    {showStock && (
-                      <div className="meta-item">
-                        <span className="meta-label">Stock</span>
-                        <span className={`stock-badge ${product.stock === 0 ? 'stock-empty' : product.stock < 10 ? 'stock-low' : 'stock-good'}`}>
-                          {product.stock} units
-                        </span>
+      {isLoadingProducts || isLoadingCategories ? (
+        <div className="empty-state">
+          <p>Loading products...</p>
+        </div>
+      ) : orderedProducts.length === 0 ? (
+        <div className="empty-state">
+          <p>No products found. Add your first product to get started!</p>
+        </div>
+      ) : (
+        <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+          <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>
+            <div className="manage-products-categories">
+              {topLevelCategories.map(category => (
+                <SortableCategoryGroup
+                  key={category.id}
+                  category={category}
+                >
+                  <DndContext
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => handleProductDragEnd(category.id, event)}
+                  >
+                    <SortableContext
+                      items={(productsByCategory[category.id] || []).map(item => item.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="products-grid">
+                        {(productsByCategory[category.id] || []).map(product => (
+                          <SortableProductCard
+                            key={product.id}
+                            product={product}
+                            dragEnabled={canManageProducts}
+                            canManage={canManageProducts}
+                            canDelete={currentUser.role === 'ADMIN'}
+                            onToggleHidden={toggleHidden}
+                            onEdit={handleEdit}
+                            onDeleteClick={handleDeleteClick}
+                            getCategoryLabel={getProductCategoryLabel}
+                            editingDisabled={editingId !== null || showAddForm}
+                          />
+                        ))}
                       </div>
-                    )}
-                  </div>
+                    </SortableContext>
+                  </DndContext>
 
-                  {canManageProducts && (
-                    <div className="product-actions">
-                      <button
-                        onClick={() => toggleHidden(product.id, product.hidden)}
-                        className="btn-visibility"
-                        title={product.hidden ? 'Show product' : 'Hide product'}
+                  {(childCategoriesByParent[category.id] || []).map(childCategory => (
+                    <section key={childCategory.id} className="manage-subcategory-group">
+                      <div className="manage-subcategory-header">
+                        <h4>{childCategory.name}</h4>
+                        {childCategory.description && <p>{childCategory.description}</p>}
+                      </div>
+                      <DndContext
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleProductDragEnd(childCategory.id, event)}
                       >
-                        {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
-                      </button>
-                      <button
-                        onClick={() => handleEdit(product)}
-                        className="btn-edit"
-                        disabled={editingId !== null || showAddForm}
-                      >
-                        <Edit size={16} />
-                        <span>Edit</span>
-                      </button>
-                      {currentUser.role === 'ADMIN' && (
-                        <button
-                          onClick={() => handleDeleteClick(product.id, product.name)}
-                          className="btn-delete"
+                        <SortableContext
+                          items={(productsByCategory[childCategory.id] || []).map(item => item.id)}
+                          strategy={verticalListSortingStrategy}
                         >
-                          <Trash2 size={16} />
-                          <span>Delete</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+                          <div className="products-grid">
+                            {(productsByCategory[childCategory.id] || []).map(product => (
+                              <SortableProductCard
+                                key={product.id}
+                                product={product}
+                                dragEnabled={canManageProducts}
+                                canManage={canManageProducts}
+                                canDelete={currentUser.role === 'ADMIN'}
+                                onToggleHidden={toggleHidden}
+                                onEdit={handleEdit}
+                                onDeleteClick={handleDeleteClick}
+                                getCategoryLabel={getProductCategoryLabel}
+                                editingDisabled={editingId !== null || showAddForm}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
+                    </section>
+                  ))}
+                </SortableCategoryGroup>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
 
       {/* Delete Product Confirmation Modal */}
       <ConfirmationModal
