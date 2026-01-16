@@ -6,7 +6,7 @@
 .announcement-banner {
   background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
   border-bottom: 1px solid rgba(124, 58, 237, 0.3);
-  padding: var(--spacing-lg) 0;
+  padding: 0.5rem 0;
   animation: slideDown var(--transition-slow) ease-out;
 }
 
@@ -42,8 +42,22 @@
   color: var(--text-on-primary);
   font-weight: var(--font-weight-medium);
   margin: 0;
-  text-align: center;
+  text-align: left;
   flex: 1;
+}
+
+.announcement-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.announcement-title {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .announcement-close {

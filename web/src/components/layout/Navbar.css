@@ -249,12 +249,12 @@
   position: absolute;
   top: calc(100% + var(--spacing-sm));
   left: 0;
-  min-width: 200px;
+  min-width: 160px;
   background: var(--bg-dashboard-sidebar);
   border: 2px solid var(--color-primary-dark);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
-  padding: var(--spacing-sm);
+  padding: 0.25rem;
   animation: slideDown var(--transition-fast) ease-out;
   z-index: var(--z-dropdown);
 }
@@ -273,9 +273,9 @@
 .admin-menu-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-lg);
+  gap: 0.5rem;
   width: 100%;
-  padding: var(--spacing-lg) var(--spacing-md);
+  padding: 0.5rem 0.75rem;
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
@@ -284,7 +284,7 @@
   cursor: pointer;
   transition: var(--transition-all);
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .admin-menu-item:hover {
