@@ -66,6 +66,17 @@ function Navbar() {
         <span>Products</span>
       </NavLink>
 
+      {/* Delivery link */}
+      {(isDeliveryDriver || isManagement) && (
+        <NavLink 
+          to="/delivery-dashboard" 
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Truck size={18} />
+          <span>Delivery</span>
+        </NavLink>
+      )}
+
       {/* Customer-specific links */}
       {isCustomer && !isGuest && (
         <NavLink 
@@ -74,17 +85,6 @@ function Navbar() {
         >
           <Package size={18} />
           <span>My Orders</span>
-        </NavLink>
-      )}
-      
-      {/* Delivery Driver link */}
-      {isDeliveryDriver && (
-        <NavLink 
-          to="/delivery-dashboard" 
-          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-        >
-          <Truck size={18} />
-          <span>Delivery</span>
         </NavLink>
       )}
 
@@ -104,13 +104,6 @@ function Navbar() {
           >
             <Users size={18} />
             <span>Manage Products</span>
-          </NavLink>
-          <NavLink 
-            to="/delivery-dashboard" 
-            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          >
-            <Truck size={18} />
-            <span>Delivery</span>
           </NavLink>
         </>
       )}
