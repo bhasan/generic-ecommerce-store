@@ -198,7 +198,7 @@
 
 .btn-modal-cancel,
 .btn-modal-save {
-  padding: 0.5rem 0.875rem;
+  padding: var(--spacing-md) 0.875rem;
   border: none;
   border-radius: var(--radius-md);
   font-weight: var(--font-weight-semibold);
