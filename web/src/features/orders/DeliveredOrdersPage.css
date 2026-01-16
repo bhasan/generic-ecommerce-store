@@ -11,7 +11,7 @@
 .page-title {
   font-size: 2rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-on-primary);
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
@@ -19,14 +19,14 @@
 }
 
 .page-subtitle {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 1rem;
 }
 
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -40,10 +40,10 @@
 }
 
 .delivered-order-card {
-  background: #1f2937;
+  background: var(--bg-secondary);
   border-radius: 0.75rem;
   padding: 1.5rem;
-  border: 1px solid #374151;
+  border: 1px solid var(--border-color);
 }
 
 .delivered-order-header {
@@ -52,7 +52,7 @@
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #374151;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .delivered-order-id {
@@ -60,20 +60,20 @@
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-on-primary);
   font-size: 1.125rem;
 }
 
 .delivered-order-total {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #10b981;
+  color: var(--color-secondary);
 }
 
 .delivered-customer-info {
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background: #111827;
+  background: var(--bg-tertiary);
   border-radius: 0.5rem;
 }
 
@@ -87,7 +87,7 @@
 .customer-name {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-on-primary);
   margin: 0;
 }
 
@@ -101,12 +101,12 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #d1d5db;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
 .customer-address {
-  color: #ffffff;
+  color: var(--text-on-primary);
   font-weight: 500;
 }
 
@@ -117,7 +117,7 @@
 .order-items-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-on-primary);
   margin-bottom: 0.75rem;
 }
 
@@ -132,7 +132,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem;
-  background: #111827;
+  background: var(--bg-tertiary);
   border-radius: 0.5rem;
 }
 
@@ -158,16 +158,16 @@
 
 .order-item-name {
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-on-primary);
 }
 
 .order-item-price {
   font-size: 0.875rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .no-items {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-style: italic;
   padding: 1rem;
   text-align: center;
@@ -178,14 +178,14 @@
   justify-content: space-between;
   align-items: center;
   padding-top: 1rem;
-  border-top: 1px solid #374151;
+  border-top: 1px solid var(--border-color);
 }
 
 .delivered-order-date {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
