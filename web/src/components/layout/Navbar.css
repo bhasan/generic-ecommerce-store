@@ -42,7 +42,7 @@
 
 .navbar-links {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-md);
   flex-wrap: wrap;
 }
 
@@ -168,7 +168,7 @@
 .mobile-menu .admin-menu {
   position: static;
   min-width: 100%;
-  margin-top: 0.5rem;
+  margin-top: var(--spacing-md);
   box-shadow: none;
   border: 1px solid var(--border-color);
 }
@@ -249,12 +249,12 @@
   position: absolute;
   top: calc(100% + var(--spacing-sm));
   left: 0;
-  min-width: 200px;
+  min-width: 160px;
   background: var(--bg-dashboard-sidebar);
   border: 2px solid var(--color-primary-dark);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
-  padding: var(--spacing-sm);
+  padding: 0.25rem;
   animation: slideDown var(--transition-fast) ease-out;
   z-index: var(--z-dropdown);
 }
@@ -273,9 +273,9 @@
 .admin-menu-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-lg);
+  gap: var(--spacing-md);
   width: 100%;
-  padding: var(--spacing-lg) var(--spacing-md);
+  padding: var(--spacing-md) 0.75rem;
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
@@ -284,7 +284,7 @@
   cursor: pointer;
   transition: var(--transition-all);
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 
 .admin-menu-item:hover {
@@ -342,7 +342,7 @@
 .profile-menu-header {
   padding: 1rem;
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .profile-menu-name {
@@ -360,7 +360,7 @@
 .profile-menu-divider {
   height: 1px;
   background: var(--border-color);
-  margin: 0.5rem 0;
+  margin: var(--spacing-md) 0;
 }
 
 .profile-menu-item {
@@ -371,7 +371,7 @@
   padding: 0.75rem 1rem;
   background: transparent;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--spacing-md);
   color: var(--text-primary);
   font-weight: 500;
   cursor: pointer;
@@ -415,7 +415,7 @@
   }
 
   .nav-link {
-    padding: 0.5rem 0.75rem;
+    padding: var(--spacing-md) 0.75rem;
     font-size: 0.8125rem;
   }
 
@@ -440,7 +440,7 @@
 /* Medium screens (992px and below) - more compact */
 @media (max-width: 992px) {
   .navbar-container {
-    padding: 0.5rem 1rem;
+    padding: var(--spacing-md) 1rem;
   }
 
   .navbar-left {
@@ -461,7 +461,7 @@
   }
 
   .nav-link {
-    padding: 0.5rem;
+    padding: var(--spacing-md);
   }
 
   .nav-link svg {
@@ -478,7 +478,7 @@
   }
 
   .profile-button {
-    padding: 0.5rem;
+    padding: var(--spacing-md);
   }
 }
 
@@ -501,7 +501,7 @@
   }
 
   .navbar-right {
-    gap: 0.5rem;
+    gap: var(--spacing-md);
   }
 
   .cart-button {
@@ -521,7 +521,7 @@
 /* Small screens (480px and below) */
 @media (max-width: 480px) {
   .navbar-container {
-    padding: 0.5rem 0.75rem;
+    padding: var(--spacing-md) 0.75rem;
   }
 
   .navbar-brand {
@@ -537,8 +537,8 @@
   .profile-menu {
     position: fixed;
     top: 60px;
-    left: 0.5rem;
-    right: 0.5rem;
+    left: var(--spacing-md);
+    right: var(--spacing-md);
     min-width: auto;
   }
 

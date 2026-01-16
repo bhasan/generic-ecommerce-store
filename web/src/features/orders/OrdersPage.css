@@ -17,7 +17,7 @@
   align-items: center;
   gap: 0.5rem;
   background: var(--color-primary);
-  color: #ffffff;
+  color: var(--text-on-primary);
   border: none;
   padding: 0.75rem 1.5rem;
   border-radius: 0.5rem;
@@ -130,7 +130,7 @@
 
 .status-approved {
   background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
+  color: var(--color-info);
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
@@ -216,7 +216,7 @@
 }
 
 .btn-approve {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--color-info) 0%, var(--color-info-dark) 100%);
   color: white;
 }
 
@@ -425,7 +425,7 @@
 }
 
 .btn-quick-action-approve {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--color-info) 0%, var(--color-info-dark) 100%);
   color: white;
 }
 
@@ -455,7 +455,7 @@
 }
 
 .btn-quick-action-deliver {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-warning-dark) 100%);
   color: white;
 }
 
