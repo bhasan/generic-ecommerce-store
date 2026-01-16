@@ -954,6 +954,13 @@ function DashboardPage() {
         <aside className="dashboard-sidebar">
           <nav className="sidebar-nav">
             <button
+              className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.ANNOUNCEMENTS ? 'active' : ''}`}
+              onClick={() => setActiveSection(DASHBOARD_SECTIONS.ANNOUNCEMENTS)}
+            >
+              <Megaphone size={20} />
+              <span>Announcements</span>
+            </button>
+            <button
               className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS ? 'active' : ''}`}
               onClick={() => setActiveSection(DASHBOARD_SECTIONS.PENDING_REGISTRATIONS)}
             >
@@ -973,13 +980,6 @@ function DashboardPage() {
             >
               <UserX size={20} />
               <span>Rejected Users</span>
-            </button>
-            <button
-              className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.ANNOUNCEMENTS ? 'active' : ''}`}
-              onClick={() => setActiveSection(DASHBOARD_SECTIONS.ANNOUNCEMENTS)}
-            >
-              <Megaphone size={20} />
-              <span>Announcements</span>
             </button>
           </nav>
         </aside>
