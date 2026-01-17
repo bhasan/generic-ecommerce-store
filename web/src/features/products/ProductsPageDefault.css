@@ -96,6 +96,8 @@
   line-height: 1.2;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 96px;
+  text-align: center;
 }
 
 .btn-add-to-cart:hover:not(:disabled) {
@@ -113,6 +115,17 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+}
+
+.quantity-select,
+.quantity-input {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: var(--font-size-xs);
 }
 
 

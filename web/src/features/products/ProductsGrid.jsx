@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
 
 function ProductsGrid({
@@ -9,9 +9,30 @@ function ProductsGrid({
   onProductClick,
   showHiddenLabel = false
 }) {
+  const [quantities, setQuantities] = useState({});
+
+  const resolveAllowedQuantities = (product) => {
+    if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
+      return product.allowedQuantitiesOverride;
+    }
+    return product.category?.allowedQuantities || [];
+  };
+
+  const getQuantityValue = (product) => {
+    if (quantities[product.id] !== undefined) return quantities[product.id];
+    const allowed = resolveAllowedQuantities(product);
+    return allowed.length > 0 ? allowed[0] : 1;
+  };
+
+  const updateQuantity = (productId, value) => {
+    setQuantities((prev) => ({ ...prev, [productId]: value }));
+  };
+
   const renderProductCard = (product) => {
     const mainImage = getProductImageSrc(product);
     const showStock = product.stockEnabled !== false;
+    const allowedQuantities = resolveAllowedQuantities(product);
+    const quantityValue = getQuantityValue(product);
 
     return (
       <div
@@ -42,10 +63,37 @@ function ProductsGrid({
           <div className="product-footer">
             <span className="product-price">${product.price.toFixed(2)}</span>
             <div className="product-footer-actions">
+              {allowedQuantities.length > 0 ? (
+                <select
+                  className="quantity-select"
+                  value={quantityValue}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => updateQuantity(product.id, parseFloat(e.target.value))}
+                >
+                  {allowedQuantities.map((quantity) => (
+                    <option key={quantity} value={quantity}>
+                      {quantity}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  className="quantity-select"
+                  value={quantityValue}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => updateQuantity(product.id, parseFloat(e.target.value))}
+                >
+                  {Array.from({ length: 5 }, (_, index) => index + 1).map((quantity) => (
+                    <option key={quantity} value={quantity}>
+                      {quantity}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onAddToCart(product);
+                  onAddToCart(product, quantityValue);
                 }}
                 disabled={showStock && product.stock === 0}
                 className="btn-add-to-cart"
@@ -62,6 +110,8 @@ function ProductsGrid({
   const renderProductListItem = (product) => {
     const mainImage = getProductImageSrc(product);
     const showStock = product.stockEnabled !== false;
+    const allowedQuantities = resolveAllowedQuantities(product);
+    const quantityValue = getQuantityValue(product);
 
     return (
       <div
@@ -103,10 +153,37 @@ function ProductsGrid({
         </div>
 
         <div className="product-list-actions">
+          {allowedQuantities.length > 0 ? (
+            <select
+              className="quantity-select"
+              value={quantityValue}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => updateQuantity(product.id, parseFloat(e.target.value))}
+            >
+              {allowedQuantities.map((quantity) => (
+                <option key={quantity} value={quantity}>
+                  {quantity}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select
+              className="quantity-select"
+              value={quantityValue}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => updateQuantity(product.id, parseFloat(e.target.value))}
+            >
+              {Array.from({ length: 10 }, (_, index) => index + 1).map((quantity) => (
+                <option key={quantity} value={quantity}>
+                  {quantity}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onAddToCart(product);
+              onAddToCart(product, quantityValue);
             }}
             disabled={showStock && product.stock === 0}
             className="btn-add-to-cart"
