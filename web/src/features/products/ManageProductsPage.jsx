@@ -32,7 +32,7 @@ function SortableProductCard({
     transform: CSS.Transform.toString(transform),
     transition
   };
-
+  
   const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
   const imageCount = product.images ? product.images.length : 1;
   const showStock = product.stockEnabled !== false;
@@ -247,7 +247,7 @@ function SortableCategoryGroup({ category, isChild, onEdit, onDelete, children }
           <button type="button" className="manage-category-drag-handle" {...attributes} {...listeners} aria-label="Reorder category">
             <GripVertical size={16} />
           </button>
-          <div>
+        <div>
             <h3>{category.name}</h3>
             {category.description && <p>{category.description}</p>}
           </div>
@@ -264,7 +264,7 @@ function SortableCategoryGroup({ category, isChild, onEdit, onDelete, children }
               <button onClick={() => onDelete(category)} className="btn-delete">
                 <Trash2 size={14} />
                 <span>Delete</span>
-              </button>
+        </button>
             )}
           </div>
         )}
@@ -305,7 +305,7 @@ function ProductFormModal({
               <X size={20} />
             </button>
           </div>
-
+          
           <div className="form-grid">
             <div className="form-group">
               <label htmlFor="name">Product Name *</label>
@@ -322,9 +322,9 @@ function ProductFormModal({
             <div className="form-group">
               <label htmlFor="category">Category *</label>
               <div className="category-select">
-                <input
-                  id="category"
-                  type="text"
+              <input
+                id="category"
+                type="text"
                   placeholder="Search categories..."
                   value={categoryQuery}
                   onFocus={() => setShowCategoryDropdown(true)}
@@ -332,8 +332,8 @@ function ProductFormModal({
                     setCategoryQuery(e.target.value);
                     setShowCategoryDropdown(true);
                   }}
-                  className="form-input"
-                />
+                className="form-input"
+              />
                 {showCategoryDropdown && (
                   <div className="category-dropdown">
                     {isLoadingCategories ? (
@@ -529,14 +529,11 @@ function ManageProductsPage() {
     stockEnabled: true,
     hidden: false
   });
-  const [viewMode, setViewMode] = useState('compact');
-
-  useEffect(() => {
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === 'undefined') return 'compact';
     const savedView = localStorage.getItem('manageProductsViewMode');
-    if (savedView === 'compact' || savedView === 'list') {
-      setViewMode(savedView);
-    }
-  }, []);
+    return savedView === 'compact' || savedView === 'list' ? savedView : 'compact';
+  });
 
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
@@ -873,14 +870,14 @@ function ManageProductsPage() {
       )}
 
       {isLoadingProducts || isLoadingCategories ? (
-        <div className="empty-state">
-          <p>Loading products...</p>
-        </div>
+          <div className="empty-state">
+            <p>Loading products...</p>
+          </div>
       ) : orderedProducts.length === 0 ? (
-        <div className="empty-state">
-          <p>No products found. Add your first product to get started!</p>
-        </div>
-      ) : (
+          <div className="empty-state">
+            <p>No products found. Add your first product to get started!</p>
+          </div>
+        ) : (
         <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
           <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>
             <div className="manage-products-categories">
@@ -922,7 +919,7 @@ function ManageProductsPage() {
                   ))}
                 </SortableCategoryGroup>
               ))}
-            </div>
+                  </div>
           </SortableContext>
         </DndContext>
       )}

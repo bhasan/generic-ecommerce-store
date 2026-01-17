@@ -17,18 +17,15 @@ function ProductsPage() {
     loadCategories
   } = useApp();
 
-  const [viewMode, setViewMode] = useState('compact');
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === 'undefined') return 'compact';
+    const savedView = localStorage.getItem('productsViewMode');
+    return savedView === 'compact' || savedView === 'list' ? savedView : 'compact';
+  });
 
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
-
-  useEffect(() => {
-    const savedView = localStorage.getItem('productsViewMode');
-    if (savedView === 'compact' || savedView === 'list') {
-      setViewMode(savedView);
-    }
-  }, []);
 
   useEffect(() => {
     localStorage.setItem('productsViewMode', viewMode);
@@ -154,7 +151,7 @@ function ProductsPage() {
 
         <div className="product-list-content">
           <div className="product-list-header">
-            <div>
+            <div className="product-list-title-row">
               <h3 className="product-list-name">{product.name}</h3>
               <div className="product-list-meta">
                 <span className="product-list-category">{getCategoryLabel(product)}</span>
