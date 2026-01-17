@@ -179,7 +179,7 @@ function CheckoutPage() {
                     alt={item.name}
                     className="checkout-item-image"
                     onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/80x80?text=No+Image';
+                    e.target.src = '/images/smokestationtitle.png';
                     }}
                   />
                   <div className="checkout-item-details">

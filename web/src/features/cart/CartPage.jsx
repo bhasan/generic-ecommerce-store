@@ -40,7 +40,7 @@ function CartPage() {
                   alt={item.name} 
                   className="cart-item-image"
                   onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/200x200?text=No+Image';
+                    e.target.src = '/images/smokestationtitle.png';
                   }}
                 />
               </div>

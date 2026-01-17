@@ -10,6 +10,7 @@ function ProductItemPage() {
   const navigate = useNavigate();
   const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const fallbackImage = '/images/smokestationtitle.png';
   
   // Find the product by ID
   const product = products.find(p => p.id === parseInt(id));
@@ -59,7 +60,12 @@ function ProductItemPage() {
     );
   }
   
-  const images = product.images || [product.image];
+  const images =
+    product.images && product.images.length > 0
+      ? product.images
+      : product.image
+        ? [product.image]
+        : [fallbackImage];
   const showStock = product.stockEnabled !== false;
   const isOutOfStock = showStock && product.stock === 0;
 
@@ -104,7 +110,7 @@ function ProductItemPage() {
               alt={product.name}
               className="main-product-image"
               onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/600x400?text=No+Image';
+                e.target.src = fallbackImage;
               }}
             />
             {/* HIDDEN: Stock badge - may re-enable later */}
@@ -126,7 +132,7 @@ function ProductItemPage() {
                   className={`thumbnail ${selectedImageIndex === index ? 'thumbnail-active' : ''}`}
                   onClick={() => setSelectedImageIndex(index)}
                   onError={(e) => {
-                    e.target.src = 'https://via.placeholder.com/100x100?text=No+Image';
+                    e.target.src = fallbackImage;
                   }}
                 />
               ))}

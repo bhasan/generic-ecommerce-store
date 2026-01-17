@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ProductCard.css';
 import './ProductsPage.css';
@@ -6,6 +6,7 @@ import { useApp } from '../../context/AppContext';
 
 function ProductsPage() {
   const navigate = useNavigate();
+  const fallbackImage = '/images/smokestationtitle.png';
   const {
     products,
     addToCart,
@@ -16,9 +17,22 @@ function ProductsPage() {
     loadCategories
   } = useApp();
 
+  const [viewMode, setViewMode] = useState('compact');
+
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  useEffect(() => {
+    const savedView = localStorage.getItem('productsViewMode');
+    if (savedView === 'compact' || savedView === 'list') {
+      setViewMode(savedView);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('productsViewMode', viewMode);
+  }, [viewMode]);
 
   const isCustomer = currentUser.role === 'CUSTOMER' || currentUser.email === 'guest@smokestation.com';
   const visibleProducts = isCustomer ? products.filter(product => !product.hidden) : products;
@@ -68,7 +82,7 @@ function ProductsPage() {
     [...list].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
 
   const renderProductCard = (product) => {
-    const mainImage = product.images ? product.images[0] : product.image;
+    const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
     const showStock = product.stockEnabled !== false;
 
     return (
@@ -84,7 +98,7 @@ function ProductsPage() {
             alt={product.name}
             className="product-image"
             onError={(e) => {
-              e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+              e.target.src = fallbackImage;
             }}
           />
         </div>
@@ -117,6 +131,79 @@ function ProductsPage() {
     );
   };
 
+  const renderProductListItem = (product) => {
+    const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
+    const showStock = product.stockEnabled !== false;
+
+    return (
+      <div
+        key={product.id}
+        className="product-list-item"
+        onClick={() => navigate(`/products/${product.id}`)}
+        style={{ cursor: 'pointer' }}
+      >
+        <div className="product-list-image">
+          <img
+            src={mainImage}
+            alt={product.name}
+            onError={(e) => {
+              e.target.src = fallbackImage;
+            }}
+          />
+        </div>
+
+        <div className="product-list-content">
+          <div className="product-list-header">
+            <div>
+              <h3 className="product-list-name">{product.name}</h3>
+              <div className="product-list-meta">
+                <span className="product-list-category">{getCategoryLabel(product)}</span>
+                {showStock && (
+                  <span className={`product-list-stock ${product.stock === 0 ? 'is-out' : ''}`}>
+                    {product.stock === 0 ? 'Out of Stock' : `${product.stock} in stock`}
+                  </span>
+                )}
+                {!isCustomer && product.hidden && (
+                  <span className="product-list-hidden">Hidden</span>
+                )}
+              </div>
+            </div>
+            <span className="product-list-price">${product.price.toFixed(2)}</span>
+          </div>
+
+          {product.description && (
+            <p className="product-list-description">{product.description}</p>
+          )}
+        </div>
+
+        <div className="product-list-actions">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              addToCart(product);
+            }}
+            disabled={showStock && product.stock === 0}
+            className="btn-add-to-cart"
+          >
+            {showStock && product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderProductsCollection = (list) => {
+    if (viewMode === 'list') {
+      return <div className="products-list">{sortedProducts(list).map(renderProductListItem)}</div>;
+    }
+
+    return (
+      <div className={`products-grid ${viewMode === 'compact' ? 'products-grid-compact' : ''}`}>
+        {sortedProducts(list).map(renderProductCard)}
+      </div>
+    );
+  };
+
   return (
     <div className="products-page-container">
       <div className="products-header">
@@ -124,11 +211,29 @@ function ProductsPage() {
           <h2 className="page-title">Products</h2>
           <p className="page-subtitle">Browse our collection of quality products</p>
         </div>
-        {currentUser && (
-          <div className="user-welcome">
-            Welcome, <span className="user-name">{currentUser.name}</span>
+        <div className="products-header-actions">
+          <div className="products-view-toggle" role="group" aria-label="Products view">
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'compact' ? 'active' : ''}`}
+              onClick={() => setViewMode('compact')}
+            >
+              Compact
+            </button>
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              List
+            </button>
           </div>
-        )}
+          {currentUser && (
+            <div className="user-welcome">
+              Welcome, <span className="user-name">{currentUser.name}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {isLoadingProducts || isLoadingCategories ? (
@@ -136,9 +241,7 @@ function ProductsPage() {
           <p>Loading products...</p>
         </div>
       ) : flat ? (
-        <div className="products-grid">
-          {sortedProducts(flat).map(renderProductCard)}
-        </div>
+        renderProductsCollection(flat)
       ) : (
         topLevel.map(parent => {
           const parentProducts = byCategoryId.get(parent.id) || [];
@@ -153,11 +256,7 @@ function ProductsPage() {
                 )}
               </div>
 
-              {sortedProducts(parentProducts).length > 0 && (
-                <div className="products-grid">
-                  {sortedProducts(parentProducts).map(renderProductCard)}
-                </div>
-              )}
+              {sortedProducts(parentProducts).length > 0 && renderProductsCollection(parentProducts)}
 
               {childCategories.map(child => {
                 const childProducts = byCategoryId.get(child.id) || [];
@@ -171,9 +270,7 @@ function ProductsPage() {
                         <p className="category-section-description">{child.description}</p>
                       )}
                     </div>
-                    <div className="products-grid">
-                      {sortedProducts(childProducts).map(renderProductCard)}
-                    </div>
+                    {renderProductsCollection(childProducts)}
                   </div>
                 );
               })}

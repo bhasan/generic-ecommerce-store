@@ -10,6 +10,8 @@ import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+const fallbackImage = '/images/smokestationtitle.png';
+
 function SortableProductCard({
   product,
   dragEnabled,
@@ -31,7 +33,7 @@ function SortableProductCard({
     transition
   };
 
-  const mainImage = product.images ? product.images[0] : product.image;
+  const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
   const imageCount = product.images ? product.images.length : 1;
   const showStock = product.stockEnabled !== false;
 
@@ -47,7 +49,7 @@ function SortableProductCard({
           alt={product.name}
           className="product-image"
           onError={(e) => {
-            e.target.src = 'https://via.placeholder.com/400x300?text=No+Image';
+            e.target.src = fallbackImage;
           }}
         />
         {imageCount > 1 && (
@@ -124,6 +126,102 @@ function SortableProductCard({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SortableProductListItem({
+  product,
+  dragEnabled,
+  onToggleHidden,
+  onEdit,
+  onDeleteClick,
+  canDelete,
+  canManage,
+  getCategoryLabel,
+  editingDisabled
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: product.id,
+    disabled: !dragEnabled
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition
+  };
+
+  const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
+  const showStock = product.stockEnabled !== false;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`product-list-item ${product.hidden ? 'product-list-item-hidden' : ''} ${isDragging ? 'product-list-item-dragging' : ''}`}
+    >
+      <div className="product-list-image">
+        <img
+          src={mainImage}
+          alt={product.name}
+          onError={(e) => {
+            e.target.src = fallbackImage;
+          }}
+        />
+      </div>
+
+      <div className="product-list-content">
+        <div className="product-list-header">
+          <div>
+            <h3 className="product-list-name">{product.name}</h3>
+            <div className="product-list-meta">
+              <span className="product-list-category">{getCategoryLabel(product)}</span>
+              {showStock && (
+                <span className={`product-list-stock ${product.stock === 0 ? 'is-out' : ''}`}>
+                  {product.stock === 0 ? 'Out of Stock' : `${product.stock} units`}
+                </span>
+              )}
+              {product.hidden && <span className="product-list-hidden">Hidden</span>}
+            </div>
+          </div>
+          <span className="product-list-price">${product.price}</span>
+        </div>
+        {product.description && <p className="product-list-description">{product.description}</p>}
+      </div>
+
+      {canManage && (
+        <div className="product-list-actions">
+          {dragEnabled && (
+            <button type="button" className="product-drag-handle" {...attributes} {...listeners} aria-label="Reorder product">
+              <GripVertical size={16} />
+            </button>
+          )}
+          <button
+            onClick={() => onToggleHidden(product.id, product.hidden)}
+            className="btn-visibility"
+            title={product.hidden ? 'Show product' : 'Hide product'}
+          >
+            {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+          </button>
+          <button
+            onClick={() => onEdit(product)}
+            className="btn-edit"
+            disabled={editingDisabled}
+          >
+            <Edit size={16} />
+            <span>Edit</span>
+          </button>
+          {canDelete && (
+            <button
+              onClick={() => onDeleteClick(product.id, product.name)}
+              className="btn-delete"
+            >
+              <Trash2 size={16} />
+              <span>Delete</span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -431,6 +529,18 @@ function ManageProductsPage() {
     stockEnabled: true,
     hidden: false
   });
+  const [viewMode, setViewMode] = useState('compact');
+
+  useEffect(() => {
+    const savedView = localStorage.getItem('manageProductsViewMode');
+    if (savedView === 'compact' || savedView === 'list') {
+      setViewMode(savedView);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('manageProductsViewMode', viewMode);
+  }, [viewMode]);
 
   const getCategoryLabel = (category) => {
     if (!category) return 'Uncategorized';
@@ -664,6 +774,45 @@ function ManageProductsPage() {
     updateProduct(productId, { hidden: !currentHidden });
   };
 
+  const renderProductsCollection = (categoryId) => {
+    const list = productsByCategory[categoryId] || [];
+    if (list.length === 0) return null;
+
+    return (
+      <div className={viewMode === 'list' ? 'products-list' : `products-grid ${viewMode === 'compact' ? 'products-grid-compact' : ''}`}>
+        {list.map(product =>
+          viewMode === 'list' ? (
+            <SortableProductListItem
+              key={product.id}
+              product={product}
+              dragEnabled={canManageProducts}
+              canManage={canManageProducts}
+              canDelete={currentUser.role === 'ADMIN'}
+              onToggleHidden={toggleHidden}
+              onEdit={handleEdit}
+              onDeleteClick={handleDeleteClick}
+              getCategoryLabel={getProductCategoryLabel}
+              editingDisabled={editingId !== null || showAddForm}
+            />
+          ) : (
+            <SortableProductCard
+              key={product.id}
+              product={product}
+              dragEnabled={canManageProducts}
+              canManage={canManageProducts}
+              canDelete={currentUser.role === 'ADMIN'}
+              onToggleHidden={toggleHidden}
+              onEdit={handleEdit}
+              onDeleteClick={handleDeleteClick}
+              getCategoryLabel={getProductCategoryLabel}
+              editingDisabled={editingId !== null || showAddForm}
+            />
+          )
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="manage-products-container">
       <div className="manage-products-header">
@@ -671,16 +820,34 @@ function ManageProductsPage() {
           <h2 className="page-title">Manage Products</h2>
           <p className="page-subtitle">Add, edit, or remove products from your inventory</p>
         </div>
-        {canManageProducts && (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="btn-add-product"
-            disabled={showAddForm || editingId}
-          >
-            <Plus size={20} />
-            <span>Add New Product</span>
-          </button>
-        )}
+        <div className="manage-products-header-actions">
+          <div className="products-view-toggle" role="group" aria-label="Products view">
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'compact' ? 'active' : ''}`}
+              onClick={() => setViewMode('compact')}
+            >
+              Compact
+            </button>
+            <button
+              type="button"
+              className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setViewMode('list')}
+            >
+              List
+            </button>
+          </div>
+          {canManageProducts && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="btn-add-product"
+              disabled={showAddForm || editingId}
+            >
+              <Plus size={20} />
+              <span>Add New Product</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {canManageProducts && (
@@ -730,22 +897,7 @@ function ManageProductsPage() {
                       items={(productsByCategory[category.id] || []).map(item => item.id)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div className="products-grid">
-                        {(productsByCategory[category.id] || []).map(product => (
-                          <SortableProductCard
-                            key={product.id}
-                            product={product}
-                            dragEnabled={canManageProducts}
-                            canManage={canManageProducts}
-                            canDelete={currentUser.role === 'ADMIN'}
-                            onToggleHidden={toggleHidden}
-                            onEdit={handleEdit}
-                            onDeleteClick={handleDeleteClick}
-                            getCategoryLabel={getProductCategoryLabel}
-                            editingDisabled={editingId !== null || showAddForm}
-                          />
-                        ))}
-                      </div>
+                      {renderProductsCollection(category.id)}
                     </SortableContext>
                   </DndContext>
 
@@ -763,22 +915,7 @@ function ManageProductsPage() {
                           items={(productsByCategory[childCategory.id] || []).map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          <div className="products-grid">
-                            {(productsByCategory[childCategory.id] || []).map(product => (
-                              <SortableProductCard
-                                key={product.id}
-                                product={product}
-                                dragEnabled={canManageProducts}
-                                canManage={canManageProducts}
-                                canDelete={currentUser.role === 'ADMIN'}
-                                onToggleHidden={toggleHidden}
-                                onEdit={handleEdit}
-                                onDeleteClick={handleDeleteClick}
-                                getCategoryLabel={getProductCategoryLabel}
-                                editingDisabled={editingId !== null || showAddForm}
-                              />
-                            ))}
-                          </div>
+                          {renderProductsCollection(childCategory.id)}
                         </SortableContext>
                       </DndContext>
                     </section>
