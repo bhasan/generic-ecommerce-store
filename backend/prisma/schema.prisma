@@ -97,6 +97,7 @@ model Category {
   parentId    Int?
   sortOrder   Int       @default(0)
   allowedQuantities Float[] @default([])
+  quantityDiscounts Json?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -123,6 +124,7 @@ model ProductItem {
   sortOrder    Int         @default(0)
   cardSize     String      @default("standard")
   allowedQuantitiesOverride Float[] @default([])
+  quantityDiscountsOverride Json?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 

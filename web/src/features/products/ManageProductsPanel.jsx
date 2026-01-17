@@ -14,7 +14,7 @@ import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
-import { getCategoryLabel, getProductCategoryLabel, getProductImageSrc } from './productsHelpers';
+import { formatQuantityDiscounts, getCategoryLabel, getProductCategoryLabel, getProductImageSrc, parseQuantityDiscounts } from './productsHelpers';
 
 function SortableProductCard({
   product,
@@ -305,7 +305,8 @@ function ManageProductsPanel() {
     images: [''],
     stock: '',
     stockEnabled: false,
-    hidden: false
+    hidden: false,
+    quantityDiscountsOverride: ''
   });
   const [viewMode, setViewMode] = useState(() => {
     if (typeof window === 'undefined') return 'compact';
@@ -367,7 +368,8 @@ function ManageProductsPanel() {
       categoryId: selectedCategoryId,
       images: product.images || [product.image],
       stockEnabled: product.stockEnabled !== false,
-      hidden: product.hidden || false
+      hidden: product.hidden || false,
+      quantityDiscountsOverride: formatQuantityDiscounts(product.quantityDiscountsOverride || [])
     });
     setCategoryQuery(selectedCategoryLabel);
     setShowAddForm(false);
@@ -390,7 +392,8 @@ function ManageProductsPanel() {
       price: parseFloat(formData.price),
       stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
       images: formData.images.filter(img => img.trim() !== ''),
-      image: formData.images[0]
+      image: formData.images[0],
+      quantityDiscountsOverride: parseQuantityDiscounts(formData.quantityDiscountsOverride)
     };
 
     if (editingId) {
@@ -408,7 +411,8 @@ function ManageProductsPanel() {
       images: [''],
       stock: '',
       stockEnabled: false,
-      hidden: false
+      hidden: false,
+      quantityDiscountsOverride: ''
     });
     setCategoryQuery('');
   };
@@ -424,7 +428,8 @@ function ManageProductsPanel() {
       images: [''],
       stock: '',
       stockEnabled: false,
-      hidden: false
+      hidden: false,
+      quantityDiscountsOverride: ''
     });
     setCategoryQuery('');
   };

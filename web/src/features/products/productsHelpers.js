@@ -16,6 +16,53 @@ export const getProductCategoryLabel = (product) => {
   return product?.category || 'Uncategorized';
 };
 
+export const resolveQuantityDiscounts = (product) => {
+  if (product?.quantityDiscountsOverride && product.quantityDiscountsOverride.length > 0) {
+    return product.quantityDiscountsOverride;
+  }
+  return product?.category?.quantityDiscounts || [];
+};
+
+export const getDiscountedUnitPrice = (product, quantity) => {
+  const rules = resolveQuantityDiscounts(product);
+  const match = rules.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
+  if (!match) return product.price;
+  const discount = match.type === 'percent'
+    ? product.price * (match.value / 100)
+    : match.value;
+  return Math.max(0, product.price - discount);
+};
+
+export const formatQuantityDiscounts = (rules = []) =>
+  rules
+    .map((rule) =>
+      `${rule.quantity}:${rule.type === 'percent' ? `${rule.value}%` : `$${rule.value}`}`
+    )
+    .join(', ');
+
+export const parseQuantityDiscounts = (value) => {
+  if (!value) return [];
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const [quantityPart, discountPartRaw] = entry.split(':').map((part) => part.trim());
+      const quantity = Number(quantityPart);
+      if (!Number.isFinite(quantity) || quantity <= 0 || !discountPartRaw) return null;
+      const discountPart = discountPartRaw.replace(/\s/g, '');
+      if (discountPart.endsWith('%')) {
+        const valueNum = Number(discountPart.replace('%', ''));
+        if (!Number.isFinite(valueNum) || valueNum < 0 || valueNum > 100) return null;
+        return { quantity, type: 'percent', value: valueNum };
+      }
+      const fixedValue = Number(discountPart.replace('$', ''));
+      if (!Number.isFinite(fixedValue) || fixedValue < 0) return null;
+      return { quantity, type: 'fixed', value: fixedValue };
+    })
+    .filter(Boolean);
+};
+
 export const sortProducts = (list) =>
   [...list].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
 

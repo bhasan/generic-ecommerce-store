@@ -4,7 +4,7 @@ import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
-import { getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
+import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 
 function CheckoutPage() {
@@ -25,7 +25,10 @@ function CheckoutPage() {
   const [errors, setErrors] = useState({});
 
   // Calculate totals
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const unitPrice = getDiscountedUnitPrice(item, item.quantity);
+    return sum + (unitPrice * item.quantity);
+  }, 0);
   const tax = subtotal * 0.08;
   const total = subtotal + tax;
 
@@ -187,10 +190,12 @@ function CheckoutPage() {
                   <div className="checkout-item-details">
                     <h4>{item.name}</h4>
                     <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
-                    <p className="checkout-item-price">${item.price.toFixed(2)} × {item.quantity}</p>
+                    <p className="checkout-item-price">
+                      ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} × {item.quantity}
+                    </p>
                   </div>
                   <div className="checkout-item-total">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
                   </div>
                 </div>
                   );

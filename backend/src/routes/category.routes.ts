@@ -28,7 +28,20 @@ router.post(
     body('parentId').optional({ nullable: true }).isInt({ min: 1 }).toInt(),
     body('sortOrder').optional().isInt().toInt(),
     body('allowedQuantities').optional().isArray(),
-    body('allowedQuantities.*').optional().isFloat()
+    body('allowedQuantities.*').optional().isFloat(),
+    body('quantityDiscounts').optional().isArray(),
+    body('quantityDiscounts.*.quantity').optional().isFloat({ min: 0.0000001 }),
+    body('quantityDiscounts.*.type').optional().isIn(['percent', 'fixed']),
+    body('quantityDiscounts.*.value').optional().isFloat({ min: 0 }),
+    body('quantityDiscounts').optional().custom((value) => {
+      if (!Array.isArray(value)) return true;
+      value.forEach((rule) => {
+        if (rule?.type === 'percent' && typeof rule.value === 'number' && rule.value > 100) {
+          throw new Error('Percent discounts cannot exceed 100');
+        }
+      });
+      return true;
+    })
   ],
   categoryController.createCategory
 );
@@ -48,7 +61,20 @@ router.put(
     body('parentId').optional({ nullable: true }).isInt({ min: 1 }).toInt(),
     body('sortOrder').optional().isInt().toInt(),
     body('allowedQuantities').optional().isArray(),
-    body('allowedQuantities.*').optional().isFloat()
+    body('allowedQuantities.*').optional().isFloat(),
+    body('quantityDiscounts').optional().isArray(),
+    body('quantityDiscounts.*.quantity').optional().isFloat({ min: 0.0000001 }),
+    body('quantityDiscounts.*.type').optional().isIn(['percent', 'fixed']),
+    body('quantityDiscounts.*.value').optional().isFloat({ min: 0 }),
+    body('quantityDiscounts').optional().custom((value) => {
+      if (!Array.isArray(value)) return true;
+      value.forEach((rule) => {
+        if (rule?.type === 'percent' && typeof rule.value === 'number' && rule.value > 100) {
+          throw new Error('Percent discounts cannot exceed 100');
+        }
+      });
+      return true;
+    })
   ],
   categoryController.updateCategory
 );

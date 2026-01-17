@@ -3,13 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import './CartPage.css';
 import { useApp } from '../../context/AppContext';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
-import { getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
+import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 
 function CartPage() {
   const navigate = useNavigate();
   const { cart, removeFromCart, updateCartQuantity } = useApp();
-  const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const total = cart.reduce((sum, item) => {
+    const unitPrice = getDiscountedUnitPrice(item, item.quantity);
+    return sum + (unitPrice * item.quantity);
+  }, 0);
 
   const resolveAllowedQuantities = (item) => {
     if (item.allowedQuantitiesOverride && item.allowedQuantitiesOverride.length > 0) {
@@ -53,7 +56,9 @@ function CartPage() {
               <div className="cart-item-details">
                 <h3 className="cart-item-name">{item.name}</h3>
                 <p className="cart-item-category">{getProductCategoryLabel(item)}</p>
-                <p className="cart-item-price">${item.price.toFixed(2)} each</p>
+                <p className="cart-item-price">
+                  ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} each
+                </p>
               </div>
 
               <div className="cart-item-actions">
@@ -92,7 +97,7 @@ function CartPage() {
                 )}
 
                 <div className="cart-item-total">
-                  ${(item.price * item.quantity).toFixed(2)}
+                  ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
                 </div>
 
                 <button

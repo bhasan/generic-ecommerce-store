@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './CategoriesPage.css';
 import { useApp } from '../../context/AppContext';
+import { formatQuantityDiscounts, parseQuantityDiscounts } from '../products/productsHelpers';
 import AdminLayout from '../../components/layout/AdminLayout';
 import * as categoriesApi from '../../services/categoriesApi';
 import { Save, X, Trash2, Edit, GripVertical } from 'lucide-react';
@@ -61,7 +62,8 @@ function CategoriesPage() {
     description: '',
     parentId: '',
     sortOrder: '',
-    allowedQuantities: ''
+    allowedQuantities: '',
+    quantityDiscounts: ''
   });
   const [topLevelOrder, setTopLevelOrder] = useState([]);
   const [childOrderByParent, setChildOrderByParent] = useState({});
@@ -95,7 +97,7 @@ function CategoriesPage() {
 
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ name: '', description: '', parentId: '', sortOrder: '', allowedQuantities: '' });
+    setFormData({ name: '', description: '', parentId: '', sortOrder: '', allowedQuantities: '', quantityDiscounts: '' });
   };
 
   const handleSave = async () => {
@@ -116,7 +118,8 @@ function CategoriesPage() {
       description: formData.description?.trim() || undefined,
       parentId: formData.parentId ? parseInt(formData.parentId, 10) : null,
       sortOrder: formData.sortOrder !== '' ? parseInt(formData.sortOrder, 10) : undefined,
-      allowedQuantities
+      allowedQuantities,
+      quantityDiscounts: parseQuantityDiscounts(formData.quantityDiscounts)
     };
 
     if (editingId) {
@@ -135,7 +138,8 @@ function CategoriesPage() {
       description: category.description || '',
       parentId: category.parentId ? String(category.parentId) : '',
       sortOrder: category.sortOrder ?? '',
-      allowedQuantities: category.allowedQuantities?.join(', ') || ''
+      allowedQuantities: category.allowedQuantities?.join(', ') || '',
+      quantityDiscounts: formatQuantityDiscounts(category.quantityDiscounts || [])
     });
   };
 
@@ -236,6 +240,17 @@ function CategoriesPage() {
                 placeholder="e.g., 1, 3, 7, 10"
                 value={formData.allowedQuantities}
                 onChange={(e) => setFormData({ ...formData, allowedQuantities: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Quantity Discounts (optional)</label>
+              <input
+                type="text"
+                placeholder="e.g., 1:10%, 3:$5"
+                value={formData.quantityDiscounts}
+                onChange={(e) => setFormData({ ...formData, quantityDiscounts: e.target.value })}
                 className="form-input"
               />
             </div>

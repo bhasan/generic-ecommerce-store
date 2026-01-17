@@ -106,6 +106,18 @@ function ProductFormModal({
             </div>
 
             <div className="form-group">
+              <label htmlFor="quantityDiscountsOverride">Quantity Discounts (optional)</label>
+              <input
+                id="quantityDiscountsOverride"
+                type="text"
+                placeholder="e.g., 1:10%, 3:$5"
+                value={formData.quantityDiscountsOverride || ''}
+                onChange={(e) => setFormData({ ...formData, quantityDiscountsOverride: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
               <label htmlFor="stock">Stock Quantity</label>
               <div className={`stock-control-group ${!formData.stockEnabled ? 'stock-disabled' : ''}`}>
                 <input
