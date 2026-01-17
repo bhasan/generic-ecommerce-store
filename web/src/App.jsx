@@ -13,7 +13,6 @@ import CartPage from './features/cart/CartPage';
 import CheckoutPage from './features/cart/CheckoutPage';
 import OrderSuccessPage from './features/cart/OrderSuccessPage';
 import OrdersPage from './features/orders/OrdersPage';
-import ManageProductsPage from './features/products/ManageProductsPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
@@ -76,7 +75,7 @@ function App() {
             {/* Admin/Manager Routes */}
             <Route path="/manage-products" element={
               <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
-                <ManageProductsPage />
+                <ProductsPage mode="manage" />
               </ProtectedRoute>
             } />
 
