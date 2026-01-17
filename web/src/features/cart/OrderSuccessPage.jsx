@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import './OrderSuccessPage.css';
 import { useApp } from '../../context/AppContext';
 import { CheckCircle, Package, MapPin, DollarSign, MessageCircle, ShoppingBag, Eye } from 'lucide-react';
+import { getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from '../products/productsHelpers';
 
 function OrderSuccessPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, orders, setOrders, setCart } = useApp();
   const orderData = location.state;
+  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
 
   useEffect(() => {
     // If no order data, redirect to products
@@ -86,13 +88,16 @@ function OrderSuccessPage() {
             </div>
             <div className="order-items-list">
               {orderData.items.map((item, index) => (
+                (() => {
+                  const imageSrc = getProductImageSrc(item);
+                  return (
                 <div key={index} className="order-success-item">
                   <img 
-                    src={item.image} 
+                    src={imageSrc || null} 
                     alt={item.name}
                     className="success-item-image"
                     onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/60x60?text=No+Image';
+                      e.target.src = fallbackImage;
                     }}
                   />
                   <div className="success-item-details">
@@ -103,6 +108,8 @@ function OrderSuccessPage() {
                     ${(item.price * item.quantity).toFixed(2)}
                   </div>
                 </div>
+                  );
+                })()
               ))}
             </div>
             

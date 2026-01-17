@@ -22,6 +22,17 @@ interface AddOrderItemData {
 }
 
 export class OrderService {
+  private resolveAllowedQuantities(product: { allowedQuantitiesOverride?: number[]; category?: { allowedQuantities?: number[] } }) {
+    if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
+      return product.allowedQuantitiesOverride;
+    }
+    return product.category?.allowedQuantities ?? [];
+  }
+
+  private isQuantityAllowed(quantity: number, allowedQuantities: number[]) {
+    return allowedQuantities.some((allowed) => Math.abs(allowed - quantity) < 1e-9);
+  }
+
   /**
    * Get all orders (with user filtering for customers)
    */
@@ -73,7 +84,8 @@ export class OrderService {
       logger.debug('Fetching products for order items', { productIds });
 
       const products = await prisma.productItem.findMany({
-        where: { id: { in: productIds } }
+        where: { id: { in: productIds } },
+        include: { category: true }
       });
       const productMap = new Map(products.map(p => [p.id, p]));
 
@@ -446,6 +458,11 @@ export class OrderService {
         throw new AppError(`Product ${item.productId} not found`, 404);
       }
 
+      const allowedQuantities = this.resolveAllowedQuantities(product);
+      if (allowedQuantities.length > 0 && !this.isQuantityAllowed(item.quantity, allowedQuantities)) {
+        throw new AppError(`Invalid quantity for ${product.name}`, 400);
+      }
+
       // Check stock if enabled
       if (product.stockEnabled && product.stock < item.quantity) {
         throw new AppError(`Insufficient stock for ${product.name}`, 400);
@@ -686,7 +703,8 @@ export class OrderService {
       }
 
       const product = await prisma.productItem.findUnique({ 
-        where: { id: data.productId } 
+        where: { id: data.productId },
+        include: { category: true }
       });
 
       if (!product) {
@@ -700,6 +718,11 @@ export class OrderService {
         quantity: data.quantity,
         price: product.price,
       });
+
+      const allowedQuantities = this.resolveAllowedQuantities(product);
+      if (allowedQuantities.length > 0 && !this.isQuantityAllowed(data.quantity, allowedQuantities)) {
+        throw new AppError(`Invalid quantity for ${product.name}`, 400);
+      }
 
       // Create new order item
       const orderItem = await prisma.orderItem.create({

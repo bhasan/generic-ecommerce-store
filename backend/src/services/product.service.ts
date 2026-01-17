@@ -14,6 +14,7 @@ interface CreateProductData {
   hidden?: boolean;
   sortOrder?: number;
   cardSize?: string;
+  allowedQuantitiesOverride?: number[];
 }
 
 interface UpdateProductData {
@@ -28,6 +29,7 @@ interface UpdateProductData {
   hidden?: boolean;
   sortOrder?: number;
   cardSize?: string;
+  allowedQuantitiesOverride?: number[];
 }
 
 export class ProductService {
@@ -35,6 +37,16 @@ export class ProductService {
     if (value === undefined || value === null) return undefined;
     const parsed = typeof value === 'string' ? parseInt(value, 10) : value;
     return Number.isFinite(parsed as number) ? (parsed as number) : undefined;
+  }
+
+  private normalizeAllowedQuantities(value: unknown): number[] | undefined {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) return [];
+    const normalized = value
+      .map((entry) => (typeof entry === 'string' ? parseFloat(entry) : entry))
+      .filter((entry) => Number.isFinite(entry as number))
+      .map((entry) => Number(entry));
+    return Array.from(new Set(normalized)).sort((a, b) => a - b);
   }
 
   /**
@@ -151,11 +163,16 @@ export class ProductService {
       throw new AppError('Category not found', 400);
     }
 
+    const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantitiesOverride);
+
     return await prisma.productItem.create({
       data: {
         ...data,
         categoryId,
-        images: data.images || []
+        images: data.images || [],
+        ...(normalizedAllowedQuantities !== undefined
+          ? { allowedQuantitiesOverride: normalizedAllowedQuantities }
+          : {})
       }
     });
   }
@@ -174,7 +191,7 @@ export class ProductService {
     const allowedFields: (keyof UpdateProductData)[] = [
       'name', 'categoryId', 'price', 'description',
       'image', 'images', 'stock', 'stockEnabled', 'hidden',
-      'sortOrder', 'cardSize'
+      'sortOrder', 'cardSize', 'allowedQuantitiesOverride'
     ];
 
     const normalizedCategoryId = this.normalizeCategoryId(data.categoryId);
@@ -193,6 +210,8 @@ export class ProductService {
       if (key in data && data[key] !== undefined) {
         if (key === 'categoryId') {
           (filteredData as any)[key] = normalizedCategoryId;
+        } else if (key === 'allowedQuantitiesOverride') {
+          (filteredData as any)[key] = this.normalizeAllowedQuantities(data[key]) ?? [];
         } else {
           (filteredData as any)[key] = data[key];
         }
