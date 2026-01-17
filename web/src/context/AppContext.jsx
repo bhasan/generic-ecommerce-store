@@ -213,17 +213,55 @@ export function AppProvider({ children }) {
     }
   };
 
-  const addToCart = (product) => {
+  const resolveAllowedQuantities = (product) => {
+    if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
+      return product.allowedQuantitiesOverride;
+    }
+    return product.category?.allowedQuantities || [];
+  };
+
+  const isQuantityAllowed = (quantity, allowedQuantities) => {
+    return allowedQuantities.some((allowed) => Math.abs(allowed - quantity) < 1e-9);
+  };
+
+  const addToCart = (product, quantity) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
+      const allowedQuantities = resolveAllowedQuantities(product);
+
+      let requestedQuantity = quantity;
+      if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
+        if (allowedQuantities.length > 0) {
+          if (existing) {
+            const currentIndex = allowedQuantities.findIndex((value) => Math.abs(value - existing.quantity) < 1e-9);
+            requestedQuantity = currentIndex >= 0 && currentIndex < allowedQuantities.length - 1
+              ? allowedQuantities[currentIndex + 1]
+              : existing.quantity;
+          } else {
+            requestedQuantity = allowedQuantities[0];
+          }
+        } else {
+          requestedQuantity = 1;
+        }
+      }
+
+      const desiredQuantity = existing ? existing.quantity + requestedQuantity : requestedQuantity;
+      const nextQuantity = allowedQuantities.length > 0
+        ? (isQuantityAllowed(desiredQuantity, allowedQuantities)
+          ? desiredQuantity
+          : isQuantityAllowed(requestedQuantity, allowedQuantities)
+            ? requestedQuantity
+            : allowedQuantities[0])
+        : desiredQuantity;
+
       if (existing) {
-        return prev.map(item => 
-          item.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 }
+        return prev.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: nextQuantity }
             : item
         );
       }
-      return [...prev, { ...product, quantity: 1 }];
+      return [...prev, { ...product, quantity: nextQuantity }];
     });
     
     showNotification(
@@ -244,12 +282,13 @@ export function AppProvider({ children }) {
   };
 
   const updateCartQuantity = (productId, quantity) => {
-    if (quantity <= 0) {
+    const normalizedQuantity = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
+    if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
       removeFromCart(productId);
       return;
     }
     setCart(prev => prev.map(item => 
-      item.id === productId ? { ...item, quantity } : item
+      item.id === productId ? { ...item, quantity: normalizedQuantity } : item
     ));
   };
 

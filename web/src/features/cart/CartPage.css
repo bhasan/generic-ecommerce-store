@@ -94,6 +94,15 @@
   padding: 0.25rem;
 }
 
+.quantity-select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: var(--spacing-sm);
+  font-family: inherit;
+}
+
 .quantity-btn {
   background: transparent;
   border: none;

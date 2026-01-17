@@ -6,6 +6,7 @@ interface CreateCategoryData {
   description?: string;
   parentId?: number | null;
   sortOrder?: number;
+  allowedQuantities?: number[];
 }
 
 interface UpdateCategoryData {
@@ -13,9 +14,20 @@ interface UpdateCategoryData {
   description?: string;
   parentId?: number | null;
   sortOrder?: number;
+  allowedQuantities?: number[];
 }
 
 export class CategoryService {
+  private normalizeAllowedQuantities(value: unknown): number[] | undefined {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) return [];
+    const normalized = value
+      .map((entry) => (typeof entry === 'string' ? parseFloat(entry) : entry))
+      .filter((entry) => Number.isFinite(entry as number))
+      .map((entry) => Number(entry));
+    return Array.from(new Set(normalized)).sort((a, b) => a - b);
+  }
+
   async getAllCategories() {
     return prisma.category.findMany({
       include: {
@@ -38,12 +50,17 @@ export class CategoryService {
       }
     }
 
+    const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantities);
+
     return prisma.category.create({
       data: {
         name: data.name,
         description: data.description,
         parentId: data.parentId ?? null,
-        sortOrder: data.sortOrder ?? 0
+        sortOrder: data.sortOrder ?? 0,
+        ...(normalizedAllowedQuantities !== undefined
+          ? { allowedQuantities: normalizedAllowedQuantities }
+          : {})
       },
       include: {
         parent: true,
@@ -69,12 +86,18 @@ export class CategoryService {
       }
     }
 
+    const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantities);
+    const updateData = {
+      ...data,
+      parentId: data.parentId ?? null,
+      ...(data.allowedQuantities !== undefined
+        ? { allowedQuantities: normalizedAllowedQuantities ?? [] }
+        : {})
+    };
+
     return prisma.category.update({
       where: { id },
-      data: {
-        ...data,
-        parentId: data.parentId ?? null
-      },
+      data: updateData,
       include: {
         parent: true,
         children: true

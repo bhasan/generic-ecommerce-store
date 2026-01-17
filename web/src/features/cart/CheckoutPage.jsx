@@ -4,10 +4,12 @@ import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import { getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from '../products/productsHelpers';
 
 function CheckoutPage() {
   const navigate = useNavigate();
   const { cart, currentUser, checkout } = useApp();
+  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -32,6 +34,15 @@ function CheckoutPage() {
     navigate('/cart');
     return null;
   }
+
+  const getCategoryLabel = (item) => {
+    if (item?.category && typeof item.category === 'object') {
+      return item.category.parent
+        ? `${item.category.parent.name} > ${item.category.name}`
+        : item.category.name;
+    }
+    return item?.category || 'Uncategorized';
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -173,24 +184,29 @@ function CheckoutPage() {
             </div>
             <div className="order-items-review">
               {cart.map(item => (
+                (() => {
+                  const imageSrc = getProductImageSrc(item);
+                  return (
                 <div key={item.id} className="checkout-item">
                   <img 
-                    src={item.image} 
+                    src={imageSrc || null} 
                     alt={item.name}
                     className="checkout-item-image"
                     onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/80x80?text=No+Image';
+                      e.target.src = fallbackImage;
                     }}
                   />
                   <div className="checkout-item-details">
                     <h4>{item.name}</h4>
-                    <p className="checkout-item-category">{item.category}</p>
+                    <p className="checkout-item-category">{getCategoryLabel(item)}</p>
                     <p className="checkout-item-price">${item.price.toFixed(2)} × {item.quantity}</p>
                   </div>
                   <div className="checkout-item-total">
                     ${(item.price * item.quantity).toFixed(2)}
                   </div>
                 </div>
+                  );
+                })()
               ))}
             </div>
           </div>

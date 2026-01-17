@@ -6,7 +6,8 @@ import * as announcementsApi from '../../services/announcementsApi';
 import RejectUserModal from '../../components/common/RejectUserModal';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
-import { UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin, Megaphone, Edit, Power, PowerOff, Trash2, Check, Users, LayoutDashboard, Calendar, User, ChevronUp, ChevronDown, UserX, FileText } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin, Megaphone, Edit, Power, PowerOff, Trash2, Check, Users, LayoutDashboard, Calendar, User, ChevronUp, ChevronDown, UserX, FileText, Layers } from 'lucide-react';
 
 const DASHBOARD_SECTIONS = {
   PENDING_REGISTRATIONS: 'pending-registrations',
@@ -953,6 +954,13 @@ function DashboardPage() {
         {/* Sidebar Menu */}
         <aside className="dashboard-sidebar">
           <nav className="sidebar-nav">
+            <NavLink
+              to="/categories"
+              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Layers size={20} />
+              <span>Categories</span>
+            </NavLink>
             <button
               className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.ANNOUNCEMENTS ? 'active' : ''}`}
               onClick={() => setActiveSection(DASHBOARD_SECTIONS.ANNOUNCEMENTS)}
