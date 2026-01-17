@@ -22,11 +22,51 @@ interface AddOrderItemData {
 }
 
 export class OrderService {
+  private normalizeQuantityDiscounts(value: unknown) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const quantity = Number((entry as any).quantity);
+        const type = (entry as any).type;
+        const discountValue = Number((entry as any).value);
+        if (!Number.isFinite(quantity) || quantity <= 0) return null;
+        if (type !== 'percent' && type !== 'fixed') return null;
+        if (!Number.isFinite(discountValue) || discountValue < 0) return null;
+        if (type === 'percent' && discountValue > 100) return null;
+        return { quantity, type, value: discountValue };
+      })
+      .filter(Boolean) as Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
+  }
+
   private resolveAllowedQuantities(product: { allowedQuantitiesOverride?: number[]; category?: { allowedQuantities?: number[] } }) {
     if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
       return product.allowedQuantitiesOverride;
     }
     return product.category?.allowedQuantities ?? [];
+  }
+
+  private resolveQuantityDiscounts(product: {
+    quantityDiscountsOverride?: unknown;
+    category?: { quantityDiscounts?: unknown };
+  }) {
+    const override = this.normalizeQuantityDiscounts(product.quantityDiscountsOverride);
+    if (override.length > 0) return override;
+    return this.normalizeQuantityDiscounts(product.category?.quantityDiscounts);
+  }
+
+  private resolveDiscountedUnitPrice(
+    basePrice: number,
+    quantity: number,
+    rules: Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>
+  ) {
+    const match = rules.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
+    if (!match) return basePrice;
+    const discount =
+      match.type === 'percent'
+        ? basePrice * (match.value / 100)
+        : match.value;
+    return Math.max(0, basePrice - discount);
   }
 
   private isQuantityAllowed(quantity: number, allowedQuantities: number[]) {
@@ -432,7 +472,8 @@ export class OrderService {
 
     try {
       const products = await prisma.productItem.findMany({
-        where: { id: { in: productIds } }
+        where: { id: { in: productIds } },
+        include: { category: true }
       });
 
       logger.debug('Products fetched for order', {
@@ -468,13 +509,15 @@ export class OrderService {
         throw new AppError(`Insufficient stock for ${product.name}`, 400);
       }
 
-      const itemTotal = product.price * item.quantity;
+      const discountRules = this.resolveQuantityDiscounts(product);
+      const unitPrice = this.resolveDiscountedUnitPrice(product.price, item.quantity, discountRules);
+      const itemTotal = unitPrice * item.quantity;
       total += itemTotal;
 
       return {
         productId: product.id,
         quantity: item.quantity,
-        price: product.price
+        price: unitPrice
       };
     });
 
@@ -712,25 +755,28 @@ export class OrderService {
         throw new AppError('Product not found', 404);
       }
 
-      logger.debug('Creating order item', {
-        orderId,
-        productId: data.productId,
-        quantity: data.quantity,
-        price: product.price,
-      });
-
       const allowedQuantities = this.resolveAllowedQuantities(product);
       if (allowedQuantities.length > 0 && !this.isQuantityAllowed(data.quantity, allowedQuantities)) {
         throw new AppError(`Invalid quantity for ${product.name}`, 400);
       }
 
       // Create new order item
+      const discountRules = this.resolveQuantityDiscounts(product);
+      const unitPrice = this.resolveDiscountedUnitPrice(product.price, data.quantity, discountRules);
+
+      logger.debug('Creating order item', {
+        orderId,
+        productId: data.productId,
+        quantity: data.quantity,
+        price: unitPrice,
+      });
+
       const orderItem = await prisma.orderItem.create({
         data: {
           orderId,
           productId: data.productId,
           quantity: data.quantity,
-          price: product.price,
+          price: unitPrice,
           addedAfterSubmission: true
         }
       });
@@ -744,13 +790,13 @@ export class OrderService {
 
       // Recalculate order total
       const oldTotal = order.total;
-      const newTotal = order.total + (product.price * data.quantity);
+      const newTotal = order.total + (unitPrice * data.quantity);
       
       logger.debug('Updating order total', {
         orderId,
         oldTotal,
         newTotal,
-        itemCost: product.price * data.quantity,
+        itemCost: unitPrice * data.quantity,
       });
 
       await prisma.order.update({

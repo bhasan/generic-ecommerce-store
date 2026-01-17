@@ -40,7 +40,20 @@ router.post(
     body('stockEnabled').optional().isBoolean(),
     body('hidden').optional().isBoolean(),
     body('allowedQuantitiesOverride').optional().isArray(),
-    body('allowedQuantitiesOverride.*').optional().isFloat()
+    body('allowedQuantitiesOverride.*').optional().isFloat(),
+    body('quantityDiscountsOverride').optional().isArray(),
+    body('quantityDiscountsOverride.*.quantity').optional().isFloat({ min: 0.0000001 }),
+    body('quantityDiscountsOverride.*.type').optional().isIn(['percent', 'fixed']),
+    body('quantityDiscountsOverride.*.value').optional().isFloat({ min: 0 }),
+    body('quantityDiscountsOverride').optional().custom((value) => {
+      if (!Array.isArray(value)) return true;
+      value.forEach((rule) => {
+        if (rule?.type === 'percent' && typeof rule.value === 'number' && rule.value > 100) {
+          throw new Error('Percent discounts cannot exceed 100');
+        }
+      });
+      return true;
+    })
   ],
   productController.createProduct
 );
@@ -65,7 +78,20 @@ router.put(
     body('stockEnabled').optional().isBoolean(),
     body('hidden').optional().isBoolean(),
     body('allowedQuantitiesOverride').optional().isArray(),
-    body('allowedQuantitiesOverride.*').optional().isFloat()
+    body('allowedQuantitiesOverride.*').optional().isFloat(),
+    body('quantityDiscountsOverride').optional().isArray(),
+    body('quantityDiscountsOverride.*.quantity').optional().isFloat({ min: 0.0000001 }),
+    body('quantityDiscountsOverride.*.type').optional().isIn(['percent', 'fixed']),
+    body('quantityDiscountsOverride.*.value').optional().isFloat({ min: 0 }),
+    body('quantityDiscountsOverride').optional().custom((value) => {
+      if (!Array.isArray(value)) return true;
+      value.forEach((rule) => {
+        if (rule?.type === 'percent' && typeof rule.value === 'number' && rule.value > 100) {
+          throw new Error('Percent discounts cannot exceed 100');
+        }
+      });
+      return true;
+    })
   ],
   productController.updateProduct
 );

@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ShoppingCart, Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle } from 'lucide-react';
+import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle } from 'lucide-react';
+import CartPreview from '../cart/CartPreview';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();
@@ -13,7 +14,7 @@ function Navbar() {
   const adminRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const cartCount = cart.length;
   const isGuest = currentUser.email === 'guest@smokestation.com';
 
   // Helper to check if user has a role (supports both old and new format)
@@ -188,12 +189,7 @@ function Navbar() {
               <span className="hamburger-line"></span>
             </button>
 
-            <Link to="/cart" className="cart-button">
-              <ShoppingCart size={22} />
-              {cartCount > 0 && (
-                <span className="cart-badge">{cartCount}</span>
-              )}
-            </Link>
+            <CartPreview cart={cart} cartCount={cartCount} />
             
             {isGuest ? (
               <Link to="/login" className="btn-login-nav">

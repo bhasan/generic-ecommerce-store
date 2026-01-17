@@ -4,12 +4,12 @@ import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
-import { getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from '../products/productsHelpers';
+import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
+import ProductImage from '../products/ProductImage';
 
 function CheckoutPage() {
   const navigate = useNavigate();
   const { cart, currentUser, checkout } = useApp();
-  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -25,7 +25,10 @@ function CheckoutPage() {
   const [errors, setErrors] = useState({});
 
   // Calculate totals
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce((sum, item) => {
+    const unitPrice = getDiscountedUnitPrice(item, item.quantity);
+    return sum + (unitPrice * item.quantity);
+  }, 0);
   const tax = subtotal * 0.08;
   const total = subtotal + tax;
 
@@ -34,15 +37,6 @@ function CheckoutPage() {
     navigate('/cart');
     return null;
   }
-
-  const getCategoryLabel = (item) => {
-    if (item?.category && typeof item.category === 'object') {
-      return item.category.parent
-        ? `${item.category.parent.name} > ${item.category.name}`
-        : item.category.name;
-    }
-    return item?.category || 'Uncategorized';
-  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -188,21 +182,20 @@ function CheckoutPage() {
                   const imageSrc = getProductImageSrc(item);
                   return (
                 <div key={item.id} className="checkout-item">
-                  <img 
-                    src={imageSrc || null} 
+                  <ProductImage
+                    src={imageSrc}
                     alt={item.name}
                     className="checkout-item-image"
-                    onError={(e) => {
-                      e.target.src = fallbackImage;
-                    }}
                   />
                   <div className="checkout-item-details">
                     <h4>{item.name}</h4>
-                    <p className="checkout-item-category">{getCategoryLabel(item)}</p>
-                    <p className="checkout-item-price">${item.price.toFixed(2)} × {item.quantity}</p>
+                    <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
+                    <p className="checkout-item-price">
+                      ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} × {item.quantity}
+                    </p>
                   </div>
                   <div className="checkout-item-total">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
                   </div>
                 </div>
                   );

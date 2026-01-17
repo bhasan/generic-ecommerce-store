@@ -7,6 +7,7 @@ interface CreateCategoryData {
   parentId?: number | null;
   sortOrder?: number;
   allowedQuantities?: number[];
+  quantityDiscounts?: Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
 }
 
 interface UpdateCategoryData {
@@ -15,6 +16,7 @@ interface UpdateCategoryData {
   parentId?: number | null;
   sortOrder?: number;
   allowedQuantities?: number[];
+  quantityDiscounts?: Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
 }
 
 export class CategoryService {
@@ -26,6 +28,30 @@ export class CategoryService {
       .filter((entry) => Number.isFinite(entry as number))
       .map((entry) => Number(entry));
     return Array.from(new Set(normalized)).sort((a, b) => a - b);
+  }
+
+  private normalizeQuantityDiscounts(
+    value: unknown
+  ): Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }> | undefined {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) return [];
+    const normalized = value
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const quantity = Number((entry as any).quantity);
+        const type = (entry as any).type;
+        const discountValue = Number((entry as any).value);
+        if (!Number.isFinite(quantity) || quantity <= 0) return null;
+        if (type !== 'percent' && type !== 'fixed') return null;
+        if (!Number.isFinite(discountValue) || discountValue < 0) return null;
+        if (type === 'percent' && discountValue > 100) return null;
+        return { quantity, type, value: discountValue };
+      })
+      .filter(Boolean) as Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
+    const deduped = Array.from(
+      new Map(normalized.map((rule) => [`${rule.quantity}:${rule.type}`, rule])).values()
+    );
+    return deduped.sort((a, b) => a.quantity - b.quantity);
   }
 
   async getAllCategories() {
@@ -51,6 +77,7 @@ export class CategoryService {
     }
 
     const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantities);
+    const normalizedQuantityDiscounts = this.normalizeQuantityDiscounts(data.quantityDiscounts);
 
     return prisma.category.create({
       data: {
@@ -60,6 +87,9 @@ export class CategoryService {
         sortOrder: data.sortOrder ?? 0,
         ...(normalizedAllowedQuantities !== undefined
           ? { allowedQuantities: normalizedAllowedQuantities }
+          : {}),
+        ...(normalizedQuantityDiscounts !== undefined
+          ? { quantityDiscounts: normalizedQuantityDiscounts }
           : {})
       },
       include: {
@@ -87,11 +117,15 @@ export class CategoryService {
     }
 
     const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantities);
+    const normalizedQuantityDiscounts = this.normalizeQuantityDiscounts(data.quantityDiscounts);
     const updateData = {
       ...data,
       parentId: data.parentId ?? null,
       ...(data.allowedQuantities !== undefined
         ? { allowedQuantities: normalizedAllowedQuantities ?? [] }
+        : {}),
+      ...(data.quantityDiscounts !== undefined
+        ? { quantityDiscounts: normalizedQuantityDiscounts ?? [] }
         : {})
     };
 
