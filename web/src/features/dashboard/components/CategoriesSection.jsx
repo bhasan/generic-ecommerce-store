@@ -1,10 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import './CategoriesPage.css';
-import { useApp } from '../../context/AppContext';
-import { formatQuantityDiscounts, parseQuantityDiscounts } from '../products/productsHelpers';
-import AdminLayout from '../../components/layout/AdminLayout';
-import AdminDashboardTabs from '../../components/layout/AdminDashboardTabs';
-import * as categoriesApi from '../../services/categoriesApi';
+import '../../categories/CategoriesPage.css';
+import { useApp } from '../../../context/AppContext';
+import { formatQuantityDiscounts, parseQuantityDiscounts } from '../../products/productsHelpers';
+import * as categoriesApi from '../../../services/categoriesApi';
 import { Save, X, Trash2, Edit, GripVertical } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
@@ -47,7 +45,7 @@ function SortableCategoryRow({ category, onEdit, onDelete, isChild }) {
   );
 }
 
-function CategoriesPage() {
+function CategoriesSection() {
   const {
     categories,
     isLoadingCategories,
@@ -66,6 +64,7 @@ function CategoriesPage() {
     allowedQuantities: '',
     quantityDiscounts: ''
   });
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [topLevelOrder, setTopLevelOrder] = useState([]);
   const [childOrderByParent, setChildOrderByParent] = useState({});
 
@@ -130,9 +129,11 @@ function CategoriesPage() {
     }
 
     resetForm();
+    setIsFormOpen(false);
   };
 
   const handleEdit = (category) => {
+    setIsFormOpen(true);
     setEditingId(category.id);
     setFormData({
       name: category.name,
@@ -185,16 +186,22 @@ function CategoriesPage() {
   };
 
   return (
-    <AdminLayout>
-      <div className="categories-page-container">
-        <div className="categories-header">
-          <div>
-            <h2 className="page-title">Categories</h2>
-            <p className="page-subtitle">Manage categories and subcategories</p>
-          </div>
+    <div className="categories-page-container">
+      <div className="categories-header">
+        <div>
+          <h2 className="page-title">Categories</h2>
+          <p className="page-subtitle">Manage categories and subcategories</p>
         </div>
-        <AdminDashboardTabs currentTab="categories" />
+        <button
+          type="button"
+          className="btn-toggle-form"
+          onClick={() => setIsFormOpen((prev) => !prev)}
+        >
+          {isFormOpen ? 'Hide New Category' : 'Create New Category'}
+        </button>
+      </div>
 
+      {isFormOpen && (
         <div className="categories-form-card">
           <div className="form-grid">
             <div className="form-group">
@@ -271,66 +278,72 @@ function CategoriesPage() {
 
           <div className="form-actions">
             <button onClick={handleSave} className="btn-save">
-              <Save size={16} />
+              <Save size={12} />
               <span>{editingId ? 'Update Category' : 'Add Category'}</span>
             </button>
-            <button onClick={resetForm} className="btn-cancel">
-              <X size={16} />
+            <button
+              onClick={() => {
+                resetForm();
+                setIsFormOpen(false);
+              }}
+              className="btn-cancel"
+            >
+              <X size={12} />
               <span>Clear</span>
             </button>
           </div>
         </div>
+      )}
 
-        <div className="categories-list">
-          {isLoadingCategories ? (
-            <div className="empty-state">
-              <p>Loading categories...</p>
-            </div>
-          ) : topLevelOrder.length === 0 ? (
-            <div className="empty-state">
-              <p>No categories yet.</p>
-            </div>
-          ) : (
-            topLevelOrder.map(parent => (
-              <div key={parent.id} className="category-group">
-                <DndContext collisionDetection={closestCenter} onDragEnd={handleTopLevelDragEnd}>
-                  <SortableContext items={topLevelOrder.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                    <SortableCategoryRow
-                      category={parent}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
+      <div className="categories-list">
+        {isLoadingCategories ? (
+          <div className="empty-state">
+            <p>Loading categories...</p>
+          </div>
+        ) : topLevelOrder.length === 0 ? (
+          <div className="empty-state">
+            <p>No categories yet.</p>
+          </div>
+        ) : (
+          topLevelOrder.map(parent => (
+            <div key={parent.id} className="category-group">
+              <DndContext collisionDetection={closestCenter} onDragEnd={handleTopLevelDragEnd}>
+                <SortableContext items={topLevelOrder.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                  <SortableCategoryRow
+                    category={parent}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                </SortableContext>
+              </DndContext>
+
+              {(childOrderByParent[parent.id] || []).length > 0 && (
+                <DndContext
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => handleChildDragEnd(parent.id, event)}
+                >
+                  <SortableContext
+                    items={(childOrderByParent[parent.id] || []).map(item => item.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {(childOrderByParent[parent.id] || []).map(child => (
+                      <SortableCategoryRow
+                        key={child.id}
+                        category={child}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        isChild
+                      />
+                    ))}
                   </SortableContext>
                 </DndContext>
-
-                {(childOrderByParent[parent.id] || []).length > 0 && (
-                  <DndContext
-                    collisionDetection={closestCenter}
-                    onDragEnd={(event) => handleChildDragEnd(parent.id, event)}
-                  >
-                    <SortableContext
-                      items={(childOrderByParent[parent.id] || []).map(item => item.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {(childOrderByParent[parent.id] || []).map(child => (
-                        <SortableCategoryRow
-                          key={child.id}
-                          category={child}
-                          onEdit={handleEdit}
-                          onDelete={handleDelete}
-                          isChild
-                        />
-                      ))}
-                    </SortableContext>
-                  </DndContext>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
-    </AdminLayout>
+    </div>
   );
 }
 
-export default CategoriesPage;
+export default CategoriesSection;

@@ -4,6 +4,7 @@ import { Layers, Megaphone, UserPlus, Users, UserX } from 'lucide-react';
 import './AdminDashboardTabs.css';
 
 const SECTIONS = {
+  CATEGORIES: 'categories',
   ANNOUNCEMENTS: 'announcements',
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
@@ -14,11 +15,6 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
   const navigate = useNavigate();
 
   const handleSelect = (section) => {
-    if (section === 'categories') {
-      navigate('/categories');
-      return;
-    }
-
     const nextUrl = `/dashboard?section=${section}`;
     navigate(nextUrl);
     if (onSectionChange) {
@@ -30,20 +26,13 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
     <div className="dashboard-section-tabs">
       <div className="dashboard-tabs">
         <button
-          className={`dashboard-tab ${currentTab === 'categories' ? 'active' : ''}`}
-          onClick={() => handleSelect('categories')}
+          className={`dashboard-tab ${
+            currentTab === 'dashboard' && activeSection === SECTIONS.CATEGORIES ? 'active' : ''
+          }`}
+          onClick={() => handleSelect(SECTIONS.CATEGORIES)}
         >
           <Layers size={20} />
           <span>Categories</span>
-        </button>
-        <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.ANNOUNCEMENTS ? 'active' : ''
-          }`}
-          onClick={() => handleSelect(SECTIONS.ANNOUNCEMENTS)}
-        >
-          <Megaphone size={20} />
-          <span>Announcements</span>
         </button>
         <button
           className={`dashboard-tab ${
@@ -53,6 +42,15 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
         >
           <UserPlus size={20} />
           <span>Pending Registrations</span>
+        </button>
+        <button
+          className={`dashboard-tab ${
+            currentTab === 'dashboard' && activeSection === SECTIONS.ANNOUNCEMENTS ? 'active' : ''
+          }`}
+          onClick={() => handleSelect(SECTIONS.ANNOUNCEMENTS)}
+        >
+          <Megaphone size={20} />
+          <span>Announcements</span>
         </button>
         <button
           className={`dashboard-tab ${
