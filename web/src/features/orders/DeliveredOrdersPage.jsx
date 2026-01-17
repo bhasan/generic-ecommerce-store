@@ -3,13 +3,12 @@ import './DeliveredOrdersPage.css';
 import * as ordersApi from '../../services/ordersApi';
 import { useApp } from '../../context/AppContext';
 import { Package, User, MapPin, Phone, Mail, Calendar, CheckCircle } from 'lucide-react';
-import { PRODUCT_FALLBACK_IMAGE } from '../products/productsHelpers';
+import ProductImage from '../products/ProductImage';
 
 function DeliveredOrdersPage() {
   const { showNotification, currentUser } = useApp();
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
 
   const loadOrders = useCallback(async () => {
     try {
@@ -128,16 +127,11 @@ function DeliveredOrdersPage() {
                       .map(item => (
                         <div key={item.id} className="order-item-row">
                           <div className="order-item-info">
-                            {(item.productImage || fallbackImage) && (
-                              <img 
-                                src={item.productImage || fallbackImage} 
-                                alt={item.productName}
-                                className="order-item-image"
-                                onError={(e) => {
-                                  e.target.src = fallbackImage;
-                                }}
-                              />
-                            )}
+                            <ProductImage
+                              src={item.productImage}
+                              alt={item.productName}
+                              className="order-item-image"
+                            />
                             <div className="order-item-details">
                               <span className="order-item-name">{item.productName}</span>
                               <span className="order-item-price">

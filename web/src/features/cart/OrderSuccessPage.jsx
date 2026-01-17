@@ -3,14 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import './OrderSuccessPage.css';
 import { useApp } from '../../context/AppContext';
 import { CheckCircle, Package, MapPin, DollarSign, MessageCircle, ShoppingBag, Eye } from 'lucide-react';
-import { getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from '../products/productsHelpers';
+import { getProductImageSrc } from '../products/productsHelpers';
+import ProductImage from '../products/ProductImage';
 
 function OrderSuccessPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, orders, setOrders, setCart } = useApp();
   const orderData = location.state;
-  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
 
   useEffect(() => {
     // If no order data, redirect to products
@@ -92,13 +92,10 @@ function OrderSuccessPage() {
                   const imageSrc = getProductImageSrc(item);
                   return (
                 <div key={index} className="order-success-item">
-                  <img 
-                    src={imageSrc || null} 
+                  <ProductImage
+                    src={imageSrc}
                     alt={item.name}
                     className="success-item-image"
-                    onError={(e) => {
-                      e.target.src = fallbackImage;
-                    }}
                   />
                   <div className="success-item-details">
                     <h4>{item.name}</h4>

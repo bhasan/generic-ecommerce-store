@@ -12,9 +12,9 @@ import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
-import { getCategoryLabel, getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
-
-const fallbackImage = PRODUCT_FALLBACK_IMAGE;
+import EmptyState from '../../components/common/EmptyState';
+import ProductImage from './ProductImage';
+import { getCategoryLabel, getProductCategoryLabel, getProductImageSrc } from './productsHelpers';
 
 function SortableProductCard({
   product,
@@ -48,14 +48,7 @@ function SortableProductCard({
       className={`product-card ${product.hidden ? 'product-card-hidden' : ''} ${isDragging ? 'product-card-dragging' : ''}`}
     >
       <div className="product-image-container">
-        <img
-          src={mainImage}
-          alt={product.name}
-          className="product-image"
-          onError={(e) => {
-            e.target.src = fallbackImage;
-          }}
-        />
+        <ProductImage src={mainImage} alt={product.name} className="product-image" />
         {imageCount > 1 && (
           <div className="product-badge product-badge-images">
             <ImageIcon size={12} /> {imageCount} images
@@ -165,13 +158,7 @@ function SortableProductListItem({
       className={`product-list-item ${product.hidden ? 'product-list-item-hidden' : ''} ${isDragging ? 'product-list-item-dragging' : ''}`}
     >
       <div className="product-list-image">
-        <img
-          src={mainImage}
-          alt={product.name}
-          onError={(e) => {
-            e.target.src = fallbackImage;
-          }}
-        />
+        <ProductImage src={mainImage} alt={product.name} />
       </div>
 
       <div className="product-list-content">
@@ -329,13 +316,6 @@ function ManageProductsPanel() {
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
   }, [viewMode]);
-
-  const getProductCategoryLabel = (product) => {
-    if (product?.category && typeof product.category === 'object') {
-      return getCategoryLabel(product.category);
-    }
-    return product?.category || 'Uncategorized';
-  };
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
   const canManageProducts = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
@@ -637,13 +617,9 @@ function ManageProductsPanel() {
       )}
 
       {isLoadingProducts || isLoadingCategories ? (
-        <div className="empty-state">
-          <p>Loading products...</p>
-        </div>
+        <EmptyState message="Loading products..." />
       ) : orderedProducts.length === 0 ? (
-        <div className="empty-state">
-          <p>No products found. Add your first product to get started!</p>
-        </div>
+        <EmptyState message="No products found. Add your first product to get started!" />
       ) : (
         <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
           <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>

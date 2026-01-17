@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
-import { PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel } from './productsHelpers';
 import './ProductItemPage.css';
 
 function ProductItemPage() {
@@ -75,14 +75,6 @@ function ProductItemPage() {
       ? product.allowedQuantitiesOverride
       : product.category?.allowedQuantities || [];
 
-  const getCategoryLabel = (item) => {
-    if (item?.category && typeof item.category === 'object') {
-      return item.category.parent
-        ? `${item.category.parent.name} > ${item.category.name}`
-        : item.category.name;
-    }
-    return item?.category || 'Uncategorized';
-  };
   
   // Calculate average rating
   const getAverageRating = () => {
@@ -156,7 +148,7 @@ function ProductItemPage() {
         
         {/* Product Info */}
         <div className="product-info">
-          <div className="product-category-badge">{getCategoryLabel(product)}</div>
+          <div className="product-category-badge">{getProductCategoryLabel(product)}</div>
           <h1 className="product-title">{product.name}</h1>
           
           {/* HIDDEN: Rating Summary - may re-enable later */}

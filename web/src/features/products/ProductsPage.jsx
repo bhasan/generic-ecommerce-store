@@ -4,11 +4,12 @@ import './ProductCard.css';
 import './ProductsShared.css';
 import './ProductsPageDefault.css';
 import { useApp } from '../../context/AppContext';
+import EmptyState from '../../components/common/EmptyState';
 import ProductsHeader from './ProductsHeader';
 import ProductsGrid from './ProductsGrid';
 import ManageProductsPanel from './ManageProductsPanel';
 import CategorySection from './CategorySection';
-import { getCategoryLabel, groupProductsByCategory, sortProducts } from './productsHelpers';
+import { getProductCategoryLabel, groupProductsByCategory, sortProducts } from './productsHelpers';
 
 function ProductsPage({ mode = 'browse' }) {
   const navigate = useNavigate();
@@ -42,10 +43,7 @@ function ProductsPage({ mode = 'browse' }) {
   const visibleProducts = isCustomer ? products.filter(product => !product.hidden) : products;
 
   const { topLevel, childrenByParent, byCategoryId, flat } = groupProductsByCategory(visibleProducts, categories);
-  const productCategoryLabel = (product) =>
-    product?.category && typeof product.category === 'object'
-      ? getCategoryLabel(product.category)
-      : product?.category || 'Uncategorized';
+  const productCategoryLabel = getProductCategoryLabel;
 
   if (mode === 'manage' && isManagement) {
     return <ManageProductsPanel />;
@@ -68,9 +66,7 @@ function ProductsPage({ mode = 'browse' }) {
       />
 
       {isLoadingProducts || isLoadingCategories ? (
-        <div className="empty-state">
-          <p>Loading products...</p>
-        </div>
+        <EmptyState message="Loading products..." />
       ) : flat ? (
         <ProductsGrid
           products={sortProducts(flat)}
