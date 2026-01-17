@@ -4,6 +4,30 @@
   gap: 20px;
 }
 
+.categories-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+}
+
+.btn-toggle-form {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.65rem 1rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-all);
+  white-space: nowrap;
+}
+
+.btn-toggle-form:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
 .categories-form-card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);

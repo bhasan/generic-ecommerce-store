@@ -15,6 +15,7 @@ interface CreateProductData {
   sortOrder?: number;
   cardSize?: string;
   allowedQuantitiesOverride?: number[];
+  quantityDiscountsOverride?: Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
 }
 
 interface UpdateProductData {
@@ -30,6 +31,7 @@ interface UpdateProductData {
   sortOrder?: number;
   cardSize?: string;
   allowedQuantitiesOverride?: number[];
+  quantityDiscountsOverride?: Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
 }
 
 export class ProductService {
@@ -47,6 +49,30 @@ export class ProductService {
       .filter((entry) => Number.isFinite(entry as number))
       .map((entry) => Number(entry));
     return Array.from(new Set(normalized)).sort((a, b) => a - b);
+  }
+
+  private normalizeQuantityDiscounts(
+    value: unknown
+  ): Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }> | undefined {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) return [];
+    const normalized = value
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const quantity = Number((entry as any).quantity);
+        const type = (entry as any).type;
+        const discountValue = Number((entry as any).value);
+        if (!Number.isFinite(quantity) || quantity <= 0) return null;
+        if (type !== 'percent' && type !== 'fixed') return null;
+        if (!Number.isFinite(discountValue) || discountValue < 0) return null;
+        if (type === 'percent' && discountValue > 100) return null;
+        return { quantity, type, value: discountValue };
+      })
+      .filter(Boolean) as Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
+    const deduped = Array.from(
+      new Map(normalized.map((rule) => [`${rule.quantity}:${rule.type}`, rule])).values()
+    );
+    return deduped.sort((a, b) => a.quantity - b.quantity);
   }
 
   /**
@@ -164,6 +190,7 @@ export class ProductService {
     }
 
     const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantitiesOverride);
+    const normalizedQuantityDiscounts = this.normalizeQuantityDiscounts(data.quantityDiscountsOverride);
 
     return await prisma.productItem.create({
       data: {
@@ -172,6 +199,9 @@ export class ProductService {
         images: data.images || [],
         ...(normalizedAllowedQuantities !== undefined
           ? { allowedQuantitiesOverride: normalizedAllowedQuantities }
+          : {}),
+        ...(normalizedQuantityDiscounts !== undefined
+          ? { quantityDiscountsOverride: normalizedQuantityDiscounts }
           : {})
       }
     });
@@ -191,7 +221,7 @@ export class ProductService {
     const allowedFields: (keyof UpdateProductData)[] = [
       'name', 'categoryId', 'price', 'description',
       'image', 'images', 'stock', 'stockEnabled', 'hidden',
-      'sortOrder', 'cardSize', 'allowedQuantitiesOverride'
+      'sortOrder', 'cardSize', 'allowedQuantitiesOverride', 'quantityDiscountsOverride'
     ];
 
     const normalizedCategoryId = this.normalizeCategoryId(data.categoryId);
@@ -212,6 +242,8 @@ export class ProductService {
           (filteredData as any)[key] = normalizedCategoryId;
         } else if (key === 'allowedQuantitiesOverride') {
           (filteredData as any)[key] = this.normalizeAllowedQuantities(data[key]) ?? [];
+        } else if (key === 'quantityDiscountsOverride') {
+          (filteredData as any)[key] = this.normalizeQuantityDiscounts(data[key]) ?? [];
         } else {
           (filteredData as any)[key] = data[key];
         }

@@ -12,9 +12,9 @@ import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
-import { getCategoryLabel, getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
-
-const fallbackImage = PRODUCT_FALLBACK_IMAGE;
+import EmptyState from '../../components/common/EmptyState';
+import ProductImage from './ProductImage';
+import { formatQuantityDiscounts, getCategoryLabel, getProductCategoryLabel, getProductImageSrc, parseQuantityDiscounts } from './productsHelpers';
 
 function SortableProductCard({
   product,
@@ -48,14 +48,7 @@ function SortableProductCard({
       className={`product-card ${product.hidden ? 'product-card-hidden' : ''} ${isDragging ? 'product-card-dragging' : ''}`}
     >
       <div className="product-image-container">
-        <img
-          src={mainImage}
-          alt={product.name}
-          className="product-image"
-          onError={(e) => {
-            e.target.src = fallbackImage;
-          }}
-        />
+        <ProductImage src={mainImage} alt={product.name} className="product-image" />
         {imageCount > 1 && (
           <div className="product-badge product-badge-images">
             <ImageIcon size={12} /> {imageCount} images
@@ -165,13 +158,7 @@ function SortableProductListItem({
       className={`product-list-item ${product.hidden ? 'product-list-item-hidden' : ''} ${isDragging ? 'product-list-item-dragging' : ''}`}
     >
       <div className="product-list-image">
-        <img
-          src={mainImage}
-          alt={product.name}
-          onError={(e) => {
-            e.target.src = fallbackImage;
-          }}
-        />
+        <ProductImage src={mainImage} alt={product.name} />
       </div>
 
       <div className="product-list-content">
@@ -318,7 +305,8 @@ function ManageProductsPanel() {
     images: [''],
     stock: '',
     stockEnabled: false,
-    hidden: false
+    hidden: false,
+    quantityDiscountsOverride: ''
   });
   const [viewMode, setViewMode] = useState(() => {
     if (typeof window === 'undefined') return 'compact';
@@ -329,13 +317,6 @@ function ManageProductsPanel() {
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
   }, [viewMode]);
-
-  const getProductCategoryLabel = (product) => {
-    if (product?.category && typeof product.category === 'object') {
-      return getCategoryLabel(product.category);
-    }
-    return product?.category || 'Uncategorized';
-  };
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
   const canManageProducts = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
@@ -387,7 +368,8 @@ function ManageProductsPanel() {
       categoryId: selectedCategoryId,
       images: product.images || [product.image],
       stockEnabled: product.stockEnabled !== false,
-      hidden: product.hidden || false
+      hidden: product.hidden || false,
+      quantityDiscountsOverride: formatQuantityDiscounts(product.quantityDiscountsOverride || [])
     });
     setCategoryQuery(selectedCategoryLabel);
     setShowAddForm(false);
@@ -410,7 +392,8 @@ function ManageProductsPanel() {
       price: parseFloat(formData.price),
       stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
       images: formData.images.filter(img => img.trim() !== ''),
-      image: formData.images[0]
+      image: formData.images[0],
+      quantityDiscountsOverride: parseQuantityDiscounts(formData.quantityDiscountsOverride)
     };
 
     if (editingId) {
@@ -428,7 +411,8 @@ function ManageProductsPanel() {
       images: [''],
       stock: '',
       stockEnabled: false,
-      hidden: false
+      hidden: false,
+      quantityDiscountsOverride: ''
     });
     setCategoryQuery('');
   };
@@ -444,7 +428,8 @@ function ManageProductsPanel() {
       images: [''],
       stock: '',
       stockEnabled: false,
-      hidden: false
+      hidden: false,
+      quantityDiscountsOverride: ''
     });
     setCategoryQuery('');
   };
@@ -637,13 +622,9 @@ function ManageProductsPanel() {
       )}
 
       {isLoadingProducts || isLoadingCategories ? (
-        <div className="empty-state">
-          <p>Loading products...</p>
-        </div>
+        <EmptyState message="Loading products..." />
       ) : orderedProducts.length === 0 ? (
-        <div className="empty-state">
-          <p>No products found. Add your first product to get started!</p>
-        </div>
+        <EmptyState message="No products found. Add your first product to get started!" />
       ) : (
         <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
           <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>
