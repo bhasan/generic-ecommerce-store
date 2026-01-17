@@ -7,7 +7,6 @@ function CategorySection({
   childCategories,
   productsByCategory,
   viewMode,
-  fallbackImage,
   getCategoryLabel,
   onAddToCart,
   onProductClick,
@@ -28,7 +27,6 @@ function CategorySection({
         <ProductsGrid
           products={sortProducts(parentProducts)}
           viewMode={viewMode}
-          fallbackImage={fallbackImage}
           getCategoryLabel={getCategoryLabel}
           onAddToCart={onAddToCart}
           onProductClick={onProductClick}
@@ -51,7 +49,6 @@ function CategorySection({
             <ProductsGrid
               products={sortProducts(childProducts)}
               viewMode={viewMode}
-              fallbackImage={fallbackImage}
               getCategoryLabel={getCategoryLabel}
               onAddToCart={onAddToCart}
               onProductClick={onProductClick}

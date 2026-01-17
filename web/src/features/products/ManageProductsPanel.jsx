@@ -12,9 +12,9 @@ import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
-import { getCategoryLabel } from './productsHelpers';
+import { getCategoryLabel, getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
 
-const fallbackImage = '/images/smokestationtitle.png';
+const fallbackImage = PRODUCT_FALLBACK_IMAGE;
 
 function SortableProductCard({
   product,
@@ -37,7 +37,7 @@ function SortableProductCard({
     transition
   };
   
-  const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
+  const mainImage = getProductImageSrc(product);
   const imageCount = product.images ? product.images.length : 1;
   const showStock = product.stockEnabled !== false;
 
@@ -155,7 +155,7 @@ function SortableProductListItem({
     transition
   };
 
-  const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
+  const mainImage = getProductImageSrc(product);
   const showStock = product.stockEnabled !== false;
 
   return (

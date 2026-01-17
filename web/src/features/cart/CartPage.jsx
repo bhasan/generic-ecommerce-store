@@ -3,17 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import './CartPage.css';
 import { useApp } from '../../context/AppContext';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
+import { getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from '../products/productsHelpers';
 
 function CartPage() {
   const navigate = useNavigate();
   const { cart, removeFromCart, updateCartQuantity } = useApp();
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
 
   const resolveAllowedQuantities = (item) => {
     if (item.allowedQuantitiesOverride && item.allowedQuantitiesOverride.length > 0) {
       return item.allowedQuantitiesOverride;
     }
     return item.category?.allowedQuantities || [];
+  };
+
+  const getCategoryLabel = (item) => {
+    if (item?.category && typeof item.category === 'object') {
+      return item.category.parent
+        ? `${item.category.parent.name} > ${item.category.name}`
+        : item.category.name;
+    }
+    return item?.category || 'Uncategorized';
   };
 
   if (cart.length === 0) {
@@ -40,21 +51,24 @@ function CartPage() {
       <div className="cart-content">
         <div className="cart-items">
           {cart.map(item => (
+            (() => {
+              const imageSrc = getProductImageSrc(item);
+              return (
             <div key={item.id} className="cart-item">
               <div className="cart-item-image-container">
                 <img 
-                  src={item.image} 
+                  src={imageSrc || null} 
                   alt={item.name} 
                   className="cart-item-image"
                   onError={(e) => {
-                    e.target.src = '/images/smokestationtitle.png';
+                    e.target.src = fallbackImage;
                   }}
                 />
               </div>
 
               <div className="cart-item-details">
                 <h3 className="cart-item-name">{item.name}</h3>
-                <p className="cart-item-category">{item.category}</p>
+                <p className="cart-item-category">{getCategoryLabel(item)}</p>
                 <p className="cart-item-price">${item.price.toFixed(2)} each</p>
               </div>
 
@@ -106,6 +120,8 @@ function CartPage() {
                 </button>
               </div>
             </div>
+              );
+            })()
           ))}
         </div>
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
+import { PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
 import './ProductItemPage.css';
 
 function ProductItemPage() {
@@ -11,7 +12,7 @@ function ProductItemPage() {
   const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
-  const fallbackImage = '/images/smokestationtitle.png';
+  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
   
   // Find the product by ID
   const product = products.find(p => p.id === parseInt(id));

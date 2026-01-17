@@ -1,16 +1,16 @@
 import React from 'react';
+import { getProductImageSrc, PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
 
 function ProductsGrid({
   products,
   viewMode,
-  fallbackImage,
   getCategoryLabel,
   onAddToCart,
   onProductClick,
   showHiddenLabel = false
 }) {
   const renderProductCard = (product) => {
-    const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
+    const mainImage = getProductImageSrc(product);
     const showStock = product.stockEnabled !== false;
 
     return (
@@ -26,7 +26,7 @@ function ProductsGrid({
             alt={product.name}
             className="product-image"
             onError={(e) => {
-              e.target.src = fallbackImage;
+              e.target.src = PRODUCT_FALLBACK_IMAGE;
             }}
           />
         </div>
@@ -60,7 +60,7 @@ function ProductsGrid({
   };
 
   const renderProductListItem = (product) => {
-    const mainImage = (product.images && product.images.length > 0 ? product.images[0] : product.image) || fallbackImage;
+    const mainImage = getProductImageSrc(product);
     const showStock = product.stockEnabled !== false;
 
     return (
@@ -75,7 +75,7 @@ function ProductsGrid({
             src={mainImage}
             alt={product.name}
             onError={(e) => {
-              e.target.src = fallbackImage;
+            e.target.src = PRODUCT_FALLBACK_IMAGE;
             }}
           />
         </div>

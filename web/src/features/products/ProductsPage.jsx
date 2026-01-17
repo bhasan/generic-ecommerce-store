@@ -12,7 +12,6 @@ import { getCategoryLabel, groupProductsByCategory, sortProducts } from './produ
 
 function ProductsPage({ mode = 'browse' }) {
   const navigate = useNavigate();
-  const fallbackImage = '/images/smokestationtitle.png';
   const {
     products,
     addToCart,
@@ -76,7 +75,6 @@ function ProductsPage({ mode = 'browse' }) {
         <ProductsGrid
           products={sortProducts(flat)}
           viewMode={viewMode}
-          fallbackImage={fallbackImage}
           getCategoryLabel={productCategoryLabel}
           onAddToCart={addToCart}
           onProductClick={(id) => navigate(`/products/${id}`)}
@@ -90,7 +88,6 @@ function ProductsPage({ mode = 'browse' }) {
             childCategories={childrenByParent[parent.id] || []}
             productsByCategory={byCategoryId}
             viewMode={viewMode}
-            fallbackImage={fallbackImage}
             getCategoryLabel={productCategoryLabel}
             onAddToCart={addToCart}
             onProductClick={(id) => navigate(`/products/${id}`)}

@@ -4,6 +4,11 @@ export const getCategoryLabel = (category) => {
   return category.name;
 };
 
+export const PRODUCT_FALLBACK_IMAGE = '/images/smokestationtitle.png';
+
+export const getProductImageSrc = (item) =>
+  item?.image || (item?.images && item.images[0]) || PRODUCT_FALLBACK_IMAGE;
+
 export const sortProducts = (list) =>
   [...list].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
 
