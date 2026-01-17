@@ -1,0 +1,37 @@
+.dashboard-section-tabs {
+  margin-bottom: 2rem;
+}
+
+.dashboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.dashboard-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-all);
+}
+
+.dashboard-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.dashboard-tab.active {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}

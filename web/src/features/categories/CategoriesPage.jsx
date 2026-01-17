@@ -3,6 +3,7 @@ import './CategoriesPage.css';
 import { useApp } from '../../context/AppContext';
 import { formatQuantityDiscounts, parseQuantityDiscounts } from '../products/productsHelpers';
 import AdminLayout from '../../components/layout/AdminLayout';
+import AdminDashboardTabs from '../../components/layout/AdminDashboardTabs';
 import * as categoriesApi from '../../services/categoriesApi';
 import { Save, X, Trash2, Edit, GripVertical } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
@@ -192,6 +193,7 @@ function CategoriesPage() {
             <p className="page-subtitle">Manage categories and subcategories</p>
           </div>
         </div>
+        <AdminDashboardTabs currentTab="categories" />
 
         <div className="categories-form-card">
           <div className="form-grid">

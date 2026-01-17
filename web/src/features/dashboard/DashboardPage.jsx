@@ -6,8 +6,10 @@ import * as announcementsApi from '../../services/announcementsApi';
 import RejectUserModal from '../../components/common/RejectUserModal';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
-import { NavLink } from 'react-router-dom';
-import { UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin, Megaphone, Edit, Power, PowerOff, Trash2, Check, Users, LayoutDashboard, Calendar, User, ChevronUp, ChevronDown, UserX, FileText, Layers } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin, Megaphone, Edit, Power, PowerOff, Trash2, Check, Users, LayoutDashboard, Calendar, User, ChevronUp, ChevronDown, UserX, FileText } from 'lucide-react';
+import AdminLayout from '../../components/layout/AdminLayout';
+import AdminDashboardTabs from '../../components/layout/AdminDashboardTabs';
 
 const DASHBOARD_SECTIONS = {
   PENDING_REGISTRATIONS: 'pending-registrations',
@@ -18,7 +20,20 @@ const DASHBOARD_SECTIONS = {
 
 function DashboardPage() {
   const { showNotification, currentUser } = useApp();
-  const [activeSection, setActiveSection] = useState(DASHBOARD_SECTIONS.PENDING_REGISTRATIONS);
+  const location = useLocation();
+  const [activeSection, setActiveSection] = useState(() => {
+    const section = new URLSearchParams(location.search).get('section');
+    return Object.values(DASHBOARD_SECTIONS).includes(section)
+      ? section
+      : DASHBOARD_SECTIONS.PENDING_REGISTRATIONS;
+  });
+  useEffect(() => {
+    const section = new URLSearchParams(location.search).get('section');
+    if (Object.values(DASHBOARD_SECTIONS).includes(section)) {
+      setActiveSection(section);
+    }
+  }, [location.search]);
+
   
   // Pending Registrations State
   const [pendingRegistrations, setPendingRegistrations] = useState([]);
@@ -939,63 +954,25 @@ function DashboardPage() {
   };
 
   return (
-    <div className="dashboard-page-container">
-      <div className="dashboard-header">
-        <div>
-          <h2 className="page-title">
-            <LayoutDashboard size={28} />
-            Admin Dashboard
-          </h2>
-          <p className="page-subtitle">Store management and administration</p>
+    <AdminLayout>
+      <div className="dashboard-page-container">
+        <div className="dashboard-header">
+          <div>
+            <h2 className="page-title">
+              <LayoutDashboard size={28} />
+              Admin Dashboard
+            </h2>
+            <p className="page-subtitle">Store management and administration</p>
+          </div>
         </div>
-      </div>
 
-      <div className="dashboard-layout">
-        {/* Sidebar Menu */}
-        <aside className="dashboard-sidebar">
-          <nav className="sidebar-nav">
-            <NavLink
-              to="/categories"
-              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
-            >
-              <Layers size={20} />
-              <span>Categories</span>
-            </NavLink>
-            <button
-              className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.ANNOUNCEMENTS ? 'active' : ''}`}
-              onClick={() => setActiveSection(DASHBOARD_SECTIONS.ANNOUNCEMENTS)}
-            >
-              <Megaphone size={20} />
-              <span>Announcements</span>
-            </button>
-            <button
-              className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS ? 'active' : ''}`}
-              onClick={() => setActiveSection(DASHBOARD_SECTIONS.PENDING_REGISTRATIONS)}
-            >
-              <UserPlus size={20} />
-              <span>Pending Registrations</span>
-            </button>
-            <button
-              className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.USERS ? 'active' : ''}`}
-              onClick={() => setActiveSection(DASHBOARD_SECTIONS.USERS)}
-            >
-              <Users size={20} />
-              <span>Users</span>
-            </button>
-            <button
-              className={`sidebar-nav-item ${activeSection === DASHBOARD_SECTIONS.REJECTED_USERS ? 'active' : ''}`}
-              onClick={() => setActiveSection(DASHBOARD_SECTIONS.REJECTED_USERS)}
-            >
-              <UserX size={20} />
-              <span>Rejected Users</span>
-            </button>
-          </nav>
-        </aside>
+        <AdminDashboardTabs
+          currentTab="dashboard"
+          activeSection={activeSection}
+          onSectionChange={setActiveSection}
+        />
 
-        {/* Main Content Area */}
-        <main className="dashboard-main-content">
-          {renderContent()}
-        </main>
+        {renderContent()}
       </div>
 
       {/* Modals */}
@@ -1097,7 +1074,7 @@ function DashboardPage() {
         cancelText="Cancel"
         type="danger"
       />
-    </div>
+    </AdminLayout>
   );
 }
 
