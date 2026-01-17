@@ -81,7 +81,7 @@ model OrderItem {
   id                   Int      @id @default(autoincrement())
   orderId              Int
   productId            Int
-  quantity             Int
+  quantity             Float
   price                Float    // Price at time of order
   voided               Boolean  @default(false)
   addedAfterSubmission Boolean  @default(false)
@@ -96,6 +96,7 @@ model Category {
   description String?
   parentId    Int?
   sortOrder   Int       @default(0)
+  allowedQuantities Float[] @default([])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -116,11 +117,12 @@ model ProductItem {
   description  String?
   image        String?     // Primary image URL
   images       String[]    // Array of image URLs
-  stock        Int         @default(0)
+  stock        Float       @default(0)
   stockEnabled Boolean     @default(true)
   hidden       Boolean     @default(false)
   sortOrder    Int         @default(0)
   cardSize     String      @default("standard")
+  allowedQuantitiesOverride Float[] @default([])
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -162,7 +164,7 @@ model CartItem {
   id        Int      @id @default(autoincrement())
   userId    Int
   productId Int
-  quantity  Int
+  quantity  Float
   createdAt DateTime @default(now())
 
   @@unique([userId, productId])

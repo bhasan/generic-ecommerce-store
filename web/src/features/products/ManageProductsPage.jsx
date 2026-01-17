@@ -385,6 +385,7 @@ function ProductFormModal({
                   id="stock"
                   type="number"
                   min="0"
+                  step="1"
                   placeholder={formData.stockEnabled ? "0" : "Disabled"}
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
@@ -526,7 +527,7 @@ function ManageProductsPage() {
     description: '', 
     images: [''],
     stock: '',
-    stockEnabled: true,
+    stockEnabled: false,
     hidden: false
   });
   const [viewMode, setViewMode] = useState(() => {
@@ -623,7 +624,7 @@ function ManageProductsPage() {
       ...formData,
       categoryId: parseInt(formData.categoryId, 10),
       price: parseFloat(formData.price),
-      stock: formData.stockEnabled ? parseInt(formData.stock) : 0,
+      stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
       images: formData.images.filter(img => img.trim() !== ''),
       image: formData.images[0]
     };
@@ -642,7 +643,7 @@ function ManageProductsPage() {
       description: '', 
       images: [''],
       stock: '',
-      stockEnabled: true,
+      stockEnabled: false,
       hidden: false
     });
     setCategoryQuery('');
@@ -658,7 +659,7 @@ function ManageProductsPage() {
       description: '', 
       images: [''],
       stock: '',
-      stockEnabled: true,
+      stockEnabled: false,
       hidden: false
     });
     setCategoryQuery('');

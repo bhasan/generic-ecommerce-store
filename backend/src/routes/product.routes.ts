@@ -36,9 +36,11 @@ router.post(
     body('description').optional().isString(),
     body('image').optional().isString(),
     body('images').optional().isArray(),
-    body('stock').optional().isInt({ min: 0 }),
+    body('stock').optional().isFloat({ min: 0 }),
     body('stockEnabled').optional().isBoolean(),
-    body('hidden').optional().isBoolean()
+    body('hidden').optional().isBoolean(),
+    body('allowedQuantitiesOverride').optional().isArray(),
+    body('allowedQuantitiesOverride.*').optional().isFloat()
   ],
   productController.createProduct
 );
@@ -59,9 +61,11 @@ router.put(
     body('description').optional().isString(),
     body('image').optional().isString(),
     body('images').optional().isArray(),
-    body('stock').optional().isInt({ min: 0 }),
+    body('stock').optional().isFloat({ min: 0 }),
     body('stockEnabled').optional().isBoolean(),
-    body('hidden').optional().isBoolean()
+    body('hidden').optional().isBoolean(),
+    body('allowedQuantitiesOverride').optional().isArray(),
+    body('allowedQuantitiesOverride.*').optional().isFloat()
   ],
   productController.updateProduct
 );

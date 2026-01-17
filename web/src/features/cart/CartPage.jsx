@@ -9,6 +9,13 @@ function CartPage() {
   const { cart, removeFromCart, updateCartQuantity } = useApp();
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+  const resolveAllowedQuantities = (item) => {
+    if (item.allowedQuantitiesOverride && item.allowedQuantitiesOverride.length > 0) {
+      return item.allowedQuantitiesOverride;
+    }
+    return item.category?.allowedQuantities || [];
+  };
+
   if (cart.length === 0) {
     return (
       <div className="cart-empty-container">
@@ -52,23 +59,39 @@ function CartPage() {
               </div>
 
               <div className="cart-item-actions">
-                <div className="quantity-controls">
-                  <button
-                    onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                    className="quantity-btn"
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span className="quantity-display">{item.quantity}</span>
-                  <button
-                    onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                    className="quantity-btn"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
+                {resolveAllowedQuantities(item).length > 0 ? (
+                  <div className="quantity-controls">
+                    <select
+                      className="quantity-select"
+                      value={item.quantity}
+                      onChange={(e) => updateCartQuantity(item.id, parseFloat(e.target.value))}
+                    >
+                      {resolveAllowedQuantities(item).map((quantity) => (
+                        <option key={quantity} value={quantity}>
+                          {quantity}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="quantity-controls">
+                    <button
+                      onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                      className="quantity-btn"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span className="quantity-display">{item.quantity}</span>
+                    <button
+                      onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                      className="quantity-btn"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                )}
 
                 <div className="cart-item-total">
                   ${(item.price * item.quantity).toFixed(2)}

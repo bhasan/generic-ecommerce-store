@@ -26,7 +26,9 @@ router.post(
     body('name').notEmpty().withMessage('Category name is required'),
     body('description').optional().isString(),
     body('parentId').optional({ nullable: true }).isInt({ min: 1 }).toInt(),
-    body('sortOrder').optional().isInt().toInt()
+    body('sortOrder').optional().isInt().toInt(),
+    body('allowedQuantities').optional().isArray(),
+    body('allowedQuantities.*').optional().isFloat()
   ],
   categoryController.createCategory
 );
@@ -44,7 +46,9 @@ router.put(
     body('name').optional().notEmpty().withMessage('Category name cannot be empty'),
     body('description').optional().isString(),
     body('parentId').optional({ nullable: true }).isInt({ min: 1 }).toInt(),
-    body('sortOrder').optional().isInt().toInt()
+    body('sortOrder').optional().isInt().toInt(),
+    body('allowedQuantities').optional().isArray(),
+    body('allowedQuantities.*').optional().isFloat()
   ],
   categoryController.updateCategory
 );

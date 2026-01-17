@@ -60,7 +60,8 @@ function CategoriesPage() {
     name: '',
     description: '',
     parentId: '',
-    sortOrder: ''
+    sortOrder: '',
+    allowedQuantities: ''
   });
   const [topLevelOrder, setTopLevelOrder] = useState([]);
   const [childOrderByParent, setChildOrderByParent] = useState({});
@@ -94,7 +95,7 @@ function CategoriesPage() {
 
   const resetForm = () => {
     setEditingId(null);
-    setFormData({ name: '', description: '', parentId: '', sortOrder: '' });
+    setFormData({ name: '', description: '', parentId: '', sortOrder: '', allowedQuantities: '' });
   };
 
   const handleSave = async () => {
@@ -103,11 +104,19 @@ function CategoriesPage() {
       return;
     }
 
+    const allowedQuantities = formData.allowedQuantities
+      .split(',')
+      .map(value => value.trim())
+      .filter(Boolean)
+      .map(value => Number(value))
+      .filter(value => Number.isFinite(value));
+
     const payload = {
       name: formData.name.trim(),
       description: formData.description?.trim() || undefined,
       parentId: formData.parentId ? parseInt(formData.parentId, 10) : null,
-      sortOrder: formData.sortOrder !== '' ? parseInt(formData.sortOrder, 10) : undefined
+      sortOrder: formData.sortOrder !== '' ? parseInt(formData.sortOrder, 10) : undefined,
+      allowedQuantities
     };
 
     if (editingId) {
@@ -125,7 +134,8 @@ function CategoriesPage() {
       name: category.name,
       description: category.description || '',
       parentId: category.parentId ? String(category.parentId) : '',
-      sortOrder: category.sortOrder ?? ''
+      sortOrder: category.sortOrder ?? '',
+      allowedQuantities: category.allowedQuantities?.join(', ') || ''
     });
   };
 
@@ -215,6 +225,17 @@ function CategoriesPage() {
                 placeholder="0"
                 value={formData.sortOrder}
                 onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })}
+                className="form-input"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Allowed Quantities (optional)</label>
+              <input
+                type="text"
+                placeholder="e.g., 1, 3, 7, 10"
+                value={formData.allowedQuantities}
+                onChange={(e) => setFormData({ ...formData, allowedQuantities: e.target.value })}
                 className="form-input"
               />
             </div>

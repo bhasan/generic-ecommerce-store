@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle } from 'lucide-react';
@@ -10,6 +10,7 @@ function ProductItemPage() {
   const navigate = useNavigate();
   const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
   const fallbackImage = '/images/smokestationtitle.png';
   
   // Find the product by ID
@@ -68,6 +69,10 @@ function ProductItemPage() {
         : [fallbackImage];
   const showStock = product.stockEnabled !== false;
   const isOutOfStock = showStock && product.stock === 0;
+  const allowedQuantities =
+    product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
+      ? product.allowedQuantitiesOverride
+      : product.category?.allowedQuantities || [];
 
   const getCategoryLabel = (item) => {
     if (item?.category && typeof item.category === 'object') {
@@ -87,9 +92,17 @@ function ProductItemPage() {
   
   const averageRating = getAverageRating();
   const reviewCount = product.reviews?.length || 0;
+
+  useEffect(() => {
+    if (allowedQuantities.length > 0) {
+      setSelectedQuantity(allowedQuantities[0]);
+    } else {
+      setSelectedQuantity(1);
+    }
+  }, [product.id, allowedQuantities.length]);
   
   const handleAddToCart = () => {
-    addToCart(product);
+    addToCart(product, selectedQuantity);
   };
   
   return (
@@ -179,10 +192,36 @@ function ProductItemPage() {
             </div>
           )} */}
           
+          <div className="quantity-selector">
+            <label className="quantity-label">Quantity</label>
+            {allowedQuantities.length > 0 ? (
+              <select
+                value={selectedQuantity}
+                onChange={(e) => setSelectedQuantity(parseFloat(e.target.value))}
+                className="quantity-select"
+              >
+                {allowedQuantities.map((quantity) => (
+                  <option key={quantity} value={quantity}>
+                    {quantity}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={selectedQuantity}
+                onChange={(e) => setSelectedQuantity(parseFloat(e.target.value) || 0)}
+                className="quantity-input"
+              />
+            )}
+          </div>
+
           {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
-            disabled={isOutOfStock}
+            disabled={isOutOfStock || selectedQuantity <= 0}
             className="btn-add-to-cart-large"
           >
             <ShoppingCart size={20} />
