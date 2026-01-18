@@ -70,7 +70,7 @@ h1 {
 
 /* Shared surface treatments */
 .surface-card {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
   border: 1px solid var(--border-color);
 }
 

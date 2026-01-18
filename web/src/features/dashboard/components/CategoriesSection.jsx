@@ -187,60 +187,58 @@ function CategoriesSection() {
 
   return (
     <div className="categories-page-container">
-      <div className="categories-header section-header-surface">
-        <div>
-          <h2 className="page-title">Categories</h2>
-          <p className="page-subtitle">Manage categories and subcategories</p>
+      <div className="dashboard-content-section surface-card">
+        <div className="section-header-with-action">
+          <span aria-hidden="true" />
+          <button
+            type="button"
+            className="btn-toggle-form"
+            onClick={() => setIsFormOpen((prev) => !prev)}
+          >
+            {isFormOpen ? 'Hide New Category' : 'Create New Category'}
+          </button>
         </div>
-        <button
-          type="button"
-          className="btn-toggle-form"
-          onClick={() => setIsFormOpen((prev) => !prev)}
-        >
-          {isFormOpen ? 'Hide New Category' : 'Create New Category'}
-        </button>
-      </div>
 
-      {isFormOpen && (
-        <div className="categories-form-card">
-          <div className="form-grid">
-            <div className="form-group">
-              <label>Category Name *</label>
-              <input
-                type="text"
-                placeholder="e.g., Accessories"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="form-input"
-              />
-            </div>
+        {isFormOpen && (
+          <div className="categories-form-card">
+            <div className="form-grid">
+              <div className="form-group">
+                <label>Category Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Accessories"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="form-input"
+                />
+              </div>
 
-            <div className="form-group">
-              <label>Parent Category (optional)</label>
-              <select
-                value={formData.parentId}
-                onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
-                className="form-input"
-              >
-                <option value="">No parent (top-level)</option>
-                {topLevelOrder.map(parent => (
-                  <option key={parent.id} value={parent.id}>
-                    {parent.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="form-group">
+                <label>Parent Category (optional)</label>
+                <select
+                  value={formData.parentId}
+                  onChange={(e) => setFormData({ ...formData, parentId: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="">No parent (top-level)</option>
+                  {topLevelOrder.map(parent => (
+                    <option key={parent.id} value={parent.id}>
+                      {parent.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="form-group">
-              <label>Sort Order (optional)</label>
-              <input
-                type="number"
-                placeholder="0"
-                value={formData.sortOrder}
-                onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })}
-                className="form-input"
-              />
-            </div>
+              <div className="form-group">
+                <label>Sort Order (optional)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  value={formData.sortOrder}
+                  onChange={(e) => setFormData({ ...formData, sortOrder: e.target.value })}
+                  className="form-input"
+                />
+              </div>
 
             <div className="form-group">
               <label>Allowed Quantities (optional)</label>
@@ -295,52 +293,53 @@ function CategoriesSection() {
         </div>
       )}
 
-      <div className="categories-list">
-        {isLoadingCategories ? (
-          <div className="empty-state">
-            <p>Loading categories...</p>
-          </div>
-        ) : topLevelOrder.length === 0 ? (
-          <div className="empty-state">
-            <p>No categories yet.</p>
-          </div>
-        ) : (
-          topLevelOrder.map(parent => (
-            <div key={parent.id} className="category-group">
-              <DndContext collisionDetection={closestCenter} onDragEnd={handleTopLevelDragEnd}>
-                <SortableContext items={topLevelOrder.map(item => item.id)} strategy={verticalListSortingStrategy}>
-                  <SortableCategoryRow
-                    category={parent}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                  />
-                </SortableContext>
-              </DndContext>
-
-              {(childOrderByParent[parent.id] || []).length > 0 && (
-                <DndContext
-                  collisionDetection={closestCenter}
-                  onDragEnd={(event) => handleChildDragEnd(parent.id, event)}
-                >
-                  <SortableContext
-                    items={(childOrderByParent[parent.id] || []).map(item => item.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {(childOrderByParent[parent.id] || []).map(child => (
-                      <SortableCategoryRow
-                        key={child.id}
-                        category={child}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        isChild
-                      />
-                    ))}
+        <div className="categories-list">
+          {isLoadingCategories ? (
+            <div className="empty-state">
+              <p>Loading categories...</p>
+            </div>
+          ) : topLevelOrder.length === 0 ? (
+            <div className="empty-state">
+              <p>No categories yet.</p>
+            </div>
+          ) : (
+            topLevelOrder.map(parent => (
+              <div key={parent.id} className="category-group">
+                <DndContext collisionDetection={closestCenter} onDragEnd={handleTopLevelDragEnd}>
+                  <SortableContext items={topLevelOrder.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                    <SortableCategoryRow
+                      category={parent}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                    />
                   </SortableContext>
                 </DndContext>
-              )}
-            </div>
-          ))
-        )}
+
+                {(childOrderByParent[parent.id] || []).length > 0 && (
+                  <DndContext
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => handleChildDragEnd(parent.id, event)}
+                  >
+                    <SortableContext
+                      items={(childOrderByParent[parent.id] || []).map(item => item.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {(childOrderByParent[parent.id] || []).map(child => (
+                        <SortableCategoryRow
+                          key={child.id}
+                          category={child}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          isChild
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                )}
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
