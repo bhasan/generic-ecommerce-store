@@ -6,6 +6,31 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
 const API_RETRY_MAX = Number(import.meta.env.VITE_API_RETRY_MAX || 2);
 const API_RETRY_BASE_DELAY_MS = Number(import.meta.env.VITE_API_RETRY_BASE_DELAY_MS || 300);
+const BACKEND_ERROR_COOLDOWN_MS = Number(import.meta.env.VITE_BACKEND_ERROR_COOLDOWN_MS || 30000);
+
+let lastBackendErrorAt = 0;
+
+const shouldNotifyBackendError = () => {
+  const now = Date.now();
+  if (now - lastBackendErrorAt < BACKEND_ERROR_COOLDOWN_MS) {
+    return false;
+  }
+  lastBackendErrorAt = now;
+  return true;
+};
+
+const notifyBackendUnavailable = (message) => {
+  if (!shouldNotifyBackendError()) return;
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(
+    new CustomEvent('backend:unavailable', {
+      detail: {
+        message: message || 'We are having trouble reaching the server. Please try again shortly.'
+      }
+    })
+  );
+};
 
 /**
  * Get stored auth token from localStorage
@@ -129,6 +154,12 @@ const apiClient = async (url, options = {}) => {
       const shouldRetry = attempt < maxRetries && (isAbortError || isNetworkError || retryableStatus);
 
       if (!shouldRetry) {
+        if (retryableStatus || isNetworkError || isAbortError) {
+          const message = retryableStatus
+            ? 'Our servers are having trouble right now. Please try again shortly.'
+            : 'We are having trouble reaching the server. Please check your connection and try again.';
+          notifyBackendUnavailable(message);
+        }
         if (isNetworkError) {
           const networkError = new Error('Network error. Please check your connection.');
           networkError.code = 'NETWORK_ERROR';
