@@ -491,6 +491,7 @@ CORS_ORIGIN="*"
 # Rate limiting (optional)
 AUTH_RATE_LIMIT_MAX=20  # Max auth requests per 15 minutes (default: 20)
 DISABLE_RATE_LIMIT=false  # Set to "true" to disable rate limiting in development
+REQUEST_TIMEOUT_MS=30000  # Request timeout in ms
 ```
 
 ### Frontend (optional)
@@ -499,6 +500,9 @@ Create `web/.env` for custom API URL:
 
 ```env
 VITE_API_BASE_URL=http://localhost:3000
+VITE_API_TIMEOUT_MS=15000
+VITE_API_RETRY_MAX=2
+VITE_API_RETRY_BASE_DELAY_MS=300
 ```
 
 ---
@@ -540,6 +544,26 @@ For production deployment, use Docker Compose as shown in Quick Start.
 - Ensure Docker is running
 - Check ports 80 and 5432 are not in use
 - Try `docker-compose down -v` to reset volumes
+
+---
+
+## Failure Modes & Recovery
+
+### Database unavailable
+- Symptom: `/api/health` reports `status: degraded`
+- Action: Ensure PostgreSQL is healthy, verify `DATABASE_URL`, and re-run migrations if needed
+
+### API timeouts
+- Symptom: Clients see `REQUEST_TIMEOUT` errors
+- Action: Check backend logs for slow endpoints and tune `REQUEST_TIMEOUT_MS`
+
+### Frontend network errors
+- Symptom: Users see “Network error” or repeated retries
+- Action: Verify API availability and confirm `VITE_API_BASE_URL` is correct
+
+### Post-deploy instability
+- Symptom: Spike in 4xx/5xx after deploy
+- Action: Roll back the deploy and review recent migrations/config changes
 
 ---
 

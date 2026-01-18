@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 
 /**
@@ -7,10 +8,11 @@ import { logger } from '../utils/logger';
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
   const startTime = Date.now();
-  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const requestId = `req_${randomUUID()}`;
   
   // Store request ID for use in response logging
-  (req as any).requestId = requestId;
+  req.requestId = requestId;
+  res.setHeader('x-request-id', requestId);
 
   // Log incoming request
   logger.info('API Request', {
@@ -18,8 +20,8 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
     method: req.method,
     path: req.path,
     query: req.query,
-    userId: (req as any).user?.userId || 'anonymous',
-    userRoles: (req as any).user?.roles || [],
+    userId: req.user?.userId || 'anonymous',
+    userRoles: req.user?.roles || [],
     ip: req.ip || req.socket.remoteAddress,
     userAgent: req.get('user-agent'),
     ...(req.method !== 'GET' && req.body && {
@@ -38,7 +40,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction): 
       path: req.path,
       statusCode: res.statusCode,
       duration: `${duration}ms`,
-      userId: (req as any).user?.userId || 'anonymous',
+      userId: req.user?.userId || 'anonymous',
       ...(res.statusCode >= 400 && {
         errorBody: typeof body === 'string' ? body.substring(0, 500) : body,
       }),

@@ -147,6 +147,22 @@ export function AppProvider({ children }) {
     setNotification({ message, type, action });
   }, []);
 
+  useEffect(() => {
+    const handleBackendUnavailable = (event) => {
+      const message = event?.detail?.message
+        || 'We are having trouble reaching the server. Please try again shortly.';
+      showNotification(message, 'warning', {
+        label: 'Reload',
+        onClick: () => window.location.reload()
+      });
+    };
+
+    window.addEventListener('backend:unavailable', handleBackendUnavailable);
+    return () => {
+      window.removeEventListener('backend:unavailable', handleBackendUnavailable);
+    };
+  }, [showNotification]);
+
   const closeNotification = () => {
     setNotification(null);
   };
