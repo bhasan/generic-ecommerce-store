@@ -44,7 +44,7 @@ function RejectedUsersPage() {
   return (
     <AdminLayout>
       <div className="rejected-users-page-container">
-      <div className="rejected-users-header">
+      <div className="rejected-users-header section-header-surface">
         <div>
           <h2 className="page-title">Rejected Users</h2>
           <p className="page-subtitle">Users who were rejected during registration</p>

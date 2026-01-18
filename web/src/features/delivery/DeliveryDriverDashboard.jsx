@@ -161,7 +161,7 @@ function DeliveryDriverDashboard() {
 
   return (
     <div className="delivery-dashboard-container">
-      <div className="delivery-dashboard-header">
+      <div className="delivery-dashboard-header section-header-surface">
         <div>
           <h2 className="page-title">
             <Truck size={28} />

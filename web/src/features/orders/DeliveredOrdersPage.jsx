@@ -53,7 +53,7 @@ function DeliveredOrdersPage() {
 
   return (
     <div className="delivered-orders-container">
-      <div className="delivered-orders-header">
+      <div className="delivered-orders-header section-header-surface">
         <div>
           <h2 className="page-title">
             <CheckCircle size={28} />

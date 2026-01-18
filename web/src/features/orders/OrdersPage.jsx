@@ -230,7 +230,7 @@ function OrdersPage() {
 
   return (
     <div className="orders-page-container">
-      <div className="orders-header">
+      <div className="orders-header section-header-surface">
         <div>
           <h2 className="page-title">
             {isCustomerOnly ? 'My Orders' : 'All Orders'}

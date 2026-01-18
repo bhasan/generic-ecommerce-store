@@ -9,7 +9,7 @@ function ProductsHeader({
   showViewToggle = true
 }) {
   return (
-    <div className="products-header">
+    <div className="products-header section-header-surface">
       <div>
         <h2 className="page-title">{title}</h2>
         {subtitle && <p className="page-subtitle">{subtitle}</p>}

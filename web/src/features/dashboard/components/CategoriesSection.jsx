@@ -187,7 +187,7 @@ function CategoriesSection() {
 
   return (
     <div className="categories-page-container">
-      <div className="categories-header">
+      <div className="categories-header section-header-surface">
         <div>
           <h2 className="page-title">Categories</h2>
           <p className="page-subtitle">Manage categories and subcategories</p>
@@ -278,7 +278,7 @@ function CategoriesSection() {
 
           <div className="form-actions">
             <button onClick={handleSave} className="btn-save">
-              <Save size={12} />
+              <Save size={16} />
               <span>{editingId ? 'Update Category' : 'Add Category'}</span>
             </button>
             <button
@@ -288,7 +288,7 @@ function CategoriesSection() {
               }}
               className="btn-cancel"
             >
-              <X size={12} />
+              <X size={16} />
               <span>Clear</span>
             </button>
           </div>

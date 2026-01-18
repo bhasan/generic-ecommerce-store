@@ -60,6 +60,14 @@ h1 {
   line-height: 1.1;
 }
 
+/* Shared section header surface */
+.section-header-surface {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
 button {
   border-radius: var(--radius-md);
   border: 1px solid transparent;

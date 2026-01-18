@@ -62,7 +62,7 @@ function ProfilePage() {
   if (isLoadingProfile) {
     return (
       <div className="profile-page-container">
-        <div className="profile-header">
+        <div className="profile-header section-header-surface">
           <div>
             <h2 className="page-title">Loading Profile...</h2>
           </div>
@@ -73,7 +73,7 @@ function ProfilePage() {
 
   return (
     <div className="profile-page-container">
-      <div className="profile-header">
+      <div className="profile-header section-header-surface">
         <div>
           <h2 className="page-title">Change Profile</h2>
           <p className="page-subtitle">Update your account information</p>

@@ -35,7 +35,7 @@ function CartPage() {
 
   return (
     <div className="cart-page-container">
-      <div className="cart-header">
+      <div className="cart-header section-header-surface">
         <div>
           <h2 className="page-title">Shopping Cart</h2>
           <p className="page-subtitle">{cart.length} {cart.length === 1 ? 'item' : 'items'} in your cart</p>

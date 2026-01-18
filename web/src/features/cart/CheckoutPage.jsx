@@ -128,7 +128,7 @@ function CheckoutPage() {
         Back to Cart
       </button>
 
-      <div className="checkout-header">
+      <div className="checkout-header section-header-surface">
         <h2 className="page-title">Checkout</h2>
         <div className="checkout-progress">
           <div className="progress-step progress-step-active">

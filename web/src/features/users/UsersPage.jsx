@@ -141,7 +141,7 @@ function UsersPage() {
   if (isLoading) {
     return (
       <div className="users-page-container">
-        <div className="users-header">
+        <div className="users-header section-header-surface">
           <div>
             <h2 className="page-title">Users Management</h2>
             <p className="page-subtitle">Loading users...</p>
@@ -154,7 +154,7 @@ function UsersPage() {
   return (
     <AdminLayout>
       <div className="users-page-container">
-      <div className="users-header">
+      <div className="users-header section-header-surface">
         <div>
           <h2 className="page-title">Users Management</h2>
           <p className="page-subtitle">Manage all system users</p>
