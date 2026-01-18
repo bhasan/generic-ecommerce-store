@@ -3,6 +3,7 @@ import './DeliveryDriverDashboard.css';
 import * as ordersApi from '../../services/ordersApi';
 import { useApp } from '../../context/AppContext';
 import { Truck, Package, MapPin, CheckCircle, Edit, X, Plus } from 'lucide-react';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 const MAX_ROUTE_ORDERS = 5;
 
@@ -170,6 +171,7 @@ function DeliveryDriverDashboard() {
           <p className="page-subtitle">Manage your delivery route</p>
         </div>
       </div>
+      <HeaderDivider />
 
       {/* Split View Container */}
       <div className="delivery-split-view">

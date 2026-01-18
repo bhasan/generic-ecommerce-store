@@ -6,6 +6,7 @@ import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'l
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -142,6 +143,7 @@ function CheckoutPage() {
           </div>
         </div>
       </div>
+      <HeaderDivider />
 
       <ConfirmationModal
         isOpen={showConfirmModal}

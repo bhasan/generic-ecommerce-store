@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function CartPage() {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ function CartPage() {
           <p className="page-subtitle">{cart.length} {cart.length === 1 ? 'item' : 'items'} in your cart</p>
         </div>
       </div>
+      <HeaderDivider />
 
       <div className="cart-content">
         <div className="cart-items">

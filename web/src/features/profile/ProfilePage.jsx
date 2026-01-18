@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
 import { User, Mail, Save, Shield } from 'lucide-react';
+import HeaderDivider from '../../components/common/HeaderDivider';
 import * as authApi from '../../services/authApi';
 
 function ProfilePage() {
@@ -67,6 +68,7 @@ function ProfilePage() {
             <h2 className="page-title">Loading Profile...</h2>
           </div>
         </div>
+        <HeaderDivider />
       </div>
     );
   }
@@ -79,6 +81,7 @@ function ProfilePage() {
           <p className="page-subtitle">Update your account information</p>
         </div>
       </div>
+      <HeaderDivider />
 
       <div className="profile-content">
         <div className="profile-card surface-card-accent">

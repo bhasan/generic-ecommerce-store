@@ -4,6 +4,7 @@ import * as ordersApi from '../../services/ordersApi';
 import { useApp } from '../../context/AppContext';
 import { Package, User, MapPin, Phone, Mail, Calendar, CheckCircle } from 'lucide-react';
 import ProductImage from '../products/ProductImage';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function DeliveredOrdersPage() {
   const { showNotification, currentUser } = useApp();
@@ -62,6 +63,7 @@ function DeliveredOrdersPage() {
           <p className="page-subtitle">All delivered orders (latest first)</p>
         </div>
       </div>
+      <HeaderDivider />
 
       {isLoading ? (
         <div className="empty-state">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
 import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save } from 'lucide-react';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function OrdersPage() {
   const { 
@@ -249,6 +250,7 @@ function OrdersPage() {
           <span>Refresh</span>
         </button>
       </div>
+      <HeaderDivider />
 
       <div className="orders-list">
         {isLoadingOrders ? (

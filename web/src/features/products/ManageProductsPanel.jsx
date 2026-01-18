@@ -598,7 +598,6 @@ function ManageProductsPanel() {
           ) : null
         }
       />
-      <div className="section-header-divider" aria-hidden="true" />
 
       {canManageProducts && (
         <ProductFormModal
