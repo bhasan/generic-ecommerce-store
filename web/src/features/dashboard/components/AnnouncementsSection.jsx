@@ -11,7 +11,7 @@ function AnnouncementsSection({
   onDelete
 }) {
   return (
-    <div className="dashboard-content-section">
+    <div className="dashboard-content-section surface-card">
       <div className="section-header-with-action">
         <h3 className="section-title">
           <Megaphone size={24} />

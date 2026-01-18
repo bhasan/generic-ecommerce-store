@@ -50,8 +50,6 @@
 
 /* Product Form Card */
 .product-form-card {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 2px solid var(--color-primary-dark);
   border-radius: 1rem;
   padding: 2rem;
   margin-bottom: 2rem;

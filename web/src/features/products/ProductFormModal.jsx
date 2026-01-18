@@ -25,7 +25,7 @@ function ProductFormModal({
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="product-form-card">
+        <div className="product-form-card surface-card-accent">
           <div className="form-header">
             <h3 className="form-title">{title}</h3>
             <button onClick={onCancel} className="btn-close">

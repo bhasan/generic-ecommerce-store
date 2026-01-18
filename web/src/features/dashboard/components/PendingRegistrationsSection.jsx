@@ -9,7 +9,7 @@ function PendingRegistrationsSection({
   onReject
 }) {
   return (
-    <div className="dashboard-content-section">
+    <div className="dashboard-content-section surface-card">
       <div className="section-header">
         <h3 className="section-title">
           <UserPlus size={24} />

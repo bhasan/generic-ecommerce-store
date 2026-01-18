@@ -58,8 +58,6 @@
   grid-template-columns: 1fr 1fr;
   gap: clamp(1.5rem, 3vw, 3rem);
   margin-bottom: clamp(2rem, 4vw, 4rem);
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: clamp(1rem, 2.5vw, 2rem);
 }

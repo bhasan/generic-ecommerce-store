@@ -68,6 +68,22 @@ h1 {
   padding: 1.5rem;
 }
 
+/* Shared surface treatments */
+.surface-card {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 1px solid var(--border-color);
+}
+
+.surface-card-accent {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--color-primary-dark);
+}
+
+.surface-card-accent-primary {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--color-primary);
+}
+
 button {
   border-radius: var(--radius-md);
   border: 1px solid transparent;

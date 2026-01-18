@@ -81,7 +81,7 @@ function ProfilePage() {
       </div>
 
       <div className="profile-content">
-        <div className="profile-card">
+        <div className="profile-card surface-card-accent">
           <div className="profile-avatar">
             <User size={48} />
           </div>
@@ -139,7 +139,7 @@ function ProfilePage() {
         </div>
 
         <div className="profile-sidebar">
-          <div className="profile-stats-card">
+          <div className="profile-stats-card surface-card">
             <h3 className="stats-title">Account Statistics</h3>
             <div className="stats-list">
               <div className="stat-item">

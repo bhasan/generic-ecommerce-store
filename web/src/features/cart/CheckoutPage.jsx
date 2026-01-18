@@ -171,7 +171,7 @@ function CheckoutPage() {
       <div className="checkout-content">
         {/* Order Review Section */}
         <div className="checkout-main">
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <Package size={20} />
               <h3>Order Review</h3>
@@ -205,7 +205,7 @@ function CheckoutPage() {
           </div>
 
           {/* Delivery Address Section */}
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <MapPin size={20} />
               <h3>Delivery Address</h3>
@@ -322,7 +322,7 @@ function CheckoutPage() {
           </div>
 
           {/* Special Instructions Section */}
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <FileText size={20} />
               <h3>Special Instructions</h3>
@@ -340,7 +340,7 @@ function CheckoutPage() {
           </div>
 
           {/* Payment Section */}
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <DollarSign size={20} />
               <h3>Payment Information</h3>
@@ -414,7 +414,7 @@ function CheckoutPage() {
 
         {/* Order Summary Sidebar */}
         <div className="checkout-sidebar">
-          <div className="checkout-summary">
+          <div className="checkout-summary surface-card-accent">
             <h3 className="summary-title">Order Summary</h3>
             
             <div className="summary-details">

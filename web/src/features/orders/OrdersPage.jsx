@@ -268,7 +268,7 @@ function OrdersPage() {
             const canEdit = canModifyOrders && order.status !== 'DELIVERED';
             
             return (
-              <div key={order.id} className="order-card">
+              <div key={order.id} className="order-card surface-card">
                 <div className="order-header">
                   <div className="order-info">
                     <h3 className="order-id">Order #{order.id}</h3>
@@ -508,7 +508,7 @@ function OrdersPage() {
       {/* Confirmation Dialog */}
       {confirmDialog && (
         <div className="confirmation-dialog-overlay" onClick={() => setConfirmDialog(null)}>
-          <div className="confirmation-dialog" onClick={(e) => e.stopPropagation()}>
+          <div className="confirmation-dialog surface-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="confirmation-dialog-title">{confirmDialog.title}</h3>
             <p className="confirmation-dialog-message">{confirmDialog.message}</p>
             <div className="confirmation-dialog-actions">

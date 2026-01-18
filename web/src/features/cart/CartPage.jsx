@@ -48,7 +48,7 @@ function CartPage() {
             (() => {
               const imageSrc = getProductImageSrc(item);
               return (
-            <div key={item.id} className="cart-item">
+            <div key={item.id} className="cart-item surface-card">
               <div className="cart-item-image-container">
                 <ProductImage src={imageSrc} alt={item.name} className="cart-item-image" />
               </div>
@@ -114,7 +114,7 @@ function CartPage() {
           ))}
         </div>
 
-        <div className="cart-summary">
+        <div className="cart-summary surface-card-accent">
           <h3 className="cart-summary-title">Order Summary</h3>
           
           <div className="cart-summary-details">

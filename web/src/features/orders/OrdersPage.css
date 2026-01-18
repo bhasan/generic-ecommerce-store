@@ -58,8 +58,6 @@
 }
 
 .order-card {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 2rem;
   transition: all 0.2s ease;
@@ -680,8 +678,6 @@
 }
 
 .confirmation-dialog {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 2rem;
   max-width: 400px;

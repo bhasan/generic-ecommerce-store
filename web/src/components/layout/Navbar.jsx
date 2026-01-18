@@ -207,7 +207,7 @@ function Navbar() {
                 </button>
 
                 {showProfileMenu && (
-                  <div className="profile-menu">
+                  <div className="profile-menu surface-card-accent">
                     <div className="profile-menu-header">
                       <p className="profile-menu-name">{currentUser.name}</p>
                       <p className="profile-menu-email">{currentUser.email}</p>

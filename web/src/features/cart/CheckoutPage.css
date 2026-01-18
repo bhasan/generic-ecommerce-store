@@ -101,8 +101,6 @@
 
 /* Checkout Sections */
 .checkout-section {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 2rem;
 }
@@ -308,8 +306,6 @@
 }
 
 .checkout-summary {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 2px solid var(--color-primary-dark);
   border-radius: 1rem;
   padding: 2rem;
 }
