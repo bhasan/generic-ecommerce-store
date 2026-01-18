@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
+import { hasRole } from '../../utils/roles';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();
@@ -17,16 +18,13 @@ function Navbar() {
   const cartCount = cart.length;
   const isGuest = currentUser.email === 'guest@smokestation.com';
 
-  // Helper to check if user has a role (supports both old and new format)
-  const hasRole = (role) => {
-    const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
-    return userRoles.includes(role);
-  };
-
-  const isCustomer = hasRole('CUSTOMER') && !hasRole('MANAGEMENT') && !hasRole('ADMIN') && !hasRole('DELIVERY_DRIVER');
-  const isManagement = hasRole('MANAGEMENT') || hasRole('ADMIN');
-  const isAdmin = hasRole('ADMIN');
-  const isDeliveryDriver = hasRole('DELIVERY_DRIVER');
+  const isCustomer = hasRole(currentUser, 'CUSTOMER')
+    && !hasRole(currentUser, 'MANAGEMENT')
+    && !hasRole(currentUser, 'ADMIN')
+    && !hasRole(currentUser, 'DELIVERY_DRIVER');
+  const isManagement = hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
+  const isAdmin = hasRole(currentUser, 'ADMIN');
+  const isDeliveryDriver = hasRole(currentUser, 'DELIVERY_DRIVER');
 
   useEffect(() => {
     function handleClickOutside(event) {
