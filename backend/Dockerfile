@@ -23,6 +23,10 @@ RUN npm run build
 # 9. Expose the port your app will run on
 EXPOSE 3000
 
+# 10. Container health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/health || exit 1
+
 # 10. The command to run your app
 # IMPORTANT: See the package.json note below!
 CMD [ "npm", "run", "start:prod" ]

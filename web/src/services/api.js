@@ -3,6 +3,9 @@
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
+const API_RETRY_MAX = Number(import.meta.env.VITE_API_RETRY_MAX || 2);
+const API_RETRY_BASE_DELAY_MS = Number(import.meta.env.VITE_API_RETRY_BASE_DELAY_MS || 300);
 
 /**
  * Get stored auth token from localStorage
@@ -40,7 +43,7 @@ const handleError = async (response) => {
 
     try {
       errorData = await response.json();
-      errorMessage = errorData.error || errorData.message || errorMessage;
+      errorMessage = errorData?.error?.message || errorData?.message || errorMessage;
     } catch (e) {
       // If response is not JSON, use status text
       errorMessage = response.statusText || errorMessage;
@@ -49,6 +52,8 @@ const handleError = async (response) => {
     const error = new Error(errorMessage);
     error.status = response.status;
     error.data = errorData;
+    error.code = errorData?.error?.code;
+    error.requestId = errorData?.error?.requestId;
 
     // Handle 401 Unauthorized - clear token and redirect to login
     if (response.status === 401) {
@@ -68,12 +73,17 @@ const handleError = async (response) => {
 /**
  * Base API client function
  */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRetryableStatus = (status) => status === 429 || (status >= 500 && status <= 599);
+
 const apiClient = async (url, options = {}) => {
   const token = getAuthToken();
+  const { retries, ...requestOptions } = options;
   
   const headers = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...requestOptions.headers,
   };
 
   // Add auth token if available
@@ -82,28 +92,63 @@ const apiClient = async (url, options = {}) => {
   }
 
   const config = {
-    ...options,
+    ...requestOptions,
     headers,
   };
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${url}`, config);
-    const processedResponse = await handleError(response);
-    
-    // Handle empty responses
-    const contentType = processedResponse.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-      return await processedResponse.json();
+  let lastError;
+  const maxRetries = retries ?? API_RETRY_MAX;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        ...config,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const processedResponse = await handleError(response);
+      
+      // Handle empty responses
+      const contentType = processedResponse.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        return await processedResponse.json();
+      }
+      
+      return processedResponse;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      const isAbortError = error?.name === 'AbortError';
+      const isNetworkError = error?.name === 'TypeError' && `${error?.message}`.includes('fetch');
+      const retryableStatus = error?.status && isRetryableStatus(error.status);
+      const shouldRetry = attempt < maxRetries && (isAbortError || isNetworkError || retryableStatus);
+
+      if (!shouldRetry) {
+        if (isNetworkError) {
+          const networkError = new Error('Network error. Please check your connection.');
+          networkError.code = 'NETWORK_ERROR';
+          throw networkError;
+        }
+        if (isAbortError) {
+          const timeoutError = new Error('Request timed out. Please try again.');
+          timeoutError.code = 'REQUEST_TIMEOUT';
+          throw timeoutError;
+        }
+        throw error;
+      }
+
+      const backoff = API_RETRY_BASE_DELAY_MS * (2 ** attempt);
+      const jitter = Math.floor(Math.random() * 100);
+      await sleep(backoff + jitter);
     }
-    
-    return processedResponse;
-  } catch (error) {
-    // Network errors or other fetch errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Network error. Please check your connection.');
-    }
-    throw error;
   }
+
+  throw lastError;
 };
 
 /**

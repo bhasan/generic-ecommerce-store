@@ -11,8 +11,13 @@ interface LogContext {
 class Logger {
   private formatMessage(level: LogLevel, message: string, context?: LogContext): string {
     const timestamp = new Date().toISOString();
-    const contextStr = context ? ` ${JSON.stringify(context)}` : '';
-    return `[${timestamp}] [${level.toUpperCase()}] ${message}${contextStr}`;
+    const payload = {
+      timestamp,
+      level,
+      message,
+      ...(context || {}),
+    };
+    return JSON.stringify(payload);
   }
 
   info(message: string, context?: LogContext): void {
@@ -25,7 +30,7 @@ class Logger {
 
   error(message: string, error?: Error | unknown, context?: LogContext): void {
     const errorContext: LogContext = {
-      ...context,
+      ...(context || {}),
       ...(error instanceof Error && {
         errorMessage: error.message,
         errorStack: error.stack,

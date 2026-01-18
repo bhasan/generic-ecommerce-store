@@ -535,6 +535,7 @@ docker run -p 3000:3000 --env-file .env smoke-station-backend
 | `PORT` | Server port | `3000` | No |
 | `NODE_ENV` | Environment mode | `development` | No |
 | `CORS_ORIGIN` | Allowed CORS origins | `*` | No |
+| `REQUEST_TIMEOUT_MS` | Request timeout (ms) | `30000` | No |
 
 ---
 
@@ -561,6 +562,26 @@ lsof -ti:3000
 # Kill process
 kill -9 <PID>
 ```
+
+---
+
+## 🧯 Failure Modes & Recovery
+
+### Database unavailable
+- Symptom: `/api/health` returns `status: degraded` and `checks.database = error`
+- Action: Verify PostgreSQL is running, then check `DATABASE_URL` and run migrations if needed
+
+### Request timeouts
+- Symptom: API returns `REQUEST_TIMEOUT` errors
+- Action: Identify slow queries/endpoints, then tune `REQUEST_TIMEOUT_MS` if appropriate
+
+### Unexpected errors
+- Symptom: 500 errors in API responses
+- Action: Use the `requestId` from the response to search logs and trace the failing request
+
+### High error rates after deploy
+- Symptom: Spike in 4xx/5xx responses
+- Action: Roll back the latest deploy and check recent migrations or config changes
 
 ---
 

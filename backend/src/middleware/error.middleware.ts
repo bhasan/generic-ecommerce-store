@@ -7,10 +7,12 @@ import { logger } from '../utils/logger';
 export class AppError extends Error {
   statusCode: number;
   isOperational: boolean;
+  code: string;
 
-  constructor(message: string, statusCode: number = 500) {
+  constructor(message: string, statusCode: number = 500, code: string = 'INTERNAL_ERROR') {
     super(message);
     this.statusCode = statusCode;
+    this.code = code;
     this.isOperational = true;
     Error.captureStackTrace(this, this.constructor);
   }
@@ -25,7 +27,9 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ): void => {
-  const requestId = (req as any).requestId || 'unknown';
+  const requestId = req.requestId || 'unknown';
+  const userId = req.user?.userId || 'anonymous';
+  const userRoles = req.user?.roles || [];
   
   if (err instanceof AppError) {
     logger.error('API Error', err, {
@@ -33,12 +37,17 @@ export const errorHandler = (
       method: req.method,
       path: req.path,
       statusCode: err.statusCode,
-      userId: (req as any).user?.userId || 'anonymous',
-      userRoles: (req as any).user?.roles || [],
+      errorCode: err.code,
+      userId,
+      userRoles,
     });
     
     res.status(err.statusCode).json({
-      error: err.message,
+      error: {
+        message: err.message,
+        code: err.code,
+        requestId,
+      },
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     });
     return;
@@ -50,12 +59,17 @@ export const errorHandler = (
     method: req.method,
     path: req.path,
     statusCode: 500,
-    userId: (req as any).user?.userId || 'anonymous',
-    userRoles: (req as any).user?.roles || [],
+    errorCode: 'INTERNAL_ERROR',
+    userId,
+    userRoles,
   });
 
   res.status(500).json({
-    error: 'Internal server error',
+    error: {
+      message: 'Internal server error',
+      code: 'INTERNAL_ERROR',
+      requestId,
+    },
     ...(process.env.NODE_ENV === 'development' && { 
       message: err.message,
       stack: err.stack 
@@ -67,14 +81,20 @@ export const errorHandler = (
  * 404 Not Found handler
  */
 export const notFoundHandler = (req: Request, res: Response): void => {
+  const requestId = req.requestId || 'unknown';
   logger.warn('Route not found', {
     method: req.method,
     path: req.originalUrl,
     ip: req.ip || req.socket.remoteAddress,
+    requestId,
   });
   
   res.status(404).json({
-    error: 'Route not found',
-    path: req.originalUrl
+    error: {
+      message: 'Route not found',
+      code: 'NOT_FOUND',
+      requestId,
+    },
+    path: req.originalUrl,
   });
 };
