@@ -10,9 +10,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 2px solid var(--color-primary-dark);
+}
+
+.products-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 0.75rem;
 }
 
 .manage-products-header-actions {
@@ -52,8 +57,6 @@
 
 /* Product Form Card */
 .product-form-card {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 2px solid var(--color-primary-dark);
   border-radius: 1rem;
   padding: 2rem;
   margin-bottom: 2rem;

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
 import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save } from 'lucide-react';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function OrdersPage() {
   const { 
@@ -230,7 +231,7 @@ function OrdersPage() {
 
   return (
     <div className="orders-page-container">
-      <div className="orders-header">
+      <div className="orders-header section-header-surface">
         <div>
           <h2 className="page-title">
             {isCustomerOnly ? 'My Orders' : 'All Orders'}
@@ -249,6 +250,7 @@ function OrdersPage() {
           <span>Refresh</span>
         </button>
       </div>
+      <HeaderDivider />
 
       <div className="orders-list">
         {isLoadingOrders ? (
@@ -268,7 +270,7 @@ function OrdersPage() {
             const canEdit = canModifyOrders && order.status !== 'DELIVERED';
             
             return (
-              <div key={order.id} className="order-card">
+              <div key={order.id} className="order-card surface-card">
                 <div className="order-header">
                   <div className="order-info">
                     <h3 className="order-id">Order #{order.id}</h3>
@@ -508,7 +510,7 @@ function OrdersPage() {
       {/* Confirmation Dialog */}
       {confirmDialog && (
         <div className="confirmation-dialog-overlay" onClick={() => setConfirmDialog(null)}>
-          <div className="confirmation-dialog" onClick={(e) => e.stopPropagation()}>
+          <div className="confirmation-dialog surface-card" onClick={(e) => e.stopPropagation()}>
             <h3 className="confirmation-dialog-title">{confirmDialog.title}</h3>
             <p className="confirmation-dialog-message">{confirmDialog.message}</p>
             <div className="confirmation-dialog-actions">

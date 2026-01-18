@@ -60,6 +60,42 @@ h1 {
   line-height: 1.1;
 }
 
+/* Shared section header surface */
+.section-header-surface {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+
+/* Shared surface treatments */
+.surface-card {
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+  border: 1px solid var(--border-color);
+}
+
+.surface-card-accent {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--color-primary-dark);
+}
+
+.surface-card-accent-primary {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+  border: 2px solid var(--color-primary);
+}
+
+/* Shared divider */
+.section-header-divider {
+  height: 2px;
+  width: 100%;
+  background: var(--color-primary-dark);
+  opacity: 0.9;
+  margin: var(--spacing-md) 0 var(--spacing-xl);
+  flex-basis: 100%;
+  border-radius: 999px;
+  clip-path: polygon(0 50%, 10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%);
+}
+
 button {
   border-radius: var(--radius-md);
   border: 1px solid transparent;

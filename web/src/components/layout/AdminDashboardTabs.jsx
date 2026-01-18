@@ -27,21 +27,21 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
       <div className="dashboard-tabs">
         <button
           className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.CATEGORIES ? 'active' : ''
-          }`}
-          onClick={() => handleSelect(SECTIONS.CATEGORIES)}
-        >
-          <Layers size={20} />
-          <span>Categories</span>
-        </button>
-        <button
-          className={`dashboard-tab ${
             currentTab === 'dashboard' && activeSection === SECTIONS.PENDING_REGISTRATIONS ? 'active' : ''
           }`}
           onClick={() => handleSelect(SECTIONS.PENDING_REGISTRATIONS)}
         >
           <UserPlus size={20} />
           <span>Pending Registrations</span>
+        </button>
+        <button
+          className={`dashboard-tab ${
+            currentTab === 'dashboard' && activeSection === SECTIONS.CATEGORIES ? 'active' : ''
+          }`}
+          onClick={() => handleSelect(SECTIONS.CATEGORIES)}
+        >
+          <Layers size={20} />
+          <span>Categories</span>
         </button>
         <button
           className={`dashboard-tab ${

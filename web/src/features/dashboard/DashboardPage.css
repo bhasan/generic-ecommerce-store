@@ -81,8 +81,6 @@
 }
 
 .dashboard-content-section {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 2rem;
 }

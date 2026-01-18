@@ -31,8 +31,6 @@
   top: calc(100% + 0.5rem);
   right: 0;
   min-width: 240px;
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 2px solid var(--color-primary-dark);
   border-radius: 0.75rem;
   box-shadow: 0 10px 40px rgba(107, 33, 168, 0.3);
   padding: 0.5rem;
@@ -118,8 +116,6 @@
 }
 
 .profile-card {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 2px solid var(--color-primary-dark);
   border-radius: 1rem;
   padding: 2rem;
   box-shadow: 0 10px 40px rgba(107, 33, 168, 0.2);
@@ -203,8 +199,6 @@
 }
 
 .profile-stats-card {
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 1.5rem;
 }
