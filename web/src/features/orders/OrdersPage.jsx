@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
 import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
+import { hasRole } from '../../utils/roles';
+
+const ORDER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS || 60000);
 
 function OrdersPage() {
   const { 
@@ -25,7 +28,27 @@ function OrdersPage() {
   const [newItemProductId, setNewItemProductId] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [newOrderIds, setNewOrderIds] = useState([]);
+  const knownOrderIdsRef = useRef(new Set());
+  const viewStartAtRef = useRef(Date.now());
+  const hasInitializedOrdersRef = useRef(false);
+  const ordersRef = useRef(orders);
+
+  // Customers see only their orders, admins/managers see all
+  const isCustomerOnly = hasRole(currentUser, 'CUSTOMER')
+    && !hasRole(currentUser, 'MANAGEMENT')
+    && !hasRole(currentUser, 'ADMIN');
+  const userOrders = isCustomerOnly
+    ? orders.filter(o => o.userId === currentUser.id)
+    : orders;
+
+  // Only admins and managers can modify orders
+  const canModifyOrders = hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
   
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
   // Refresh orders on page load and when page comes into focus
   useEffect(() => {
     // Refresh on initial load
@@ -33,6 +56,9 @@ function OrdersPage() {
 
     // Refresh when page comes into focus (e.g., after marking as delivered on Delivery page)
     const handleFocus = () => {
+      viewStartAtRef.current = Date.now();
+      setNewOrderIds([]);
+      knownOrderIdsRef.current = new Set(ordersRef.current.map(order => order.id));
       loadOrders();
     };
 
@@ -42,21 +68,47 @@ function OrdersPage() {
       window.removeEventListener('focus', handleFocus);
     };
   }, [loadOrders]);
-  
-  // Helper to check if user has a role (supports both old and new format)
-  const hasRole = (role) => {
-    const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
-    return userRoles.includes(role);
-  };
-  
-  // Customers see only their orders, admins/managers see all
-  const isCustomerOnly = hasRole('CUSTOMER') && !hasRole('MANAGEMENT') && !hasRole('ADMIN');
-  const userOrders = isCustomerOnly
-    ? orders.filter(o => o.userId === currentUser.id)
-    : orders;
-  
-  // Only admins and managers can modify orders
-  const canModifyOrders = hasRole('MANAGEMENT') || hasRole('ADMIN');
+
+  useEffect(() => {
+    if (!canModifyOrders) return undefined;
+
+    const intervalId = setInterval(() => {
+      if (!document.hidden) {
+        loadOrders();
+      }
+    }, ORDER_POLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [loadOrders, canModifyOrders]);
+
+  useEffect(() => {
+    if (isLoadingOrders) return;
+
+    if (!hasInitializedOrdersRef.current) {
+      knownOrderIdsRef.current = new Set(orders.map(order => order.id));
+      hasInitializedOrdersRef.current = true;
+      return;
+    }
+
+    const viewStartAt = viewStartAtRef.current;
+    const knownOrderIds = knownOrderIdsRef.current;
+    const newIds = [];
+
+    orders.forEach((order) => {
+      if (!knownOrderIds.has(order.id)) {
+        const createdAt = new Date(order.createdAt).getTime();
+        const createdAfterView = Number.isFinite(createdAt) ? createdAt >= viewStartAt : true;
+        if (createdAfterView) {
+          newIds.push(order.id);
+        }
+      }
+      knownOrderIds.add(order.id);
+    });
+
+    if (newIds.length > 0) {
+      setNewOrderIds((prev) => Array.from(new Set([...prev, ...newIds])));
+    }
+  }, [orders, isLoadingOrders]);
   
   const statuses = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
   
@@ -268,12 +320,16 @@ function OrdersPage() {
             const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
             const isEditing = editingOrderId === order.id;
             const canEdit = canModifyOrders && order.status !== 'DELIVERED';
+            const isNewOrder = newOrderIds.includes(order.id);
             
             return (
-              <div key={order.id} className="order-card surface-card">
+              <div key={order.id} className={`order-card surface-card ${isNewOrder ? 'order-card-new' : ''}`}>
                 <div className="order-header">
                   <div className="order-info">
-                    <h3 className="order-id">Order #{order.id}</h3>
+                    <h3 className="order-id">
+                      Order #{order.id}
+                      {isNewOrder && <span className="order-new-badge">New</span>}
+                    </h3>
                     <div className="order-meta">
                       <span className="order-date">{order.createdAt}</span>
                       <span className="order-separator">•</span>
