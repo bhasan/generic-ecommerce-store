@@ -84,6 +84,18 @@ h1 {
   border: 2px solid var(--color-primary);
 }
 
+/* Shared divider */
+.section-header-divider {
+  height: 2px;
+  width: 100%;
+  background: var(--color-primary-dark);
+  opacity: 0.9;
+  margin: var(--spacing-md) 0 var(--spacing-xl);
+  flex-basis: 100%;
+  border-radius: 999px;
+  clip-path: polygon(0 50%, 10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%);
+}
+
 button {
   border-radius: var(--radius-md);
   border: 1px solid transparent;

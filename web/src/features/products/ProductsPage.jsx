@@ -64,6 +64,7 @@ function ProductsPage({ mode = 'browse' }) {
           ) : null
         }
       />
+      <div className="section-header-divider" aria-hidden="true" />
 
       {isLoadingProducts || isLoadingCategories ? (
         <EmptyState message="Loading products..." />
