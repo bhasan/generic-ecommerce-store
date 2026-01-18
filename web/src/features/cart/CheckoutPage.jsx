@@ -6,6 +6,7 @@ import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'l
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -128,7 +129,7 @@ function CheckoutPage() {
         Back to Cart
       </button>
 
-      <div className="checkout-header">
+      <div className="checkout-header section-header-surface">
         <h2 className="page-title">Checkout</h2>
         <div className="checkout-progress">
           <div className="progress-step progress-step-active">
@@ -142,6 +143,7 @@ function CheckoutPage() {
           </div>
         </div>
       </div>
+      <HeaderDivider />
 
       <ConfirmationModal
         isOpen={showConfirmModal}
@@ -171,7 +173,7 @@ function CheckoutPage() {
       <div className="checkout-content">
         {/* Order Review Section */}
         <div className="checkout-main">
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <Package size={20} />
               <h3>Order Review</h3>
@@ -205,7 +207,7 @@ function CheckoutPage() {
           </div>
 
           {/* Delivery Address Section */}
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <MapPin size={20} />
               <h3>Delivery Address</h3>
@@ -322,7 +324,7 @@ function CheckoutPage() {
           </div>
 
           {/* Special Instructions Section */}
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <FileText size={20} />
               <h3>Special Instructions</h3>
@@ -340,7 +342,7 @@ function CheckoutPage() {
           </div>
 
           {/* Payment Section */}
-          <div className="checkout-section">
+          <div className="checkout-section surface-card">
             <div className="section-header">
               <DollarSign size={20} />
               <h3>Payment Information</h3>
@@ -414,7 +416,7 @@ function CheckoutPage() {
 
         {/* Order Summary Sidebar */}
         <div className="checkout-sidebar">
-          <div className="checkout-summary">
+          <div className="checkout-summary surface-card-accent">
             <h3 className="summary-title">Order Summary</h3>
             
             <div className="summary-details">

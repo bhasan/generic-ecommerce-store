@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import prisma from './config/database';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -21,6 +22,7 @@ dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
+const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10);
 
 // ========================================
 // SECURITY MIDDLEWARE
@@ -68,6 +70,27 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ========================================
+// TIMEOUT SAFETY
+// ========================================
+
+app.use((req, res, next) => {
+  req.setTimeout(REQUEST_TIMEOUT_MS);
+  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    if (res.headersSent) {
+      return;
+    }
+    res.status(503).json({
+      error: {
+        message: 'Request timeout',
+        code: 'REQUEST_TIMEOUT',
+        requestId: req.requestId || 'unknown',
+      },
+    });
+  });
+  next();
+});
+
+// ========================================
 // LOGGING MIDDLEWARE
 // ========================================
 
@@ -79,13 +102,35 @@ app.use(requestLogger);
 // ========================================
 
 // Health check route
-app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    message: 'Smoke Station Backend API is running!',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
+app.get('/api/health', async (req, res) => {
+  const timestamp = new Date().toISOString();
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: 'ok',
+      message: 'Smoke Station Backend API is running!',
+      timestamp,
+      environment: process.env.NODE_ENV || 'development',
+      checks: {
+        database: 'ok',
+      },
+      requestId: req.requestId || 'unknown',
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'degraded',
+      message: 'Smoke Station Backend API is running with degraded dependencies.',
+      timestamp,
+      environment: process.env.NODE_ENV || 'development',
+      checks: {
+        database: 'error',
+      },
+      requestId: req.requestId || 'unknown',
+      error: process.env.NODE_ENV === 'development'
+        ? { message: (error as Error).message }
+        : undefined,
+    });
+  }
 });
 
 // API routes

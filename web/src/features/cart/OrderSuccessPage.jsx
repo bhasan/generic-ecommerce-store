@@ -81,7 +81,7 @@ function OrderSuccessPage() {
         <div className="order-details-section">
           <h2 className="section-title">Order Details</h2>
           
-          <div className="detail-card">
+          <div className="detail-card surface-card">
             <div className="detail-header">
               <Package size={20} />
               <h3>Items Ordered</h3>
@@ -127,7 +127,7 @@ function OrderSuccessPage() {
             </div>
           </div>
 
-          <div className="detail-card">
+          <div className="detail-card surface-card">
             <div className="detail-header">
               <MapPin size={20} />
               <h3>Delivery Address</h3>
@@ -136,7 +136,7 @@ function OrderSuccessPage() {
           </div>
 
           {orderData.specialInstructions && (
-            <div className="detail-card">
+            <div className="detail-card surface-card">
               <div className="detail-header">
                 <Package size={20} />
                 <h3>Special Instructions</h3>
@@ -145,7 +145,7 @@ function OrderSuccessPage() {
             </div>
           )}
 
-          <div className="detail-card">
+          <div className="detail-card surface-card">
             <div className="detail-header">
               <DollarSign size={20} />
               <h3>Payment Information</h3>
@@ -160,7 +160,7 @@ function OrderSuccessPage() {
         <div className="whats-next-section">
           <h2 className="section-title">What's Next?</h2>
           
-          <div className="whats-next-card">
+          <div className="whats-next-card surface-card">
             <div className="next-step">
               <div className="step-number">1</div>
               <div className="step-content">

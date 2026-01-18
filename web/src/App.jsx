@@ -4,6 +4,7 @@ import { AppProvider } from './context/AppContext';
 import AnnouncementBanner from './components/common/AnnouncementBanner';
 import Navbar from './components/layout/Navbar';
 import Notification from './components/common/Notification';
+import ErrorBoundary from './components/common/ErrorBoundary';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './features/auth/LoginPage';
 import RegisterPage from './features/auth/RegisterPage';
@@ -20,92 +21,94 @@ import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
 
 function App() {
   return (
-    <AppProvider>
-      <div className="app-wrapper">
-        <AnnouncementBanner />
-        <Navbar />
-        <Notification />
-        <main className="container main-content">
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            
-            {/* All routes below require login (no guest access) */}
-            <Route path="/products" element={
-              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
-                <ProductsPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/products/:id" element={
-              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
-                <ProductItemPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/cart" element={
-              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
-                <CartPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/checkout" element={
-              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
-                <CheckoutPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/order-success" element={
-              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
-                <OrderSuccessPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Profile Route - Protected for logged in users only */}
-            <Route path="/profile" element={
-              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
-                <ProfilePage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Orders Route - Protected */}
-            <Route path="/orders" element={
-              <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
-                <OrdersPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Admin/Manager Routes */}
-            <Route path="/manage-products" element={
-              <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
-                <ProductsPage mode="manage" />
-              </ProtectedRoute>
-            } />
+    <ErrorBoundary>
+      <AppProvider>
+        <div className="app-wrapper">
+          <AnnouncementBanner />
+          <Navbar />
+          <Notification />
+          <main className="container main-content">
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              
+              {/* All routes below require login (no guest access) */}
+              <Route path="/products" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                  <ProductsPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/products/:id" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                  <ProductItemPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/cart" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                  <CartPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/checkout" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                  <CheckoutPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/order-success" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                  <OrderSuccessPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Profile Route - Protected for logged in users only */}
+              <Route path="/profile" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                  <ProfilePage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Orders Route - Protected */}
+              <Route path="/orders" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                  <OrdersPage />
+                </ProtectedRoute>
+              } />
+              
+              {/* Admin/Manager Routes */}
+              <Route path="/manage-products" element={
+                <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
+                  <ProductsPage mode="manage" />
+                </ProtectedRoute>
+              } />
 
-            {/* Dashboard - Admin/Manager only */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
-                <DashboardPage />
-              </ProtectedRoute>
-            } />
+              {/* Dashboard - Admin/Manager only */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
+                  <DashboardPage />
+                </ProtectedRoute>
+              } />
 
 
-            {/* Delivered Orders - Admin only */}
-            <Route path="/delivered-orders" element={
-              <ProtectedRoute roles={['ADMIN']}>
-                <DeliveredOrdersPage />
-              </ProtectedRoute>
-            } />
+              {/* Delivered Orders - Admin only */}
+              <Route path="/delivered-orders" element={
+                <ProtectedRoute roles={['ADMIN']}>
+                  <DeliveredOrdersPage />
+                </ProtectedRoute>
+              } />
 
-            {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
-            <Route path="/delivery-dashboard" element={
-              <ProtectedRoute roles={['ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER']}>
-                <DeliveryDriverDashboard />
-              </ProtectedRoute>
-            } />
+              {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
+              <Route path="/delivery-dashboard" element={
+                <ProtectedRoute roles={['ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER']}>
+                  <DeliveryDriverDashboard />
+                </ProtectedRoute>
+              } />
 
-            {/* Default Route - Redirect to login for unauthenticated users */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </main>
-      </div>
-    </AppProvider>
+              {/* Default Route - Redirect to login for unauthenticated users */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </main>
+        </div>
+      </AppProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -1,17 +1,15 @@
 import React from 'react';
 import { LayoutDashboard } from 'lucide-react';
+import PageHeader from '../../../components/common/PageHeader';
 
 function DashboardHeader() {
   return (
-    <div className="dashboard-header">
-      <div>
-        <h2 className="page-title">
-          <LayoutDashboard size={28} />
-          Administrator Dashboard
-        </h2>
-        <p className="page-subtitle">Store management and administration</p>
-      </div>
-    </div>
+    <PageHeader
+      className="dashboard-header"
+      title="Administrator Dashboard"
+      subtitle="Store management and administration"
+      icon={LayoutDashboard}
+    />
   );
 }
 

@@ -304,8 +304,6 @@
   top: calc(100% + var(--spacing-sm));
   right: 0;
   min-width: 240px;
-  background: var(--bg-dashboard-sidebar);
-  border: 2px solid var(--color-primary-dark);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   padding: var(--spacing-sm);

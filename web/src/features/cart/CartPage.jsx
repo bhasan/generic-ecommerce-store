@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function CartPage() {
   const navigate = useNavigate();
@@ -35,12 +36,13 @@ function CartPage() {
 
   return (
     <div className="cart-page-container">
-      <div className="cart-header">
+      <div className="cart-header section-header-surface">
         <div>
           <h2 className="page-title">Shopping Cart</h2>
           <p className="page-subtitle">{cart.length} {cart.length === 1 ? 'item' : 'items'} in your cart</p>
         </div>
       </div>
+      <HeaderDivider />
 
       <div className="cart-content">
         <div className="cart-items">
@@ -48,7 +50,7 @@ function CartPage() {
             (() => {
               const imageSrc = getProductImageSrc(item);
               return (
-            <div key={item.id} className="cart-item">
+            <div key={item.id} className="cart-item surface-card">
               <div className="cart-item-image-container">
                 <ProductImage src={imageSrc} alt={item.name} className="cart-item-image" />
               </div>
@@ -114,7 +116,7 @@ function CartPage() {
           ))}
         </div>
 
-        <div className="cart-summary">
+        <div className="cart-summary surface-card-accent">
           <h3 className="cart-summary-title">Order Summary</h3>
           
           <div className="cart-summary-details">

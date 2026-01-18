@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function UsersPage() {
   const { currentUser, showNotification } = useApp();
@@ -141,12 +142,13 @@ function UsersPage() {
   if (isLoading) {
     return (
       <div className="users-page-container">
-        <div className="users-header">
+        <div className="users-header section-header-surface">
           <div>
             <h2 className="page-title">Users Management</h2>
             <p className="page-subtitle">Loading users...</p>
           </div>
         </div>
+        <HeaderDivider />
       </div>
     );
   }
@@ -154,12 +156,13 @@ function UsersPage() {
   return (
     <AdminLayout>
       <div className="users-page-container">
-      <div className="users-header">
+      <div className="users-header section-header-surface">
         <div>
           <h2 className="page-title">Users Management</h2>
           <p className="page-subtitle">Manage all system users</p>
         </div>
       </div>
+      <HeaderDivider />
 
       {error && (
         <div className="users-error" style={{ 

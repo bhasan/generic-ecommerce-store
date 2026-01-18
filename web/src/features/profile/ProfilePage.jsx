@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
 import { User, Mail, Save, Shield } from 'lucide-react';
+import HeaderDivider from '../../components/common/HeaderDivider';
 import * as authApi from '../../services/authApi';
 
 function ProfilePage() {
@@ -62,26 +63,28 @@ function ProfilePage() {
   if (isLoadingProfile) {
     return (
       <div className="profile-page-container">
-        <div className="profile-header">
+        <div className="profile-header section-header-surface">
           <div>
             <h2 className="page-title">Loading Profile...</h2>
           </div>
         </div>
+        <HeaderDivider />
       </div>
     );
   }
 
   return (
     <div className="profile-page-container">
-      <div className="profile-header">
+      <div className="profile-header section-header-surface">
         <div>
           <h2 className="page-title">Change Profile</h2>
           <p className="page-subtitle">Update your account information</p>
         </div>
       </div>
+      <HeaderDivider />
 
       <div className="profile-content">
-        <div className="profile-card">
+        <div className="profile-card surface-card-accent">
           <div className="profile-avatar">
             <User size={48} />
           </div>
@@ -139,7 +142,7 @@ function ProfilePage() {
         </div>
 
         <div className="profile-sidebar">
-          <div className="profile-stats-card">
+          <div className="profile-stats-card surface-card">
             <h3 className="stats-title">Account Statistics</h3>
             <div className="stats-list">
               <div className="stat-item">

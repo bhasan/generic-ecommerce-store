@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import { UserX, Mail, Phone, DollarSign, MapPin, Clock, Calendar, FileText } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
+import HeaderDivider from '../../components/common/HeaderDivider';
 
 function RejectedUsersPage() {
   const { showNotification } = useApp();
@@ -44,12 +45,13 @@ function RejectedUsersPage() {
   return (
     <AdminLayout>
       <div className="rejected-users-page-container">
-      <div className="rejected-users-header">
+      <div className="rejected-users-header section-header-surface">
         <div>
           <h2 className="page-title">Rejected Users</h2>
           <p className="page-subtitle">Users who were rejected during registration</p>
         </div>
       </div>
+      <HeaderDivider />
 
       {isLoading ? (
         <div className="empty-state">

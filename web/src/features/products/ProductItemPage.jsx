@@ -107,7 +107,7 @@ function ProductItemPage() {
       </button>
       
       {/* Product Detail Section */}
-      <div className="product-detail-grid">
+      <div className="product-detail-grid surface-card">
         {/* Image Gallery */}
         <div className="product-gallery">
           <div className="main-image-container">

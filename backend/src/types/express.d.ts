@@ -8,6 +8,7 @@ declare global {
         email: string;
         roles: RoleName[];
       };
+      requestId?: string;
     }
   }
 }
