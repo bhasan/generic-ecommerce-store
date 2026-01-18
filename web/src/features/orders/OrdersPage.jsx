@@ -32,6 +32,7 @@ function OrdersPage() {
   const knownOrderIdsRef = useRef(new Set());
   const viewStartAtRef = useRef(Date.now());
   const hasInitializedOrdersRef = useRef(false);
+  const ordersRef = useRef(orders);
 
   // Customers see only their orders, admins/managers see all
   const isCustomerOnly = hasRole(currentUser, 'CUSTOMER')
@@ -44,6 +45,10 @@ function OrdersPage() {
   // Only admins and managers can modify orders
   const canModifyOrders = hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
   
+  useEffect(() => {
+    ordersRef.current = orders;
+  }, [orders]);
+
   // Refresh orders on page load and when page comes into focus
   useEffect(() => {
     // Refresh on initial load
@@ -53,7 +58,7 @@ function OrdersPage() {
     const handleFocus = () => {
       viewStartAtRef.current = Date.now();
       setNewOrderIds([]);
-      knownOrderIdsRef.current = new Set(orders.map(order => order.id));
+      knownOrderIdsRef.current = new Set(ordersRef.current.map(order => order.id));
       loadOrders();
     };
 
@@ -62,7 +67,7 @@ function OrdersPage() {
     return () => {
       window.removeEventListener('focus', handleFocus);
     };
-  }, [loadOrders, orders]);
+  }, [loadOrders]);
 
   useEffect(() => {
     if (!canModifyOrders) return undefined;
