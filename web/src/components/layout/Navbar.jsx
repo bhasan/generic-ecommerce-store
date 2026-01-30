@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle } from 'lucide-react';
+import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import { hasRole } from '../../utils/roles';
+import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
   const { currentUser, cart, logout } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0);
   const profileRef = useRef(null);
   const adminRef = useRef(null);
   const navigate = useNavigate();
@@ -47,6 +49,28 @@ function Navbar() {
     setShowAdminMenu(false);
     setShowMobileMenu(false);
   }, [location.pathname]);
+
+  // Fetch new message count for admins/managers
+  useEffect(() => {
+    const fetchMessageCount = async () => {
+      if (!isManagement || isGuest) return;
+      
+      try {
+        const { count } = await contactMessagesApi.getNewMessageCount();
+        setNewMessageCount(count);
+      } catch (error) {
+        // Silently fail - don't show error for badge count
+        console.warn('Failed to fetch message count:', error);
+      }
+    };
+
+    fetchMessageCount();
+    
+    // Refresh count every 60 seconds
+    const interval = setInterval(fetchMessageCount, 60000);
+    
+    return () => clearInterval(interval);
+  }, [isManagement, isGuest]);
 
   const handleLogout = () => {
     setShowProfileMenu(false);
@@ -232,6 +256,15 @@ function Navbar() {
                 )}
               </div>
             )}
+
+            {/* Help link - right side, after profile */}
+            <NavLink 
+              to="/help" 
+              className={({ isActive }) => `nav-link-icon ${isActive ? 'nav-link-icon-active' : ''}`}
+              title="Help & Support"
+            >
+              <HelpCircle size={20} />
+            </NavLink>
           </div>
         </div>
       </nav>
@@ -250,6 +283,17 @@ function Navbar() {
         onClick={(e) => e.stopPropagation()}
       >
         {renderNavLinks()}
+        
+        {/* Help link in mobile menu */}
+        {!isGuest && (
+          <NavLink 
+            to="/help" 
+            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+          >
+            <HelpCircle size={18} />
+            <span>Help & Support</span>
+          </NavLink>
+        )}
       </div>
     </>
   );

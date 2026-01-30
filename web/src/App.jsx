@@ -5,6 +5,7 @@ import AnnouncementBanner from './components/common/AnnouncementBanner';
 import Navbar from './components/layout/Navbar';
 import Notification from './components/common/Notification';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import TawkToWidget from './components/common/TawkToWidget';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import LoginPage from './features/auth/LoginPage';
 import RegisterPage from './features/auth/RegisterPage';
@@ -18,11 +19,13 @@ import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
+import HelpPage from './features/help/HelpPage';
 
 function App() {
   return (
     <ErrorBoundary>
       <AppProvider>
+        <TawkToWidget />
         <div className="app-wrapper">
           <AnnouncementBanner />
           <Navbar />
@@ -99,6 +102,13 @@ function App() {
               <Route path="/delivery-dashboard" element={
                 <ProtectedRoute roles={['ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER']}>
                   <DeliveryDriverDashboard />
+                </ProtectedRoute>
+              } />
+
+              {/* Help Page - All authenticated users */}
+              <Route path="/help" element={
+                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']}>
+                  <HelpPage />
                 </ProtectedRoute>
               } />
 

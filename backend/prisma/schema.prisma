@@ -76,6 +76,12 @@ enum AnnouncementType {
   SUCCESS
 }
 
+enum ContactMessageStatus {
+  NEW
+  READ
+  RESOLVED
+}
+
 // Order item model with void tracking
 model OrderItem {
   id                   Int      @id @default(autoincrement())
@@ -184,4 +190,26 @@ model Announcement {
   updatedAt   DateTime          @updatedAt
 
   @@map("announcements")
+}
+
+// Contact message model for support requests
+model ContactMessage {
+  id            Int                   @id @default(autoincrement())
+  userId        Int
+  userName      String
+  userEmail     String
+  userPhone     String?
+  subject       String
+  orderId       Int?
+  message       String
+  status        ContactMessageStatus  @default(NEW)
+  adminNotes    String?               // Internal notes from admin/manager
+  replyMessage  String?               // The reply text sent to customer
+  repliedAt     DateTime?             // When the reply was sent
+  repliedBy     Int?                  // User ID of admin/manager who replied
+  repliedByName String?               // Name of admin/manager who replied
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@map("contact_messages")
 }
