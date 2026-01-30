@@ -10,6 +10,17 @@ interface ContactEmailData {
   message: string;
 }
 
+interface ReplyEmailData {
+  type: 'reply';
+  toEmail: string;
+  toName: string;
+  subject: string;
+  originalMessage: string;
+  replyMessage: string;
+  repliedBy: string;
+  orderId?: number | null;
+}
+
 /**
  * Email Service
  * Sends contact form submissions via Make.com webhook
@@ -95,6 +106,67 @@ export class EmailService {
         subject: data.subject,
       });
       throw new AppError('Failed to send contact form', 500, 'WEBHOOK_SEND_FAILED');
+    }
+  }
+
+  /**
+   * Send a reply email to customer via Make.com webhook
+   */
+  async sendReplyEmail(data: ReplyEmailData): Promise<boolean> {
+    if (!this.isReady()) {
+      logger.warn('Attempted to send reply email but webhook is not configured');
+      throw new AppError('Email service is currently unavailable. Please try again later.', 503, 'EMAIL_SERVICE_UNAVAILABLE');
+    }
+
+    const payload = {
+      type: 'reply',
+      toEmail: data.toEmail,
+      toName: data.toName,
+      subject: `Re: ${data.subject}`,
+      originalMessage: data.originalMessage,
+      replyMessage: data.replyMessage,
+      repliedBy: data.repliedBy,
+      orderId: data.orderId || null,
+    };
+
+    try {
+      const response = await fetch(this.webhookUrl!, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-make-apikey': this.apiKey!,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logger.error('Make.com webhook returned error for reply', new Error(errorText), {
+          status: response.status,
+          statusText: response.statusText,
+        });
+        throw new AppError('Failed to send reply email', 500, 'WEBHOOK_ERROR');
+      }
+
+      logger.info('Reply email sent successfully via Make.com webhook', {
+        toEmail: data.toEmail,
+        toName: data.toName,
+        subject: data.subject,
+        repliedBy: data.repliedBy,
+      });
+
+      return true;
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error;
+      }
+      
+      logger.error('Failed to send reply email via webhook', error as Error, {
+        toEmail: data.toEmail,
+        toName: data.toName,
+        subject: data.subject,
+      });
+      throw new AppError('Failed to send reply email', 500, 'WEBHOOK_SEND_FAILED');
     }
   }
 }
