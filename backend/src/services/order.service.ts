@@ -107,7 +107,7 @@ export class OrderService {
 
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, name: true, email: true }
+        select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
       });
       const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -421,7 +421,7 @@ export class OrderService {
     // Fetch user
     const user = await prisma.user.findUnique({
       where: { id: order.userId },
-      select: { id: true, name: true, email: true }
+      select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
     });
 
     // Fetch order items

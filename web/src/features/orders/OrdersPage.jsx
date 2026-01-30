@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
-import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle } from 'lucide-react';
+import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle, User, CreditCard, Phone, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole } from '../../utils/roles';
@@ -377,6 +377,43 @@ function OrdersPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Customer Details - Only visible to management/admin */}
+                {canModifyOrders && order.user && (
+                  <div className="order-customer-details">
+                    <h4 className="order-customer-title">
+                      <User size={16} />
+                      Customer Details
+                    </h4>
+                    <div className="order-customer-info">
+                      <div className="customer-info-row">
+                        <span className="customer-info-label">Name:</span>
+                        <span className="customer-info-value">{order.user.name || 'N/A'}</span>
+                      </div>
+                      <div className="customer-info-row">
+                        <CreditCard size={14} className="customer-info-icon" />
+                        <span className="customer-info-label">Payment:</span>
+                        <span className={`customer-info-value ${order.user.cashapp ? 'payment-cashapp' : 'payment-none'}`}>
+                          {order.user.cashapp || 'No payment method'}
+                        </span>
+                      </div>
+                      {order.user.phoneNumber && (
+                        <div className="customer-info-row">
+                          <Phone size={14} className="customer-info-icon" />
+                          <span className="customer-info-label">Phone:</span>
+                          <span className="customer-info-value">{order.user.phoneNumber}</span>
+                        </div>
+                      )}
+                      {order.user.address && (
+                        <div className="customer-info-row">
+                          <MapPin size={14} className="customer-info-icon" />
+                          <span className="customer-info-label">Address:</span>
+                          <span className="customer-info-value">{order.user.address}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick Action Buttons */}
                 {nextActions.length > 0 && (

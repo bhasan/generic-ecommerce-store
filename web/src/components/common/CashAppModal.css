@@ -1,0 +1,233 @@
+.cashapp-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  padding: var(--spacing-md);
+  animation: fadeIn var(--transition-fast) ease-out;
+}
+
+.cashapp-modal-container {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  max-width: 450px;
+  width: 100%;
+  position: relative;
+  animation: slideDown var(--transition-slow) ease-out;
+  box-shadow: var(--shadow-2xl);
+}
+
+.cashapp-modal-close {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  transition: var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cashapp-modal-close:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.cashapp-modal-content {
+  padding: var(--spacing-xl);
+}
+
+.cashapp-modal-icon-wrapper {
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  justify-content: center;
+}
+
+.cashapp-modal-icon {
+  color: var(--color-secondary);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.cashapp-modal-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+}
+
+.cashapp-modal-message {
+  color: var(--text-secondary);
+  line-height: var(--line-height-relaxed);
+  font-size: 0.95rem;
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.cashapp-modal-message p {
+  margin: 0;
+}
+
+.cashapp-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.cashapp-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.cashapp-form-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+}
+
+.cashapp-form-input {
+  padding: 0.875rem var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  transition: var(--transition-all);
+}
+
+.cashapp-form-input:focus {
+  outline: none;
+  border-color: var(--color-secondary);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.cashapp-form-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.cashapp-input-error {
+  border-color: var(--color-danger);
+}
+
+.cashapp-input-error:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.cashapp-error-message {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+
+.cashapp-modal-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+}
+
+.btn-cashapp-cancel,
+.btn-cashapp-save {
+  flex: 1;
+  padding: var(--spacing-md) 0.875rem;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-all);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-cashapp-cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-cashapp-cancel:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+.btn-cashapp-save {
+  background: linear-gradient(135deg, var(--color-secondary), var(--color-secondary-dark));
+  color: var(--text-on-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.btn-cashapp-save:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-cashapp-cancel:disabled,
+.btn-cashapp-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Animation keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .cashapp-modal-container {
+    max-width: calc(100vw - var(--spacing-xl));
+  }
+
+  .cashapp-modal-content {
+    padding: var(--spacing-lg);
+  }
+
+  .cashapp-modal-title {
+    font-size: var(--font-size-xl);
+  }
+
+  .cashapp-modal-actions {
+    flex-direction: column;
+  }
+
+  .btn-cashapp-cancel,
+  .btn-cashapp-save {
+    width: 100%;
+  }
+}
