@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle } from 'lucide-react';
+import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import { hasRole } from '../../utils/roles';
 
@@ -64,6 +64,17 @@ function Navbar() {
         <Package size={18} />
         <span>Products</span>
       </NavLink>
+
+      {/* Help page - accessible to ALL authenticated users */}
+      {!isGuest && (
+        <NavLink 
+          to="/help" 
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <HelpCircle size={18} />
+          <span>Help</span>
+        </NavLink>
+      )}
 
       {/* Delivery link */}
       {(isDeliveryDriver || isManagement) && (
