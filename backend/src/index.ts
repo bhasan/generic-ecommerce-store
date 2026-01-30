@@ -12,6 +12,7 @@ import orderRoutes from './routes/order.routes';
 import userRoutes from './routes/user.routes';
 import announcementRoutes from './routes/announcement.routes';
 import categoryRoutes from './routes/category.routes';
+import contactRoutes from './routes/contact.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -140,6 +141,7 @@ app.use('/api/categories', generalLimiter, categoryRoutes);
 app.use('/api/orders', generalLimiter, orderRoutes);
 app.use('/api/users', generalLimiter, userRoutes);
 app.use('/api/announcements', generalLimiter, announcementRoutes);
+app.use('/api/contact', generalLimiter, contactRoutes);
 
 // ========================================
 // ERROR HANDLING

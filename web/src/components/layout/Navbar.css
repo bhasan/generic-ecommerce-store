@@ -69,6 +69,47 @@
   color: var(--text-primary);
 }
 
+/* Icon-only nav link (for help icon on right side) */
+.nav-link-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  transition: var(--transition-all);
+}
+
+.nav-link-icon:hover {
+  background: var(--bg-hover);
+  color: var(--color-primary-light);
+}
+
+.nav-link-icon-active {
+  background: var(--color-primary-dark);
+  color: var(--text-primary);
+}
+
+/* Nav link with badge (for messages) */
+.nav-link-messages {
+  position: relative;
+}
+
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--color-danger);
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  border-radius: 999px;
+  margin-left: 4px;
+}
+
 .navbar-right {
   display: flex;
   align-items: center;

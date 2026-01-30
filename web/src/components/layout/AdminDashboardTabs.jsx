@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layers, Megaphone, UserPlus, Users, UserX } from 'lucide-react';
+import { Layers, Megaphone, UserPlus, Users, UserX, MessageSquare } from 'lucide-react';
 import './AdminDashboardTabs.css';
 
 const SECTIONS = {
@@ -8,7 +8,8 @@ const SECTIONS = {
   ANNOUNCEMENTS: 'announcements',
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
-  REJECTED_USERS: 'rejected-users'
+  REJECTED_USERS: 'rejected-users',
+  MESSAGES: 'messages'
 };
 
 function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSectionChange }) {
@@ -25,6 +26,15 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
   return (
     <div className="dashboard-section-tabs">
       <div className="dashboard-tabs">
+        <button
+          className={`dashboard-tab ${
+            currentTab === 'dashboard' && activeSection === SECTIONS.MESSAGES ? 'active' : ''
+          }`}
+          onClick={() => handleSelect(SECTIONS.MESSAGES)}
+        >
+          <MessageSquare size={20} />
+          <span>Messages</span>
+        </button>
         <button
           className={`dashboard-tab ${
             currentTab === 'dashboard' && activeSection === SECTIONS.PENDING_REGISTRATIONS ? 'active' : ''

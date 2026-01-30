@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
-import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save } from 'lucide-react';
+import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole } from '../../utils/roles';
 
 const ORDER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS || 60000);
 
 function OrdersPage() {
+  const navigate = useNavigate();
   const { 
     currentUser, 
     orders, 
@@ -502,6 +504,17 @@ function OrdersPage() {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Help Button - Visible to all users */}
+                <div className="order-help-section">
+                  <button
+                    onClick={() => navigate(`/help?orderId=${order.id}`)}
+                    className="btn-order-help"
+                  >
+                    <HelpCircle size={16} />
+                    <span>Need Help with this Order?</span>
+                  </button>
                 </div>
 
                 {/* Edit Order Section - Moved to bottom */}

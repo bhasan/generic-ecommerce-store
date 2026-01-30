@@ -21,6 +21,8 @@ services:
     container_name: smoke-station-delivery-backend
     build: ./backend # Tells Docker to build from the 'backend' folder
     restart: always
+    env_file:
+      - ./backend/.env
     environment:
       # This MUST match the 'db' service's credentials
       # Note the hostname is 'db' (the service name), NOT 'localhost'

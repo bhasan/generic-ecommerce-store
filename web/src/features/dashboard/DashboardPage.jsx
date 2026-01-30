@@ -3,6 +3,7 @@ import './DashboardPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import * as announcementsApi from '../../services/announcementsApi';
+import * as contactMessagesApi from '../../services/contactMessagesApi';
 import RejectUserModal from '../../components/common/RejectUserModal';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
@@ -16,13 +17,16 @@ import UsersSection from './components/UsersSection';
 import AnnouncementsSection from './components/AnnouncementsSection';
 import RejectedUsersSection from './components/RejectedUsersSection';
 import CategoriesSection from './components/CategoriesSection';
+import MessagesSection from './components/MessagesSection';
+import { hasRole } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
   CATEGORIES: 'categories',
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
   REJECTED_USERS: 'rejected-users',
-  ANNOUNCEMENTS: 'announcements'
+  ANNOUNCEMENTS: 'announcements',
+  MESSAGES: 'messages'
 };
 
 function DashboardPage() {
@@ -76,6 +80,17 @@ function DashboardPage() {
   // Delete User State
   const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+
+  // Contact Messages State
+  const [contactMessages, setContactMessages] = useState([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [messagesStatusFilter, setMessagesStatusFilter] = useState('');
+  const [deleteMessageModalOpen, setDeleteMessageModalOpen] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
+  const [isReplyingToMessage, setIsReplyingToMessage] = useState(false);
+
+  // Check if user is admin
+  const isAdmin = hasRole(currentUser, 'ADMIN');
 
   // Load pending registrations
   const loadPendingRegistrations = useCallback(async () => {
@@ -140,6 +155,20 @@ function DashboardPage() {
     }
   }, [showNotification]);
 
+  // Load contact messages
+  const loadContactMessages = useCallback(async (statusFilter = '') => {
+    try {
+      setIsLoadingMessages(true);
+      const filters = statusFilter ? { status: statusFilter } : {};
+      const messages = await contactMessagesApi.getAllMessages(filters);
+      setContactMessages(messages);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load contact messages', 'error');
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  }, [showNotification]);
+
   // Load data based on active section
   useEffect(() => {
     if (activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS) {
@@ -151,8 +180,10 @@ function DashboardPage() {
       loadRoles();
     } else if (activeSection === DASHBOARD_SECTIONS.REJECTED_USERS) {
       loadRejectedUsers();
+    } else if (activeSection === DASHBOARD_SECTIONS.MESSAGES) {
+      loadContactMessages(messagesStatusFilter);
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter]);
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
@@ -369,6 +400,72 @@ function DashboardPage() {
     }
   };
 
+  // Contact message handlers
+  const handleMessagesStatusFilterChange = (status) => {
+    setMessagesStatusFilter(status);
+  };
+
+  const handleMarkMessageAsRead = async (messageId) => {
+    try {
+      await contactMessagesApi.markAsRead(messageId);
+      showNotification('Message marked as read', 'success');
+      loadContactMessages(messagesStatusFilter);
+    } catch (error) {
+      showNotification(error.message || 'Failed to mark message as read', 'error');
+    }
+  };
+
+  const handleMarkMessageAsResolved = async (messageId) => {
+    try {
+      await contactMessagesApi.markAsResolved(messageId);
+      showNotification('Message marked as resolved', 'success');
+      loadContactMessages(messagesStatusFilter);
+    } catch (error) {
+      showNotification(error.message || 'Failed to mark message as resolved', 'error');
+    }
+  };
+
+  const handleDeleteMessageClick = (messageId, subject) => {
+    setMessageToDelete({ id: messageId, subject });
+    setDeleteMessageModalOpen(true);
+  };
+
+  const handleDeleteMessageConfirm = async () => {
+    if (!messageToDelete) return;
+
+    try {
+      await contactMessagesApi.deleteMessage(messageToDelete.id);
+      showNotification('Message deleted successfully', 'success');
+      setDeleteMessageModalOpen(false);
+      setMessageToDelete(null);
+      loadContactMessages(messagesStatusFilter);
+    } catch (error) {
+      showNotification(error.message || 'Failed to delete message', 'error');
+      setDeleteMessageModalOpen(false);
+      setMessageToDelete(null);
+    }
+  };
+
+  const handleDeleteMessageCancel = () => {
+    setDeleteMessageModalOpen(false);
+    setMessageToDelete(null);
+  };
+
+  const handleReplyToMessage = async (messageId, replyText) => {
+    try {
+      setIsReplyingToMessage(true);
+      await contactMessagesApi.replyToMessage(messageId, replyText);
+      showNotification('Reply sent successfully via email', 'success');
+      loadContactMessages(messagesStatusFilter);
+      return true;
+    } catch (error) {
+      showNotification(error.message || 'Failed to send reply', 'error');
+      return false;
+    } finally {
+      setIsReplyingToMessage(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
     try {
@@ -520,6 +617,23 @@ function DashboardPage() {
             onDelete={handleDeleteAnnouncementClick}
           />
         );
+      case DASHBOARD_SECTIONS.MESSAGES:
+        return (
+          <MessagesSection
+            isLoading={isLoadingMessages}
+            messages={contactMessages}
+            formatDate={formatDate}
+            statusFilter={messagesStatusFilter}
+            onStatusFilterChange={handleMessagesStatusFilterChange}
+            onMarkAsRead={handleMarkMessageAsRead}
+            onMarkAsResolved={handleMarkMessageAsResolved}
+            onDelete={handleDeleteMessageClick}
+            onReply={handleReplyToMessage}
+            isReplying={isReplyingToMessage}
+            currentUserId={currentUser?.id}
+            isAdmin={isAdmin}
+          />
+        );
       default:
         return (
           <PendingRegistrationsSection
@@ -637,6 +751,32 @@ function DashboardPage() {
         message={
           <>
             Are you sure you want to delete user <strong>"{userToDelete?.name || ''}"</strong>?
+            <br />
+            <br />
+            This action cannot be undone.
+          </>
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        type="danger"
+      />
+
+      {/* Delete Message Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteMessageModalOpen}
+        onClose={handleDeleteMessageCancel}
+        onConfirm={handleDeleteMessageConfirm}
+        title="Delete Message"
+        message={
+          <>
+            Are you sure you want to delete this contact message?
+            {messageToDelete?.subject && (
+              <>
+                <br />
+                <br />
+                Subject: <strong>"{messageToDelete.subject}"</strong>
+              </>
+            )}
             <br />
             <br />
             This action cannot be undone.

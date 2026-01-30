@@ -770,3 +770,35 @@
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
 }
+
+/* Order Help Section */
+.order-help-section {
+  padding: 1rem 0;
+  border-top: 1px solid var(--border-color);
+  margin-top: 1rem;
+}
+
+.btn-order-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-order-help:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--bg-hover);
+}
+
+.btn-order-help svg {
+  flex-shrink: 0;
+}
