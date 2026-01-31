@@ -12,23 +12,16 @@ export class ContactController {
    * POST /api/contact
    */
   async submitContactForm(req: Request, res: Response, next: NextFunction): Promise<void> {
-    logger.info('submitContactForm: BEGIN', { 
-      requestId: req.requestId,
-      userId: req.user?.userId 
-    });
-
     try {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        logger.warn('submitContactForm: Validation errors', { errors: errors.array() });
         res.status(400).json({ errors: errors.array() });
         return;
       }
 
       // Ensure user is authenticated
       if (!req.user) {
-        logger.warn('submitContactForm: No authenticated user');
         res.status(401).json({ error: 'Authentication required' });
         return;
       }
@@ -36,26 +29,14 @@ export class ContactController {
       const { subject, orderId, message } = req.body;
       const { userId, email } = req.user;
 
-      logger.info('submitContactForm: Fetching user info', { userId, email });
-
       // Fetch additional user info from database
       const user = await prisma.user.findUnique({
         where: { id: userId },
         select: { name: true, phoneNumber: true }
       });
 
-      logger.info('submitContactForm: User fetched', { 
-        userId, 
-        userName: user?.name, 
-        hasPhone: !!user?.phoneNumber 
-      });
-
       const name = user?.name || 'Customer';
       const phoneNumber = user?.phoneNumber || undefined;
-
-      logger.info('submitContactForm: Creating message in database', { 
-        userId, subject, orderId 
-      });
 
       // Save message to database
       const savedMessage = await contactMessageService.createMessage({
@@ -68,16 +49,6 @@ export class ContactController {
         message
       });
 
-      logger.info('submitContactForm: Message saved successfully', {
-        messageId: savedMessage.id,
-        userId,
-        userEmail: email,
-        subject,
-        orderId,
-        requestId: req.requestId,
-      });
-
-      logger.info('submitContactForm: END - Success', { messageId: savedMessage.id });
 
       res.status(200).json({
         success: true,

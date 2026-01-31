@@ -17,20 +17,34 @@ export const getProductCategoryLabel = (product) => {
 };
 
 export const resolveQuantityDiscounts = (product) => {
-  if (product?.quantityDiscountsOverride && product.quantityDiscountsOverride.length > 0) {
+  // Check product override first
+  if (product?.quantityDiscountsOverride && Array.isArray(product.quantityDiscountsOverride) && product.quantityDiscountsOverride.length > 0) {
     return product.quantityDiscountsOverride;
   }
-  return product?.category?.quantityDiscounts || [];
+  // Fall back to category discounts
+  const categoryDiscounts = product?.category?.quantityDiscounts;
+  if (categoryDiscounts && Array.isArray(categoryDiscounts) && categoryDiscounts.length > 0) {
+    return categoryDiscounts;
+  }
+  return [];
 };
 
 export const getDiscountedUnitPrice = (product, quantity) => {
   const rules = resolveQuantityDiscounts(product);
   const match = rules.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
   if (!match) return product.price;
-  const discount = match.type === 'percent'
-    ? product.price * (match.value / 100)
-    : match.value;
-  return Math.max(0, product.price - discount);
+  
+  // For percent: discount applies per unit
+  // For fixed: discount applies to total, so we calculate the effective unit discount
+  if (match.type === 'percent') {
+    const discount = product.price * (match.value / 100);
+    return Math.max(0, product.price - discount);
+  } else {
+    // Fixed discount on total - calculate effective unit price
+    const totalOriginal = product.price * quantity;
+    const totalDiscounted = Math.max(0, totalOriginal - match.value);
+    return totalDiscounted / quantity;
+  }
 };
 
 export const formatQuantityDiscounts = (rules = []) =>

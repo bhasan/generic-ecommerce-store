@@ -210,6 +210,132 @@
   font-weight: 800;
   color: var(--color-primary-light);
   line-height: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.price-per-unit {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+/* Quantity Discounts Table */
+.quantity-discounts-table {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-top: -0.5rem;
+}
+
+.discounts-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.discounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.discount-tier {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.discount-qty {
+  color: var(--text-primary);
+  font-weight: 500;
+  min-width: 60px;
+}
+
+.discount-value {
+  color: var(--color-secondary);
+  font-weight: 600;
+  min-width: 80px;
+}
+
+.discount-price {
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
+
+/* Dynamic Price Display */
+.dynamic-price-display {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border: 1px solid var(--color-primary-dark);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.price-row + .price-row {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.price-label {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.price-original {
+  color: var(--text-tertiary);
+  font-size: 1.125rem;
+  text-decoration: line-through;
+}
+
+.price-arrow {
+  color: var(--text-tertiary);
+  font-size: 1rem;
+}
+
+.price-discounted {
+  color: var(--color-secondary);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.price-total-row {
+  font-size: 1rem;
+}
+
+.price-total {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.price-savings {
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--color-secondary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-left: auto;
 }
 
 /* Description */
@@ -387,5 +513,35 @@
   .thumbnail {
     width: 80px;
     height: 80px;
+  }
+
+  /* Quantity Discounts responsive */
+  .discount-tier {
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .discount-qty {
+    min-width: auto;
+  }
+
+  .discount-value {
+    min-width: auto;
+  }
+
+  /* Dynamic Price responsive */
+  .price-row {
+    gap: 0.5rem;
+  }
+
+  .price-total {
+    font-size: 1.25rem;
+  }
+
+  .price-savings {
+    margin-left: 0;
+    margin-top: 0.5rem;
+    width: 100%;
+    text-align: center;
   }
 }

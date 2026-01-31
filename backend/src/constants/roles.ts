@@ -1,4 +1,4 @@
-export const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
+export const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
 
 export type RoleName = (typeof ROLE_NAMES)[number];
 

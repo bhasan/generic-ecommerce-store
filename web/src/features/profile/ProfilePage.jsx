@@ -1,16 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
-import { User, Mail, Save, Shield } from 'lucide-react';
+import { User, Mail, Save, DollarSign, MapPin, Phone } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import * as authApi from '../../services/authApi';
+
+// Helper to parse address string into components
+const parseAddress = (addressStr) => {
+  if (!addressStr) return { street: '', apartment: '', city: '', state: 'TX', zipCode: '' };
+  
+  // Try to parse address like "123 Main St, Apt 4B, City, TX 12345"
+  const parts = addressStr.split(',').map(p => p.trim());
+  
+  if (parts.length >= 3) {
+    // Check if second part looks like an apartment
+    const hasApt = parts[1]?.toLowerCase().includes('apt') || parts[1]?.toLowerCase().includes('suite');
+    
+    if (hasApt && parts.length >= 4) {
+      // Format: street, apt, city, state zip
+      const stateZip = parts[3]?.split(' ') || [];
+      return {
+        street: parts[0] || '',
+        apartment: parts[1]?.replace(/^(apt|suite)\s*/i, '') || '',
+        city: parts[2] || '',
+        state: stateZip[0] || 'TX',
+        zipCode: stateZip[1] || ''
+      };
+    } else {
+      // Format: street, city, state zip
+      const stateZip = parts[2]?.split(' ') || [];
+      return {
+        street: parts[0] || '',
+        apartment: '',
+        city: parts[1] || '',
+        state: stateZip[0] || 'TX',
+        zipCode: stateZip[1] || ''
+      };
+    }
+  }
+  
+  // Fallback - just put everything in street
+  return { street: addressStr, apartment: '', city: '', state: 'TX', zipCode: '' };
+};
+
+// Helper to combine address components into string
+const formatAddress = (address) => {
+  const parts = [address.street];
+  if (address.apartment) parts.push(`Apt ${address.apartment}`);
+  if (address.city) parts.push(address.city);
+  if (address.state || address.zipCode) {
+    parts.push(`${address.state} ${address.zipCode}`.trim());
+  }
+  return parts.filter(Boolean).join(', ');
+};
 
 function ProfilePage() {
   const { currentUser, updateUserProfile, showNotification } = useApp();
   const [formData, setFormData] = useState({
     name: currentUser.name || '',
     email: currentUser.email || '',
+    cashapp: currentUser.cashapp || '',
+    phoneNumber: currentUser.phoneNumber || '',
   });
+  const [address, setAddress] = useState(parseAddress(currentUser.address));
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [error, setError] = useState('');
@@ -24,7 +76,10 @@ function ProfilePage() {
         setFormData({
           name: user.name || '',
           email: user.email || '',
+          cashapp: user.cashapp || '',
+          phoneNumber: user.phoneNumber || '',
         });
+        setAddress(parseAddress(user.address));
       } catch (err) {
         setError(err.message || 'Failed to load profile');
         showNotification(err.message || 'Failed to load profile', 'error');
@@ -47,7 +102,9 @@ function ProfilePage() {
     setIsLoading(true);
     
     try {
-      await updateUserProfile(formData);
+      // Combine address fields into single string for storage
+      const fullAddress = formatAddress(address);
+      await updateUserProfile({ ...formData, address: fullAddress });
       // Success notification is handled in AppContext
     } catch (err) {
       setError(err.message || 'Failed to update profile');
@@ -55,10 +112,6 @@ function ProfilePage() {
       setIsLoading(false);
     }
   };
-
-  // Get primary role for display
-  const primaryRole = currentUser.roles?.[0] || currentUser.role || 'CUSTOMER';
-  const rolesDisplay = currentUser.roles?.join(', ') || primaryRole;
 
   if (isLoadingProfile) {
     return (
@@ -120,12 +173,111 @@ function ProfilePage() {
               />
             </div>
 
-            <div className="profile-info-box">
-              <Shield size={20} />
-              <div>
-                <p className="info-title">Account Role{currentUser.roles?.length > 1 ? 's' : ''}</p>
-                <p className="info-value">{rolesDisplay}</p>
+            <div className="form-group">
+              <label htmlFor="cashapp" className="form-label">
+                <DollarSign size={16} />
+                <span>CashApp Username</span>
+              </label>
+              <input
+                id="cashapp"
+                type="text"
+                value={formData.cashapp}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  // Auto-add $ if not present
+                  if (value && !value.startsWith('$')) {
+                    value = '$' + value;
+                  }
+                  setFormData({ ...formData, cashapp: value });
+                }}
+                className="form-input"
+                placeholder="$YourCashApp"
+              />
+              <span className="form-hint">Required for payment processing</span>
+            </div>
+
+            <div className="form-section">
+              <label className="form-label form-section-label">
+                <MapPin size={16} />
+                <span>Delivery Address</span>
+              </label>
+              
+              <div className="form-group">
+                <label htmlFor="street" className="form-label-small">Street Address</label>
+                <input
+                  id="street"
+                  type="text"
+                  value={address.street}
+                  onChange={(e) => setAddress({ ...address, street: e.target.value })}
+                  className="form-input"
+                  placeholder="123 Main Street"
+                />
               </div>
+
+              <div className="form-group">
+                <label htmlFor="apartment" className="form-label-small">Apartment, Suite, etc. (Optional)</label>
+                <input
+                  id="apartment"
+                  type="text"
+                  value={address.apartment}
+                  onChange={(e) => setAddress({ ...address, apartment: e.target.value })}
+                  className="form-input"
+                  placeholder="Apt 4B"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group form-group-city">
+                  <label htmlFor="city" className="form-label-small">City</label>
+                  <input
+                    id="city"
+                    type="text"
+                    value={address.city}
+                    onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                    className="form-input"
+                    placeholder="Houston"
+                  />
+                </div>
+
+                <div className="form-group form-group-state">
+                  <label htmlFor="state" className="form-label-small">State</label>
+                  <select
+                    id="state"
+                    value={address.state}
+                    onChange={(e) => setAddress({ ...address, state: e.target.value })}
+                    className="form-input"
+                  >
+                    <option value="TX">TX</option>
+                  </select>
+                </div>
+
+                <div className="form-group form-group-zip">
+                  <label htmlFor="zipCode" className="form-label-small">ZIP Code</label>
+                  <input
+                    id="zipCode"
+                    type="text"
+                    value={address.zipCode}
+                    onChange={(e) => setAddress({ ...address, zipCode: e.target.value })}
+                    className="form-input"
+                    placeholder="77001"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="phoneNumber" className="form-label">
+                <Phone size={16} />
+                <span>Phone Number</span>
+              </label>
+              <input
+                id="phoneNumber"
+                type="tel"
+                value={formData.phoneNumber}
+                onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                className="form-input"
+                placeholder="(555) 123-4567"
+              />
             </div>
 
             {error && (
@@ -139,26 +291,6 @@ function ProfilePage() {
               <span>{isLoading ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </form>
-        </div>
-
-        <div className="profile-sidebar">
-          <div className="profile-stats-card surface-card">
-            <h3 className="stats-title">Account Statistics</h3>
-            <div className="stats-list">
-              <div className="stat-item">
-                <span className="stat-label">Account ID</span>
-                <span className="stat-value">#{currentUser.id}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Role{currentUser.roles?.length > 1 ? 's' : ''}</span>
-                <span className="stat-value">{rolesDisplay}</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-label">Status</span>
-                <span className="stat-value stat-active">Active</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -28,7 +28,12 @@ export const authorize = (...allowedRoles: RoleName[]) => {
 /**
  * Check if user is CUSTOMER or higher
  */
-export const authorizeCustomer = authorize('CUSTOMER', 'MANAGEMENT', 'ADMIN');
+export const authorizeCustomer = authorize('CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN');
+
+/**
+ * Check if user is EMPLOYEE or higher (can manage orders)
+ */
+export const authorizeEmployee = authorize('EMPLOYEE', 'MANAGEMENT', 'ADMIN');
 
 /**
  * Check if user is MANAGEMENT or ADMIN

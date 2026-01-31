@@ -1,10 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
-import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel } from './productsHelpers';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
 import './ProductItemPage.css';
+
+// Component to display available quantity discounts
+function QuantityDiscountsTable({ product, discounts }) {
+  if (!discounts || discounts.length === 0) return null;
+
+  // Sort discounts by quantity
+  const sortedDiscounts = [...discounts].sort((a, b) => a.quantity - b.quantity);
+
+  return (
+    <div className="quantity-discounts-table">
+      <div className="discounts-header">
+        <Tag size={16} />
+        <span>Quantity Discounts</span>
+      </div>
+      <div className="discounts-list">
+        {sortedDiscounts.map((discount, index) => {
+          const discountLabel = discount.type === 'percent'
+            ? `${discount.value}% off`
+            : `$${discount.value.toFixed(2)} off`;
+          
+          return (
+            <div key={index} className="discount-tier">
+              <span className="discount-qty">Buy {discount.quantity}:</span>
+              <span className="discount-value">{discountLabel}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Component to display dynamic price based on selected quantity
+function DynamicPriceDisplay({ product, quantity, discounts }) {
+  const basePrice = product.price;
+  const originalTotal = basePrice * quantity;
+  
+  // Find matching discount rule
+  const matchingDiscount = discounts.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
+  
+  // Calculate discount on total amount
+  let totalSavings = 0;
+  if (matchingDiscount) {
+    if (matchingDiscount.type === 'percent') {
+      totalSavings = originalTotal * (matchingDiscount.value / 100);
+    } else {
+      // Fixed discount applies to the total, not per unit
+      totalSavings = matchingDiscount.value;
+    }
+  }
+  
+  const totalPrice = Math.max(0, originalTotal - totalSavings);
+  const hasDiscount = totalSavings > 0;
+
+  return (
+    <div className="dynamic-price-display">
+      {hasDiscount ? (
+        <>
+          <div className="price-row price-total-row">
+            <span className="price-label">Total ({quantity} items):</span>
+            <span className="price-original">${originalTotal.toFixed(2)}</span>
+            <span className="price-arrow">→</span>
+            <span className="price-total">${totalPrice.toFixed(2)}</span>
+          </div>
+          <div className="price-row">
+            <span className="price-savings">Save ${totalSavings.toFixed(2)}</span>
+          </div>
+        </>
+      ) : (
+        <div className="price-row price-total-row">
+          <span className="price-label">Total ({quantity} items):</span>
+          <span className="price-total">${originalTotal.toFixed(2)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ProductItemPage() {
   const { id } = useParams();
@@ -75,6 +152,17 @@ function ProductItemPage() {
       ? product.allowedQuantitiesOverride
       : product.category?.allowedQuantities || [];
 
+  // Get quantity discounts for this product
+  const quantityDiscounts = resolveQuantityDiscounts(product);
+  
+  // Debug: Log discount data (remove after debugging)
+  console.log('Product discount debug:', {
+    productName: product.name,
+    productQuantityDiscountsOverride: product.quantityDiscountsOverride,
+    categoryName: product.category?.name,
+    categoryQuantityDiscounts: product.category?.quantityDiscounts,
+    resolvedDiscounts: quantityDiscounts
+  });
   
   // Calculate average rating
   const getAverageRating = () => {
@@ -171,7 +259,11 @@ function ProductItemPage() {
           
           <div className="product-price-display">
             ${product.price.toFixed(2)}
+            {quantityDiscounts.length > 0 && <span className="price-per-unit">/ each</span>}
           </div>
+
+          {/* Quantity Discounts Table */}
+          <QuantityDiscountsTable product={product} discounts={quantityDiscounts} />
           
           <p className="product-description-full">{product.description}</p>
           
@@ -210,6 +302,13 @@ function ProductItemPage() {
               />
             )}
           </div>
+
+          {/* Dynamic Price Display */}
+          <DynamicPriceDisplay 
+            product={product} 
+            quantity={selectedQuantity} 
+            discounts={quantityDiscounts} 
+          />
 
           {/* Add to Cart Button */}
           <button

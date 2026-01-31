@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getProductImageSrc } from './productsHelpers';
+import { getProductImageSrc, getDiscountedUnitPrice, resolveQuantityDiscounts } from './productsHelpers';
 import ProductQuantityActions from './ProductQuantityActions';
 import ProductCard from './ProductCard';
 import ProductListItem from './ProductListItem';
@@ -36,6 +36,8 @@ function ProductsGrid({
     const showStock = product.stockEnabled !== false;
     const allowedQuantities = resolveAllowedQuantities(product);
     const quantityValue = getQuantityValue(product);
+    const discountedPrice = getDiscountedUnitPrice(product, quantityValue);
+    const hasDiscount = discountedPrice < product.price;
 
     return (
       <ProductCard
@@ -44,6 +46,9 @@ function ProductsGrid({
         imageSrc={mainImage}
         categoryLabel={getCategoryLabel(product)}
         onClick={() => onProductClick(product.id)}
+        discountedPrice={discountedPrice}
+        hasDiscount={hasDiscount}
+        quantity={quantityValue}
       >
         <ProductQuantityActions
           allowedQuantities={allowedQuantities}
@@ -65,6 +70,8 @@ function ProductsGrid({
     const showStock = product.stockEnabled !== false;
     const allowedQuantities = resolveAllowedQuantities(product);
     const quantityValue = getQuantityValue(product);
+    const discountedPrice = getDiscountedUnitPrice(product, quantityValue);
+    const hasDiscount = discountedPrice < product.price;
 
     return (
       <ProductListItem
@@ -75,6 +82,9 @@ function ProductsGrid({
         showStock={showStock}
         showHiddenLabel={showHiddenLabel}
         onClick={() => onProductClick(product.id)}
+        discountedPrice={discountedPrice}
+        hasDiscount={hasDiscount}
+        quantity={quantityValue}
       >
         <ProductQuantityActions
           allowedQuantities={allowedQuantities}

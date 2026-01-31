@@ -152,3 +152,57 @@
   color: var(--color-primary-light);
   margin: 0;
 }
+
+/* Product Price Container for Discount Display */
+.product-price-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.product-price-original {
+  font-size: 1rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.product-price-discounted {
+  color: var(--color-secondary);
+}
+
+/* Product Footer */
+.product-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-top: auto;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.product-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* List View Price Styles */
+.product-list-price-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.product-list-price-original {
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  text-decoration: line-through;
+}
+
+.product-list-price-discounted {
+  color: var(--color-secondary);
+}

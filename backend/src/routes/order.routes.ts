@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import orderController from '../controllers/order.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { authorizeManagement, authorizeAdmin, authorize } from '../middleware/role.middleware';
+import { authorizeManagement, authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role.middleware';
 
 const router = Router();
 
@@ -76,12 +76,12 @@ router.patch(
 /**
  * @route   POST /api/orders/:id/items
  * @desc    Add item to order
- * @access  Private (Management/Admin only)
+ * @access  Private (Employee/Management/Admin)
  */
 router.post(
   '/:id/items',
   authenticate,
-  authorizeManagement,
+  authorizeEmployee,
   [
     body('productId').isInt().withMessage('Valid product ID is required'),
     body('quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0')
@@ -92,16 +92,16 @@ router.post(
 /**
  * @route   PATCH /api/orders/:id/items/:itemId/void
  * @desc    Void order item
- * @access  Private (Management/Admin only)
+ * @access  Private (Employee/Management/Admin)
  */
-router.patch('/:id/items/:itemId/void', authenticate, authorizeManagement, orderController.voidOrderItem);
+router.patch('/:id/items/:itemId/void', authenticate, authorizeEmployee, orderController.voidOrderItem);
 
 /**
  * @route   DELETE /api/orders/:id/items/:itemId
  * @desc    Delete order item
- * @access  Private (Management/Admin only)
+ * @access  Private (Employee/Management/Admin)
  */
-router.delete('/:id/items/:itemId', authenticate, authorizeManagement, orderController.deleteOrderItem);
+router.delete('/:id/items/:itemId', authenticate, authorizeEmployee, orderController.deleteOrderItem);
 
 /**
  * @route   DELETE /api/orders/:id

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
+import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import { hasRole } from '../../utils/roles';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
@@ -21,12 +21,16 @@ function Navbar() {
   const isGuest = currentUser.email === 'guest@smokestation.com';
 
   const isCustomer = hasRole(currentUser, 'CUSTOMER')
+    && !hasRole(currentUser, 'EMPLOYEE')
     && !hasRole(currentUser, 'MANAGEMENT')
     && !hasRole(currentUser, 'ADMIN')
     && !hasRole(currentUser, 'DELIVERY_DRIVER');
+  const isEmployee = hasRole(currentUser, 'EMPLOYEE');
   const isManagement = hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
   const isAdmin = hasRole(currentUser, 'ADMIN');
   const isDeliveryDriver = hasRole(currentUser, 'DELIVERY_DRIVER');
+  // Can manage orders: employees, managers, and admins
+  const canManageOrders = isEmployee || isManagement;
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -111,28 +115,30 @@ function Navbar() {
         </NavLink>
       )}
 
-      {/* Admin/Manager links */}
-      {isManagement && (
-        <>
-          <NavLink 
-            to="/orders" 
-            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          >
-            <Package size={18} />
-            <span>Manage Orders</span>
-          </NavLink>
-          <NavLink 
-            to="/manage-products" 
-            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          >
-            <Users size={18} />
-            <span>Manage Products</span>
-          </NavLink>
-        </>
+      {/* Employee/Manager/Admin - Orders */}
+      {canManageOrders && (
+        <NavLink 
+          to="/orders" 
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Package size={18} />
+          <span>Orders</span>
+        </NavLink>
       )}
 
-      {/* Admin-only dropdown menu */}
-      {isAdmin && (
+      {/* Manager/Admin only - Manage Products */}
+      {isManagement && (
+        <NavLink 
+          to="/manage-products" 
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Users size={18} />
+          <span>Manage Products</span>
+        </NavLink>
+      )}
+
+      {/* Management dropdown menu (for both managers and admins) */}
+      {isManagement && (
         <div 
           className="admin-dropdown" 
           ref={adminRef}
@@ -143,10 +149,10 @@ function Navbar() {
               e.stopPropagation();
               setShowAdminMenu(!showAdminMenu);
             }}
-            aria-label="Admin menu"
+            aria-label="Management menu"
           >
             <Settings size={18} />
-            <span>Admin</span>
+            <span>{isAdmin ? 'Admin' : 'Manager'}</span>
             <ChevronDown size={16} className={`admin-chevron ${showAdminMenu ? 'admin-chevron-open' : ''}`} />
           </button>
 
@@ -189,8 +195,7 @@ function Navbar() {
         <div className="navbar-container">
           <div className="navbar-left">
             <Link to="/products" className="navbar-brand">
-              <Store size={28} />
-              <span>Smoke Station</span>
+              <span>Smoke Station HTX</span>
             </Link>
             
             {/* Desktop Navigation Links */}
