@@ -37,41 +37,41 @@ function App() {
               
               {/* All routes below require login (no guest access) */}
               <Route path="/products" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
                   <ProductsPage />
                 </ProtectedRoute>
               } />
               <Route path="/products/:id" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
                   <ProductItemPage />
                 </ProtectedRoute>
               } />
               <Route path="/cart" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
                   <CartPage />
                 </ProtectedRoute>
               } />
               <Route path="/checkout" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
                   <CheckoutPage />
                 </ProtectedRoute>
               } />
               <Route path="/order-success" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
                   <OrderSuccessPage />
                 </ProtectedRoute>
               } />
               
               {/* Profile Route - Protected for logged in users only */}
               <Route path="/profile" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
                   <ProfilePage />
                 </ProtectedRoute>
               } />
               
-              {/* Orders Route - Protected */}
+              {/* Orders Route - Protected (Employees can manage orders) */}
               <Route path="/orders" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
                   <OrdersPage />
                 </ProtectedRoute>
               } />
@@ -107,7 +107,7 @@ function App() {
 
               {/* Help Page - All authenticated users */}
               <Route path="/help" element={
-                <ProtectedRoute roles={['CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']}>
+                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']}>
                   <HelpPage />
                 </ProtectedRoute>
               } />

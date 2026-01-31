@@ -69,16 +69,30 @@ function CartPreview({ cart, cartCount }) {
               )}
             </div>
           )}
-          <button
-            type="button"
-            className="cart-dropdown-button"
-            onClick={() => {
-              setOpen(false);
-              navigate('/cart');
-            }}
-          >
-            View cart
-          </button>
+          <div className="cart-dropdown-buttons">
+            <button
+              type="button"
+              className="cart-dropdown-button"
+              onClick={() => {
+                setOpen(false);
+                navigate('/cart');
+              }}
+            >
+              View Cart
+            </button>
+            {cart.length > 0 && (
+              <button
+                type="button"
+                className="cart-dropdown-button cart-dropdown-button-checkout"
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/checkout');
+                }}
+              >
+                Checkout
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

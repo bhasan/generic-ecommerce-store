@@ -20,7 +20,7 @@ async function seed() {
   // Create test users
   console.log('👥 Creating users...');
   
-  const roleNames = ['GUEST', 'CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
+  const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
   type RoleName = (typeof roleNames)[number];
 
   const roles = await Promise.all(
@@ -61,6 +61,19 @@ async function seed() {
   });
   await prisma.userRole.createMany({
     data: getRoleIds(['MANAGEMENT']).map(roleId => ({ userId: manager.id, roleId }))
+  });
+
+  const employeePassword = await hashPassword('employee123');
+  const employee = await prisma.user.create({
+    data: {
+      email: 'employee@test.com',
+      password: employeePassword,
+      name: 'Sam Employee',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['EMPLOYEE']).map(roleId => ({ userId: employee.id, roleId }))
   });
 
   const customerPassword = await hashPassword('customer123');
@@ -159,6 +172,7 @@ async function seed() {
   console.log('✅ Users created');
   console.log('   Admin:', admin.email, '/ admin123');
   console.log('   Manager:', manager.email, '/ manager123');
+  console.log('   Employee:', employee.email, '/ employee123');
   console.log('   Customer:', customer.email, '/ customer123');
   console.log('   Driver:', driver.email, '/ driver123');
   console.log('   Sarah:', sarah.email, '/ customer123');
@@ -472,7 +486,7 @@ async function seed() {
   console.log('🎉 Database seeded successfully!');
   console.log('');
   console.log('📋 Summary:');
-  console.log(`   Users: ${8}`); // admin, manager, customer, driver, sarah, mike, emily, david
+  console.log(`   Users: ${9}`); // admin, manager, employee, customer, driver, sarah, mike, emily, david
   console.log(`   Products: ${products.length}`);
   console.log(`   Reviews: ${6}`);
   console.log(`   Orders: ${5} (2 regular, 3 ready for delivery)`);
@@ -480,6 +494,7 @@ async function seed() {
   console.log('🔐 Test Accounts:');
   console.log('   Admin:    admin@test.com / admin123');
   console.log('   Manager:  manager@test.com / manager123');
+  console.log('   Employee: employee@test.com / employee123');
   console.log('   Customer: customer@test.com / customer123');
   console.log('   Driver:   driver@test.com / driver123');
   console.log('   Sarah:    sarah@test.com / customer123');

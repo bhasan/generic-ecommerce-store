@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
-import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle, User, CreditCard, Phone, MapPin } from 'lucide-react';
+import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle, User, CreditCard, Phone, MapPin, LayoutGrid, List, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole } from '../../utils/roles';
+
+// Closed order statuses (not shown by default)
+const CLOSED_STATUSES = ['DELIVERED', 'NOT_FULFILLING'];
 
 const ORDER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS || 60000);
 
@@ -31,21 +34,40 @@ function OrdersPage() {
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [newOrderIds, setNewOrderIds] = useState([]);
+  const [showAllOrders, setShowAllOrders] = useState(false);
+  const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
   const knownOrderIdsRef = useRef(new Set());
   const viewStartAtRef = useRef(Date.now());
   const hasInitializedOrdersRef = useRef(false);
   const ordersRef = useRef(orders);
 
-  // Customers see only their orders, admins/managers see all
+  // Customers see only their orders, employees/admins/managers see all
   const isCustomerOnly = hasRole(currentUser, 'CUSTOMER')
+    && !hasRole(currentUser, 'EMPLOYEE')
     && !hasRole(currentUser, 'MANAGEMENT')
     && !hasRole(currentUser, 'ADMIN');
-  const userOrders = isCustomerOnly
-    ? orders.filter(o => o.userId === currentUser.id)
-    : orders;
+  
+  // Filter orders based on user role and show all toggle
+  const filteredOrders = orders.filter(o => {
+    // First apply user filter
+    if (isCustomerOnly && o.userId !== currentUser.id) return false;
+    // Then apply open/all filter (only for non-customers)
+    if (!isCustomerOnly && !showAllOrders && CLOSED_STATUSES.includes(o.status)) return false;
+    return true;
+  });
 
-  // Only admins and managers can modify orders
-  const canModifyOrders = hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
+  // Count open orders for display
+  const openOrdersCount = orders.filter(o => {
+    if (isCustomerOnly && o.userId !== currentUser.id) return false;
+    return !CLOSED_STATUSES.includes(o.status);
+  }).length;
+
+  const totalOrdersCount = isCustomerOnly 
+    ? orders.filter(o => o.userId === currentUser.id).length 
+    : orders.length;
+
+  // Employees, managers, and admins can modify orders
+  const canModifyOrders = hasRole(currentUser, 'EMPLOYEE') || hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
   
   useEffect(() => {
     ordersRef.current = orders;
@@ -288,44 +310,169 @@ function OrdersPage() {
       <div className="orders-header section-header-surface">
         <div>
           <h2 className="page-title">
-            {isCustomerOnly ? 'My Orders' : 'All Orders'}
+            {isCustomerOnly ? 'My Orders' : 'Orders'}
           </h2>
           <p className="page-subtitle">
-            {userOrders.length} {userOrders.length === 1 ? 'order' : 'orders'} found
+            {showAllOrders 
+              ? `${filteredOrders.length} ${filteredOrders.length === 1 ? 'order' : 'orders'} total`
+              : `${filteredOrders.length} open ${filteredOrders.length === 1 ? 'order' : 'orders'}`
+            }
+            {!isCustomerOnly && !showAllOrders && totalOrdersCount > openOrdersCount && (
+              <span className="orders-hidden-count"> ({totalOrdersCount - openOrdersCount} completed hidden)</span>
+            )}
           </p>
         </div>
-        <button
-          onClick={() => loadOrders()}
-          className="btn-refresh-orders"
-          title="Refresh orders"
-          disabled={isLoadingOrders}
-        >
-          <RefreshCw size={18} className={isLoadingOrders ? 'spinning' : ''} />
-          <span>Refresh</span>
-        </button>
+        <div className="orders-header-actions">
+          {/* View Mode Toggle */}
+          {!isCustomerOnly && (
+            <div className="view-toggle">
+              <button
+                onClick={() => setViewMode('card')}
+                className={`btn-view-toggle ${viewMode === 'card' ? 'active' : ''}`}
+                title="Card view"
+              >
+                <LayoutGrid size={18} />
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`btn-view-toggle ${viewMode === 'list' ? 'active' : ''}`}
+                title="List view"
+              >
+                <List size={18} />
+              </button>
+            </div>
+          )}
+          
+          {/* Show All Toggle */}
+          {!isCustomerOnly && (
+            <button
+              onClick={() => setShowAllOrders(!showAllOrders)}
+              className={`btn-filter-toggle ${showAllOrders ? 'active' : ''}`}
+              title={showAllOrders ? 'Show open orders only' : 'Show all orders'}
+            >
+              <Filter size={18} />
+              <span>{showAllOrders ? 'All Orders' : 'Open Only'}</span>
+            </button>
+          )}
+          
+          <button
+            onClick={() => loadOrders()}
+            className="btn-refresh-orders"
+            title="Refresh orders"
+            disabled={isLoadingOrders}
+          >
+            <RefreshCw size={18} className={isLoadingOrders ? 'spinning' : ''} />
+            <span>Refresh</span>
+          </button>
+        </div>
       </div>
       <HeaderDivider />
 
-      <div className="orders-list">
+      <div className={`orders-list ${viewMode === 'list' ? 'orders-list-compact' : ''}`}>
         {isLoadingOrders ? (
           <div className="empty-state">
             <Package size={64} className="empty-icon" />
             <p>Loading orders...</p>
           </div>
-        ) : userOrders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="empty-state">
             <Package size={64} className="empty-icon" />
-            <p>No orders found.</p>
+            <p>{showAllOrders ? 'No orders found.' : 'No open orders. '} 
+              {!showAllOrders && totalOrdersCount > 0 && (
+                <button 
+                  onClick={() => setShowAllOrders(true)} 
+                  className="btn-link"
+                >
+                  Show all orders
+                </button>
+              )}
+            </p>
+          </div>
+        ) : viewMode === 'list' ? (
+          // Compact List View
+          <div className="orders-table">
+            <div className="orders-table-header">
+              <div className="orders-table-cell cell-id">Order</div>
+              <div className="orders-table-cell cell-customer">Customer</div>
+              <div className="orders-table-cell cell-payment">Payment</div>
+              <div className="orders-table-cell cell-items">Items</div>
+              <div className="orders-table-cell cell-total">Total</div>
+              <div className="orders-table-cell cell-status">Status</div>
+              <div className="orders-table-cell cell-actions">Actions</div>
+            </div>
+            {filteredOrders.map(order => {
+              const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
+              const isNewOrder = newOrderIds.includes(order.id);
+              const itemCount = order.items?.filter(i => !i.voided).length || 0;
+              
+              return (
+                <div 
+                  key={order.id} 
+                  className={`orders-table-row ${isNewOrder ? 'orders-table-row-new' : ''}`}
+                >
+                  <div className="orders-table-cell cell-id">
+                    <span className="order-id-compact">#{order.id}</span>
+                    {isNewOrder && <span className="order-new-badge-small">New</span>}
+                  </div>
+                  <div className="orders-table-cell cell-customer">
+                    <span className="customer-name-compact">{order.user?.name || 'N/A'}</span>
+                  </div>
+                  <div className="orders-table-cell cell-payment">
+                    <span className={`payment-compact ${order.user?.cashapp ? 'has-payment' : 'no-payment'}`}>
+                      {order.user?.cashapp || '—'}
+                    </span>
+                  </div>
+                  <div className="orders-table-cell cell-items">
+                    <span className="items-count">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+                  </div>
+                  <div className="orders-table-cell cell-total">
+                    <span className="total-compact">${order.total.toFixed(2)}</span>
+                  </div>
+                  <div className="orders-table-cell cell-status">
+                    <div className={`status-badge-compact ${getStatusClass(order.status)}`}>
+                      {getStatusIcon(order.status)}
+                      <span>{order.status.replace(/_/g, ' ')}</span>
+                    </div>
+                  </div>
+                  <div className="orders-table-cell cell-actions">
+                    {nextActions.length > 0 && (
+                      <button
+                        onClick={() => handleQuickAction(order.id, nextActions[0].status)}
+                        className={`btn-quick-action-compact ${nextActions[0].className}`}
+                        title={nextActions[0].label}
+                      >
+                        {nextActions[0].icon}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setViewMode('card');
+                        // Scroll to the order after switching to card view
+                        setTimeout(() => {
+                          const element = document.getElementById(`order-${order.id}`);
+                          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 100);
+                      }}
+                      className="btn-view-details"
+                      title="View details"
+                    >
+                      <Edit size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
-          userOrders.map(order => {
+          // Card View
+          filteredOrders.map(order => {
             const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
             const isEditing = editingOrderId === order.id;
             const canEdit = canModifyOrders && order.status !== 'DELIVERED';
             const isNewOrder = newOrderIds.includes(order.id);
             
             return (
-              <div key={order.id} className={`order-card surface-card ${isNewOrder ? 'order-card-new' : ''}`}>
+              <div key={order.id} id={`order-${order.id}`} className={`order-card surface-card ${isNewOrder ? 'order-card-new' : ''}`}>
                 <div className="order-header">
                   <div className="order-info">
                     <h3 className="order-id">

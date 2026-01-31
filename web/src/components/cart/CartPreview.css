@@ -109,14 +109,20 @@
   font-size: var(--font-size-xs);
 }
 
-.cart-dropdown-button {
-  width: 100%;
+.cart-dropdown-buttons {
+  display: flex;
+  gap: var(--spacing-xs);
   margin-top: var(--spacing-sm);
-  padding: var(--spacing-sm);
+}
+
+.cart-dropdown-button {
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-md);
   background: var(--color-primary-dark);
   color: var(--text-on-primary);
   border: none;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: var(--transition-all);
@@ -125,4 +131,12 @@
 .cart-dropdown-button:hover {
   transform: translateY(-1px);
   box-shadow: var(--shadow-primary);
+}
+
+.cart-dropdown-button-checkout {
+  background: var(--color-secondary);
+}
+
+.cart-dropdown-button-checkout:hover {
+  box-shadow: var(--shadow-secondary);
 }

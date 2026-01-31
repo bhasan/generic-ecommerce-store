@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
@@ -7,6 +7,44 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
+
+// Helper to parse address string into components
+const parseAddress = (addressStr) => {
+  if (!addressStr) return { street: '', apartment: '', city: '', state: 'TX', zipCode: '' };
+  
+  // Try to parse address like "123 Main St, Apt 4B, City, TX 12345"
+  const parts = addressStr.split(',').map(p => p.trim());
+  
+  if (parts.length >= 3) {
+    // Check if second part looks like an apartment
+    const hasApt = parts[1]?.toLowerCase().includes('apt') || parts[1]?.toLowerCase().includes('suite');
+    
+    if (hasApt && parts.length >= 4) {
+      // Format: street, apt, city, state zip
+      const stateZip = parts[3]?.split(' ') || [];
+      return {
+        street: parts[0] || '',
+        apartment: parts[1]?.replace(/^(apt|suite)\s*/i, '') || '',
+        city: parts[2] || '',
+        state: stateZip[0] || 'TX',
+        zipCode: stateZip[1] || ''
+      };
+    } else {
+      // Format: street, city, state zip
+      const stateZip = parts[2]?.split(' ') || [];
+      return {
+        street: parts[0] || '',
+        apartment: '',
+        city: parts[1] || '',
+        state: stateZip[0] || 'TX',
+        zipCode: stateZip[1] || ''
+      };
+    }
+  }
+  
+  // Fallback - just put everything in street
+  return { street: addressStr, apartment: '', city: '', state: 'TX', zipCode: '' };
+};
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -24,6 +62,22 @@ function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Pre-populate address and CashApp from user profile
+  useEffect(() => {
+    if (currentUser) {
+      // Parse and set address from user profile
+      if (currentUser.address) {
+        const parsedAddress = parseAddress(currentUser.address);
+        setAddress(parsedAddress);
+      }
+      
+      // Set CashApp username from user profile
+      if (currentUser.cashapp) {
+        setCashAppUsername(currentUser.cashapp);
+      }
+    }
+  }, [currentUser]);
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => {
