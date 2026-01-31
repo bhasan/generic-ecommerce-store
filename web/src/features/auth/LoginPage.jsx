@@ -126,45 +126,50 @@ function LoginPage() {
           </button>
         </form>
 
-        <div className="login-divider">
-          <span>Or try a demo account</span>
-        </div>
+        {/* Quick Login - Only shown in development mode */}
+        {import.meta.env.DEV && (
+          <>
+            <div className="login-divider">
+              <span>Or try a demo account</span>
+            </div>
 
-        <div className="quick-login-section">
-          <p className="quick-login-label">Quick Login</p>
-          <div className="quick-login-buttons">
-            <button
-              onClick={() => quickLogin('customer@test.com')}
-              className="btn-quick-login"
-            >
-              <User size={16} />
-              <div className="quick-login-text">
-                <span className="quick-login-role">Customer</span>
-                <span className="quick-login-email">customer@test.com</span>
+            <div className="quick-login-section">
+              <p className="quick-login-label">Quick Login</p>
+              <div className="quick-login-buttons">
+                <button
+                  onClick={() => quickLogin('customer@test.com')}
+                  className="btn-quick-login"
+                >
+                  <User size={16} />
+                  <div className="quick-login-text">
+                    <span className="quick-login-role">Customer</span>
+                    <span className="quick-login-email">customer@test.com</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => quickLogin('manager@test.com')}
+                  className="btn-quick-login"
+                >
+                  <User size={16} />
+                  <div className="quick-login-text">
+                    <span className="quick-login-role">Manager</span>
+                    <span className="quick-login-email">manager@test.com</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => quickLogin('admin@test.com')}
+                  className="btn-quick-login"
+                >
+                  <User size={16} />
+                  <div className="quick-login-text">
+                    <span className="quick-login-role">Admin</span>
+                    <span className="quick-login-email">admin@test.com</span>
+                  </div>
+                </button>
               </div>
-            </button>
-            <button
-              onClick={() => quickLogin('manager@test.com')}
-              className="btn-quick-login"
-            >
-              <User size={16} />
-              <div className="quick-login-text">
-                <span className="quick-login-role">Manager</span>
-                <span className="quick-login-email">manager@test.com</span>
-              </div>
-            </button>
-            <button
-              onClick={() => quickLogin('admin@test.com')}
-              className="btn-quick-login"
-            >
-              <User size={16} />
-              <div className="quick-login-text">
-                <span className="quick-login-role">Admin</span>
-                <span className="quick-login-email">admin@test.com</span>
-              </div>
-            </button>
-          </div>
-        </div>
+            </div>
+          </>
+        )}
 
         <div className="login-footer">
           <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
