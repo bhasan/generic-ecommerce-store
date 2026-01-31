@@ -160,15 +160,17 @@ export class OrderController {
       }
 
       const userRoles = req.user.roles || [];
+      const isEmployee = userRoles.includes('EMPLOYEE');
       const isManagementOrAdmin = userRoles.includes('MANAGEMENT') || userRoles.includes('ADMIN');
-      const isDeliveryDriver = userRoles.includes('DELIVERY_DRIVER') && !isManagementOrAdmin;
+      const canManageOrders = isEmployee || isManagementOrAdmin;
+      const isDeliveryDriver = userRoles.includes('DELIVERY_DRIVER') && !canManageOrders;
 
       if (isDeliveryDriver && req.body.status !== 'DELIVERED') {
         res.status(403).json({ error: 'Delivery drivers can only mark orders as DELIVERED' });
         return;
       }
 
-      if (!isManagementOrAdmin && !isDeliveryDriver) {
+      if (!canManageOrders && !isDeliveryDriver) {
         res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
         return;
       }

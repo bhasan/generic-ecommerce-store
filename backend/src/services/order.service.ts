@@ -77,7 +77,7 @@ export class OrderService {
    * Get all orders (with user filtering for customers)
    */
   async getAllOrders(userId: number, userRoles: RoleName[]) {
-    const isCustomerScoped = !hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']);
+    const isCustomerScoped = !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']);
     const where = isCustomerScoped ? { userId } : {};
 
     logger.info('Retrieving orders from database', {
@@ -107,7 +107,7 @@ export class OrderService {
 
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, name: true, email: true }
+        select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
       });
       const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -414,14 +414,14 @@ export class OrderService {
     }
 
     // Customers can only view their own orders
-    if (!hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']) && order.userId !== userId) {
+    if (!hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']) && order.userId !== userId) {
       throw new AppError('Access denied', 403);
     }
 
     // Fetch user
     const user = await prisma.user.findUnique({
       where: { id: order.userId },
-      select: { id: true, name: true, email: true }
+      select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
     });
 
     // Fetch order items
@@ -650,7 +650,7 @@ export class OrderService {
       });
 
       // Check if user is delivery driver trying to set status other than DELIVERED
-      if (userRoles && hasAnyRole(userRoles, ['DELIVERY_DRIVER']) && !hasAnyRole(userRoles, ['MANAGEMENT', 'ADMIN'])) {
+      if (userRoles && hasAnyRole(userRoles, ['DELIVERY_DRIVER']) && !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'])) {
         if (data.status !== 'DELIVERED') {
           logger.warn('Order status update denied: delivery driver trying to set non-DELIVERED status', {
             orderId,

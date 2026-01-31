@@ -36,7 +36,7 @@ function RegisterPage() {
         password: formData.password,
         name: formData.name,
         address: formData.address || undefined,
-        cashapp: formData.cashapp || undefined,
+        cashapp: formData.cashapp,
         phoneNumber: formData.phoneNumber || undefined
       });
       
@@ -141,17 +141,26 @@ function RegisterPage() {
           <div className="form-group">
             <label htmlFor="cashapp" className="form-label">
               <DollarSign size={16} />
-              <span>CashApp (Optional)</span>
+              <span>CashApp Username</span>
             </label>
             <input
               id="cashapp"
               name="cashapp"
               type="text"
               value={formData.cashapp}
-              onChange={handleChange}
+              onChange={(e) => {
+                let value = e.target.value;
+                // Auto-add $ if not present
+                if (value && !value.startsWith('$')) {
+                  value = '$' + value;
+                }
+                setFormData({ ...formData, cashapp: value });
+              }}
               className="form-input"
               placeholder="$YourCashApp"
+              required
             />
+            <span className="form-hint">Required for payment processing</span>
           </div>
 
           <div className="form-group">

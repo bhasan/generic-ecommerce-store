@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
@@ -8,13 +8,51 @@ import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } f
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
 
+// Helper to parse address string into components
+const parseAddress = (addressStr) => {
+  if (!addressStr) return { street: '', apartment: '', city: '', state: 'TX', zipCode: '' };
+  
+  // Try to parse address like "123 Main St, Apt 4B, City, TX 12345"
+  const parts = addressStr.split(',').map(p => p.trim());
+  
+  if (parts.length >= 3) {
+    // Check if second part looks like an apartment
+    const hasApt = parts[1]?.toLowerCase().includes('apt') || parts[1]?.toLowerCase().includes('suite');
+    
+    if (hasApt && parts.length >= 4) {
+      // Format: street, apt, city, state zip
+      const stateZip = parts[3]?.split(' ') || [];
+      return {
+        street: parts[0] || '',
+        apartment: parts[1]?.replace(/^(apt|suite)\s*/i, '') || '',
+        city: parts[2] || '',
+        state: stateZip[0] || 'TX',
+        zipCode: stateZip[1] || ''
+      };
+    } else {
+      // Format: street, city, state zip
+      const stateZip = parts[2]?.split(' ') || [];
+      return {
+        street: parts[0] || '',
+        apartment: '',
+        city: parts[1] || '',
+        state: stateZip[0] || 'TX',
+        zipCode: stateZip[1] || ''
+      };
+    }
+  }
+  
+  // Fallback - just put everything in street
+  return { street: addressStr, apartment: '', city: '', state: 'TX', zipCode: '' };
+};
+
 function CheckoutPage() {
   const navigate = useNavigate();
   const { cart, currentUser, checkout } = useApp();
   const [address, setAddress] = useState({
     street: '',
     city: '',
-    state: '',
+    state: 'TX',
     zipCode: '',
     apartment: ''
   });
@@ -24,6 +62,22 @@ function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Pre-populate address and CashApp from user profile
+  useEffect(() => {
+    if (currentUser) {
+      // Parse and set address from user profile
+      if (currentUser.address) {
+        const parsedAddress = parseAddress(currentUser.address);
+        setAddress(parsedAddress);
+      }
+      
+      // Set CashApp username from user profile
+      if (currentUser.cashapp) {
+        setCashAppUsername(currentUser.cashapp);
+      }
+    }
+  }, [currentUser]);
 
   // Calculate totals
   const subtotal = cart.reduce((sum, item) => {
@@ -206,141 +260,6 @@ function CheckoutPage() {
             </div>
           </div>
 
-          {/* Delivery Address Section */}
-          <div className="checkout-section surface-card">
-            <div className="section-header">
-              <MapPin size={20} />
-              <h3>Delivery Address</h3>
-            </div>
-            
-            <div className="address-form">
-              <div className="form-group">
-                <label htmlFor="street">Street Address *</label>
-                <input
-                  id="street"
-                  type="text"
-                  value={address.street}
-                  onChange={(e) => {
-                    setAddress({ ...address, street: e.target.value });
-                    if (errors.street) {
-                      setErrors({ ...errors, street: '' });
-                    }
-                  }}
-                  placeholder="123 Main Street"
-                  className={`form-input ${errors.street ? 'form-error' : ''}`}
-                />
-                {errors.street && (
-                  <span className="error-message">
-                    <AlertCircle size={14} />
-                    {errors.street}
-                  </span>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="apartment">Apartment, Suite, etc. (Optional)</label>
-                <input
-                  id="apartment"
-                  type="text"
-                  value={address.apartment}
-                  onChange={(e) => setAddress({ ...address, apartment: e.target.value })}
-                  placeholder="Apt 4B"
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="city">City *</label>
-                  <input
-                    id="city"
-                    type="text"
-                    value={address.city}
-                    onChange={(e) => {
-                      setAddress({ ...address, city: e.target.value });
-                      if (errors.city) {
-                        setErrors({ ...errors, city: '' });
-                      }
-                    }}
-                    placeholder="New York"
-                    className={`form-input ${errors.city ? 'form-error' : ''}`}
-                  />
-                  {errors.city && (
-                    <span className="error-message">
-                      <AlertCircle size={14} />
-                      {errors.city}
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-group form-group-state">
-                  <label htmlFor="state">State *</label>
-                  <input
-                    id="state"
-                    type="text"
-                    value={address.state}
-                    onChange={(e) => {
-                      setAddress({ ...address, state: e.target.value.toUpperCase() });
-                      if (errors.state) {
-                        setErrors({ ...errors, state: '' });
-                      }
-                    }}
-                    placeholder="NY"
-                    maxLength={2}
-                    className={`form-input ${errors.state ? 'form-error' : ''}`}
-                  />
-                  {errors.state && (
-                    <span className="error-message">
-                      <AlertCircle size={14} />
-                      {errors.state}
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-group form-group-zip">
-                  <label htmlFor="zipCode">ZIP Code *</label>
-                  <input
-                    id="zipCode"
-                    type="text"
-                    value={address.zipCode}
-                    onChange={(e) => {
-                      setAddress({ ...address, zipCode: e.target.value });
-                      if (errors.zipCode) {
-                        setErrors({ ...errors, zipCode: '' });
-                      }
-                    }}
-                    placeholder="10001"
-                    className={`form-input ${errors.zipCode ? 'form-error' : ''}`}
-                  />
-                  {errors.zipCode && (
-                    <span className="error-message">
-                      <AlertCircle size={14} />
-                      {errors.zipCode}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Special Instructions Section */}
-          <div className="checkout-section surface-card">
-            <div className="section-header">
-              <FileText size={20} />
-              <h3>Special Instructions</h3>
-              <span className="optional-badge">(Optional)</span>
-            </div>
-            <div className="form-group">
-              <textarea
-                value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value)}
-                placeholder="Any special requests or delivery instructions?&#10;e.g., 'Ring doorbell', 'Leave at front desk', etc."
-                className="form-textarea"
-                rows={3}
-              />
-            </div>
-          </div>
-
           {/* Payment Section */}
           <div className="checkout-section surface-card">
             <div className="section-header">
@@ -410,6 +329,140 @@ function CheckoutPage() {
                 <AlertCircle size={16} />
                 <p>If payment is not received, your order will be canceled.</p>
               </div>
+            </div>
+          </div>
+
+          {/* Delivery Address Section */}
+          <div className="checkout-section surface-card">
+            <div className="section-header">
+              <MapPin size={20} />
+              <h3>Delivery Address</h3>
+            </div>
+            
+            <div className="address-form">
+              <div className="form-group">
+                <label htmlFor="street">Street Address *</label>
+                <input
+                  id="street"
+                  type="text"
+                  value={address.street}
+                  onChange={(e) => {
+                    setAddress({ ...address, street: e.target.value });
+                    if (errors.street) {
+                      setErrors({ ...errors, street: '' });
+                    }
+                  }}
+                  placeholder="123 Main Street"
+                  className={`form-input ${errors.street ? 'form-error' : ''}`}
+                />
+                {errors.street && (
+                  <span className="error-message">
+                    <AlertCircle size={14} />
+                    {errors.street}
+                  </span>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="apartment">Apartment, Suite, etc. (Optional)</label>
+                <input
+                  id="apartment"
+                  type="text"
+                  value={address.apartment}
+                  onChange={(e) => setAddress({ ...address, apartment: e.target.value })}
+                  placeholder="Apt 4B"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label htmlFor="city">City *</label>
+                  <input
+                    id="city"
+                    type="text"
+                    value={address.city}
+                    onChange={(e) => {
+                      setAddress({ ...address, city: e.target.value });
+                      if (errors.city) {
+                        setErrors({ ...errors, city: '' });
+                      }
+                    }}
+                    placeholder="New York"
+                    className={`form-input ${errors.city ? 'form-error' : ''}`}
+                  />
+                  {errors.city && (
+                    <span className="error-message">
+                      <AlertCircle size={14} />
+                      {errors.city}
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-group form-group-state">
+                  <label htmlFor="state">State *</label>
+                  <select
+                    id="state"
+                    value={address.state}
+                    onChange={(e) => {
+                      setAddress({ ...address, state: e.target.value });
+                      if (errors.state) {
+                        setErrors({ ...errors, state: '' });
+                      }
+                    }}
+                    className={`form-input ${errors.state ? 'form-error' : ''}`}
+                  >
+                    <option value="TX">TX</option>
+                  </select>
+                  {errors.state && (
+                    <span className="error-message">
+                      <AlertCircle size={14} />
+                      {errors.state}
+                    </span>
+                  )}
+                </div>
+
+                <div className="form-group form-group-zip">
+                  <label htmlFor="zipCode">ZIP Code *</label>
+                  <input
+                    id="zipCode"
+                    type="text"
+                    value={address.zipCode}
+                    onChange={(e) => {
+                      setAddress({ ...address, zipCode: e.target.value });
+                      if (errors.zipCode) {
+                        setErrors({ ...errors, zipCode: '' });
+                      }
+                    }}
+                    placeholder="10001"
+                    className={`form-input ${errors.zipCode ? 'form-error' : ''}`}
+                  />
+                  {errors.zipCode && (
+                    <span className="error-message">
+                      <AlertCircle size={14} />
+                      {errors.zipCode}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Special Instructions Section */}
+          <div className="checkout-section surface-card">
+            <div className="section-header">
+              <FileText size={20} />
+              <h3>Special Instructions</h3>
+              <span className="optional-badge">(Optional)</span>
+            </div>
+            <div className="form-group">
+              <textarea
+                value={specialInstructions}
+                onChange={(e) => setSpecialInstructions(e.target.value)}
+                placeholder="Any special requests or delivery instructions?&#10;e.g., 'Ring doorbell', 'Leave at front door', etc."
+                className="form-textarea"
+                rows={3}
+              />
             </div>
           </div>
         </div>

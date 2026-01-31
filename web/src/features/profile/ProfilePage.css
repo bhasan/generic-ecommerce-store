@@ -109,16 +109,16 @@
 }
 
 .profile-content {
-  display: grid;
-  grid-template-columns: 1fr 350px;
-  gap: 2rem;
-  align-items: start;
+  display: flex;
+  justify-content: center;
 }
 
 .profile-card {
   border-radius: 1rem;
   padding: 2rem;
   box-shadow: 0 10px 40px rgba(107, 33, 168, 0.2);
+  max-width: 700px;
+  width: 100%;
 }
 
 .profile-avatar {
@@ -237,4 +237,105 @@
 
 .stat-active {
   color: var(--color-secondary);
+}
+
+/* Form Elements */
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-input {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+
+.form-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 0.375rem;
+}
+
+/* Address Section Styles */
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+}
+
+.form-section-label {
+  margin-bottom: 0.25rem;
+}
+
+.form-label-small {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-bottom: 0.375rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 1rem;
+}
+
+.form-group-city {
+  flex: 1;
+}
+
+.form-group-state {
+  width: 80px;
+}
+
+.form-group-zip {
+  width: 120px;
+}
+
+.form-group-state .form-input,
+.form-group-zip .form-input {
+  text-align: center;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .form-group-state,
+  .form-group-zip {
+    width: 100%;
+  }
 }
