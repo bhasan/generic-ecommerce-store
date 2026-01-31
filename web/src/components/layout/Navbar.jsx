@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { Package, Users, Store, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
+import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import { hasRole } from '../../utils/roles';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
@@ -195,8 +195,7 @@ function Navbar() {
         <div className="navbar-container">
           <div className="navbar-left">
             <Link to="/products" className="navbar-brand">
-              <Store size={28} />
-              <span>Smoke Station</span>
+              <span>Smoke Station HTX</span>
             </Link>
             
             {/* Desktop Navigation Links */}
