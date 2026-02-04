@@ -54,6 +54,34 @@
   font-size: 0.8em;
 }
 
+/* Status color legend below header divider */
+.orders-status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  padding: 0.75rem 1.25rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.orders-status-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.orders-status-legend-swatch {
+  height: 12px;
+  min-width: 12px;
+  border-radius: 0.375rem;
+  flex-shrink: 0;
+}
+
 /* View Toggle */
 .view-toggle {
   display: flex;
@@ -139,7 +167,7 @@
 
 .orders-table-header {
   display: grid;
-  grid-template-columns: 80px 1fr 120px 80px 90px 160px 100px;
+  grid-template-columns: 80px 1fr 120px 80px 90px 160px 100px 90px;
   gap: 1rem;
   padding: 1rem 1.5rem;
   background: var(--bg-tertiary);
@@ -153,7 +181,7 @@
 
 .orders-table-row {
   display: grid;
-  grid-template-columns: 80px 1fr 120px 80px 90px 160px 100px;
+  grid-template-columns: 80px 1fr 120px 80px 90px 160px 100px 90px;
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
@@ -254,6 +282,12 @@
   justify-content: flex-end;
 }
 
+.cell-more {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .btn-quick-action-compact {
   display: flex;
   align-items: center;
@@ -270,21 +304,28 @@
   transform: scale(1.1);
 }
 
-.btn-view-details {
-  display: flex;
+.btn-quick-action-compact:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-view-order {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
+  gap: 0.25rem;
+  padding: 0.375rem 0.625rem;
   background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 0.375rem;
   color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.btn-view-details:hover {
+.btn-view-order:hover {
   border-color: var(--color-primary);
   color: var(--color-primary-light);
   background: rgba(124, 58, 237, 0.1);
@@ -294,7 +335,7 @@
 @media (max-width: 1024px) {
   .orders-table-header,
   .orders-table-row {
-    grid-template-columns: 70px 1fr 100px 70px 80px 120px 80px;
+    grid-template-columns: 70px 1fr 100px 70px 80px 120px 80px 80px;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
   }
@@ -401,6 +442,9 @@
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  display: inline-block;
+  transform: scale(1.75);
+  transform-origin: left center;
 }
 
 .order-new-badge {
@@ -448,9 +492,9 @@
 }
 
 .status-pending {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--color-warning);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.4);
 }
 
 .status-approved {
@@ -586,10 +630,35 @@
   opacity: 0.5;
 }
 
+/* Order status block: groups current status + next-step actions so purpose is obvious */
+.order-status-block {
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+}
+
+.order-status-block-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: 0 0 0.75rem 0;
+}
+
 .order-status-container {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.order-quick-actions-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-right: 0.5rem;
+  flex-shrink: 0;
 }
 
 .btn-change-status {
@@ -658,8 +727,9 @@
 .order-quick-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  margin-top: 0.75rem;
 }
 
 /* Edit Order Section */
@@ -747,6 +817,12 @@
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.btn-quick-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-quick-action-approve {
