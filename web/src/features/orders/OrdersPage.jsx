@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
-import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle, User, CreditCard, Phone, MapPin, LayoutGrid, List, Filter } from 'lucide-react';
+import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle, User, CreditCard, Phone, MapPin, LayoutGrid, List, Filter, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole } from '../../utils/roles';
@@ -35,7 +35,8 @@ function OrdersPage() {
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [newOrderIds, setNewOrderIds] = useState([]);
   const [showAllOrders, setShowAllOrders] = useState(false);
-  const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
+  const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const knownOrderIdsRef = useRef(new Set());
   const viewStartAtRef = useRef(Date.now());
   const hasInitializedOrdersRef = useRef(false);
@@ -135,6 +136,13 @@ function OrdersPage() {
   }, [orders, isLoadingOrders]);
   
   const statuses = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+
+  const formatOrderDate = (dateString) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return dateString;
+    return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  };
   
   const getProductName = (productId) => {
     const product = products.find(p => p.id === productId);
@@ -185,32 +193,53 @@ function OrdersPage() {
   };
 
   const handleStatusChange = (orderId, newStatus) => {
-    updateOrderStatus(orderId, newStatus);
     setEditingStatusId(null);
+    performStatusUpdate(orderId, newStatus);
+  };
+
+  const performStatusUpdate = (orderId, newStatus) => {
+    setUpdatingOrderId(orderId);
+    Promise.resolve(updateOrderStatus(orderId, newStatus)).finally(() => setUpdatingOrderId(null));
   };
 
   const handleQuickAction = (orderId, newStatus) => {
-    updateOrderStatus(orderId, newStatus);
+    if (newStatus === 'NOT_FULFILLING') {
+      showConfirmDialog(
+        'Mark as Not Fulfilling',
+        'Mark this order as Not Fulfilling? The customer will no longer expect this order to be fulfilled.',
+        () => performStatusUpdate(orderId, newStatus)
+      );
+      return;
+    }
+    if (newStatus === 'DELIVERED') {
+      showConfirmDialog(
+        'Mark as Delivered',
+        `Mark order #${orderId} as Delivered?`,
+        () => performStatusUpdate(orderId, newStatus)
+      );
+      return;
+    }
+    performStatusUpdate(orderId, newStatus);
   };
 
   const getNextStatusActions = (currentStatus) => {
     switch(currentStatus) {
       case 'PENDING':
         return [
-          { status: 'APPROVED', label: 'Approve', icon: <Check size={16} />, className: 'btn-quick-action-approve' },
-          { status: 'NOT_FULFILLING', label: 'Not Fulfilling', icon: <XCircle size={16} />, className: 'btn-quick-action-reject' }
+          { status: 'APPROVED', label: 'Mark as Approved', icon: <Check size={16} />, className: 'btn-quick-action-approve', ariaLabel: 'Mark order as Approved' },
+          { status: 'NOT_FULFILLING', label: 'Mark as Not Fulfilling', icon: <XCircle size={16} />, className: 'btn-quick-action-reject', ariaLabel: 'Mark order as Not Fulfilling' }
         ];
       case 'APPROVED':
         return [
-          { status: 'READY_FOR_DELIVERY', label: 'Ready for Delivery', icon: <PackageCheck size={16} />, className: 'btn-quick-action-ready' }
+          { status: 'READY_FOR_DELIVERY', label: 'Mark Ready for Delivery', icon: <PackageCheck size={16} />, className: 'btn-quick-action-ready', ariaLabel: 'Mark order Ready for Delivery' }
         ];
       case 'READY_FOR_DELIVERY':
         return [
-          { status: 'OUT_FOR_DELIVERY', label: 'Out for Delivery', icon: <TruckIcon size={16} />, className: 'btn-quick-action-deliver' }
+          { status: 'OUT_FOR_DELIVERY', label: 'Mark Out for Delivery', icon: <TruckIcon size={16} />, className: 'btn-quick-action-deliver', ariaLabel: 'Mark order Out for Delivery' }
         ];
       case 'OUT_FOR_DELIVERY':
         return [
-          { status: 'DELIVERED', label: 'Mark Delivered', icon: <CheckCheck size={16} />, className: 'btn-quick-action-complete' }
+          { status: 'DELIVERED', label: 'Mark Delivered', icon: <CheckCheck size={16} />, className: 'btn-quick-action-complete', ariaLabel: 'Mark order as Delivered' }
         ];
       default:
         return [];
@@ -368,6 +397,15 @@ function OrdersPage() {
       </div>
       <HeaderDivider />
 
+      <div className="orders-status-legend">
+        {statuses.map(status => (
+          <div key={status} className="orders-status-legend-item">
+            <span className={`orders-status-legend-swatch ${getStatusClass(status)}`} />
+            <span>{status.replace(/_/g, ' ')}</span>
+          </div>
+        ))}
+      </div>
+
       <div className={`orders-list ${viewMode === 'list' ? 'orders-list-compact' : ''}`}>
         {isLoadingOrders ? (
           <div className="empty-state">
@@ -397,8 +435,9 @@ function OrdersPage() {
               <div className="orders-table-cell cell-payment">Payment</div>
               <div className="orders-table-cell cell-items">Items</div>
               <div className="orders-table-cell cell-total">Total</div>
-              <div className="orders-table-cell cell-status">Status</div>
-              <div className="orders-table-cell cell-actions">Actions</div>
+              <div className="orders-table-cell cell-status">Current Status</div>
+              <div className="orders-table-cell cell-actions" title="Update order status">Status actions</div>
+              <div className="orders-table-cell cell-more">More</div>
             </div>
             {filteredOrders.map(order => {
               const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
@@ -435,28 +474,34 @@ function OrdersPage() {
                     </div>
                   </div>
                   <div className="orders-table-cell cell-actions">
-                    {nextActions.length > 0 && (
+                    {nextActions.length > 0 && nextActions.map(action => (
                       <button
-                        onClick={() => handleQuickAction(order.id, nextActions[0].status)}
-                        className={`btn-quick-action-compact ${nextActions[0].className}`}
-                        title={nextActions[0].label}
+                        key={action.status}
+                        onClick={() => handleQuickAction(order.id, action.status)}
+                        className={`btn-quick-action-compact ${action.className}`}
+                        title={action.label}
+                        aria-label={action.ariaLabel ?? action.label}
+                        disabled={updatingOrderId === order.id}
                       >
-                        {nextActions[0].icon}
+                        {action.icon}
                       </button>
-                    )}
+                    ))}
+                  </div>
+                  <div className="orders-table-cell cell-more">
                     <button
                       onClick={() => {
                         setViewMode('card');
-                        // Scroll to the order after switching to card view
                         setTimeout(() => {
                           const element = document.getElementById(`order-${order.id}`);
                           element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         }, 100);
                       }}
-                      className="btn-view-details"
-                      title="View details"
+                      className="btn-view-order"
+                      title="View order details"
+                      aria-label="View order details"
                     >
-                      <Edit size={14} />
+                      <span>View</span>
+                      <ChevronRight size={14} />
                     </button>
                   </div>
                 </div>
@@ -480,18 +525,24 @@ function OrdersPage() {
                       {isNewOrder && <span className="order-new-badge">New</span>}
                     </h3>
                     <div className="order-meta">
-                      <span className="order-date">{order.createdAt}</span>
+                      <span className="order-date">{formatOrderDate(order.createdAt)}</span>
                       <span className="order-separator">•</span>
                       <span className="order-total">${order.total.toFixed(2)}</span>
                     </div>
                   </div>
-                  
+                </div>
+
+                {/* Order status: current status + update controls + next-step actions */}
+                <div className="order-status-block">
+                  <h4 className="order-status-block-title">Order status</h4>
                   {editingStatusId === order.id && canModifyOrders ? (
                     <div className="status-selector">
                       <select
                         value={order.status}
                         onChange={(e) => handleStatusChange(order.id, e.target.value)}
                         className="status-select"
+                        disabled={updatingOrderId === order.id}
+                        aria-label="Change order status"
                       >
                         {statuses.map(status => (
                           <option key={status} value={status}>
@@ -507,21 +558,43 @@ function OrdersPage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="order-status-container">
-                      <div className={`order-status ${getStatusClass(order.status)}`}>
-                        {getStatusIcon(order.status)}
-                        <span>{order.status.replace(/_/g, ' ')}</span>
+                    <>
+                      <div className="order-status-container">
+                        <div className={`order-status ${getStatusClass(order.status)}`}>
+                          {getStatusIcon(order.status)}
+                          <span>{order.status.replace(/_/g, ' ')}</span>
+                        </div>
+                        {canModifyOrders && (
+                          <button
+                            onClick={() => setEditingStatusId(order.id)}
+                            className="btn-change-status"
+                            title="Change status (other options)"
+                            aria-label="Change status to any option"
+                            disabled={updatingOrderId === order.id}
+                          >
+                            <RefreshCw size={16} />
+                          </button>
+                        )}
                       </div>
-                      {canModifyOrders && (
-                        <button
-                          onClick={() => setEditingStatusId(order.id)}
-                          className="btn-change-status"
-                          title="Change status"
-                        >
-                          <RefreshCw size={16} />
-                        </button>
+                      {nextActions.length > 0 && (
+                        <div className="order-quick-actions">
+                          <span className="order-quick-actions-label">Move to next:</span>
+                          {nextActions.map(action => (
+                            <button
+                              key={action.status}
+                              onClick={() => handleQuickAction(order.id, action.status)}
+                              className={`btn-quick-action ${action.className}`}
+                              title={action.ariaLabel ?? action.label}
+                              aria-label={action.ariaLabel ?? action.label}
+                              disabled={updatingOrderId === order.id}
+                            >
+                              {action.icon}
+                              <span>{action.label}</span>
+                            </button>
+                          ))}
+                        </div>
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
 
@@ -559,22 +632,6 @@ function OrdersPage() {
                         </div>
                       )}
                     </div>
-                  </div>
-                )}
-
-                {/* Quick Action Buttons */}
-                {nextActions.length > 0 && (
-                  <div className="order-quick-actions">
-                    {nextActions.map(action => (
-                      <button
-                        key={action.status}
-                        onClick={() => handleQuickAction(order.id, action.status)}
-                        className={`btn-quick-action ${action.className}`}
-                      >
-                        {action.icon}
-                        <span>{action.label}</span>
-                      </button>
-                    ))}
                   </div>
                 )}
 
