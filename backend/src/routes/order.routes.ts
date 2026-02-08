@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import orderController from '../controllers/order.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { authorizeManagement, authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role.middleware';
+import { authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role.middleware';
 
 const router = Router();
 
