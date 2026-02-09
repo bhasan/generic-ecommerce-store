@@ -1,0 +1,80 @@
+import { PrismaClient } from '../generated/prisma';
+import bcrypt from 'bcrypt';
+
+const prisma = new PrismaClient({ log: ['error'] });
+const SALT_ROUNDS = 10;
+
+const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
+
+/**
+ * Production seed: creates roles, one admin user, and admin user -> ADMIN role mapping.
+ * Credentials from env: DB_USER, DB_PASSWORD (same as database). Optional: ADMIN_NAME.
+ * Idempotent: existing roles/users are skipped; missing role or mapping is added.
+ */
+async function seedProd() {
+  console.log('🌱 Production seed: roles, admin user, admin role mapping...');
+
+  const dbUser = process.env.DB_USER;
+  const plainPassword = process.env.DB_PASSWORD;
+  const email = dbUser ? `${dbUser}@smoke-station.local` : 'admin@smoke-station.local';
+  const name = process.env.ADMIN_NAME || dbUser || 'Admin';
+
+  if (!dbUser || !plainPassword) {
+    console.error('❌ DB_USER and DB_PASSWORD are required (e.g. from root .env.prod).');
+    process.exit(1);
+  }
+
+  // 1. Roles: ensure all app roles exist
+  console.log('   Ensuring roles exist...');
+  const roleMap: Record<string, { id: number }> = {};
+  for (const roleName of ROLE_NAMES) {
+    let role = await prisma.role.findUnique({ where: { name: roleName } });
+    if (!role) {
+      role = await prisma.role.create({ data: { name: roleName } });
+      console.log(`      Created role: ${roleName}`);
+    }
+    roleMap[roleName] = { id: role.id };
+  }
+  const adminRoleId = roleMap['ADMIN'].id;
+
+  // 2. Admin user: create or get existing
+  let adminUser = await prisma.user.findUnique({ where: { email } });
+  if (!adminUser) {
+    const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
+    adminUser = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        approved: true,
+      },
+    });
+    console.log(`   Admin user created: ${email}`);
+  } else {
+    console.log(`   Admin user already exists: ${email}`);
+  }
+
+  // 3. Admin user -> ADMIN role mapping: ensure UserRole exists
+  const existingMapping = await prisma.userRole.findFirst({
+    where: { userId: adminUser.id, roleId: adminRoleId },
+  });
+  if (!existingMapping) {
+    await prisma.userRole.create({
+      data: { userId: adminUser.id, roleId: adminRoleId },
+    });
+    console.log('   Admin user -> ADMIN role mapping created.');
+  } else {
+    console.log('   Admin user -> ADMIN role mapping already exists.');
+  }
+
+  console.log('✅ Production seed complete.');
+}
+
+seedProd()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

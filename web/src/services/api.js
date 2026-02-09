@@ -2,6 +2,8 @@
  * Base API client with token management and error handling
  */
 
+import { toNotificationMessage } from '../utils/notificationMessage';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const API_TIMEOUT_MS = Number(import.meta.env.VITE_API_TIMEOUT_MS || 15000);
 const API_RETRY_MAX = Number(import.meta.env.VITE_API_RETRY_MAX || 2);
@@ -68,13 +70,14 @@ const handleError = async (response) => {
 
     try {
       errorData = await response.json();
-      errorMessage = errorData?.error?.message || errorData?.message || errorMessage;
+      const raw = errorData?.error?.message ?? errorData?.message ?? errorData?.errors;
+      errorMessage = toNotificationMessage(raw, response.statusText || 'An error occurred');
     } catch (e) {
       // If response is not JSON, use status text
-      errorMessage = response.statusText || errorMessage;
+      errorMessage = response.statusText || 'An error occurred';
     }
 
-    const error = new Error(errorMessage);
+    const error = new Error(toNotificationMessage(errorMessage, 'An error occurred'));
     error.status = response.status;
     error.data = errorData;
     error.code = errorData?.error?.code;

@@ -1,32 +1,39 @@
-# 1. Use a small, official Node.js image
-FROM node:18-alpine
+# -----------------------------------------------------------------------------
+# Stage 1: Build (dev deps + compile + Prisma generate)
+# -----------------------------------------------------------------------------
+FROM node:18-alpine AS builder
 
-# 2. Set the working directory inside the container
 WORKDIR /app
 
-# 3. Copy package.json and package-lock.json first
-# This uses Docker's build cache, speeding up future builds
 COPY package*.json ./
+RUN npm ci
 
-# 4. Install all dependencies
-RUN npm install
-
-# 5. Copy the backend source code (including Prisma schema)
 COPY . .
-
-# 6. Generate the Prisma client from the current schema
 RUN npx prisma generate
-
-# 7. Build TypeScript during Docker build (not at runtime)
 RUN npm run build
 
-# 9. Expose the port your app will run on
+# -----------------------------------------------------------------------------
+# Stage 2: Production runtime (no dev deps, smaller image)
+# -----------------------------------------------------------------------------
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Production deps; add Prisma for migrate + seed
+COPY package*.json ./
+RUN npm ci --omit=dev && npm install prisma --save
+
+# Prisma schema + migrations (needed for generate and migrate deploy)
+COPY --from=builder /app/prisma ./prisma
+RUN npx prisma generate
+
+# Compiled app
+COPY --from=builder /app/dist ./dist
+
 EXPOSE 3000
 
-# 10. Container health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/health || exit 1
 
-# 10. The command to run your app
-# IMPORTANT: See the package.json note below!
+# Migrate DB then start (or run migrate separately and use "node dist/index.js")
 CMD [ "npm", "run", "start:prod" ]

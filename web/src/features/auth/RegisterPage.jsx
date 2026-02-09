@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './RegisterPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { toNotificationMessage } from '../../utils/notificationMessage';
 import { UserPlus, Mail, Lock, User, Phone, DollarSign, AlertCircle, MapPin } from 'lucide-react';
 
 function RegisterPage() {
@@ -16,36 +17,48 @@ function RegisterPage() {
     phoneNumber: ''
   });
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({ name: '', email: '', password: '', cashapp: '' });
   const [isLoading, setIsLoading] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const nameTrimmed = (formData.name || '').trim();
+    const emailTrimmed = (formData.email || '').trim();
+    const passwordTrimmed = (formData.password || '').trim();
+    const cashappTrimmed = (formData.cashapp || '').trim();
+    const errors = {
+      name: !nameTrimmed ? 'Full name is required' : '',
+      email: !emailTrimmed ? 'Email is required' : '',
+      password: !passwordTrimmed ? 'Password is required' : '',
+      cashapp: !cashappTrimmed ? 'CashApp username is required' : ''
+    };
+    setFieldErrors(errors);
+    if (errors.name || errors.email || errors.password || errors.cashapp) return;
+
     setIsLoading(true);
-    
     try {
       const response = await register({
-        email: formData.email,
-        password: formData.password,
-        name: formData.name,
+        email: emailTrimmed,
+        password: passwordTrimmed,
+        name: nameTrimmed,
         address: formData.address || undefined,
-        cashapp: formData.cashapp,
+        cashapp: cashappTrimmed,
         phoneNumber: formData.phoneNumber || undefined
       });
-      
+
       if (response) {
         showNotification(response.message || 'Registration successful! Please visit the store to get approved.', 'success');
         navigate('/login');
       }
     } catch (err) {
-      const errorMessage = err.message || 'Registration failed. Please try again.';
+      const errorMessage = toNotificationMessage(err?.message ?? err, 'Registration failed. Please try again.');
       setError(errorMessage);
       showNotification(errorMessage, 'error');
     } finally {
@@ -81,10 +94,15 @@ function RegisterPage() {
               type="text"
               value={formData.name}
               onChange={handleChange}
-              className="form-input"
+              className={`form-input ${fieldErrors.name ? 'form-input-error' : ''}`}
               placeholder="John Doe"
               required
+              aria-invalid={!!fieldErrors.name}
+              aria-describedby={fieldErrors.name ? 'name-error' : undefined}
             />
+            {fieldErrors.name && (
+              <span id="name-error" className="form-error-message" role="alert">{fieldErrors.name}</span>
+            )}
           </div>
 
           <div className="form-group">
@@ -98,10 +116,15 @@ function RegisterPage() {
               type="email"
               value={formData.email}
               onChange={handleChange}
-              className="form-input"
+              className={`form-input ${fieldErrors.email ? 'form-input-error' : ''}`}
               placeholder="you@example.com"
               required
+              aria-invalid={!!fieldErrors.email}
+              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
             />
+            {fieldErrors.email && (
+              <span id="email-error" className="form-error-message" role="alert">{fieldErrors.email}</span>
+            )}
           </div>
 
           <div className="form-group">
@@ -115,11 +138,16 @@ function RegisterPage() {
               type="password"
               value={formData.password}
               onChange={handleChange}
-              className="form-input"
+              className={`form-input ${fieldErrors.password ? 'form-input-error' : ''}`}
               placeholder="At least 6 characters"
               minLength={6}
               required
+              aria-invalid={!!fieldErrors.password}
+              aria-describedby={fieldErrors.password ? 'password-error' : undefined}
             />
+            {fieldErrors.password && (
+              <span id="password-error" className="form-error-message" role="alert">{fieldErrors.password}</span>
+            )}
           </div>
 
           <div className="form-group">
@@ -150,16 +178,19 @@ function RegisterPage() {
               value={formData.cashapp}
               onChange={(e) => {
                 let value = e.target.value;
-                // Auto-add $ if not present
-                if (value && !value.startsWith('$')) {
-                  value = '$' + value;
-                }
+                if (value && !value.startsWith('$')) value = '$' + value;
                 setFormData({ ...formData, cashapp: value });
+                if (fieldErrors.cashapp) setFieldErrors((prev) => ({ ...prev, cashapp: '' }));
               }}
-              className="form-input"
+              className={`form-input ${fieldErrors.cashapp ? 'form-input-error' : ''}`}
               placeholder="$YourCashApp"
               required
+              aria-invalid={!!fieldErrors.cashapp}
+              aria-describedby={fieldErrors.cashapp ? 'cashapp-error' : undefined}
             />
+            {fieldErrors.cashapp && (
+              <span id="cashapp-error" className="form-error-message" role="alert">{fieldErrors.cashapp}</span>
+            )}
             <span className="form-hint">Required for payment processing</span>
           </div>
 
