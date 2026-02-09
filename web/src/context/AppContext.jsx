@@ -6,6 +6,7 @@ import * as productsApi from '../services/productsApi';
 import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
 import { getAuthToken } from '../services/api';
+import { toNotificationMessage } from '../utils/notificationMessage';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -142,9 +143,10 @@ export function AppProvider({ children }) {
     }
   }, [isAuthenticated, isLoading]);
 
-  // Notification system
+  // Notification system (message is normalized so we never show "[object Object]")
   const showNotification = useCallback((message, type = 'success', action = null) => {
-    setNotification({ message, type, action });
+    const safeMessage = toNotificationMessage(message, 'Something went wrong. Please try again.');
+    setNotification({ message: safeMessage, type, action });
   }, []);
 
   useEffect(() => {

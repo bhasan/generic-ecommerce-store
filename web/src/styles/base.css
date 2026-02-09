@@ -127,6 +127,115 @@ input, textarea, select {
 }
 
 /* ============================================
+   FORM BASE (shared across login, register, products, profile, checkout, etc.)
+   ============================================ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.form-group-full {
+  grid-column: 1 / -1;
+}
+
+.form-group label,
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.875rem var(--spacing-md);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  transition: var(--transition-all);
+  box-sizing: border-box;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--bg-hover);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.form-input-error,
+.form-select.form-input-error,
+.form-textarea.form-input-error {
+  border-color: var(--border-color-error);
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+.form-input-error:focus,
+.form-select.form-input-error:focus,
+.form-textarea.form-input-error:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+.form-error-message {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.form-hint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-xs);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.form-select {
+  cursor: pointer;
+}
+
+/* Alias for components that use has-error or form-error instead of form-input-error */
+.form-input.has-error,
+.form-input.form-error,
+.form-select.has-error,
+.form-select.form-error,
+.form-textarea.has-error,
+.form-textarea.form-error {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+.form-input.has-error:focus,
+.form-input.form-error:focus,
+.form-select.has-error:focus,
+.form-select.form-error:focus,
+.form-textarea.has-error:focus,
+.form-textarea.form-error:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+/* ============================================
    UTILITY CLASSES
    ============================================ */
 .container {
