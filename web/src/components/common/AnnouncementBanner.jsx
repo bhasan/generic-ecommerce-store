@@ -11,12 +11,11 @@ function AnnouncementBanner() {
   const loadAnnouncements = useCallback(async () => {
     try {
       setIsLoading(true);
-      const announcements = await announcementsApi.getActiveAnnouncements();
-      console.log('Loaded announcements:', announcements);
-      // Show the first active announcement
-      if (announcements && announcements.length > 0) {
+      const data = await announcementsApi.getActiveAnnouncements();
+      const announcements = Array.isArray(data) ? data : [];
+      if (announcements.length > 0) {
         const activeAnnouncement = announcements.find(a => a.enabled !== false) || announcements[0];
-        if (activeAnnouncement && activeAnnouncement.message) {
+        if (activeAnnouncement?.message) {
           setAnnouncement(activeAnnouncement);
           setIsVisible(true);
         } else {
@@ -25,9 +24,7 @@ function AnnouncementBanner() {
       } else {
         setAnnouncement(null);
       }
-    } catch (error) {
-      console.error('Failed to load announcements:', error);
-      console.error('Error details:', error.message, error.status);
+    } catch {
       setAnnouncement(null);
     } finally {
       setIsLoading(false);

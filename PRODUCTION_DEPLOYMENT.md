@@ -2,6 +2,148 @@
 
 This guide covers deploying the Smoke Station application to a production environment.
 
+## Summary (step by step)
+
+| Step | Action |
+|------|--------|
+| 1. Env | Create **root** `.env.prod` (Compose) and **backend** `backend/.env` (backend app). See [Environment files (two locations)](#environment-files-two-locations) below. |
+| 2. Frontend build | From project root: `cd web && npm install && npm run build && cd ..` |
+| 3. Build images | `docker compose -f docker-compose.prod.yml --env-file .env.prod build` |
+| 4. Start stack | `docker compose -f docker-compose.prod.yml --env-file .env.prod up -d` |
+| 5. Migrate DB | `docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy` |
+| 6. Verify | `docker compose -f docker-compose.prod.yml ps` and open `http://<server-ip>` or hit `curl http://localhost/api/health` |
+
+Optional: seed DB (`docker exec smoke-station-delivery-backend-prod npm run prisma:seed`), then configure HTTPS (Step 6) and firewall (Step 7) as described below.
+
+---
+
+## First-time deployment (build on target) — recommended
+
+Use this when deploying to the server for the first time. You **do not** save/load images; you copy the project (or clone), then build and run on the target. All steps run **on the target machine** (or in a directory you will copy to the target).
+
+### 1. Get the project on the target
+
+Either clone or copy the full project (including `backend/`, `web/`, `nginx/`, `docker-compose.prod.yml`):
+
+```bash
+# Option A: clone
+git clone <your-repo-url> smoke-station-delivery
+cd smoke-station-delivery
+
+# Option B: copy from your machine (e.g. rsync, scp, zip)
+# Then on target: unzip and cd into the project root
+```
+
+### 2. Create environment files
+
+**Root `.env.prod`** (used by Docker Compose):
+
+```bash
+# Create in project root
+cat << 'EOF' > .env.prod
+DB_USER=smoke_station_user
+DB_PASSWORD=CHANGE_ME_STRONG_PASSWORD
+DB_NAME=smoke_station_prod
+JWT_SECRET=CHANGE_ME_STRONG_JWT_SECRET
+JWT_EXPIRES_IN=24h
+CORS_ORIGIN=https://your-domain.com
+HTTP_PORT=80
+HTTPS_PORT=443
+AUTH_RATE_LIMIT_MAX=20
+EOF
+```
+
+Replace `CHANGE_ME_*` and `your-domain.com` with real values. Use `openssl rand -base64 32` for passwords and JWT secret.
+
+**Backend `backend/.env`** (same secrets + any backend-only vars; Compose overrides `DATABASE_URL` at runtime):
+
+```bash
+# Create backend/.env (or copy from backend/.env.example and fill in)
+# Must include at least: DATABASE_URL (placeholder ok), JWT_SECRET, CORS_ORIGIN
+# Example:
+# DATABASE_URL=postgresql://user:pass@db:5432/smoke_station_prod
+# JWT_SECRET=your-jwt-secret
+# CORS_ORIGIN=https://your-domain.com
+# Plus optional: MAKE_WEBHOOK_URL, MAKE_API_KEY, REQUEST_TIMEOUT_MS
+```
+
+### 3. Create nginx mount paths (required by compose)
+
+```bash
+mkdir -p nginx/ssl
+# nginx/nginx.prod.conf must exist (it’s in the repo)
+```
+
+### 4. Build frontend (required for web image)
+
+```bash
+cd web
+npm install
+npm run build
+cd ..
+```
+
+### 5. Build and start the stack
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod build
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+```
+
+### 6. Run database migrations
+
+```bash
+docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
+```
+
+### 7. Verify
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+curl -s http://localhost/api/health
+```
+
+Open `http://<target-ip>` in a browser.
+
+### Optional: seed the database
+
+```bash
+docker exec smoke-station-delivery-backend-prod npm run prisma:seed
+```
+
+---
+
+## Alternative: deploy using saved images
+
+Use this only if you prefer to build images on another machine and copy them to the target (e.g. no Node/npm on target). More steps and easy to get wrong; the [first-time deployment above](#first-time-deployment-build-on-target--recommended) is simpler.
+
+**On the build machine** (after building with the steps above):
+
+```bash
+# Build and tag (image names must match compose)
+docker compose -f docker-compose.prod.yml --env-file .env.prod build
+
+# Save images to tar files
+docker save -o backend.tar smoke-station-delivery/backend:latest
+docker save -o web.tar smoke-station-delivery/web:latest
+```
+
+Copy to target: `backend.tar`, `web.tar`, `docker-compose.prod.yml`, `.env.prod`, `backend/.env`, `nginx/nginx.prod.conf`, and create `nginx/ssl` (can be empty). You do **not** need Dockerfiles or source code on the target.
+
+**On the target machine:**
+
+```bash
+docker load -i backend.tar
+docker load -i web.tar
+# Postgres will be pulled when you up (or: docker pull postgres:16-alpine)
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
+```
+
+The compose file still has `build:` sections; when the images `smoke-station-delivery/backend:latest` and `smoke-station-delivery/web:latest` already exist, Compose will use them and not rebuild.
+
+---
+
 ## Prerequisites
 
 - **Server**: Linux server (Ubuntu 20.04+ recommended) with Docker and Docker Compose installed
@@ -47,7 +189,16 @@ git checkout production  # or main/master
 
 ## Step 2: Environment Configuration
 
-### 2.1 Create Production Environment File
+### Environment files (two locations)
+
+Env is kept in **two places**:
+
+- **Root `.env.prod`** — Used by Docker Compose (`--env-file .env.prod`) for service config: `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `CORS_ORIGIN`, `HTTP_PORT`, `HTTPS_PORT`, `AUTH_RATE_LIMIT_MAX`. Compose injects these (and builds `DATABASE_URL`) into the backend container.
+- **`backend/.env`** — Loaded by the backend container via `env_file` in `docker-compose.prod.yml`. Mirror the same secrets here and add any backend-only vars (`REQUEST_TIMEOUT_MS`, `MAKE_WEBHOOK_URL`, `MAKE_API_KEY`). See [backend/.env.example](backend/.env.example).
+
+Keep both in sync for production (e.g. copy from root or use a small script).
+
+### 2.1 Create root `.env.prod`
 
 Create a `.env.prod` file in the project root:
 
@@ -77,7 +228,11 @@ AUTH_RATE_LIMIT_MAX=20
 - `.env.prod` can be committed to version control (not in `.gitignore`)
 - Use strong, unique passwords even if file is tracked
 
-### 2.2 Generate Secure Credentials
+### 2.2 Create backend `.env`
+
+Create or update `backend/.env` so the backend container has the same secrets and any optional vars. You can copy from root and set `DATABASE_URL` for the backend (Compose overrides `DATABASE_URL` at runtime with the `db` host). Include at least: `DATABASE_URL` (placeholder is fine; Compose overrides), `JWT_SECRET`, `JWT_EXPIRES_IN`, `CORS_ORIGIN`, `AUTH_RATE_LIMIT_MAX`. Optional: `REQUEST_TIMEOUT_MS`, `MAKE_WEBHOOK_URL`, `MAKE_API_KEY`. See [backend/.env.example](backend/.env.example).
+
+### 2.3 Generate Secure Credentials
 
 ```bash
 # Generate database password

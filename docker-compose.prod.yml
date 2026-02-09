@@ -1,3 +1,7 @@
+# Production stack. Requires env vars in .env.prod: DB_USER, DB_PASSWORD, DB_NAME, JWT_SECRET, CORS_ORIGIN.
+#
+# First-time deployment (recommended): copy full project to target, then build and run there.
+# See PRODUCTION_DEPLOYMENT.md "First-time deployment (build on target)".
 services:
   # 1. The PostgreSQL Database Service
   db:
@@ -12,19 +16,17 @@ services:
       - postgres_data_prod:/var/lib/postgresql/data
     networks:
       - sshtx_network
-    # Remove port exposure in production (only accessible within Docker network)
-    # ports:
-    #   - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   # 2. The Express.js Backend Service
   backend:
+    image: smoke-station-delivery/backend:latest
     container_name: smoke-station-delivery-backend-prod
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile
     restart: always
@@ -51,6 +53,7 @@ services:
 
   # 3. The Nginx/React Frontend Service
   web:
+    image: smoke-station-delivery/web:latest
     container_name: smoke-station-delivery-web-prod
     build: 
       context: .

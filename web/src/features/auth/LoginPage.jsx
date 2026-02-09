@@ -45,31 +45,6 @@ function LoginPage() {
     }
   };
   
-  const quickLogin = async (testEmail) => {
-    setEmail(testEmail);
-    setPassword('test123'); // Use actual password from backend seed
-    setError('');
-    setIsLoading(true);
-    
-    try {
-      // Use actual passwords from backend seed data
-      const passwords = {
-        'customer@test.com': 'customer123',
-        'manager@test.com': 'manager123',
-        'admin@test.com': 'admin123'
-      };
-      
-      const success = await login(testEmail, passwords[testEmail] || 'test123');
-      if (!success) {
-        setError('Quick login failed. Please try again.');
-      }
-    } catch (err) {
-      setError(err.message || 'Quick login failed. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="login-page-container">
       <div className="login-card">
@@ -125,51 +100,6 @@ function LoginPage() {
             <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
           </button>
         </form>
-
-        {/* Quick Login - Only shown in development mode */}
-        {import.meta.env.DEV && (
-          <>
-            <div className="login-divider">
-              <span>Or try a demo account</span>
-            </div>
-
-            <div className="quick-login-section">
-              <p className="quick-login-label">Quick Login</p>
-              <div className="quick-login-buttons">
-                <button
-                  onClick={() => quickLogin('customer@test.com')}
-                  className="btn-quick-login"
-                >
-                  <User size={16} />
-                  <div className="quick-login-text">
-                    <span className="quick-login-role">Customer</span>
-                    <span className="quick-login-email">customer@test.com</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => quickLogin('manager@test.com')}
-                  className="btn-quick-login"
-                >
-                  <User size={16} />
-                  <div className="quick-login-text">
-                    <span className="quick-login-role">Manager</span>
-                    <span className="quick-login-email">manager@test.com</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => quickLogin('admin@test.com')}
-                  className="btn-quick-login"
-                >
-                  <User size={16} />
-                  <div className="quick-login-text">
-                    <span className="quick-login-role">Admin</span>
-                    <span className="quick-login-email">admin@test.com</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </>
-        )}
 
         <div className="login-footer">
           <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
