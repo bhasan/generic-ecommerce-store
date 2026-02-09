@@ -5,6 +5,42 @@
   animation: fadeIn 0.3s ease-in;
 }
 
+.manage-products-tabs {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.manage-products-tab {
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-all);
+}
+
+.manage-products-tab:hover {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.manage-products-tab-active {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: var(--text-on-primary);
+  border-color: transparent;
+  box-shadow: var(--shadow-primary);
+}
+
+.manage-products-tab-active:hover {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  color: var(--text-on-primary);
+  box-shadow: var(--shadow-primary-lg);
+}
+
 /* Header Section */
 .manage-products-header {
   display: flex;

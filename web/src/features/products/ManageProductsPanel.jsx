@@ -14,6 +14,7 @@ import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
+import CategoriesSection from '../dashboard/components/CategoriesSection';
 import { formatQuantityDiscounts, getCategoryLabel, getProductCategoryLabel, getProductImageSrc, parseQuantityDiscounts } from './productsHelpers';
 
 function SortableProductCard({
@@ -313,6 +314,7 @@ function ManageProductsPanel() {
     const savedView = localStorage.getItem('manageProductsViewMode');
     return savedView === 'compact' || savedView === 'list' ? savedView : 'compact';
   });
+  const [manageTab, setManageTab] = useState('products'); // 'products' | 'categories'
 
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
@@ -600,95 +602,120 @@ function ManageProductsPanel() {
       />
 
       {canManageProducts && (
-        <ProductFormModal
-          isOpen={showAddForm || editingId}
-          title={editingId ? 'Edit Product' : 'Add New Product'}
-          formData={formData}
-          setFormData={setFormData}
-          categoryQuery={categoryQuery}
-          setCategoryQuery={setCategoryQuery}
-          showCategoryDropdown={showCategoryDropdown}
-          setShowCategoryDropdown={setShowCategoryDropdown}
-          isLoadingCategories={isLoadingCategories}
-          categories={categories}
-          getCategoryLabel={getCategoryLabel}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          addImageField={addImageField}
-          removeImageField={removeImageField}
-          updateImageField={updateImageField}
-          handleImageUpload={handleImageUpload}
-        />
+        <div className="manage-products-tabs">
+          <button
+            type="button"
+            className={`manage-products-tab ${manageTab === 'products' ? 'manage-products-tab-active' : ''}`}
+            onClick={() => setManageTab('products')}
+          >
+            Products
+          </button>
+          <button
+            type="button"
+            className={`manage-products-tab ${manageTab === 'categories' ? 'manage-products-tab-active' : ''}`}
+            onClick={() => setManageTab('categories')}
+          >
+            Categories
+          </button>
+        </div>
       )}
 
-      {isLoadingProducts || isLoadingCategories ? (
-        <EmptyState message="Loading products..." />
-      ) : orderedProducts.length === 0 ? (
-        <EmptyState message="No products found. Add your first product to get started!" />
+      {manageTab === 'categories' ? (
+        <CategoriesSection />
       ) : (
-        <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
-          <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>
-            <div className="manage-products-categories">
-              {topLevelCategories.map(category => (
-                <SortableCategoryGroup
-                  key={category.id}
-                  category={category}
-                >
-                  <DndContext
-                    collisionDetection={closestCenter}
-                    onDragEnd={(event) => handleProductDragEnd(category.id, event)}
-                  >
-                    <SortableContext
-                      items={(productsByCategory[category.id] || []).map(item => item.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {renderProductsCollection(category.id)}
-                    </SortableContext>
-                  </DndContext>
+        <>
+          {canManageProducts && (
+            <ProductFormModal
+              isOpen={showAddForm || editingId}
+              title={editingId ? 'Edit Product' : 'Add New Product'}
+              formData={formData}
+              setFormData={setFormData}
+              categoryQuery={categoryQuery}
+              setCategoryQuery={setCategoryQuery}
+              showCategoryDropdown={showCategoryDropdown}
+              setShowCategoryDropdown={setShowCategoryDropdown}
+              isLoadingCategories={isLoadingCategories}
+              categories={categories}
+              getCategoryLabel={getCategoryLabel}
+              onSave={handleSave}
+              onCancel={handleCancel}
+              addImageField={addImageField}
+              removeImageField={removeImageField}
+              updateImageField={updateImageField}
+              handleImageUpload={handleImageUpload}
+            />
+          )}
 
-                  {(childCategoriesByParent[category.id] || []).map(childCategory => (
-                    <section key={childCategory.id} className="manage-subcategory-group">
-                      <div className="manage-subcategory-header">
-                        <h4>{childCategory.name}</h4>
-                        {childCategory.description && <p>{childCategory.description}</p>}
-                      </div>
+          {isLoadingProducts || isLoadingCategories ? (
+            <EmptyState message="Loading products..." />
+          ) : orderedProducts.length === 0 ? (
+            <EmptyState message="No products found. Add your first product to get started!" />
+          ) : (
+            <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+              <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>
+                <div className="manage-products-categories">
+                  {topLevelCategories.map(category => (
+                    <SortableCategoryGroup
+                      key={category.id}
+                      category={category}
+                    >
                       <DndContext
                         collisionDetection={closestCenter}
-                        onDragEnd={(event) => handleProductDragEnd(childCategory.id, event)}
+                        onDragEnd={(event) => handleProductDragEnd(category.id, event)}
                       >
                         <SortableContext
-                          items={(productsByCategory[childCategory.id] || []).map(item => item.id)}
+                          items={(productsByCategory[category.id] || []).map(item => item.id)}
                           strategy={verticalListSortingStrategy}
                         >
-                          {renderProductsCollection(childCategory.id)}
+                          {renderProductsCollection(category.id)}
                         </SortableContext>
                       </DndContext>
-                    </section>
-                  ))}
-                </SortableCategoryGroup>
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
 
-      <ConfirmationModal
-        isOpen={deleteProductModalOpen}
-        onClose={handleDeleteCancel}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Product"
-        message={
-          <>
-            Are you sure you want to delete <strong>"{productToDelete?.name || ''}"</strong>?
-            <br />
-            <br />
-            This action cannot be undone.
-          </>
-        }
-        confirmText="Delete"
-        cancelText="Cancel"
-        type="danger"
-      />
+                      {(childCategoriesByParent[category.id] || []).map(childCategory => (
+                        <section key={childCategory.id} className="manage-subcategory-group">
+                          <div className="manage-subcategory-header">
+                            <h4>{childCategory.name}</h4>
+                            {childCategory.description && <p>{childCategory.description}</p>}
+                          </div>
+                          <DndContext
+                            collisionDetection={closestCenter}
+                            onDragEnd={(event) => handleProductDragEnd(childCategory.id, event)}
+                          >
+                            <SortableContext
+                              items={(productsByCategory[childCategory.id] || []).map(item => item.id)}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              {renderProductsCollection(childCategory.id)}
+                            </SortableContext>
+                          </DndContext>
+                        </section>
+                      ))}
+                    </SortableCategoryGroup>
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+
+          <ConfirmationModal
+            isOpen={deleteProductModalOpen}
+            onClose={handleDeleteCancel}
+            onConfirm={handleDeleteConfirm}
+            title="Delete Product"
+            message={
+              <>
+                Are you sure you want to delete <strong>"{productToDelete?.name || ''}"</strong>?
+                <br />
+                <br />
+                This action cannot be undone.
+              </>
+            }
+            confirmText="Delete"
+            cancelText="Cancel"
+            type="danger"
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -1,10 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Layers, Megaphone, UserPlus, Users, UserX, MessageSquare } from 'lucide-react';
+import { Megaphone, UserPlus, Users, UserX, MessageSquare } from 'lucide-react';
 import './AdminDashboardTabs.css';
 
 const SECTIONS = {
-  CATEGORIES: 'categories',
   ANNOUNCEMENTS: 'announcements',
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
@@ -43,15 +42,6 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
         >
           <UserPlus size={20} />
           <span>Pending Registrations</span>
-        </button>
-        <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.CATEGORIES ? 'active' : ''
-          }`}
-          onClick={() => handleSelect(SECTIONS.CATEGORIES)}
-        >
-          <Layers size={20} />
-          <span>Categories</span>
         </button>
         <button
           className={`dashboard-tab ${
