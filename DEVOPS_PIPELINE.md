@@ -81,8 +81,6 @@ Copy to the target machine:
 - **Root** `.env.prod` (or the env file the target uses) with that machine’s `DB_*`, `JWT_SECRET`, `CORS_ORIGIN`, etc.
 - **Backend** `backend/.env` (same secrets and any backend-only vars; keep in sync with root).
 
-The web image already contains `web/dist`; you do not need to copy a separate frontend build.
-
 ---
 
 ## 4. Deploy on target

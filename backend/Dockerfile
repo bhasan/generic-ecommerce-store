@@ -19,7 +19,7 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Production deps only; add Prisma CLI for generate + migrate deploy at startup
+# Production deps; add Prisma for migrate + seed
 COPY package*.json ./
 RUN npm ci --omit=dev && npm install prisma --save
 

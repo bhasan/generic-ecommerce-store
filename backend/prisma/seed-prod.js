@@ -1,10 +1,10 @@
-import { PrismaClient } from '../generated/prisma';
-import bcrypt from 'bcrypt';
+const { PrismaClient } = require('../generated/prisma');
+const bcrypt = require('bcrypt');
 
 const prisma = new PrismaClient({ log: ['error'] });
 const SALT_ROUNDS = 10;
 
-const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
+const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'];
 
 /**
  * Production seed: creates roles, one admin user, and admin user -> ADMIN role mapping.
@@ -16,7 +16,7 @@ async function seedProd() {
 
   const dbUser = process.env.DB_USER;
   const plainPassword = process.env.DB_PASSWORD;
-  const email = dbUser ? `${dbUser}@smoke-station.local` : 'admin@smoke-station.local';
+  const email = dbUser ? `${dbUser}@test.com` : 'admin@test.com';
   const name = process.env.ADMIN_NAME || dbUser || 'Admin';
 
   if (!dbUser || !plainPassword) {
@@ -26,7 +26,7 @@ async function seedProd() {
 
   // 1. Roles: ensure all app roles exist
   console.log('   Ensuring roles exist...');
-  const roleMap: Record<string, { id: number }> = {};
+  const roleMap = {};
   for (const roleName of ROLE_NAMES) {
     let role = await prisma.role.findUnique({ where: { name: roleName } });
     if (!role) {
