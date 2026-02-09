@@ -315,6 +315,7 @@ function ManageProductsPanel() {
     return savedView === 'compact' || savedView === 'list' ? savedView : 'compact';
   });
   const [manageTab, setManageTab] = useState('products'); // 'products' | 'categories'
+  const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', price: '', stock: '' });
 
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
@@ -378,15 +379,14 @@ function ManageProductsPanel() {
   };
 
   const handleSave = () => {
-    if (!formData.name || !formData.categoryId || !formData.price) {
-      alert('Please fill in all required fields');
-      return;
-    }
-
-    if (formData.stockEnabled && !formData.stock) {
-      alert('Please enter stock quantity or disable stock tracking');
-      return;
-    }
+    const errors = {
+      name: !formData.name || !String(formData.name).trim() ? 'Product name is required' : '',
+      categoryId: !formData.categoryId ? 'Please select a category' : '',
+      price: !formData.price && formData.price !== 0 ? 'Price is required' : '',
+      stock: formData.stockEnabled && (formData.stock === '' || formData.stock == null) ? 'Enter stock quantity or disable stock tracking' : ''
+    };
+    setFormErrors(errors);
+    if (errors.name || errors.categoryId || errors.price || errors.stock) return;
 
     const productData = {
       ...formData,
@@ -417,6 +417,12 @@ function ManageProductsPanel() {
       quantityDiscountsOverride: ''
     });
     setCategoryQuery('');
+    setFormErrors({ name: '', categoryId: '', price: '', stock: '' });
+  };
+
+  const setFormDataAndClearErrors = (next) => {
+    setFormData(typeof next === 'function' ? next(formData) : next);
+    setFormErrors({ name: '', categoryId: '', price: '', stock: '' });
   };
 
   const handleCancel = () => {
@@ -434,6 +440,7 @@ function ManageProductsPanel() {
       quantityDiscountsOverride: ''
     });
     setCategoryQuery('');
+    setFormErrors({ name: '', categoryId: '', price: '', stock: '' });
   };
 
   const handleDeleteClick = (productId, productName) => {
@@ -590,7 +597,10 @@ function ManageProductsPanel() {
         rightContent={
           canManageProducts ? (
             <button
-              onClick={() => setShowAddForm(true)}
+              onClick={() => {
+                setManageTab('products');
+                setShowAddForm(true);
+              }}
               className="btn-add-product"
               disabled={showAddForm || editingId}
             >
@@ -629,7 +639,7 @@ function ManageProductsPanel() {
               isOpen={showAddForm || editingId}
               title={editingId ? 'Edit Product' : 'Add New Product'}
               formData={formData}
-              setFormData={setFormData}
+              setFormData={setFormDataAndClearErrors}
               categoryQuery={categoryQuery}
               setCategoryQuery={setCategoryQuery}
               showCategoryDropdown={showCategoryDropdown}
@@ -643,6 +653,7 @@ function ManageProductsPanel() {
               removeImageField={removeImageField}
               updateImageField={updateImageField}
               handleImageUpload={handleImageUpload}
+              formErrors={formErrors}
             />
           )}
 
