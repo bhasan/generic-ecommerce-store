@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import './Notification.css';
 import { useApp } from '../../context/AppContext';
+import { toNotificationMessage } from '../../utils/notificationMessage';
 import { CheckCircle, Info, AlertTriangle, X } from 'lucide-react';
 
 function Notification() {
@@ -31,7 +32,7 @@ function Notification() {
           {icons[notification.type] || icons.info}
         </div>
         <div className="notification-content">
-          <p className="notification-message">{notification.message}</p>
+          <p className="notification-message">{toNotificationMessage(notification.message)}</p>
           {notification.action && (
             <button 
               onClick={notification.action.onClick}

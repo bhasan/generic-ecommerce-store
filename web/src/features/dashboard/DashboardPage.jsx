@@ -15,12 +15,10 @@ import PendingRegistrationsSection from './components/PendingRegistrationsSectio
 import UsersSection from './components/UsersSection';
 import AnnouncementsSection from './components/AnnouncementsSection';
 import RejectedUsersSection from './components/RejectedUsersSection';
-import CategoriesSection from './components/CategoriesSection';
 import MessagesSection from './components/MessagesSection';
 import { hasRole } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
-  CATEGORIES: 'categories',
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
   REJECTED_USERS: 'rejected-users',
@@ -569,8 +567,6 @@ function DashboardPage() {
             onMoveToPending={handleUnRejectClick}
           />
         );
-      case DASHBOARD_SECTIONS.CATEGORIES:
-        return <CategoriesSection />;
       case DASHBOARD_SECTIONS.ANNOUNCEMENTS:
         return (
           <AnnouncementsSection

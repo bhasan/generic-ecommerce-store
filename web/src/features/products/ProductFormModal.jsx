@@ -18,7 +18,8 @@ function ProductFormModal({
   addImageField,
   removeImageField,
   updateImageField,
-  handleImageUpload
+  handleImageUpload,
+  formErrors = {}
 }) {
   if (!isOpen) return null;
 
@@ -42,8 +43,13 @@ function ProductFormModal({
                 placeholder="e.g., Wireless Headphones"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="form-input"
+                className={`form-input ${formErrors.name ? 'form-input-error' : ''}`}
+                aria-invalid={!!formErrors.name}
+                aria-describedby={formErrors.name ? 'name-error' : undefined}
               />
+              {formErrors.name && (
+                <span id="name-error" className="form-error-message" role="alert">{formErrors.name}</span>
+              )}
             </div>
 
             <div className="form-group">
@@ -59,7 +65,9 @@ function ProductFormModal({
                     setCategoryQuery(e.target.value);
                     setShowCategoryDropdown(true);
                   }}
-                  className="form-input"
+                  className={`form-input ${formErrors.categoryId ? 'form-input-error' : ''}`}
+                  aria-invalid={!!formErrors.categoryId}
+                  aria-describedby={formErrors.categoryId ? 'category-error' : undefined}
                 />
                 {showCategoryDropdown && (
                   <div className="category-dropdown">
@@ -89,6 +97,9 @@ function ProductFormModal({
                   </div>
                 )}
               </div>
+              {formErrors.categoryId && (
+                <span id="category-error" className="form-error-message" role="alert">{formErrors.categoryId}</span>
+              )}
             </div>
 
             <div className="form-group">
@@ -101,8 +112,13 @@ function ProductFormModal({
                 placeholder="0.00"
                 value={formData.price}
                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="form-input"
+                className={`form-input ${formErrors.price ? 'form-input-error' : ''}`}
+                aria-invalid={!!formErrors.price}
+                aria-describedby={formErrors.price ? 'price-error' : undefined}
               />
+              {formErrors.price && (
+                <span id="price-error" className="form-error-message" role="alert">{formErrors.price}</span>
+              )}
             </div>
 
             <div className="form-group">
@@ -128,8 +144,10 @@ function ProductFormModal({
                   placeholder={formData.stockEnabled ? "0" : "Disabled"}
                   value={formData.stock}
                   onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                  className="form-input"
+                  className={`form-input ${formErrors.stock ? 'form-input-error' : ''}`}
                   disabled={!formData.stockEnabled}
+                  aria-invalid={!!formErrors.stock}
+                  aria-describedby={formErrors.stock ? 'stock-error' : undefined}
                 />
                 <label className="checkbox-label">
                   <input
@@ -140,6 +158,9 @@ function ProductFormModal({
                   <span>Track Stock</span>
                 </label>
               </div>
+              {formErrors.stock && (
+                <span id="stock-error" className="form-error-message" role="alert">{formErrors.stock}</span>
+              )}
             </div>
 
             <div className="form-group form-group-full">

@@ -91,15 +91,16 @@
   flex: 1;
 }
 
-.form-group {
+/* Modal form layout (form base in base.css) */
+.announcement-modal .form-group {
   margin-bottom: var(--spacing-lg);
 }
 
-.form-group:last-child {
+.announcement-modal .form-group:last-child {
   margin-bottom: 0;
 }
 
-.form-label {
+.announcement-modal .form-label {
   display: block;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
@@ -107,22 +108,12 @@
   margin-bottom: var(--spacing-sm);
 }
 
-.required {
+.announcement-modal .required {
   color: var(--color-danger);
 }
 
-.form-textarea,
-.form-select {
-  width: 100%;
-  padding: 0.7rem 1rem;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--font-size-sm);
-  font-family: inherit;
-  transition: var(--transition-all);
-  box-sizing: border-box;
+/* Custom select arrow for modal */
+.announcement-modal .form-select {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -131,12 +122,9 @@
   background-position: right 1rem center;
   background-size: 12px;
   padding-right: 2.25rem;
-  cursor: pointer;
 }
 
-.form-textarea {
-  resize: vertical;
-  min-height: 100px;
+.announcement-modal .form-textarea {
   background-image: none;
   padding-right: var(--spacing-lg);
 }

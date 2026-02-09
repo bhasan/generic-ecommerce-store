@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './LoginPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { toNotificationMessage } from '../../utils/notificationMessage';
 import { LogIn, User, Lock } from 'lucide-react';
 
 function LoginPage() {
@@ -10,6 +11,7 @@ function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect authenticated users away from login page
@@ -28,18 +30,26 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    const emailTrimmed = (email || '').trim();
+    const passwordTrimmed = (password || '').trim();
+    const errors = {
+      email: !emailTrimmed ? 'Email is required' : '',
+      password: !passwordTrimmed ? 'Password is required' : ''
+    };
+    setFieldErrors(errors);
+    if (errors.email || errors.password) return;
+
     setIsLoading(true);
-    
     try {
-      const success = await login(email, password);
+      const success = await login(emailTrimmed, passwordTrimmed);
       if (success) {
         setError('');
-        // Navigation is handled in AppContext
+        setFieldErrors({ email: '', password: '' });
       } else {
         setError('Invalid credentials. Please try again.');
       }
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
+      setError(toNotificationMessage(err?.message ?? err, 'Login failed. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -66,11 +76,19 @@ function LoginPage() {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="form-input"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }));
+              }}
+              className={`form-input ${fieldErrors.email ? 'form-input-error' : ''}`}
               placeholder="you@example.com"
               required
+              aria-invalid={!!fieldErrors.email}
+              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
             />
+            {fieldErrors.email && (
+              <span id="email-error" className="form-error-message" role="alert">{fieldErrors.email}</span>
+            )}
           </div>
 
           <div className="form-group">
@@ -82,11 +100,19 @@ function LoginPage() {
               id="password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="form-input"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
+              }}
+              className={`form-input ${fieldErrors.password ? 'form-input-error' : ''}`}
               placeholder="Enter your password"
               required
+              aria-invalid={!!fieldErrors.password}
+              aria-describedby={fieldErrors.password ? 'password-error' : undefined}
             />
+            {fieldErrors.password && (
+              <span id="password-error" className="form-error-message" role="alert">{fieldErrors.password}</span>
+            )}
           </div>
 
           {error && (

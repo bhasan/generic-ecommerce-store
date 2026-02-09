@@ -54,16 +54,6 @@
   gap: var(--spacing-lg);
 }
 
-.form-label {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  color: var(--text-secondary);
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-sm);
-  margin-bottom: var(--spacing-sm);
-}
-
 .login-error {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid var(--color-danger);
