@@ -4,7 +4,6 @@ import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import * as announcementsApi from '../../services/announcementsApi';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
-import RejectUserModal from '../../components/common/RejectUserModal';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
@@ -49,11 +48,6 @@ function DashboardPage() {
   // Pending Registrations State
   const [pendingRegistrations, setPendingRegistrations] = useState([]);
   const [isLoadingPending, setIsLoadingPending] = useState(true);
-  const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [userToReject, setUserToReject] = useState(null);
-  const [approveModalOpen, setApproveModalOpen] = useState(false);
-  const [userToApprove, setUserToApprove] = useState(null);
-  
   // Announcements State
   const [announcements, setAnnouncements] = useState([]);
   const [isLoadingAnnouncements, setIsLoadingAnnouncements] = useState(true);
@@ -256,55 +250,27 @@ function DashboardPage() {
     }
   };
 
-  // Pending registration handlers
-  const handleApproveClick = (userId, userName) => {
-    setUserToApprove({ id: userId, name: userName });
-    setApproveModalOpen(true);
-  };
-
-  const handleApproveConfirm = async () => {
-    if (!userToApprove) return;
-
+  // Pending registration handlers (called by PendingRegistrationsSection after user confirms in modal)
+  const handleApprove = async (userId) => {
     try {
-      await usersApi.approveUser(userToApprove.id);
+      await usersApi.approveUser(userId);
       showNotification('User approved successfully', 'success');
-      setApproveModalOpen(false);
-      setUserToApprove(null);
       loadPendingRegistrations();
     } catch (error) {
       showNotification(error.message || 'Failed to approve user', 'error');
-      setApproveModalOpen(false);
-      setUserToApprove(null);
+      throw error;
     }
   };
 
-  const handleApproveCancel = () => {
-    setApproveModalOpen(false);
-    setUserToApprove(null);
-  };
-
-  const handleRejectClick = (userId, userName) => {
-    setUserToReject({ id: userId, name: userName });
-    setRejectModalOpen(true);
-  };
-
-  const handleRejectConfirm = async (rejectionNote) => {
-    if (!userToReject) return;
-
+  const handleReject = async (userId, rejectionNote) => {
     try {
-      await usersApi.rejectUser(userToReject.id, rejectionNote);
+      await usersApi.rejectUser(userId, rejectionNote);
       showNotification('User registration rejected', 'success');
-      setRejectModalOpen(false);
-      setUserToReject(null);
       loadPendingRegistrations();
     } catch (error) {
       showNotification(error.message || 'Failed to reject user', 'error');
+      throw error;
     }
-  };
-
-  const handleRejectCancel = () => {
-    setRejectModalOpen(false);
-    setUserToReject(null);
   };
 
   // Handle un-reject user (move back to pending)
@@ -568,8 +534,8 @@ function DashboardPage() {
             isLoading={isLoadingPending}
             pendingRegistrations={pendingRegistrations}
             formatDate={formatDate}
-            onApprove={handleApproveClick}
-            onReject={handleRejectClick}
+            onApprove={handleApprove}
+            onReject={handleReject}
           />
         );
       case DASHBOARD_SECTIONS.USERS:
@@ -640,8 +606,8 @@ function DashboardPage() {
             isLoading={isLoadingPending}
             pendingRegistrations={pendingRegistrations}
             formatDate={formatDate}
-            onApprove={handleApproveClick}
-            onReject={handleRejectClick}
+            onApprove={handleApprove}
+            onReject={handleReject}
           />
         );
     }
@@ -662,31 +628,6 @@ function DashboardPage() {
       </div>
 
       {/* Modals */}
-      <ConfirmationModal
-        isOpen={approveModalOpen}
-        onClose={handleApproveCancel}
-        onConfirm={handleApproveConfirm}
-        title="Approve User Registration"
-        message={
-          <>
-            Are you sure you want to approve registration for <strong>{userToApprove?.name || ''}</strong>?
-            <br />
-            <br />
-            This will grant them access to the system.
-          </>
-        }
-        confirmText="Approve"
-        cancelText="Cancel"
-        type="success"
-      />
-
-      <RejectUserModal
-        isOpen={rejectModalOpen}
-        onClose={handleRejectCancel}
-        onConfirm={handleRejectConfirm}
-        userName={userToReject?.name || ''}
-      />
-
       <AnnouncementModal
         isOpen={announcementModalOpen}
         onClose={() => {

@@ -1,165 +1,169 @@
-# Production Deployment Summary
+# Step-by-Step Production Deployment
 
-## Step by Step Prod Deployment
+## Quick Reference
 
-### Software Prep (build machine)
-
-1. **Web dir:** `npm install && npm run build`
-   - From project root: `cd web && npm install && npm run build && cd ..`
-
-2. **Build images:**  
-   `docker compose -f docker-compose.prod.yml --env-file .env.prod build`
-
-3. **Save images to tar:**  
-   `docker save -o smoke_station_app_v1111.tar smoke-station-delivery/backend:latest smoke-station-delivery/web:latest`  
-   - Use `docker images` to list image names (not containers) if needed.
-
-4. **Copy to target:**
-   - `smoke_station_app_v1111.tar`
-   - `docker-compose.prod.yml`
-   - `.env.prod`
-   - `backend/.env` (or `backend/.env.prod` — compose uses `backend/.env`)
-   - `backend/Dockerfile` (optional; only if building on target)
-   - `nginx/` directory (at least `nginx.prod.conf` and `nginx/ssl` or empty `ssl` folder)
+| Phase | Where | Command / Action |
+|-------|--------|------------------|
+| Build frontend | Dev | `cd web && npm install && npm run build && cd ..` |
+| Build images | Dev | `docker compose -f docker-compose.prod.yml --env-file .env.prod build` |
+| Export images | Dev | `docker save -o smoke_station_app_vVERSION.tar <backend-image> <web-image>` |
+| Copy to target | — | Copy tarball, `docker-compose.prod.yml`, root `.env.prod`, `backend/.env`, `nginx/` |
+| Load and run | Target | `docker load -i smoke_station_app_vVERSION.tar` then `docker compose ... up -d` |
+| Migrate | Target | `docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy` |
+| Seed (first time) | Target | `docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod` |
 
 ---
 
-### Software requirements (target)
+## 1. Build on Dev Machine
 
-- **Docker** (Linux or WSL)
-- **Docker Compose**
-
----
-
-## Instructions (target machine)
-
-### 1. Set up Windows
-
-- Install **Ubuntu** from Microsoft Store (for terminal).
-- Open terminal. Create user: `webuser` / password: `password123` (or your choice).
-- Run: `sudo apt update && sudo apt upgrade`
-- Install npm if you need to build on target (otherwise optional).
-
-### 2. Install Docker Desktop / Docker Compose
-
-- Install Docker and Docker Compose on the target machine.
-
-### 3. Create directories
-
-- `C:\webhosting` (or your chosen base path)
-  - **webapp** — application files (compose, env, nginx, backend/.env)
-  - **docker_images** — packaged Docker image tar file(s)
-
-### 4. Place files
-
-- Put **smoke_station_app_v1111.tar** in the **docker_images** directory (or in **webapp** if you prefer a single folder).
-- In **webapp**, place:
-  - `docker-compose.prod.yml`
-  - `.env.prod` (root env for Compose)
-  - `backend/.env` (backend app env; compose expects `./backend/.env`)
-  - `nginx/` directory (include `nginx.prod.conf` and `nginx/ssl`; `ssl` can be empty)
-
-### 5. First-time DB setup (important)
-
-The Postgres image **only creates the user and database when it starts with an empty data directory** and when the environment variables `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` are set. Those come from your `.env.prod` as `DB_USER`, `DB_PASSWORD`, `DB_NAME` (Compose substitutes them into the `db` service).
-
-If the db container ever started **without** `--env-file .env.prod`, or with an **existing volume** from a previous run, the user/database are never created — hence "smoke_station_user does not exist."
-
-**On first-time setup on the target:**
-
-1. Run all commands from the **webapp** directory (where `docker-compose.prod.yml` and `.env.prod` live).
-2. Confirm `.env.prod` exists and contains:
-   ```bash
-   DB_USER=smoke_station_user
-   DB_PASSWORD=your_secure_password
-   DB_NAME=smoke_station_prod
-   ```
-3. If you already ran `up -d` before, remove the existing DB volume so Postgres can run its init script:
-   ```bash
-   docker compose -f docker-compose.prod.yml --env-file .env.prod down
-   docker volume ls | grep postgres
-   docker volume rm <volume_name>   # e.g. webapp_postgres_data_prod
-   ```
-4. Then follow step 6 (load image and start stack). Start **only** the db first so it gets the env vars and an empty volume.
-
-### 6. Load image and start stack
-
-From the **webapp** directory (where `docker-compose.prod.yml` and `.env.prod` are):
+**1.1** From the **project root** (e.g. `smoke-station-delivery`):
 
 ```bash
-docker load -i ../docker_images/smoke_station_app_v1111.tar
+cd web && npm install && npm run build && cd ..
 ```
 
-If the tar is in **webapp**:
+**1.2** Build backend and web images (use env file so variables resolve):
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod build
+```
+
+Optional: build a single service and/or no cache:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.prod build backend --no-cache
+docker compose -f docker-compose.prod.yml --env-file .env.prod build web --no-cache
+```
+
+**1.3** Get the exact image names (Compose may add a project prefix):
+
+```bash
+docker images
+```
+
+**1.4** Save both app images to one tarball (use the names from step 1.3):
+
+```bash
+docker save -o smoke_station_app_v1111.tar smoke-station-delivery-backend-prod smoke-station-delivery-web-prod
+```
+
+(Replace `v1111` with your version; replace image names if yours differ, e.g. `smoke-station-delivery_backend`.)
+
+---
+
+## 2. Env and DB Credentials
+
+- **Root** `.env.prod`: used by Compose (`--env-file .env.prod`). Must include `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `CORS_ORIGIN`, `HTTP_PORT`, `HTTPS_PORT`, `AUTH_RATE_LIMIT_MAX`.
+- **Backend** `backend/.env`: used by the backend container via `env_file` in compose. Must match DB and app vars; include `ADMIN_PASSWORD` (and optional `ADMIN_EMAIL`, `ADMIN_NAME`) for the prod seed.
+
+Keep root `.env.prod` and `backend/.env` in sync (same DB credentials and secrets). On the target you need both files in the right places (see "What the Target Must Have" below).
+
+---
+
+## 3. Copy to Target
+
+Copy these to the target (e.g. into a single app directory such as `C:\webhosting\webapp` or `/home/webuser/smoke-station-delivery`):
+
+| Item | Purpose |
+|------|---------|
+| `smoke_station_app_v1111.tar` | Backend + web images |
+| `docker-compose.prod.yml` | Stack definition |
+| `.env.prod` | Root env for Compose (use as `--env-file .env.prod`) |
+| `backend/.env` | Backend env (path must be `backend/.env` for compose) |
+| `nginx/` | Entire directory (config and optional `ssl/`) |
+| `web/dist/` | Only if the web image was built without it baked in (usually not needed) |
+
+Note: Postgres is not in the tarball; the target will pull `postgres:16-alpine` on first `up`.
+
+---
+
+## 4. Target Machine: Software Requirements
+
+- **Docker** and **Docker Compose** (Docker Desktop on Windows, or Docker Engine + Compose on Linux/WSL).
+- **WSL (Windows):** e.g. Ubuntu from the Microsoft Store; create a user (e.g. `webuser`) and install Docker there if you run everything in WSL.
+- Suggested layout:
+  - One folder for the app (e.g. `webapp`) containing `docker-compose.prod.yml`, `.env.prod`, `backend/.env`, `nginx/`, and the tarball.
+  - Optionally a separate folder for other Docker images if you keep multiple tarballs.
+
+---
+
+## 5. Target: Load Images and Start Stack
+
+**5.1** Go to the application root (the directory that contains `docker-compose.prod.yml`):
+
+```bash
+cd /path/to/webapp
+```
+
+**5.2** Load the app images:
 
 ```bash
 docker load -i smoke_station_app_v1111.tar
 ```
 
-Then (first time: use a fresh volume and start db first):
+**5.3** (First-time only) Pull Postgres if you don't use a pre-pulled image:
 
 ```bash
 docker pull postgres:16-alpine
-# Start DB only so it creates user and database from .env.prod
-docker compose -f docker-compose.prod.yml --env-file .env.prod up -d db
-# Wait for DB to be ready (init runs only on empty volume)
-sleep 15
-# Start backend and web
+```
+
+**5.4** Start the stack:
+
+```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-# Create tables (schema)
+```
+
+**5.5** Run migrations (first time and after schema changes):
+
+```bash
 docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
 ```
 
-### 7. Verify
+**5.6** (First time) Create admin user and roles:
 
-- `docker compose -f docker-compose.prod.yml ps`
-- Open `http://<target-ip>` or run `curl http://localhost/api/health`
+```bash
+docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod
+```
+
+Ensure `ADMIN_PASSWORD` (and optionally `ADMIN_EMAIL`, `ADMIN_NAME`) are set in `backend/.env` or in the backend container env.
 
 ---
 
-## Troubleshooting
+## 6. What the Target Must Have
 
-### "smoke_station_user does not exist" (or DB user/database not created)
+Before `docker compose ... up -d`, the target app directory must contain:
 
-**Why it happens**
+| Path | Description |
+|------|-------------|
+| `./docker-compose.prod.yml` | Production compose file |
+| `./.env.prod` | Root env (Compose `--env-file`); keep name as `.env.prod` |
+| `./backend/.env` | Backend env; **exact path** (compose points to `./backend/.env`) |
+| `./nginx/` | Full nginx directory (config and optional `ssl/`) |
+| (Optional) `./web/dist/` | Only if you serve frontend from host-mounted build instead of the web image |
 
-- The **Postgres image** creates `POSTGRES_USER` and `POSTGRES_DB` only on **first run** when the data directory is **empty**. It reads `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` from the container environment.
-- Those values come from **Compose** when you run `docker compose ... up -d`. Compose fills them from `.env.prod` (`DB_USER`, `DB_PASSWORD`, `DB_NAME`) **only if** you use `--env-file .env.prod` and the file is in the current directory.
-- If you ran `up -d` without `--env-file .env.prod`, or from a different directory (so `.env.prod` was missing or not used), the db container got empty env vars and did **not** create the user or database.
-- If the Postgres **volume** already had data from a previous run, Postgres skips init and does **not** create the user again.
+The web image normally already contains the built frontend; you do **not** need to copy `web/dist` unless you changed the setup to mount it from the host.
 
-**Fix**
+---
 
-1. From the **webapp** directory, confirm:
-   ```bash
-   ls -la .env.prod
-   cat .env.prod | grep -E '^DB_USER|^DB_PASSWORD|^DB_NAME'
-   ```
-   You should see `DB_USER=smoke_station_user`, `DB_PASSWORD=...`, `DB_NAME=smoke_station_prod`.
+## 7. Common Issues
 
-2. Tear down and remove the Postgres volume so the next start uses an empty data dir:
-   ```bash
-   docker compose -f docker-compose.prod.yml --env-file .env.prod down
-   docker volume ls
-   docker volume rm webapp_postgres_data_prod
-   ```
-   (Use the actual volume name from `docker volume ls`; it may include the project directory name.)
+**Postgres schema / migrations not applied**
 
-3. Start **only** the db with the env file so init runs:
-   ```bash
-   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d db
-   sleep 15
-   ```
+- Migrations run inside the backend container:  
+  `docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy`
+- If the DB volume was recreated or is empty, run migrations again after `up -d`.
+- If you need a clean DB: remove the Postgres volume, then bring the stack up again and run migrations and seed:
 
-4. Check that the user and database exist:
-   ```bash
-   docker exec -it smoke-station-delivery-db-prod psql -U smoke_station_user -d smoke_station_prod -c '\l'
-   ```
+  ```bash
+  docker compose -f docker-compose.prod.yml --env-file .env.prod down
+  docker volume ls   # find postgres volume, e.g. smoke-station-delivery_postgres_data_prod
+  docker volume rm <volume_name>
+  docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+  docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
+  docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod
+  ```
 
-5. Start the rest and run migrations:
-   ```bash
-   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-   docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
-   ```
+**Backend can't connect to DB**
 
-**Summary:** Docker/Compose do not create the DB user or schema by magic. The **database and user** are created by the Postgres image **only when** it gets `DB_USER`/`DB_PASSWORD`/`DB_NAME` from `.env.prod` (via `--env-file`) and the data volume is **empty**. The **schema (tables)** are created by **Prisma** when you run `npx prisma migrate deploy` in the backend container.
+- Confirm root `.env.prod` and `backend/.env` use the same `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
+- Confirm `DATABASE_URL` in the backend container uses host `db` (e.g. `postgresql://USER:PASS@db:5432/DBNAME`). Compose sets this from the root env.

@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin, Check } from 'lucide-react';
+import ConfirmationModal from '../../../components/common/ConfirmationModal';
+import RejectUserModal from '../../../components/common/RejectUserModal';
 
 function PendingRegistrationsSection({
   isLoading,
@@ -8,6 +10,55 @@ function PendingRegistrationsSection({
   onApprove,
   onReject
 }) {
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [userToApprove, setUserToApprove] = useState(null);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [userToReject, setUserToReject] = useState(null);
+
+  const handleApproveClick = (userId, userName) => {
+    setUserToApprove({ id: userId, name: userName });
+    setApproveModalOpen(true);
+  };
+
+  const handleApproveConfirm = async () => {
+    if (!userToApprove) return;
+    try {
+      await onApprove(userToApprove.id);
+      setApproveModalOpen(false);
+      setUserToApprove(null);
+    } catch {
+      setApproveModalOpen(false);
+      setUserToApprove(null);
+    }
+  };
+
+  const handleApproveCancel = () => {
+    setApproveModalOpen(false);
+    setUserToApprove(null);
+  };
+
+  const handleRejectClick = (userId, userName) => {
+    setUserToReject({ id: userId, name: userName });
+    setRejectModalOpen(true);
+  };
+
+  const handleRejectConfirm = async (rejectionNote) => {
+    if (!userToReject) return;
+    try {
+      await onReject(userToReject.id, rejectionNote);
+      setRejectModalOpen(false);
+      setUserToReject(null);
+    } catch {
+      setRejectModalOpen(false);
+      setUserToReject(null);
+    }
+  };
+
+  const handleRejectCancel = () => {
+    setRejectModalOpen(false);
+    setUserToReject(null);
+  };
+
   return (
     <div className="dashboard-content-section surface-card">
       <div className="section-header">
@@ -73,14 +124,14 @@ function PendingRegistrationsSection({
                 </div>
                 <div className="pending-actions">
                   <button
-                    onClick={() => onApprove(user.id, user.name)}
+                    onClick={() => handleApproveClick(user.id, user.name)}
                     className="btn-action btn-approve"
                   >
                     <Check size={16} />
                     <span>Approve</span>
                   </button>
                   <button
-                    onClick={() => onReject(user.id, user.name)}
+                    onClick={() => handleRejectClick(user.id, user.name)}
                     className="btn-action btn-reject"
                   >
                     <X size={16} />
@@ -92,6 +143,31 @@ function PendingRegistrationsSection({
           ))}
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={approveModalOpen}
+        onClose={handleApproveCancel}
+        onConfirm={handleApproveConfirm}
+        title="Approve User Registration"
+        message={
+          <>
+            Are you sure you want to approve registration for <strong>{userToApprove?.name || ''}</strong>?
+            <br />
+            <br />
+            This will grant them access to the system.
+          </>
+        }
+        confirmText="Approve"
+        cancelText="Cancel"
+        type="success"
+      />
+
+      <RejectUserModal
+        isOpen={rejectModalOpen}
+        onClose={handleRejectCancel}
+        onConfirm={handleRejectConfirm}
+        userName={userToReject?.name || ''}
+      />
     </div>
   );
 }
