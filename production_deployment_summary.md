@@ -7,7 +7,7 @@
 | Build frontend | Dev | `cd web && npm install && npm run build && cd ..` |
 | Build images | Dev | `docker compose -f docker-compose.prod.yml --env-file .env.prod build` |
 | Export images | Dev | `docker save -o smoke_station_app_vVERSION.tar <backend-image> <web-image>` |
-| Copy to target | — | Copy tarball, `docker-compose.prod.yml`, root `.env.prod`, `backend/.env`, `nginx/` |
+| Copy to target | — | Copy tarball, `docker-compose.prod.yml`, root `.env.prod`, `backend/.env`, `nginx/`, `cloudflare-ddns/` (optional) |
 | Load and run | Target | `docker load -i smoke_station_app_vVERSION.tar` then `docker compose ... up -d` |
 | Migrate | Target | `docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy` |
 | Seed (first time) | Target | `docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod` |
@@ -71,6 +71,7 @@ Copy these to the target (e.g. into a single app directory such as `C:\webhostin
 | `.env.prod` | Root env for Compose (use as `--env-file .env.prod`) |
 | `backend/.env` | Backend env (path must be `backend/.env` for compose) |
 | `nginx/` | Entire directory (config and optional `ssl/`) |
+| `cloudflare-ddns/` | Entire directory with `config.json` (required if using cloudflare-ddns service; copy `config-example.json` as `config.json` and edit) |
 | `web/dist/` | Only if the web image was built without it baked in (usually not needed) |
 
 Note: Postgres is not in the tarball; the target will pull `postgres:16-alpine` on first `up`.
@@ -139,6 +140,7 @@ Before `docker compose ... up -d`, the target app directory must contain:
 | `./.env.prod` | Root env (Compose `--env-file`); keep name as `.env.prod` |
 | `./backend/.env` | Backend env; **exact path** (compose points to `./backend/.env`) |
 | `./nginx/` | Full nginx directory (config and optional `ssl/`) |
+| `./cloudflare-ddns/config.json` | DDNS config (required if using cloudflare-ddns; copy from `config-example.json` and edit) |
 | (Optional) `./web/dist/` | Only if you serve frontend from host-mounted build instead of the web image |
 
 The web image normally already contains the built frontend; you do **not** need to copy `web/dist` unless you changed the setup to mount it from the host.
