@@ -52,7 +52,8 @@ router.post(
   [
     body('items').isArray({ min: 1 }).withMessage('Order must contain at least one item'),
     body('items.*.productId').isInt().withMessage('Valid product ID is required'),
-    body('items.*.quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0')
+    body('items.*.quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
+    body('cashAppUsername').optional().isString().withMessage('CashApp username must be a string')
   ],
   orderController.createOrder
 );

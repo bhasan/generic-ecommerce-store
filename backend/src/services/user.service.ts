@@ -8,6 +8,9 @@ interface UpdateUserData {
   name?: string;
   password?: string;
   roles?: RoleName[];
+  address?: string | null;
+  cashapp?: string | null;
+  phoneNumber?: string | null;
 }
 
 export class UserService {
@@ -146,7 +149,10 @@ export class UserService {
     
     if (data.email) updateData.email = data.email;
     if (data.name) updateData.name = data.name;
-    
+    if (data.address !== undefined) updateData.address = data.address || null;
+    if (data.cashapp !== undefined) updateData.cashapp = data.cashapp || null;
+    if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber || null;
+
     if (data.password) {
       updateData.password = await hashPassword(data.password);
     }

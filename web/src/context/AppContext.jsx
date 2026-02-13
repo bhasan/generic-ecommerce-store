@@ -310,7 +310,7 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const checkout = async () => {
+  const checkout = async (cashAppUsername) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -318,8 +318,13 @@ export function AppProvider({ children }) {
         quantity: item.quantity
       }));
 
-      // Create order via API
-      const newOrder = await ordersApi.createOrder(items);
+      // Create order via API (pass CashApp username - saved to User.cashapp for orders page)
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername);
+      
+      // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
+      const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
+      setCurrentUser(updatedUserData);
+      localStorage.setItem('userData', JSON.stringify(updatedUserData));
       
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
@@ -560,6 +565,8 @@ export function AppProvider({ children }) {
       }
       
       setCurrentUser(updatedUser);
+      // Persist to localStorage so checkout/profile/registration all read same source
+      localStorage.setItem('userData', JSON.stringify(updatedUser));
       showNotification('Profile updated successfully', 'success');
     } catch (error) {
       const errorMessage = error.message || 'Failed to update profile. Please try again.';
