@@ -3,7 +3,7 @@ import './RegisterPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
-import { UserPlus, Mail, Lock, User, Phone, DollarSign, AlertCircle, MapPin } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, Phone, DollarSign, AlertCircle, MapPin, CheckCircle } from 'lucide-react';
 
 function RegisterPage() {
   const { register, showNotification } = useApp();
@@ -17,8 +17,9 @@ function RegisterPage() {
     phoneNumber: ''
   });
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ name: '', email: '', password: '', cashapp: '' });
+  const [fieldErrors, setFieldErrors] = useState({ name: '', email: '', password: '', cashapp: '', phoneNumber: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [registrationComplete, setRegistrationComplete] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -33,14 +34,16 @@ function RegisterPage() {
     const emailTrimmed = (formData.email || '').trim();
     const passwordTrimmed = (formData.password || '').trim();
     const cashappTrimmed = (formData.cashapp || '').trim();
+    const phoneTrimmed = (formData.phoneNumber || '').trim();
     const errors = {
       name: !nameTrimmed ? 'Full name is required' : '',
       email: !emailTrimmed ? 'Email is required' : '',
       password: !passwordTrimmed ? 'Password is required' : '',
-      cashapp: !cashappTrimmed ? 'CashApp username is required' : ''
+      cashapp: !cashappTrimmed ? 'CashApp username is required' : '',
+      phoneNumber: !phoneTrimmed ? 'Phone number is required' : ''
     };
     setFieldErrors(errors);
-    if (errors.name || errors.email || errors.password || errors.cashapp) return;
+    if (errors.name || errors.email || errors.password || errors.cashapp || errors.phoneNumber) return;
 
     setIsLoading(true);
     try {
@@ -50,12 +53,11 @@ function RegisterPage() {
         name: nameTrimmed,
         address: formData.address || undefined,
         cashapp: cashappTrimmed,
-        phoneNumber: formData.phoneNumber || undefined
+        phoneNumber: phoneTrimmed
       });
 
       if (response) {
-        showNotification(response.message || 'Registration successful! Please visit the store to get approved.', 'success');
-        navigate('/login');
+        setRegistrationComplete(true);
       }
     } catch (err) {
       const errorMessage = toNotificationMessage(err?.message ?? err, 'Registration failed. Please try again.');
@@ -65,6 +67,30 @@ function RegisterPage() {
       setIsLoading(false);
     }
   };
+
+  if (registrationComplete) {
+    return (
+      <div className="register-page-container">
+        <div className="register-card register-success-card">
+          <div className="register-success-content">
+            <div className="register-success-icon">
+              <CheckCircle size={80} />
+            </div>
+            <h1 className="register-success-title">Registration Submitted</h1>
+            <p className="register-success-message">
+              Please visit the store in person to complete your registration and get approved.
+            </p>
+            <p className="register-success-subtext">
+              Once approved, you can sign in and start placing orders.
+            </p>
+            <Link to="/login" className="btn-register-success-link">
+              Go to Sign In
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="register-page-container">
@@ -197,7 +223,7 @@ function RegisterPage() {
           <div className="form-group">
             <label htmlFor="phoneNumber" className="form-label">
               <Phone size={16} />
-              <span>5-Star Rewards Phone Number (Optional)</span>
+              <span>Phone Number</span>
             </label>
             <input
               id="phoneNumber"
@@ -205,9 +231,15 @@ function RegisterPage() {
               type="tel"
               value={formData.phoneNumber}
               onChange={handleChange}
-              className="form-input"
+              className={`form-input ${fieldErrors.phoneNumber ? 'form-input-error' : ''}`}
               placeholder="(555) 123-4567"
+              required
+              aria-invalid={!!fieldErrors.phoneNumber}
+              aria-describedby={fieldErrors.phoneNumber ? 'phoneNumber-error' : undefined}
             />
+            {fieldErrors.phoneNumber && (
+              <span id="phoneNumber-error" className="form-error-message" role="alert">{fieldErrors.phoneNumber}</span>
+            )}
           </div>
 
           {error && (
