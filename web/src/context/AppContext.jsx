@@ -5,8 +5,10 @@ import * as usersApi from '../services/usersApi';
 import * as productsApi from '../services/productsApi';
 import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
+import * as notificationsApi from '../services/notificationsApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
+import { hasAnyRole } from '../utils/roles';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -48,6 +50,7 @@ export function AppProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
+  const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -115,6 +118,27 @@ export function AppProvider({ children }) {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  const loadStaffNotificationCounts = useCallback(async () => {
+    if (!isAuthenticated) return;
+    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    if (!isStaff) return;
+    try {
+      const data = await notificationsApi.getStaffNotificationCounts();
+      setStaffNotificationCounts(data);
+    } catch {
+      // Silently fail - don't show error for notification counts
+    }
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    loadStaffNotificationCounts();
+    if (!isAuthenticated) return;
+    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    if (!isStaff) return;
+    const interval = setInterval(loadStaffNotificationCounts, 50000);
+    return () => clearInterval(interval);
+  }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
 
   // Load orders function (can be called manually)
   const loadOrders = useCallback(async () => {
@@ -724,6 +748,8 @@ export function AppProvider({ children }) {
     closeNotification,
     returnPath,
     setReturnPath,
+    staffNotificationCounts,
+    loadStaffNotificationCounts,
     addReview,
     updateReview,
     deleteReview,

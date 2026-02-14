@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
 import { Check, Trash2, Package, Clock, Truck, CheckCircle, RefreshCw, XCircle, PackageCheck, TruckIcon, CheckCheck, Plus, X, Minus, Edit, Save, HelpCircle, User, CreditCard, Phone, MapPin, LayoutGrid, List, Filter, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole } from '../../utils/roles';
 
@@ -13,6 +13,8 @@ const ORDER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_ORDER_POLL_INTERVAL_M
 
 function OrdersPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const statusFilter = searchParams.get('status');
   const { 
     currentUser, 
     orders, 
@@ -48,12 +50,14 @@ function OrdersPage() {
     && !hasRole(currentUser, 'MANAGEMENT')
     && !hasRole(currentUser, 'ADMIN');
   
-  // Filter orders based on user role and show all toggle
+  // Filter orders based on user role, show all toggle, and URL ?status= filter
   const filteredOrders = orders.filter(o => {
     // First apply user filter
     if (isCustomerOnly && o.userId !== currentUser.id) return false;
-    // Then apply open/all filter (only for non-customers)
-    if (!isCustomerOnly && !showAllOrders && CLOSED_STATUSES.includes(o.status)) return false;
+    // URL status filter (staff coming from notification dropdown)
+    if (statusFilter && o.status !== statusFilter) return false;
+    // Then apply open/all filter (only for non-customers, when no status filter)
+    if (!statusFilter && !isCustomerOnly && !showAllOrders && CLOSED_STATUSES.includes(o.status)) return false;
     return true;
   });
 
@@ -342,11 +346,13 @@ function OrdersPage() {
             {isCustomerOnly ? 'My Orders' : 'Orders'}
           </h2>
           <p className="page-subtitle">
-            {showAllOrders 
-              ? `${filteredOrders.length} ${filteredOrders.length === 1 ? 'order' : 'orders'} total`
-              : `${filteredOrders.length} open ${filteredOrders.length === 1 ? 'order' : 'orders'}`
+            {statusFilter
+              ? `${filteredOrders.length} ${statusFilter.replace(/_/g, ' ').toLowerCase()} ${filteredOrders.length === 1 ? 'order' : 'orders'}`
+              : showAllOrders
+                ? `${filteredOrders.length} ${filteredOrders.length === 1 ? 'order' : 'orders'} total`
+                : `${filteredOrders.length} open ${filteredOrders.length === 1 ? 'order' : 'orders'}`
             }
-            {!isCustomerOnly && !showAllOrders && totalOrdersCount > openOrdersCount && (
+            {!statusFilter && !isCustomerOnly && !showAllOrders && totalOrdersCount > openOrdersCount && (
               <span className="orders-hidden-count"> ({totalOrdersCount - openOrdersCount} completed hidden)</span>
             )}
           </p>

@@ -4,11 +4,12 @@ import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
+import NotificationDropdown from './NotificationDropdown';
 import { hasRole } from '../../utils/roles';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
-  const { currentUser, cart, logout } = useApp();
+  const { currentUser, cart, logout, staffNotificationCounts } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -216,6 +217,9 @@ function Navbar() {
               <span className="hamburger-line"></span>
             </button>
 
+            {canManageOrders && (
+              <NotificationDropdown counts={staffNotificationCounts} canAccessDashboard={isManagement} />
+            )}
             <CartPreview cart={cart} cartCount={cartCount} />
             
             {isGuest ? (
