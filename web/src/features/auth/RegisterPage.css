@@ -158,5 +158,73 @@
   }
 }
 
+/* Registration success view - large, visible message */
+.register-success-card {
+  max-width: 560px;
+  text-align: center;
+}
+
+.register-success-content {
+  padding: var(--spacing-lg) 0;
+}
+
+.register-success-icon {
+  color: var(--color-secondary);
+  margin-bottom: var(--spacing-xl);
+}
+
+.register-success-title {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xl) 0;
+  line-height: 1.2;
+}
+
+.register-success-message {
+  font-size: 1.5rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.register-success-subtext {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 var(--spacing-2xl) 0;
+}
+
+.btn-register-success-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md) var(--spacing-2xl);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: var(--text-on-primary);
+  text-decoration: none;
+  border-radius: var(--radius-lg);
+  font-weight: var(--font-weight-semibold);
+  font-size: 1.125rem;
+  transition: var(--transition-slow);
+  box-shadow: var(--shadow-primary);
+}
+
+.btn-register-success-link:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-primary-lg);
+}
+
+@media (max-width: 768px) {
+  .register-success-title {
+    font-size: var(--font-size-2xl);
+  }
+
+  .register-success-message {
+    font-size: 1.25rem;
+  }
+}
+
 
 

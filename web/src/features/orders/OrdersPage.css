@@ -292,10 +292,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  min-height: 32px;
   border: none;
   border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -1231,4 +1234,310 @@
 .payment-none {
   color: var(--text-tertiary);
   font-style: italic;
+}
+
+/* Kanban layout */
+.orders-page-kanban {
+  padding-bottom: 2rem;
+}
+
+.orders-status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.orders-filters-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-right: 0.5rem;
+}
+
+.orders-filter-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.orders-filter-checkbox:hover {
+  color: var(--text-primary);
+}
+
+.orders-filter-checkbox input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-primary);
+}
+
+.orders-filter-checkbox.checked .orders-filter-text {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.orders-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.5rem 0;
+}
+
+.orders-tab {
+  padding: 0.5rem 1rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-all);
+}
+
+.orders-tab:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+}
+
+.orders-tab.active {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+}
+
+.orders-kanban {
+  min-height: 400px;
+}
+
+.orders-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.orders-empty-state .empty-icon {
+  color: var(--text-tertiary);
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.kanban-columns {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  min-height: 400px;
+}
+
+.kanban-column {
+  flex: 0 0 280px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+  transition: var(--transition-all);
+}
+
+.kanban-column-drag-over {
+  background: rgba(124, 58, 237, 0.08);
+  border-color: var(--color-primary);
+  border-style: dashed;
+}
+
+.kanban-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.kanban-column-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kanban-column-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  background: var(--bg-primary);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+.kanban-column-cards {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+}
+
+.kanban-card {
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  transition: var(--transition-all);
+  cursor: default;
+}
+
+.kanban-card-draggable {
+  cursor: grab;
+}
+
+.kanban-card-draggable:active {
+  cursor: grabbing;
+}
+
+.kanban-card-dragging {
+  opacity: 0.6;
+  transform: scale(0.98);
+}
+
+.kanban-card-new {
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+.kanban-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.kanban-card-id {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.kanban-card-new-badge {
+  font-size: 0.6rem;
+  padding: 0.125rem 0.375rem;
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-warning);
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.kanban-card-date {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.375rem;
+}
+
+.kanban-card-customer {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.kanban-card-meta {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.kanban-card-payment {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-bottom: 0.75rem;
+}
+
+.kanban-card-payment.has {
+  color: var(--color-secondary);
+  font-weight: 600;
+}
+
+.kanban-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.kanban-card-actions-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.kanban-card-actions-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.kanban-card-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-all);
+}
+
+.kanban-card-view:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-light);
+  background: rgba(124, 58, 237, 0.08);
+}
+
+/* Responsive Kanban */
+@media (max-width: 768px) {
+  .kanban-columns {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+
+  .kanban-column {
+    flex: 1 1 auto;
+    min-width: 100%;
+  }
+
+  .orders-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .orders-tab {
+    flex-shrink: 0;
+  }
 }

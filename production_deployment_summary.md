@@ -169,3 +169,12 @@ The web image normally already contains the built frontend; you do **not** need 
 
 - Confirm root `.env.prod` and `backend/.env` use the same `DB_USER`, `DB_PASSWORD`, `DB_NAME`.
 - Confirm `DATABASE_URL` in the backend container uses host `db` (e.g. `postgresql://USER:PASS@db:5432/DBNAME`). Compose sets this from the root env.
+
+**Docker build fails with "TLS handshake timeout" or "failed to resolve source metadata"**
+
+- Docker cannot reach Docker Hub to pull base images. Try:
+  1. Retry the build (network issues are often transient).
+  2. Pre-pull base images when the network is stable:  
+     `docker pull node:18-alpine`  
+     `docker pull nginx:1.25-alpine`
+  3. Build uses `network: host` by default; if it still fails, check firewall/VPN or try a different network.

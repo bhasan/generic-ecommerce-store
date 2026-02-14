@@ -10,6 +10,7 @@ interface CreateOrderData {
     productId: number;
     quantity: number;
   }>;
+  cashAppUsername?: string;
 }
 
 interface UpdateOrderStatusData {
@@ -453,7 +454,16 @@ export class OrderService {
    * Create a new order (checkout)
    */
   async createOrder(data: CreateOrderData) {
-    const { userId, items } = data;
+    const { userId, items, cashAppUsername } = data;
+
+    // Update user's CashApp username if provided (ensures orders page shows correct payment info)
+    if (cashAppUsername?.trim()) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { cashapp: cashAppUsername.trim() }
+      });
+      logger.debug('Updated user CashApp username for order', { userId });
+    }
 
     logger.info('Creating new order', {
       userId,

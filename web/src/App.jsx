@@ -18,7 +18,7 @@ import OrdersPage from './features/orders/OrdersPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
-import DeliveredOrdersPage from './features/orders/DeliveredOrdersPage';
+import OrderHistoryPage from './features/orders/OrderHistoryPage';
 import HelpPage from './features/help/HelpPage';
 
 function App() {
@@ -91,10 +91,10 @@ function App() {
               } />
 
 
-              {/* Delivered Orders - Admin only */}
-              <Route path="/delivered-orders" element={
+              {/* Order History - Admin only */}
+              <Route path="/order-history" element={
                 <ProtectedRoute roles={['ADMIN']}>
-                  <DeliveredOrdersPage />
+                  <OrderHistoryPage />
                 </ProtectedRoute>
               } />
 

@@ -18,7 +18,7 @@ router.post(
     body('name').notEmpty().withMessage('Name is required'),
     body('address').optional().isString().withMessage('Address must be a string'),
     body('cashapp').optional().isString().withMessage('CashApp must be a string'),
-    body('phoneNumber').optional().isString().withMessage('Phone number must be a string')
+    body('phoneNumber').notEmpty().withMessage('Phone number is required').isString().withMessage('Phone number must be a string')
   ],
   authController.register
 );

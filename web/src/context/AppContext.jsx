@@ -5,8 +5,10 @@ import * as usersApi from '../services/usersApi';
 import * as productsApi from '../services/productsApi';
 import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
+import * as notificationsApi from '../services/notificationsApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
+import { hasAnyRole } from '../utils/roles';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -48,6 +50,7 @@ export function AppProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
+  const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -115,6 +118,27 @@ export function AppProvider({ children }) {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  const loadStaffNotificationCounts = useCallback(async () => {
+    if (!isAuthenticated) return;
+    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    if (!isStaff) return;
+    try {
+      const data = await notificationsApi.getStaffNotificationCounts();
+      setStaffNotificationCounts(data);
+    } catch {
+      // Silently fail - don't show error for notification counts
+    }
+  }, [isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    loadStaffNotificationCounts();
+    if (!isAuthenticated) return;
+    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    if (!isStaff) return;
+    const interval = setInterval(loadStaffNotificationCounts, 50000);
+    return () => clearInterval(interval);
+  }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
 
   // Load orders function (can be called manually)
   const loadOrders = useCallback(async () => {
@@ -310,7 +334,7 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const checkout = async () => {
+  const checkout = async (cashAppUsername) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -318,8 +342,13 @@ export function AppProvider({ children }) {
         quantity: item.quantity
       }));
 
-      // Create order via API
-      const newOrder = await ordersApi.createOrder(items);
+      // Create order via API (pass CashApp username - saved to User.cashapp for orders page)
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername);
+      
+      // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
+      const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
+      setCurrentUser(updatedUserData);
+      localStorage.setItem('userData', JSON.stringify(updatedUserData));
       
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
@@ -560,6 +589,8 @@ export function AppProvider({ children }) {
       }
       
       setCurrentUser(updatedUser);
+      // Persist to localStorage so checkout/profile/registration all read same source
+      localStorage.setItem('userData', JSON.stringify(updatedUser));
       showNotification('Profile updated successfully', 'success');
     } catch (error) {
       const errorMessage = error.message || 'Failed to update profile. Please try again.';
@@ -717,6 +748,8 @@ export function AppProvider({ children }) {
     closeNotification,
     returnPath,
     setReturnPath,
+    staffNotificationCounts,
+    loadStaffNotificationCounts,
     addReview,
     updateReview,
     deleteReview,

@@ -55,7 +55,10 @@ router.put(
     body('name').optional().notEmpty().withMessage('Name cannot be empty'),
     body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
     body('roles').optional().isArray().withMessage('Roles must be an array'),
-    body('roles.*').optional().isIn(ROLE_NAMES).withMessage('Invalid role')
+    body('roles.*').optional().isIn(ROLE_NAMES).withMessage('Invalid role'),
+    body('address').optional({ values: 'null' }).isString().withMessage('Address must be a string'),
+    body('cashapp').optional({ values: 'null' }).isString().withMessage('CashApp must be a string'),
+    body('phoneNumber').optional({ values: 'null' }).isString().withMessage('Phone number must be a string')
   ],
   userController.updateUser
 );
