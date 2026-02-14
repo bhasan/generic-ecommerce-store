@@ -145,7 +145,7 @@ function Navbar() {
           ref={adminRef}
         >
           <button
-            className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users' || location.pathname === '/delivered-orders') ? 'nav-link-active' : ''}`}
+            className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users' || location.pathname === '/order-history') ? 'nav-link-active' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               setShowAdminMenu(!showAdminMenu);
@@ -174,14 +174,14 @@ function Navbar() {
               <button
                 type="button"
                 onClick={() => {
-                  navigate('/delivered-orders');
+                  navigate('/order-history');
                   setShowAdminMenu(false);
                   setShowMobileMenu(false);
                 }}
-                className={`admin-menu-item ${location.pathname === '/delivered-orders' ? 'admin-menu-item-active' : ''}`}
+                className={`admin-menu-item ${location.pathname === '/order-history' ? 'admin-menu-item-active' : ''}`}
               >
                 <CheckCircle size={16} />
-                <span>Delivered Orders</span>
+                <span>Orders History</span>
               </button>
             </div>
           )}

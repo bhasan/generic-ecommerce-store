@@ -44,8 +44,6 @@ function NotificationDropdown({ counts, canAccessDashboard }) {
     navigate('/dashboard?section=pending-registrations');
   };
 
-  if (totalCount === 0) return null;
-
   return (
     <div className="notification-dropdown" ref={ref}>
       <button
@@ -58,11 +56,15 @@ function NotificationDropdown({ counts, canAccessDashboard }) {
         aria-label="Staff notifications"
       >
         <Bell size={20} />
-        <span className="notification-badge">{totalCount}</span>
+        {totalCount > 0 && <span className="notification-badge">{totalCount}</span>}
       </button>
       {open && (
         <div className="notification-panel">
           <div className="notification-panel-header">Notifications</div>
+          {totalCount === 0 ? (
+            <div className="notification-empty">No notifications</div>
+          ) : (
+          <>
           {orderEntries.map(([status, count]) => (
             <button
               key={status}
@@ -85,6 +87,8 @@ function NotificationDropdown({ counts, canAccessDashboard }) {
               <span className="notification-item-label">Pending Registrations</span>
               <span className="notification-item-count">{pendingRegistrations}</span>
             </button>
+          )}
+          </>
           )}
         </div>
       )}

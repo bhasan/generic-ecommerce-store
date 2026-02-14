@@ -81,3 +81,10 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-primary-dark);
 }
+
+.notification-empty {
+  padding: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  text-align: center;
+}
