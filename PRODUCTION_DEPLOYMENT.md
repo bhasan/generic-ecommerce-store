@@ -74,6 +74,36 @@ mkdir -p nginx/ssl
 # nginx/nginx.prod.conf must exist (it’s in the repo)
 ```
 
+### 3.5 (Optional) Dynamic DNS (Cloudflare)
+
+If your server has a dynamic public IP, the cloudflare-ddns service keeps your Cloudflare DNS records up to date. Skip this step if you have a static IP or do not use Cloudflare.
+
+**Prerequisites:** Cloudflare Zone ID, API token with **Edit DNS** capability, and the subdomains to update.
+
+1. Copy and edit the config:
+
+```bash
+cp cloudflare-ddns/config-example.json cloudflare-ddns/config.json
+```
+
+Edit `cloudflare-ddns/config.json`:
+- Zone ID comes from `CF_DDNS_ZONE_ID` in `.env.prod` (see step 2)
+- Adjust `subdomains`: `{ "name": "", "proxied": false }` for root domain, `{ "name": "app", "proxied": true }` for app.yourdomain.com
+- Set `proxied: true` for CDN/SSL benefits; `false` for direct IP (e.g. SSH)
+
+2. Add the API token and Zone ID to root `.env.prod`:
+
+```bash
+CF_DDNS_API_TOKEN=your_cloudflare_api_token_here
+CF_DDNS_ZONE_ID=your_cloudflare_zone_id_here
+```
+
+Create an API token at [Cloudflare Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) with **Edit zone DNS** permission for your zone. Find your Zone ID in the Cloudflare Dashboard → your zone → Overview → right rail.
+
+3. Start the stack as usual; the cloudflare-ddns container will run and update DNS periodically.
+
+**To skip DDNS:** Comment out or remove the `cloudflare-ddns` service from `docker-compose.prod.yml`, or ensure `cloudflare-ddns/config.json` does not exist and exclude the service when running compose.
+
 ### 4. Build frontend (required for web image)
 
 ```bash

@@ -4,11 +4,12 @@ import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
+import NotificationDropdown from './NotificationDropdown';
 import { hasRole } from '../../utils/roles';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
-  const { currentUser, cart, logout } = useApp();
+  const { currentUser, cart, logout, staffNotificationCounts } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -144,7 +145,7 @@ function Navbar() {
           ref={adminRef}
         >
           <button
-            className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users' || location.pathname === '/delivered-orders') ? 'nav-link-active' : ''}`}
+            className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users' || location.pathname === '/order-history') ? 'nav-link-active' : ''}`}
             onClick={(e) => {
               e.stopPropagation();
               setShowAdminMenu(!showAdminMenu);
@@ -173,14 +174,14 @@ function Navbar() {
               <button
                 type="button"
                 onClick={() => {
-                  navigate('/delivered-orders');
+                  navigate('/order-history');
                   setShowAdminMenu(false);
                   setShowMobileMenu(false);
                 }}
-                className={`admin-menu-item ${location.pathname === '/delivered-orders' ? 'admin-menu-item-active' : ''}`}
+                className={`admin-menu-item ${location.pathname === '/order-history' ? 'admin-menu-item-active' : ''}`}
               >
                 <CheckCircle size={16} />
-                <span>Delivered Orders</span>
+                <span>Orders History</span>
               </button>
             </div>
           )}
@@ -216,6 +217,9 @@ function Navbar() {
               <span className="hamburger-line"></span>
             </button>
 
+            {canManageOrders && (
+              <NotificationDropdown counts={staffNotificationCounts} canAccessDashboard={isManagement} />
+            )}
             <CartPreview cart={cart} cartCount={cartCount} />
             
             {isGuest ? (

@@ -23,9 +23,13 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment files (keep .env.prod and .env.production for version control)
+# Environment files (secrets; use .env.example as template)
 .env
 .env.local
+.env.prod
+
+# Cloudflare DDNS config (contains zone_id; use config-example.json as template)
+cloudflare-ddns/config.json
 
 # SSL certificates
 nginx/ssl/

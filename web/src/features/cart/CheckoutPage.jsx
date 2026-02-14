@@ -4,6 +4,7 @@ import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import SendPaymentModal from '../../components/common/SendPaymentModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
@@ -61,6 +62,8 @@ function CheckoutPage() {
   const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
+  const [pendingOrderState, setPendingOrderState] = useState(null);
   const [errors, setErrors] = useState({});
 
   // Pre-populate address and CashApp from user profile
@@ -145,8 +148,11 @@ function CheckoutPage() {
     setShowConfirmModal(false);
 
     try {
-      // Call checkout function which creates order via API
-      const newOrder = await checkout();
+      // Capture cart items before checkout clears them
+      const itemsForSuccess = [...cart];
+
+      // Call checkout function which creates order via API (pass CashApp for orders page)
+      const newOrder = await checkout(cashAppUsername);
       
       // Format full address for display
       const fullAddress = [
@@ -155,24 +161,33 @@ function CheckoutPage() {
         `${address.city}, ${address.state} ${address.zipCode}`
       ].filter(Boolean).join('\n');
 
-      // Navigate to success page with order data from API and additional checkout details
-      navigate('/order-success', {
-        state: {
-          order: newOrder, // Order from API
-          deliveryAddress: fullAddress,
-          addressDetails: address,
-          specialInstructions,
-          cashAppUsername,
-          subtotal,
-          tax,
-          total,
-          items: cart
-        }
-      });
+      const orderState = {
+        order: newOrder,
+        deliveryAddress: fullAddress,
+        addressDetails: address,
+        specialInstructions,
+        cashAppUsername,
+        subtotal,
+        tax,
+        total,
+        items: itemsForSuccess
+      };
+
+      // Show send-payment modal before navigating to success page
+      setPendingOrderState(orderState);
+      setShowSendPaymentModal(true);
     } catch (error) {
       // Error is already handled in checkout function
+    } finally {
       setIsSubmitting(false);
-      // Don't navigate on error
+    }
+  };
+
+  const handleSendPaymentDone = () => {
+    setShowSendPaymentModal(false);
+    if (pendingOrderState) {
+      navigate('/order-success', { state: pendingOrderState });
+      setPendingOrderState(null);
     }
   };
 
@@ -198,6 +213,13 @@ function CheckoutPage() {
         </div>
       </div>
       <HeaderDivider />
+
+      <SendPaymentModal
+        isOpen={showSendPaymentModal}
+        onDone={handleSendPaymentDone}
+        amount={total.toFixed(2)}
+        cashAppUsername={cashAppUsername}
+      />
 
       <ConfirmationModal
         isOpen={showConfirmModal}
