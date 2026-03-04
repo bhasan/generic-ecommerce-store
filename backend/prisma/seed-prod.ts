@@ -14,15 +14,9 @@ const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DEL
 async function seedProd() {
   console.log('🌱 Production seed: roles, admin user, admin role mapping...');
 
-  const dbUser = process.env.DB_USER;
-  const plainPassword = process.env.DB_PASSWORD;
-  const email = dbUser ? `${dbUser}@smoke-station.local` : 'admin@smoke-station.local';
-  const name = process.env.ADMIN_NAME || dbUser || 'Admin';
-
-  if (!dbUser || !plainPassword) {
-    console.error('❌ DB_USER and DB_PASSWORD are required (e.g. from root .env.prod).');
-    process.exit(1);
-  }
+  const plainPassword = 'changeme123'; 
+  const email = 'admin@smokestationhtx.com';
+  const name = 'Admin';
 
   // 1. Roles: ensure all app roles exist
   console.log('   Ensuring roles exist...');
