@@ -1,4 +1,5 @@
 import express, { Application } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -14,6 +15,7 @@ import announcementRoutes from './routes/announcement.routes';
 import categoryRoutes from './routes/category.routes';
 import contactRoutes from './routes/contact.routes';
 import notificationRoutes from './routes/notification.routes';
+import uploadRoutes from './routes/upload.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -135,8 +137,12 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
+app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/upload', generalLimiter, uploadRoutes);
 app.use('/api/products', generalLimiter, productRoutes);
 app.use('/api/categories', generalLimiter, categoryRoutes);
 app.use('/api/orders', generalLimiter, orderRoutes);

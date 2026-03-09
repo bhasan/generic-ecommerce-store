@@ -19,6 +19,7 @@ function ProductFormModal({
   removeImageField,
   updateImageField,
   handleImageUpload,
+  uploadingImageIndex = null,
   formErrors = {}
 }) {
   if (!isOpen) return null;
@@ -177,14 +178,15 @@ function ProductFormModal({
                         className="form-input"
                       />
                       <div className="image-upload-separator">or</div>
-                      <label className="btn-upload-image">
+                      <label className={`btn-upload-image ${uploadingImageIndex === index ? 'btn-upload-image-loading' : ''}`}>
                         <Upload size={16} />
-                        <span>Upload</span>
+                        <span>{uploadingImageIndex === index ? 'Uploading...' : 'Upload'}</span>
                         <input
                           type="file"
                           accept="image/*"
                           onChange={(e) => handleImageUpload(index, e)}
                           className="file-input-hidden"
+                          disabled={uploadingImageIndex !== null}
                         />
                       </label>
                     </div>

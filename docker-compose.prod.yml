@@ -44,6 +44,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - uploads_data_prod:/app/uploads
     networks:
       - sshtx_network
     healthcheck:
@@ -103,5 +105,7 @@ networks:
 # Define the named volume for data persistence
 volumes:
   postgres_data_prod:
+    driver: local
+  uploads_data_prod:
     driver: local
 

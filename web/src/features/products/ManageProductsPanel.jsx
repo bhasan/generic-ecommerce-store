@@ -6,6 +6,7 @@ import { useApp } from '../../context/AppContext';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as productsApi from '../../services/productsApi';
 import * as categoriesApi from '../../services/categoriesApi';
+import * as uploadApi from '../../services/uploadApi';
 import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
@@ -277,7 +278,8 @@ function ManageProductsPanel() {
     deleteProduct,
     categories,
     isLoadingCategories,
-    loadCategories
+    loadCategories,
+    showNotification
   } = useApp();
   
   useEffect(() => {
@@ -533,14 +535,21 @@ function ManageProductsPanel() {
     setFormData({ ...formData, images: newImages });
   };
 
-  const handleImageUpload = (index, event) => {
+  const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
+
+  const handleImageUpload = async (index, event) => {
     const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateImageField(index, reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    event.target.value = '';
+    setUploadingImageIndex(index);
+    try {
+      const { url } = await uploadApi.uploadFile(file);
+      updateImageField(index, url);
+      showNotification('Image uploaded successfully', 'success');
+    } catch (err) {
+      showNotification(err.message || 'Failed to upload image', 'error');
+    } finally {
+      setUploadingImageIndex(null);
     }
   };
 
@@ -653,6 +662,7 @@ function ManageProductsPanel() {
               removeImageField={removeImageField}
               updateImageField={updateImageField}
               handleImageUpload={handleImageUpload}
+              uploadingImageIndex={uploadingImageIndex}
               formErrors={formErrors}
             />
           )}
