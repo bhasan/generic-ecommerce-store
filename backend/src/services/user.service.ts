@@ -1,12 +1,13 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { hashPassword } from '../utils/password.util';
+import { hashPassword, comparePassword } from '../utils/password.util';
 import { RoleName, isRoleName } from '../constants/roles';
 
 interface UpdateUserData {
   email?: string;
   name?: string;
   password?: string;
+  currentPassword?: string;
   roles?: RoleName[];
   address?: string | null;
   cashapp?: string | null;
@@ -154,6 +155,15 @@ export class UserService {
     if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber || null;
 
     if (data.password) {
+      if (isOwnProfile) {
+        if (!data.currentPassword) {
+          throw new AppError('Current password is required to change password', 400);
+        }
+        const isCurrentValid = await comparePassword(data.currentPassword, existingUser.password);
+        if (!isCurrentValid) {
+          throw new AppError('Current password is incorrect', 401);
+        }
+      }
       updateData.password = await hashPassword(data.password);
     }
 
