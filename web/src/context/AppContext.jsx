@@ -6,6 +6,7 @@ import * as productsApi from '../services/productsApi';
 import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
+import * as configApi from '../services/configApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole } from '../utils/roles';
@@ -51,6 +52,7 @@ export function AppProvider({ children }) {
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
+  const [taxRate, setTaxRate] = useState(0.0825);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -139,6 +141,21 @@ export function AppProvider({ children }) {
     const interval = setInterval(loadStaffNotificationCounts, 50000);
     return () => clearInterval(interval);
   }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
+
+  const loadConfig = useCallback(async () => {
+    try {
+      const config = await configApi.getConfig();
+      if (config && typeof config.taxRate === 'number') {
+        setTaxRate(config.taxRate);
+      }
+    } catch (e) {
+      console.warn('Failed to load remote config, using default tax rate.', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   // Load orders function (can be called manually)
   const loadOrders = useCallback(async () => {
@@ -334,7 +351,7 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const checkout = async (cashAppUsername) => {
+  const checkout = async (cashAppUsername, deliveryMethod) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -343,7 +360,7 @@ export function AppProvider({ children }) {
       }));
 
       // Create order via API (pass CashApp username - saved to User.cashapp for orders page)
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername);
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod);
       
       // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
       const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
@@ -755,7 +772,8 @@ export function AppProvider({ children }) {
     deleteReview,
     addReviewReply,
     voteReview,
-    flagReview
+    flagReview,
+    taxRate
   };
 
   return (

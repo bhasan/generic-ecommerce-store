@@ -49,7 +49,7 @@ const parseAddress = (addressStr) => {
 
 function CheckoutPage() {
   const navigate = useNavigate();
-  const { cart, currentUser, checkout } = useApp();
+  const { cart, currentUser, checkout, taxRate } = useApp();
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -87,7 +87,7 @@ function CheckoutPage() {
     const unitPrice = getDiscountedUnitPrice(item, item.quantity);
     return sum + (unitPrice * item.quantity);
   }, 0);
-  const tax = subtotal * 0.08;
+  const tax = subtotal * taxRate;
   const total = subtotal + tax;
 
   // Redirect if cart is empty
@@ -500,11 +500,7 @@ function CheckoutPage() {
                 <span>${subtotal.toFixed(2)}</span>
               </div>
               <div className="summary-row">
-                <span>Shipping</span>
-                <span className="shipping-free">Free</span>
-              </div>
-              <div className="summary-row">
-                <span>Tax (8%)</span>
+                <span>Tax ({(taxRate * 100).toFixed(2).replace(/\.00$/, '')}%)</span>
                 <span>${tax.toFixed(2)}</span>
               </div>
               <div className="summary-divider"></div>

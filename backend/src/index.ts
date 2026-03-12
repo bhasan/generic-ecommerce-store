@@ -137,6 +137,15 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+import { DEFAULT_TAX_RATE } from './constants/settings';
+
+// Config check route
+app.get('/api/config', (req, res) => {
+  res.json({
+    taxRate: DEFAULT_TAX_RATE,
+  });
+});
+
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
 app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads')));
 

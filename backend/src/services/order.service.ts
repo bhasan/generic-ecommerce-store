@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { OrderStatus } from '../../generated/prisma';
 import { RoleName, hasAnyRole } from '../constants/roles';
+import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { logger } from '../utils/logger';
 
 interface CreateOrderData {
@@ -11,6 +12,7 @@ interface CreateOrderData {
     quantity: number;
   }>;
   cashAppUsername?: string;
+  deliveryMethod?: string;
 }
 
 interface UpdateOrderStatusData {
@@ -454,7 +456,7 @@ export class OrderService {
    * Create a new order (checkout)
    */
   async createOrder(data: CreateOrderData) {
-    const { userId, items, cashAppUsername } = data;
+    const { userId, items, cashAppUsername, deliveryMethod } = data;
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -502,7 +504,7 @@ export class OrderService {
       }
 
     // Calculate total and prepare order items
-    let total = 0;
+    let subtotal = 0;
     const orderItems = items.map(item => {
       const product = products.find(p => p.id === item.productId);
       if (!product) {
@@ -522,7 +524,7 @@ export class OrderService {
       const discountRules = this.resolveQuantityDiscounts(product);
       const unitPrice = this.resolveDiscountedUnitPrice(product.price, item.quantity, discountRules);
       const itemTotal = unitPrice * item.quantity;
-      total += itemTotal;
+      subtotal += itemTotal;
 
       return {
         productId: product.id,
@@ -531,9 +533,15 @@ export class OrderService {
       };
     });
 
+      // Calculate tax and final total
+      const tax = Number((subtotal * DEFAULT_TAX_RATE).toFixed(2));
+      const total = subtotal + tax;
+
       // Create order with items
       logger.info('Creating order record in database', {
         userId,
+        subtotal,
+        tax,
         total,
         status: OrderStatus.PENDING,
       });
@@ -542,7 +550,8 @@ export class OrderService {
         data: {
           userId,
           total,
-          status: OrderStatus.PENDING
+          status: OrderStatus.PENDING,
+          deliveryMethod: deliveryMethod || 'DELIVERY',
         }
       });
 

@@ -53,10 +53,11 @@ model UserRole {
 model Order {
   id        Int         @id @default(autoincrement())
   userId    Int
-  status    OrderStatus @default(PENDING)
-  total     Float
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  status         OrderStatus @default(PENDING)
+  total          Float
+  deliveryMethod String      @default("DELIVERY")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 
   @@map("orders")
 }
