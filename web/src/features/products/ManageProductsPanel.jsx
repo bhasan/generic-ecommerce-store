@@ -13,6 +13,7 @@ import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
+import MediaLibraryModal from '../../components/common/MediaLibraryModal';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
@@ -294,6 +295,7 @@ function ManageProductsPanel() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [deleteProductModalOpen, setDeleteProductModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [orderedProducts, setOrderedProducts] = useState([]);
@@ -605,17 +607,28 @@ function ManageProductsPanel() {
         onViewModeChange={setViewMode}
         rightContent={
           canManageProducts ? (
-            <button
-              onClick={() => {
-                setManageTab('products');
-                setShowAddForm(true);
-              }}
-              className="btn-add-product"
-              disabled={showAddForm || editingId}
-            >
-              <Plus size={20} />
-              <span>Add New Product</span>
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => setShowMediaLibrary(true)}
+                className="btn-add-product"
+                disabled={showAddForm || editingId}
+                title="Manage Media Library"
+              >
+                <ImageIcon size={20} />
+                <span className="hide-on-mobile">Media Library</span>
+              </button>
+              <button
+                onClick={() => {
+                  setManageTab('products');
+                  setShowAddForm(true);
+                }}
+                className="btn-add-product"
+                disabled={showAddForm || editingId}
+              >
+                <Plus size={20} />
+                <span>Add New Product</span>
+              </button>
+            </div>
           ) : null
         }
       />
@@ -734,6 +747,14 @@ function ManageProductsPanel() {
             confirmText="Delete"
             cancelText="Cancel"
             type="danger"
+          />
+
+          <MediaLibraryModal
+            isOpen={showMediaLibrary}
+            onClose={() => setShowMediaLibrary(false)}
+            onSelect={() => setShowMediaLibrary(false)} // Just view/manage mode, selection auto closes
+            multiSelect={true}
+            hideInsertButton={true}
           />
         </>
       )}

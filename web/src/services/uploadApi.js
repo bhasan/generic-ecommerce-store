@@ -42,3 +42,76 @@ export const uploadFile = async (file) => {
 
   return response.json();
 };
+
+/**
+ * Get a list of uploaded images
+ * @returns {Promise<{images: Array<{url: string, filename: string, size: number, createdAt: string}>}>}
+ */
+export const getImages = async () => {
+  const token = getAuthToken();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  const response = await fetch(`${API_BASE_URL}/upload`, {
+    method: 'GET',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal: controller.signal,
+  });
+
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to fetch images';
+    try {
+      const data = await response.json();
+      errorMessage = data?.error?.message ?? errorMessage;
+    } catch (_e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+};
+
+/**
+ * Delete an uploaded image
+ * @param {string} filename - The filename of the image to delete
+ * @returns {Promise<{message: string}>}
+ */
+export const deleteImage = async (filename) => {
+  const token = getAuthToken();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  const response = await fetch(`${API_BASE_URL}/upload/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    signal: controller.signal,
+  });
+
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    let errorMessage = 'Failed to delete image';
+    try {
+      const data = await response.json();
+      errorMessage = data?.error?.message ?? errorMessage;
+    } catch (_e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+};
