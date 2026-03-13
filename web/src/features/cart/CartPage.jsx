@@ -120,16 +120,16 @@ function CartPage() {
         <div className="cart-summary surface-card-accent">
           <h3 className="cart-summary-title">Order Summary</h3>
 
-          <div className="delivery-method-toggle" style={{ marginBottom: '1.5rem', display: 'flex', background: 'var(--surface)', padding: '4px', borderRadius: '8px', gap: '4px' }}>
+          <div className="delivery-method-toggle delivery-method-toggle-large">
             <button
               onClick={() => setDeliveryMethod('DELIVERY')}
-              style={{ flex: 1, padding: '8px 16px', border: 'none', borderRadius: '6px', background: deliveryMethod === 'DELIVERY' ? 'var(--primary)' : 'transparent', color: deliveryMethod === 'DELIVERY' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '500', transition: 'all 0.2s' }}
+              className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''}`}
             >
               Delivery
             </button>
             <button
               onClick={() => setDeliveryMethod('PICKUP')}
-              style={{ flex: 1, padding: '8px 16px', border: 'none', borderRadius: '6px', background: deliveryMethod === 'PICKUP' ? 'var(--primary)' : 'transparent', color: deliveryMethod === 'PICKUP' ? 'white' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: '500', transition: 'all 0.2s' }}
+              className={`toggle-btn ${deliveryMethod === 'PICKUP' ? 'active' : ''}`}
             >
               Pick Up
             </button>

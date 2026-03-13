@@ -52,7 +52,9 @@ export function AppProvider({ children }) {
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
-  const [taxRate, setTaxRate] = useState(0.0825);
+  const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
+  const [pickupLocation, setPickupLocation] = useState('');
+  const [storeCashappUsername, setStoreCashappUsername] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -145,8 +147,10 @@ export function AppProvider({ children }) {
   const loadConfig = useCallback(async () => {
     try {
       const config = await configApi.getConfig();
-      if (config && typeof config.taxRate === 'number') {
-        setTaxRate(config.taxRate);
+      if (config) {
+        if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
+        if (typeof config.pickupLocation === 'string') setPickupLocation(config.pickupLocation);
+        if (typeof config.storeCashappUsername === 'string') setStoreCashappUsername(config.storeCashappUsername);
       }
     } catch (e) {
       console.warn('Failed to load remote config, using default tax rate.', e);
@@ -773,7 +777,9 @@ export function AppProvider({ children }) {
     addReviewReply,
     voteReview,
     flagReview,
-    taxRate
+    taxRate,
+    pickupLocation,
+    storeCashappUsername,
   };
 
   return (

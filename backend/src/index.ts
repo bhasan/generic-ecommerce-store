@@ -137,12 +137,14 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-import { DEFAULT_TAX_RATE } from './constants/settings';
+import { DEFAULT_TAX_RATE, DEFAULT_PICKUP_LOCATION, DEFAULT_STORE_CASHAPP_USERNAME } from './constants/settings';
 
 // Config check route
-app.get('/api/config', (req, res) => {
+app.get('/api/config', (_req, res) => {
   res.json({
     taxRate: DEFAULT_TAX_RATE,
+    pickupLocation: DEFAULT_PICKUP_LOCATION,
+    storeCashappUsername: DEFAULT_STORE_CASHAPP_USERNAME,
   });
 });
 

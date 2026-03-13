@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
-import ConfirmationModal from '../../components/common/ConfirmationModal';
 import SendPaymentModal from '../../components/common/SendPaymentModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
@@ -49,7 +48,9 @@ const parseAddress = (addressStr) => {
 
 function CheckoutPage() {
   const navigate = useNavigate();
-  const { cart, currentUser, checkout, taxRate } = useApp();
+  const location = useLocation();
+  const { cart, currentUser, checkout, taxRate, pickupLocation, storeCashappUsername } = useApp();
+  const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || 'DELIVERY');
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -59,9 +60,7 @@ function CheckoutPage() {
   });
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cashAppUsername, setCashAppUsername] = useState('');
-  const [paymentConfirmed, setPaymentConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
   const [pendingOrderState, setPendingOrderState] = useState(null);
   const [errors, setErrors] = useState({});
@@ -90,31 +89,38 @@ function CheckoutPage() {
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
 
-  // Redirect if cart is empty
-  if (cart.length === 0) {
-    navigate('/cart');
+  // Redirect if cart is empty and we haven't just placed an order
+  useEffect(() => {
+    if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal) {
+      navigate('/cart');
+    }
+  }, [cart.length, isSubmitting, pendingOrderState, showSendPaymentModal, navigate]);
+
+  if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal) {
     return null;
   }
 
   const validateForm = () => {
     const newErrors = {};
 
-    if (!address.street.trim()) {
-      newErrors.street = 'Street address is required';
-    }
+    if (deliveryMethod === 'DELIVERY') {
+      if (!address.street.trim()) {
+        newErrors.street = 'Street address is required';
+      }
 
-    if (!address.city.trim()) {
-      newErrors.city = 'City is required';
-    }
+      if (!address.city.trim()) {
+        newErrors.city = 'City is required';
+      }
 
-    if (!address.state.trim()) {
-      newErrors.state = 'State is required';
-    }
+      if (!address.state.trim()) {
+        newErrors.state = 'State is required';
+      }
 
-    if (!address.zipCode.trim()) {
-      newErrors.zipCode = 'ZIP code is required';
-    } else if (!/^\d{5}(-\d{4})?$/.test(address.zipCode)) {
-      newErrors.zipCode = 'Invalid ZIP code format (e.g., 12345 or 12345-6789)';
+      if (!address.zipCode.trim()) {
+        newErrors.zipCode = 'ZIP code is required';
+      } else if (!/^\d{5}(-\d{4})?$/.test(address.zipCode)) {
+        newErrors.zipCode = 'Invalid ZIP code format (e.g., 12345 or 12345-6789)';
+      }
     }
 
     if (!cashAppUsername.trim()) {
@@ -125,34 +131,24 @@ function CheckoutPage() {
       newErrors.cashAppUsername = 'CashApp username must be between 1-20 characters (excluding $)';
     }
 
-    if (!paymentConfirmed) {
-      newErrors.paymentConfirmed = 'Please confirm payment information';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!validateForm()) {
       return;
     }
 
-    // Show confirmation modal
-    setShowConfirmModal(true);
-  };
-
-  const confirmOrder = async () => {
     // Prevent duplicate submissions
     setIsSubmitting(true);
-    setShowConfirmModal(false);
 
     try {
       // Capture cart items before checkout clears them
       const itemsForSuccess = [...cart];
 
       // Call checkout function which creates order via API (pass CashApp for orders page)
-      const newOrder = await checkout(cashAppUsername);
+      const newOrder = await checkout(cashAppUsername, deliveryMethod);
       
       // Format full address for display
       const fullAddress = [
@@ -163,7 +159,9 @@ function CheckoutPage() {
 
       const orderState = {
         order: newOrder,
-        deliveryAddress: fullAddress,
+        deliveryMethod,
+        deliveryAddress: deliveryMethod === 'DELIVERY' ? fullAddress : 'Store Pickup',
+        pickupLocation: deliveryMethod === 'PICKUP' ? pickupLocation : null,
         addressDetails: address,
         specialInstructions,
         cashAppUsername,
@@ -217,33 +215,8 @@ function CheckoutPage() {
       <SendPaymentModal
         isOpen={showSendPaymentModal}
         onDone={handleSendPaymentDone}
-        amount={total.toFixed(2)}
-        cashAppUsername={cashAppUsername}
-      />
-
-      <ConfirmationModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={confirmOrder}
-        title="Confirm Your Order"
-        type="info"
-        confirmText="Place Order"
-        cancelText="Review Again"
-        message={
-          <div className="order-confirmation-details">
-            <p><strong>Order Total:</strong> ${total.toFixed(2)}</p>
-            <p><strong>Your CashApp Username:</strong> {cashAppUsername}</p>
-            <p><strong>Delivery to:</strong></p>
-            <p style={{ marginLeft: '1rem', fontSize: '0.9rem' }}>
-              {address.street}
-              {address.apartment && <><br />Apt {address.apartment}</>}
-              <br />{address.city}, {address.state} {address.zipCode}
-            </p>
-            <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-tertiary)' }}>
-              Please review your information carefully before confirming.
-            </p>
-          </div>
-        }
+        pendingOrderState={pendingOrderState}
+        storeCashappUsername={storeCashappUsername}
       />
 
       <div className="checkout-content">
@@ -325,32 +298,6 @@ function CheckoutPage() {
                 )}
               </div>
 
-              <div className="form-group">
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={paymentConfirmed}
-                    onChange={(e) => {
-                      setPaymentConfirmed(e.target.checked);
-                      if (errors.paymentConfirmed) {
-                        setErrors({ ...errors, paymentConfirmed: '' });
-                      }
-                    }}
-                  />
-                  <span>I confirm that I will send payment from the CashApp username provided above</span>
-                </label>
-                {errors.paymentConfirmed && (
-                  <span className="error-message">
-                    <AlertCircle size={14} />
-                    {errors.paymentConfirmed}
-                  </span>
-                )}
-              </div>
-
-              <div className="payment-warning">
-                <AlertCircle size={16} />
-                <p>If payment is not received, your order will be canceled.</p>
-              </div>
             </div>
           </div>
 
@@ -358,10 +305,28 @@ function CheckoutPage() {
           <div className="checkout-section surface-card">
             <div className="section-header">
               <MapPin size={20} />
-              <h3>Delivery Address</h3>
+              <h3>Delivery Method</h3>
+            </div>
+
+            <div className="delivery-method-toggle delivery-method-toggle-large">
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod('DELIVERY')}
+                className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''}`}
+              >
+                Delivery
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeliveryMethod('PICKUP')}
+                className={`toggle-btn ${deliveryMethod === 'PICKUP' ? 'active' : ''}`}
+              >
+                Pick Up
+              </button>
             </div>
             
-            <div className="address-form">
+            {deliveryMethod === 'DELIVERY' ? (
+              <div className="address-form">
               <div className="form-group">
                 <label htmlFor="street">Street Address *</label>
                 <input
@@ -468,6 +433,13 @@ function CheckoutPage() {
                 </div>
               </div>
             </div>
+            ) : (
+              <div className="pickup-location-info">
+                <h4>Store Pickup Location</h4>
+                <p className="pickup-address">{pickupLocation || '123 Smoke Station Ave, Dallas, TX 75001'}</p>
+                <p className="pickup-note">We'll email you when your order is ready for pickup.</p>
+              </div>
+            )}
           </div>
 
           {/* Special Instructions Section */}
