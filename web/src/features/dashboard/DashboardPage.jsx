@@ -16,7 +16,7 @@ import UsersSection from './components/UsersSection';
 import AnnouncementsSection from './components/AnnouncementsSection';
 import RejectedUsersSection from './components/RejectedUsersSection';
 import MessagesSection from './components/MessagesSection';
-import { hasRole } from '../../utils/roles';
+import { hasRole, ROLES } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
   PENDING_REGISTRATIONS: 'pending-registrations',
@@ -82,7 +82,7 @@ function DashboardPage() {
   const [isReplyingToMessage, setIsReplyingToMessage] = useState(false);
 
   // Check if user is admin
-  const isAdmin = hasRole(currentUser, 'ADMIN');
+  const isAdmin = hasRole(currentUser, ROLES.ADMIN);
 
   // Load pending registrations
   const loadPendingRegistrations = useCallback(async () => {
@@ -130,7 +130,7 @@ function DashboardPage() {
       setAvailableRoles(rolesData);
     } catch (error) {
       console.error('Failed to load roles:', error);
-      setAvailableRoles(['CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'GUEST']);
+      setAvailableRoles([ROLES.CUSTOMER, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER, ROLES.GUEST]);
     }
   }, []);
 
@@ -461,15 +461,15 @@ function DashboardPage() {
   const getRoleBadgeClass = (role) => {
     const roleName = Array.isArray(role) ? role[0] : role;
     switch (roleName) {
-      case 'ADMIN':
+      case ROLES.ADMIN:
         return 'role-badge role-badge-admin';
-      case 'MANAGEMENT':
+      case ROLES.MANAGEMENT:
         return 'role-badge role-badge-management';
-      case 'DELIVERY_DRIVER':
+      case ROLES.DELIVERY_DRIVER:
         return 'role-badge role-badge-delivery-driver';
-      case 'GUEST':
+      case ROLES.GUEST:
         return 'role-badge role-badge-guest';
-      case 'CUSTOMER':
+      case ROLES.CUSTOMER:
       default:
         return 'role-badge role-badge-customer';
     }
@@ -504,8 +504,8 @@ function DashboardPage() {
           bValue = b.email?.toLowerCase() || '';
           break;
         case 'roles':
-          aValue = (a.roles && a.roles.length > 0) ? a.roles.join(',') : (a.role || 'CUSTOMER');
-          bValue = (b.roles && b.roles.length > 0) ? b.roles.join(',') : (b.role || 'CUSTOMER');
+          aValue = (a.roles && a.roles.length > 0) ? a.roles.join(',') : (a.role || ROLES.CUSTOMER);
+          bValue = (b.roles && b.roles.length > 0) ? b.roles.join(',') : (b.role || ROLES.CUSTOMER);
           break;
         case 'createdAt':
           aValue = new Date(a.createdAt || 0).getTime();

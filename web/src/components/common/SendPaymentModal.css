@@ -20,6 +20,9 @@
   border-radius: var(--radius-xl);
   max-width: 420px;
   width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-2xl);
   animation: slideDown var(--transition-slow) ease-out;
 }
@@ -27,6 +30,8 @@
 .send-payment-modal-content {
   padding: var(--spacing-xl);
   text-align: center;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .send-payment-modal-icon-wrapper {
@@ -80,6 +85,34 @@
   height: 1.25rem;
   accent-color: var(--color-secondary);
   cursor: pointer;
+}
+
+.send-payment-order-id-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 2rem;
+  margin: 0 auto 2rem;
+  width: fit-content;
+}
+
+.send-payment-order-id-label {
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.send-payment-order-id-value {
+  font-size: 1.75rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-primary);
+  letter-spacing: 0.02em;
 }
 
 .send-payment-modal-actions {

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(///wsl.localhost/Ubuntu/home/**)",
+      "Read(///wsl.localhost/Ubuntu//**)",
+      "Read(//mnt/c/Users/bilal/**)",
+      "Write(//mnt/c/Users/bilal/projects/smoke-station-delivery/**)",
+      "Bash(wsl bash:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(ls \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\bilal\\\\projects\\\\smoke-station-delivery\")",
+      "Read(//mnt/wsl/Ubuntu/home/bilal/projects/**)"
+    ]
+  }
+}

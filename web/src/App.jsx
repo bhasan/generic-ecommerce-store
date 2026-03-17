@@ -7,6 +7,7 @@ import Notification from './components/common/Notification';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import TawkToWidget from './components/common/TawkToWidget';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import { ROLES } from './utils/roles';
 import LoginPage from './features/auth/LoginPage';
 import RegisterPage from './features/auth/RegisterPage';
 import ProductsPage from './features/products/ProductsPage';
@@ -37,55 +38,55 @@ function App() {
               
               {/* All routes below require login (no guest access) */}
               <Route path="/products" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <ProductsPage />
                 </ProtectedRoute>
               } />
               <Route path="/products/:id" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <ProductItemPage />
                 </ProtectedRoute>
               } />
               <Route path="/cart" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <CartPage />
                 </ProtectedRoute>
               } />
               <Route path="/checkout" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <CheckoutPage />
                 </ProtectedRoute>
               } />
               <Route path="/order-success" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <OrderSuccessPage />
                 </ProtectedRoute>
               } />
-              
+
               {/* Profile Route - Protected for logged in users only */}
               <Route path="/profile" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <ProfilePage />
                 </ProtectedRoute>
               } />
-              
+
               {/* Orders Route - Protected (Employees can manage orders) */}
               <Route path="/orders" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <OrdersPage />
                 </ProtectedRoute>
               } />
-              
+
               {/* Admin/Manager Routes */}
               <Route path="/manage-products" element={
-                <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <ProductsPage mode="manage" />
                 </ProtectedRoute>
               } />
 
               {/* Dashboard - Admin/Manager only */}
               <Route path="/dashboard" element={
-                <ProtectedRoute roles={['MANAGEMENT', 'ADMIN']}>
+                <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
                   <DashboardPage />
                 </ProtectedRoute>
               } />
@@ -93,21 +94,21 @@ function App() {
 
               {/* Order History - Admin only */}
               <Route path="/order-history" element={
-                <ProtectedRoute roles={['ADMIN']}>
+                <ProtectedRoute roles={[ROLES.ADMIN]}>
                   <OrderHistoryPage />
                 </ProtectedRoute>
               } />
 
               {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
               <Route path="/delivery-dashboard" element={
-                <ProtectedRoute roles={['ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER']}>
+                <ProtectedRoute roles={[ROLES.ADMIN, ROLES.MANAGEMENT, ROLES.DELIVERY_DRIVER]}>
                   <DeliveryDriverDashboard />
                 </ProtectedRoute>
               } />
 
               {/* Help Page - All authenticated users */}
               <Route path="/help" element={
-                <ProtectedRoute roles={['CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']}>
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]}>
                   <HelpPage />
                 </ProtectedRoute>
               } />

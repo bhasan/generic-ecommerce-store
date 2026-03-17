@@ -35,7 +35,7 @@ export const getUserById = async (id) => {
  */
 export const updateUser = async (id, data) => {
   try {
-    const response = await put(`/users/${id}`, data);
+    const response = await put(`/users/${id}`, data, { skipAutoLogout: true });
     return response.user || response;
   } catch (error) {
     throw error;

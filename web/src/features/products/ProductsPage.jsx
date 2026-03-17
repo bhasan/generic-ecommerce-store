@@ -4,6 +4,7 @@ import './ProductCard.css';
 import './ProductsShared.css';
 import './ProductsPageDefault.css';
 import { useApp } from '../../context/AppContext';
+import { isGuest, ROLES } from '../../utils/roles';
 import EmptyState from '../../components/common/EmptyState';
 import ProductsHeader from './ProductsHeader';
 import ProductsGrid from './ProductsGrid';
@@ -38,8 +39,8 @@ function ProductsPage({ mode = 'browse' }) {
   }, [viewMode]);
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
-  const isManagement = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
-  const isCustomer = !isManagement && (userRoles.includes('CUSTOMER') || currentUser.email === 'guest@smokestation.com');
+  const isManagement = userRoles.includes(ROLES.ADMIN) || userRoles.includes(ROLES.MANAGEMENT);
+  const isCustomer = !isManagement && (userRoles.includes(ROLES.CUSTOMER) || isGuest(currentUser));
   const visibleProducts = isCustomer ? products.filter(product => !product.hidden) : products;
 
   const { topLevel, childrenByParent, byCategoryId, flat } = groupProductsByCategory(visibleProducts, categories);

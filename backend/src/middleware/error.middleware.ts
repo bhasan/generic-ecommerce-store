@@ -31,6 +31,21 @@ export const errorHandler = (
   const userId = req.user?.userId || 'anonymous';
   const userRoles = req.user?.roles || [];
   
+  // Multer errors (file upload)
+  const multerErr = err as Error & { code?: string };
+  if (multerErr.code === 'LIMIT_FILE_SIZE') {
+    res.status(400).json({
+      error: { message: 'File too large. Maximum size is 5MB.', code: 'FILE_TOO_LARGE', requestId },
+    });
+    return;
+  }
+  if (multerErr.code === 'LIMIT_UNEXPECTED_FILE') {
+    res.status(400).json({
+      error: { message: 'Unexpected file field. Use "file" as the field name.', code: 'INVALID_FIELD', requestId },
+    });
+    return;
+  }
+
   if (err instanceof AppError) {
     logger.error('API Error', err, {
       requestId,

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './ProductReviews.css';
 import { useApp } from '../../context/AppContext';
+import { isGuest as checkIsGuest, ROLES } from '../../utils/roles';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { Star, ThumbsUp, ThumbsDown, Flag, MessageCircle, Trash2, Send } from 'lucide-react';
 
@@ -17,8 +18,8 @@ function ProductReviews({ productId }) {
   
   const product = products.find(p => p.id === productId);
   const reviews = product?.reviews || [];
-  const isGuest = currentUser.email === 'guest@smokestation.com';
-  const canModerate = currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN';
+  const isGuest = checkIsGuest(currentUser);
+  const canModerate = currentUser.role === ROLES.MANAGEMENT || currentUser.role === ROLES.ADMIN;
   
   const averageRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
@@ -253,7 +254,7 @@ function ProductReviews({ productId }) {
                     <div key={reply.id} className="reply-card">
                       <div className="reply-header">
                         <span className="reply-author">{reply.userName}</span>
-                        {reply.userRole !== 'CUSTOMER' && (
+                        {reply.userRole !== ROLES.CUSTOMER && (
                           <span className="store-badge">Store Team</span>
                         )}
                         <span className="reply-date">{reply.date}</span>

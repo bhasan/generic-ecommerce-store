@@ -72,10 +72,6 @@ export const getProfile = async () => {
     
     return response;
   } catch (error) {
-    // If profile fetch fails, clear token
-    if (error.status === 401) {
-      clearAuthToken();
-    }
     throw error;
   }
 };

@@ -54,6 +54,7 @@ router.put(
     body('email').optional().isEmail().withMessage('Valid email is required'),
     body('name').optional().notEmpty().withMessage('Name cannot be empty'),
     body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('currentPassword').optional().isString().withMessage('Current password must be a string'),
     body('roles').optional().isArray().withMessage('Roles must be an array'),
     body('roles.*').optional().isIn(ROLE_NAMES).withMessage('Invalid role'),
     body('address').optional({ values: 'null' }).isString().withMessage('Address must be a string'),

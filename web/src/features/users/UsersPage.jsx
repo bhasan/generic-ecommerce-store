@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './UsersPage.css';
 import { useApp } from '../../context/AppContext';
+import { ROLES } from '../../utils/roles';
 import * as usersApi from '../../services/usersApi';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
@@ -39,7 +40,7 @@ function UsersPage() {
     } catch (err) {
       console.error('Failed to load roles:', err);
       // Fallback to default roles if API fails
-      setAvailableRoles(['CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'GUEST']);
+      setAvailableRoles([ROLES.CUSTOMER, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER, ROLES.GUEST]);
     }
   }, []);
 
@@ -125,15 +126,15 @@ function UsersPage() {
   const getRoleBadgeClass = (role) => {
     const roleName = Array.isArray(role) ? role[0] : role;
     switch (roleName) {
-      case 'ADMIN':
+      case ROLES.ADMIN:
         return 'role-badge role-badge-admin';
-      case 'MANAGEMENT':
+      case ROLES.MANAGEMENT:
         return 'role-badge role-badge-management';
-      case 'DELIVERY_DRIVER':
+      case ROLES.DELIVERY_DRIVER:
         return 'role-badge role-badge-delivery-driver';
-      case 'GUEST':
+      case ROLES.GUEST:
         return 'role-badge role-badge-guest';
-      case 'CUSTOMER':
+      case ROLES.CUSTOMER:
       default:
         return 'role-badge role-badge-customer';
     }
