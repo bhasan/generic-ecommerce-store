@@ -25,6 +25,7 @@ import { requestLogger } from './middleware/logger.middleware';
 dotenv.config();
 
 const app: Application = express();
+app.set('trust proxy', 1); // Trust Nginx reverse proxy so rate limiter uses real client IPs
 const PORT = process.env.PORT || 3000;
 const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10);
 
