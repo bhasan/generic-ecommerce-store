@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { isGuest as checkIsGuest } from '../../utils/roles';
 import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
-import { hasRole } from '../../utils/roles';
+import { hasRole, ROLES } from '../../utils/roles';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
@@ -19,17 +20,17 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const cartCount = cart.length;
-  const isGuest = currentUser.email === 'guest@smokestation.com';
+  const isGuest = checkIsGuest(currentUser);
 
-  const isCustomer = hasRole(currentUser, 'CUSTOMER')
-    && !hasRole(currentUser, 'EMPLOYEE')
-    && !hasRole(currentUser, 'MANAGEMENT')
-    && !hasRole(currentUser, 'ADMIN')
-    && !hasRole(currentUser, 'DELIVERY_DRIVER');
-  const isEmployee = hasRole(currentUser, 'EMPLOYEE');
-  const isManagement = hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
-  const isAdmin = hasRole(currentUser, 'ADMIN');
-  const isDeliveryDriver = hasRole(currentUser, 'DELIVERY_DRIVER');
+  const isCustomer = hasRole(currentUser, ROLES.CUSTOMER)
+    && !hasRole(currentUser, ROLES.EMPLOYEE)
+    && !hasRole(currentUser, ROLES.MANAGEMENT)
+    && !hasRole(currentUser, ROLES.ADMIN)
+    && !hasRole(currentUser, ROLES.DELIVERY_DRIVER);
+  const isEmployee = hasRole(currentUser, ROLES.EMPLOYEE);
+  const isManagement = hasRole(currentUser, ROLES.MANAGEMENT) || hasRole(currentUser, ROLES.ADMIN);
+  const isAdmin = hasRole(currentUser, ROLES.ADMIN);
+  const isDeliveryDriver = hasRole(currentUser, ROLES.DELIVERY_DRIVER);
   // Can manage orders: employees, managers, and admins
   const canManageOrders = isEmployee || isManagement;
 

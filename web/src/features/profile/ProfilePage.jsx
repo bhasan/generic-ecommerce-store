@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
 import { User, Mail, Save, DollarSign, MapPin, Phone, Lock } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
-import * as authApi from '../../services/authApi';
+import { isGuest } from '../../utils/roles';
 
 // Helper to parse address string into components
 const parseAddress = (addressStr) => {
@@ -71,37 +71,7 @@ function ProfilePage() {
   const [passwordErrors, setPasswordErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingPassword, setIsLoadingPassword] = useState(false);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [error, setError] = useState('');
-
-  // Load user profile on mount
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        setIsLoadingProfile(true);
-        const user = await authApi.getProfile();
-        setFormData({
-          name: user.name || '',
-          email: user.email || '',
-          cashapp: user.cashapp || '',
-          phoneNumber: user.phoneNumber || '',
-        });
-        setAddress(parseAddress(user.address));
-      } catch (err) {
-        setError(err.message || 'Failed to load profile');
-        showNotification(err.message || 'Failed to load profile', 'error');
-      } finally {
-        setIsLoadingProfile(false);
-      }
-    };
-
-    // Only load if we have a real user (not guest)
-    if (currentUser.id !== 999) {
-      loadProfile();
-    } else {
-      setIsLoadingProfile(false);
-    }
-  }, [currentUser.id, showNotification]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -149,19 +119,6 @@ function ProfilePage() {
       setIsLoadingPassword(false);
     }
   };
-
-  if (isLoadingProfile) {
-    return (
-      <div className="profile-page-container">
-        <div className="profile-header section-header-surface">
-          <div>
-            <h2 className="page-title">Loading Profile...</h2>
-          </div>
-        </div>
-        <HeaderDivider />
-      </div>
-    );
-  }
 
   return (
     <div className="profile-page-container">
@@ -323,13 +280,13 @@ function ProfilePage() {
               </div>
             )}
 
-            <button type="submit" className="btn-save-profile" disabled={isLoading || isLoadingProfile}>
+            <button type="submit" className="btn-save-profile" disabled={isLoading}>
               <Save size={18} />
               <span>{isLoading ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </form>
 
-          {currentUser.id !== 999 && (
+          {!isGuest(currentUser) && (
             <>
               <div className="profile-password-divider" />
               <div className="profile-password-section">

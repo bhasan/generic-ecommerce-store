@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { isGuest, ROLES } from '../../utils/roles';
 import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
@@ -129,7 +130,7 @@ function ProductItemPage() {
   }
   
   // Check if product is hidden and user is customer/guest
-  if (product.hidden && (currentUser.role === 'CUSTOMER' || currentUser.email === 'guest@smokestation.com')) {
+  if (product.hidden && (currentUser.role === ROLES.CUSTOMER || isGuest(currentUser))) {
     return (
       <div className="product-item-container">
         <div className="product-not-found">

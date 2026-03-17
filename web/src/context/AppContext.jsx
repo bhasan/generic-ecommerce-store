@@ -9,7 +9,7 @@ import * as notificationsApi from '../services/notificationsApi';
 import * as configApi from '../services/configApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
-import { hasAnyRole } from '../utils/roles';
+import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -36,7 +36,7 @@ export function AppProvider({ children }) {
         console.error('Error parsing stored user data:', e);
       }
     }
-    return { id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' };
+    return GUEST_USER;
   };
 
   const [currentUser, setCurrentUser] = useState(getInitialUser);
@@ -74,7 +74,7 @@ export function AppProvider({ children }) {
         } catch (error) {
           // Token invalid or expired
           console.error('Auth check failed:', error);
-          setCurrentUser({ id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' });
+          setCurrentUser(GUEST_USER);
           setIsAuthenticated(false);
         }
       } else {
@@ -125,7 +125,7 @@ export function AppProvider({ children }) {
 
   const loadStaffNotificationCounts = useCallback(async () => {
     if (!isAuthenticated) return;
-    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
     try {
       const data = await notificationsApi.getStaffNotificationCounts();
@@ -138,7 +138,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     loadStaffNotificationCounts();
     if (!isAuthenticated) return;
-    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
     const interval = setInterval(loadStaffNotificationCounts, 50000);
     return () => clearInterval(interval);
@@ -210,6 +210,22 @@ export function AppProvider({ children }) {
     };
   }, [showNotification]);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setCurrentUser(GUEST_USER);
+      setIsAuthenticated(false);
+      setCart([]);
+      setReturnPath(null);
+      navigate('/login');
+      showNotification('Your session has expired. Please log in again.', 'warning');
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, [navigate, showNotification]);
+
   const closeNotification = () => {
     setNotification(null);
   };
@@ -232,8 +248,8 @@ export function AppProvider({ children }) {
         setReturnPath(null);
       } else {
         // Otherwise, default navigation based on primary role
-        const primaryRole = user.roles?.[0] || 'CUSTOMER';
-        navigate(primaryRole === 'CUSTOMER' ? '/products' : '/orders');
+        const primaryRole = user.roles?.[0] || ROLES.CUSTOMER;
+        navigate(primaryRole === ROLES.CUSTOMER ? '/products' : '/orders');
       }
       
       showNotification('Login successful!', 'success');
@@ -267,7 +283,7 @@ export function AppProvider({ children }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      setCurrentUser({ id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' });
+      setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setCart([]);
       setReturnPath(null);
@@ -677,7 +693,7 @@ export function AppProvider({ children }) {
                 id: (r.replies?.length || 0) + 1,
                 userId: currentUser.id,
                 userName: currentUser.name,
-                userRole: currentUser.roles?.[0] || 'CUSTOMER',
+                userRole: currentUser.roles?.[0] || ROLES.CUSTOMER,
                 comment: reply,
                 date: new Date().toISOString().split('T')[0]
               };

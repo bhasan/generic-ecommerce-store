@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
-import { hasRole } from '../../utils/roles';
+import { hasRole, ROLES } from '../../utils/roles';
 import OrderDetailPanel from './OrderDetailPanel';
 
 const FILTER_STATUSES = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
@@ -92,12 +92,12 @@ function OrdersPage() {
   const ordersRef = useRef(orders);
 
   const isCustomerOnly =
-    hasRole(currentUser, 'CUSTOMER') &&
-    !hasRole(currentUser, 'EMPLOYEE') &&
-    !hasRole(currentUser, 'MANAGEMENT') &&
-    !hasRole(currentUser, 'ADMIN');
+    hasRole(currentUser, ROLES.CUSTOMER) &&
+    !hasRole(currentUser, ROLES.EMPLOYEE) &&
+    !hasRole(currentUser, ROLES.MANAGEMENT) &&
+    !hasRole(currentUser, ROLES.ADMIN);
   const canModifyOrders =
-    hasRole(currentUser, 'EMPLOYEE') || hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
+    hasRole(currentUser, ROLES.EMPLOYEE) || hasRole(currentUser, ROLES.MANAGEMENT) || hasRole(currentUser, ROLES.ADMIN);
 
   useEffect(() => {
     const s = searchParams.get('status');
@@ -505,7 +505,7 @@ function OrdersPage() {
           onClose={() => setSelectedOrderId(null)}
           products={products}
           canModifyOrders={canModifyOrders}
-          canDeleteOrder={hasRole(currentUser, 'ADMIN')}
+          canDeleteOrder={hasRole(currentUser, ROLES.ADMIN)}
           isEditing={editingOrderId === selectedOrder.id}
           onToggleEdit={toggleEditOrder}
           onSaveEdit={handleSaveOrder}

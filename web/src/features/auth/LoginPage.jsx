@@ -3,6 +3,7 @@ import './LoginPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
+import { isGuest, ROLES } from '../../utils/roles';
 import { LogIn, User, Lock } from 'lucide-react';
 
 function LoginPage() {
@@ -16,10 +17,10 @@ function LoginPage() {
 
   // Redirect authenticated users away from login page
   useEffect(() => {
-    if (!authLoading && isAuthenticated && currentUser.email !== 'guest@smokestation.com') {
+    if (!authLoading && isAuthenticated && !isGuest(currentUser)) {
       // Redirect based on user role
-      const primaryRole = currentUser.roles?.[0] || currentUser.role || 'CUSTOMER';
-      if (primaryRole === 'CUSTOMER') {
+      const primaryRole = currentUser.roles?.[0] || currentUser.role || ROLES.CUSTOMER;
+      if (primaryRole === ROLES.CUSTOMER) {
         navigate('/products', { replace: true });
       } else {
         navigate('/orders', { replace: true });

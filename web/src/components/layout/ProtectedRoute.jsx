@@ -1,13 +1,14 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { isGuest as checkIsGuest } from '../../utils/roles';
 
 function ProtectedRoute({ children, roles }) {
   const { currentUser, setReturnPath } = useApp();
   const location = useLocation();
 
   // Check if user is a guest
-  const isGuest = currentUser.email === 'guest@smokestation.com';
+  const isGuest = checkIsGuest(currentUser);
 
   useEffect(() => {
     // If guest tries to access protected route, save the path they wanted

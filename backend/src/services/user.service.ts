@@ -161,7 +161,7 @@ export class UserService {
         }
         const isCurrentValid = await comparePassword(data.currentPassword, existingUser.password);
         if (!isCurrentValid) {
-          throw new AppError('Current password is incorrect', 401);
+          throw new AppError('Current password is incorrect', 400);
         }
       }
       updateData.password = await hashPassword(data.password);

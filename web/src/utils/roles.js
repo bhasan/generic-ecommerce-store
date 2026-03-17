@@ -1,3 +1,16 @@
+export const ROLES = {
+  GUEST: 'GUEST',
+  CUSTOMER: 'CUSTOMER',
+  EMPLOYEE: 'EMPLOYEE',
+  MANAGEMENT: 'MANAGEMENT',
+  ADMIN: 'ADMIN',
+  DELIVERY_DRIVER: 'DELIVERY_DRIVER',
+};
+
+export const GUEST_USER = { id: 999, email: 'guest@guest.com', roles: [ROLES.GUEST], name: 'Guest' };
+
+export const isGuest = (user) => user?.email === 'guest@guest.com';
+
 export const getUserRoles = (user) => {
   if (!user) return [];
   if (Array.isArray(user.roles)) return user.roles;

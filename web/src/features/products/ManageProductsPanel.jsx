@@ -3,6 +3,7 @@ import './ProductCard.css';
 import './ProductsShared.css';
 import './ProductsPageAdmin.css';
 import { useApp } from '../../context/AppContext';
+import { ROLES } from '../../utils/roles';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as productsApi from '../../services/productsApi';
 import * as categoriesApi from '../../services/categoriesApi';
@@ -326,7 +327,7 @@ function ManageProductsPanel() {
   }, [viewMode]);
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
-  const canManageProducts = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
+  const canManageProducts = userRoles.includes(ROLES.ADMIN) || userRoles.includes(ROLES.MANAGEMENT);
 
   useEffect(() => {
     const sorted = [...products].sort(
@@ -572,7 +573,7 @@ function ManageProductsPanel() {
               product={product}
               dragEnabled={canManageProducts}
               canManage={canManageProducts}
-              canDelete={userRoles.includes('ADMIN')}
+              canDelete={userRoles.includes(ROLES.ADMIN)}
               onToggleHidden={toggleHidden}
               onEdit={handleEdit}
               onDeleteClick={handleDeleteClick}
@@ -585,7 +586,7 @@ function ManageProductsPanel() {
               product={product}
               dragEnabled={canManageProducts}
               canManage={canManageProducts}
-              canDelete={userRoles.includes('ADMIN')}
+              canDelete={userRoles.includes(ROLES.ADMIN)}
               onToggleHidden={toggleHidden}
               onEdit={handleEdit}
               onDeleteClick={handleDeleteClick}
