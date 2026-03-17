@@ -27,9 +27,13 @@ function SendPaymentModal({ isOpen, onDone, pendingOrderState, storeCashappUsern
           <h2 className="send-payment-modal-title" style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
             Order Placed Successfully!
           </h2>
-          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-            Your order <strong>#{order?.id}</strong> has been created.
+          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+            Your order has been created.
           </p>
+          <div className="send-payment-order-id-badge">
+            <span className="send-payment-order-id-label">Order ID</span>
+            <span className="send-payment-order-id-value">#{order?.id}</span>
+          </div>
 
           <div style={{ background: 'var(--bg-tertiary)', padding: '1.5rem', borderRadius: '0.75rem', marginBottom: '1.5rem' }}>
             <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Payment Instructions</h3>
@@ -40,8 +44,9 @@ function SendPaymentModal({ isOpen, onDone, pendingOrderState, storeCashappUsern
               <p style={{ margin: 0, color: 'var(--text-primary)' }}>
                 Send to: <strong style={{ color: 'var(--color-secondary)', fontSize: '1.1rem' }}>{storeCashappUsername || 'Loading...'}</strong>
               </p>
-              <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                ⚠️ <strong>CRITICAL:</strong> You MUST include your Order ID (<strong>#{order?.id}</strong>) in the CashApp memo so we can verify your payment.
+              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem' }}>
+                <strong style={{ color: '#ef4444' }}>CRITICAL:</strong>{' '}
+                <span style={{ color: 'var(--text-secondary)' }}>Include your order ID <strong style={{ color: 'var(--text-primary)' }}>"{order?.id && `#${order.id}`}"</strong> in CashApp memo.</span>
               </p>
             </div>
           </div>

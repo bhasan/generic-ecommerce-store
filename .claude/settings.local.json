@@ -4,7 +4,6 @@
       "Read(///wsl.localhost/Ubuntu/home/**)",
       "Read(///wsl.localhost/Ubuntu//**)",
       "Read(//mnt/c/Users/bilal/**)",
-      "Bash(powershell -Command \"Remove-Item ''\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\bilal\\\\projects\\\\smoke-station-delivery\\\\DEVOPS_PIPELINE.md''; Remove-Item ''\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\bilal\\\\projects\\\\smoke-station-delivery\\\\production_deployment_summary.md''; Write-Host ''Deleted''\")",
       "Bash(wsl bash:*)"
     ]
   }
