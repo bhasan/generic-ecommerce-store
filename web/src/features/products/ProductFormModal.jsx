@@ -215,6 +215,9 @@ function ProductFormModal({
 
               <div className="form-group form-group-full">
                 <label>Product Images</label>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Recommended: 1280×800px (16:10 landscape)
+                </p>
                 <div className="image-fields">
                   {formData.images.map((image, index) => (
                     <div key={index} className="image-field-row">

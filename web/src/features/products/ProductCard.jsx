@@ -10,7 +10,7 @@ function ProductCard({ product, imageSrc, categoryLabel, onClick, onImageClick, 
       <div
         className="product-image-container"
         onClick={onImageClick ? (e) => { e.stopPropagation(); onImageClick(); } : undefined}
-        style={onImageClick ? { cursor: 'zoom-in' } : undefined}
+        style={onImageClick ? { cursor: 'pointer' } : undefined}
       >
         <ProductImage src={imageSrc} alt={product.name} className="product-image" />
       </div>

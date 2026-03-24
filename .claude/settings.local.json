@@ -8,7 +8,8 @@
       "Bash(wsl bash:*)",
       "mcp__Claude_Preview__preview_start",
       "Bash(ls \"\\\\\\\\wsl.localhost\\\\Ubuntu\\\\home\\\\bilal\\\\projects\\\\smoke-station-delivery\")",
-      "Read(//mnt/wsl/Ubuntu/home/bilal/projects/**)"
+      "Read(//mnt/wsl/Ubuntu/home/bilal/projects/**)",
+      "Bash(npm run:*)"
     ]
   }
 }

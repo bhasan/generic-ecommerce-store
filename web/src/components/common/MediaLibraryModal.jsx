@@ -18,6 +18,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
   const [viewMode, setViewMode] = useState('grid');
   const [selectedItems, setSelectedItems] = useState([]);
   const [cropFile, setCropFile] = useState(null);
+  const [dimensions, setDimensions] = useState({});
 
   useEffect(() => {
     if (isOpen) {
@@ -31,12 +32,28 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     setError(null);
     try {
       const data = await getImages();
-      setImages(data.images || []);
+      const fetched = data.images || [];
+      setImages(fetched);
+      loadDimensions(fetched);
     } catch (err) {
       setError(err.message || 'Failed to load images');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadDimensions = (items) => {
+    items.forEach((item) => {
+      if (isVideo(item.url)) return;
+      const img = new Image();
+      img.onload = () => {
+        setDimensions((prev) => ({
+          ...prev,
+          [item.url]: { width: img.naturalWidth, height: img.naturalHeight },
+        }));
+      };
+      img.src = item.url;
+    });
   };
 
   const handleDelete = async (filename, e) => {
@@ -239,6 +256,9 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                       <div className="media-item-name" title={image.filename}>{image.filename}</div>
                       <div className="media-item-meta">
                         <span className="media-item-size">{formatSize(image.size)}</span>
+                        {dimensions[image.url] && (
+                          <span className="media-item-size">{dimensions[image.url].width}×{dimensions[image.url].height}</span>
+                        )}
                         <span className="media-item-date">{new Date(image.createdAt).toLocaleDateString()}</span>
                         <button 
                           className="btn btn-ghost btn-icon btn-sm btn-delete-media" 

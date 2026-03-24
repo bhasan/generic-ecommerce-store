@@ -20,11 +20,14 @@ function centerFreeformCrop(mediaWidth, mediaHeight) {
 
 async function getCroppedBlob(image, crop, originalFile) {
   const canvas = document.createElement('canvas');
-  const scaleX = image.naturalWidth / image.width;
-  const scaleY = image.naturalHeight / image.height;
+  // crop is a PixelCrop (rendered pixel space); scale up to natural image pixels
+  const scaleX = image.naturalWidth / image.clientWidth;
+  const scaleY = image.naturalHeight / image.clientHeight;
 
   canvas.width = Math.round(crop.width * scaleX);
   canvas.height = Math.round(crop.height * scaleY);
+
+  if (canvas.width === 0 || canvas.height === 0) return null;
 
   const ctx = canvas.getContext('2d');
   ctx.drawImage(
@@ -54,34 +57,53 @@ async function getCroppedBlob(image, crop, originalFile) {
 }
 
 function ImageCropModal({ file, onConfirm, onSkip, onCancel }) {
-  const [crop, setCrop] = useState(null);
+  const [crop, setCrop] = useState(undefined);
   const [completedCrop, setCompletedCrop] = useState(null);
+  const [objectUrl, setObjectUrl] = useState(null);
   const imgRef = useRef(null);
-  const objectUrl = useRef(URL.createObjectURL(file));
+  const naturalSize = useRef({ width: 0, height: 0 });
 
-  // Cleanup object URL on unmount
   React.useEffect(() => {
-    const url = objectUrl.current;
+    const url = URL.createObjectURL(file);
+    setObjectUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, []);
+  }, [file]);
 
   const onImageLoad = (e) => {
-    const { width, height } = e.currentTarget;
-    setCrop(centerFreeformCrop(width, height));
+    const { naturalWidth: width, naturalHeight: height } = e.currentTarget;
+    naturalSize.current = { width, height };
+    if (width && height) {
+      setCrop(centerFreeformCrop(width, height));
+    }
+  };
+
+  const applyAspectCrop = (aspect) => {
+    const { width, height } = naturalSize.current;
+    if (!width || !height) return;
+    const next = centerCrop(
+      makeAspectCrop({ unit: '%', width: 80 }, aspect, width, height),
+      width,
+      height
+    );
+    setCrop(next);
+    setCompletedCrop(null); // clear completed until user finalises
   };
 
   const handleCropConfirm = async () => {
     if (!completedCrop || !imgRef.current) {
-      // No crop drawn — treat as skip
       onSkip(file);
       return;
     }
     const croppedFile = await getCroppedBlob(imgRef.current, completedCrop, file);
+    if (!croppedFile) {
+      onSkip(file);
+      return;
+    }
     onConfirm(croppedFile);
   };
 
   return (
-    <div className="icm-overlay" onClick={onCancel}>
+    <div className="icm-overlay">
       <div className="icm-container" onClick={(e) => e.stopPropagation()}>
         <div className="icm-header">
           <CropIcon size={18} />
@@ -97,20 +119,28 @@ function ImageCropModal({ file, onConfirm, onSkip, onCancel }) {
           <span className="icm-hint-sub">Product thumbnails display at approximately 16:10 landscape ratio.</span>
         </div>
 
+        <div className="icm-presets">
+          <button className="btn btn-secondary btn-sm" onClick={() => applyAspectCrop(16 / 10)}>
+            16:10
+          </button>
+        </div>
+
         <div className="icm-crop-area">
-          <ReactCrop
-            crop={crop}
-            onChange={(c) => setCrop(c)}
-            onComplete={(c) => setCompletedCrop(c)}
-          >
-            <img
-              ref={imgRef}
-              src={objectUrl.current}
-              alt="Crop preview"
-              className="icm-image"
-              onLoad={onImageLoad}
-            />
-          </ReactCrop>
+          {objectUrl && (
+            <ReactCrop
+              crop={crop}
+              onChange={(c) => setCrop(c)}
+              onComplete={(c) => setCompletedCrop(c)}
+            >
+              <img
+                ref={imgRef}
+                src={objectUrl}
+                alt="Crop preview"
+                className="icm-image"
+                onLoad={onImageLoad}
+              />
+            </ReactCrop>
+          )}
         </div>
 
         <div className="icm-actions">

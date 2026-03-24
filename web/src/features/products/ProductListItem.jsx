@@ -22,7 +22,7 @@ function ProductListItem({
       <div
         className="product-list-image"
         onClick={onImageClick ? (e) => { e.stopPropagation(); onImageClick(); } : undefined}
-        style={onImageClick ? { cursor: 'zoom-in' } : undefined}
+        style={onImageClick ? { cursor: 'pointer' } : undefined}
       >
         <ProductImage src={imageSrc} alt={product.name} />
       </div>
