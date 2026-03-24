@@ -36,10 +36,19 @@ const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 1
 // Helmet helps secure Express apps by setting various HTTP headers
 app.use(helmet());
 
+// Validate CORS origin
+const corsOrigin = process.env.CORS_ORIGIN;
+if (!corsOrigin || corsOrigin === '*') {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: CORS_ORIGIN must be set to a specific domain in production (not *)');
+  }
+  console.warn('[WARN] CORS_ORIGIN is wildcard — acceptable for development only');
+}
+
 // Enable CORS for all routes
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
+  origin: corsOrigin || '*',
+  credentials: true,
 }));
 
 // Rate limiting for authentication routes
@@ -176,6 +185,20 @@ app.use(errorHandler);
 // ========================================
 // SERVER START
 // ========================================
+
+function validateProductionEnv() {
+  if (process.env.NODE_ENV !== 'production') return;
+  const required = ['JWT_SECRET', 'CORS_ORIGIN', 'DATABASE_URL'];
+  const missing = required.filter(key => !process.env[key]);
+  if (missing.length > 0) {
+    throw new Error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
+  }
+  if (process.env.CORS_ORIGIN === '*') {
+    throw new Error('FATAL: CORS_ORIGIN must not be wildcard (*) in production');
+  }
+}
+
+validateProductionEnv();
 
 app.listen(PORT, () => {
   console.log('========================================');
