@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Loader2, UploadCloud, RefreshCw, PlayCircle, Grid, List as ListIcon, CheckCircle2 } from 'lucide-react';
 import { getImages, deleteImage, uploadFile } from '../../services/uploadApi';
+import ImageCropModal from './ImageCropModal';
 import './MediaLibraryModal.css';
 
 // Helper to check if a url is a video
@@ -16,6 +17,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('grid');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [cropFile, setCropFile] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -80,22 +82,38 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     }
   };
 
-  const handleUpload = async (e) => {
+  const handleUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = null;
 
+    if (file.type.startsWith('video/')) {
+      performUpload(file);
+    } else {
+      setCropFile(file);
+    }
+  };
+
+  const performUpload = async (file) => {
     setIsUploading(true);
     try {
-      const { url } = await uploadFile(file);
-      // Refetch images to show the new one at the top with proper metadata
+      await uploadFile(file);
       await fetchImages();
     } catch (err) {
       alert(`Upload failed: ${err.message}`);
     } finally {
       setIsUploading(false);
-      // Reset input
-      e.target.value = null;
     }
+  };
+
+  const handleCropConfirm = (croppedFile) => {
+    setCropFile(null);
+    performUpload(croppedFile);
+  };
+
+  const handleCropSkip = (originalFile) => {
+    setCropFile(null);
+    performUpload(originalFile);
   };
 
   const formatSize = (bytes) => {
@@ -125,6 +143,15 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
   if (!isOpen) return null;
 
   return (
+    <>
+    {cropFile && (
+      <ImageCropModal
+        file={cropFile}
+        onConfirm={handleCropConfirm}
+        onSkip={handleCropSkip}
+        onCancel={() => setCropFile(null)}
+      />
+    )}
     <div className="media-modal-overlay" onClick={onClose}>
       <div className="media-modal-content surface-card-accent" onClick={(e) => e.stopPropagation()}>
         <div className="media-modal-header">
@@ -252,6 +279,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
         )}
       </div>
     </div>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ function ProductListItem({
   showStock,
   showHiddenLabel,
   onClick,
+  onImageClick,
   children,
   discountedPrice,
   hasDiscount,
@@ -18,7 +19,11 @@ function ProductListItem({
 
   return (
     <div className="product-list-item" onClick={onClick} style={{ cursor: 'pointer' }}>
-      <div className="product-list-image">
+      <div
+        className="product-list-image"
+        onClick={onImageClick ? (e) => { e.stopPropagation(); onImageClick(); } : undefined}
+        style={onImageClick ? { cursor: 'zoom-in' } : undefined}
+      >
         <ProductImage src={imageSrc} alt={product.name} />
       </div>
 

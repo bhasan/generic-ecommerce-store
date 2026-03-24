@@ -3,6 +3,7 @@ import { getProductImageSrc, getDiscountedUnitPrice, resolveQuantityDiscounts } 
 import ProductQuantityActions from './ProductQuantityActions';
 import ProductCard from './ProductCard';
 import ProductListItem from './ProductListItem';
+import ProductMediaModal from './ProductMediaModal';
 
 function ProductsGrid({
   products,
@@ -13,6 +14,7 @@ function ProductsGrid({
   showHiddenLabel = false
 }) {
   const [quantities, setQuantities] = useState({});
+  const [mediaModalProduct, setMediaModalProduct] = useState(null);
 
   const resolveAllowedQuantities = (product) => {
     if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
@@ -46,6 +48,7 @@ function ProductsGrid({
         imageSrc={mainImage}
         categoryLabel={getCategoryLabel(product)}
         onClick={() => onProductClick(product.id)}
+        onImageClick={() => setMediaModalProduct(product)}
         discountedPrice={discountedPrice}
         hasDiscount={hasDiscount}
         quantity={quantityValue}
@@ -82,6 +85,7 @@ function ProductsGrid({
         showStock={showStock}
         showHiddenLabel={showHiddenLabel}
         onClick={() => onProductClick(product.id)}
+        onImageClick={() => setMediaModalProduct(product)}
         discountedPrice={discountedPrice}
         hasDiscount={hasDiscount}
         quantity={quantityValue}
@@ -101,14 +105,29 @@ function ProductsGrid({
     );
   };
 
+  const modal = mediaModalProduct ? (
+    <ProductMediaModal
+      product={mediaModalProduct}
+      onClose={() => setMediaModalProduct(null)}
+    />
+  ) : null;
+
   if (viewMode === 'list') {
-    return <div className="products-list">{products.map(renderProductListItem)}</div>;
+    return (
+      <>
+        <div className="products-list">{products.map(renderProductListItem)}</div>
+        {modal}
+      </>
+    );
   }
 
   return (
-    <div className={`products-grid ${viewMode === 'compact' ? 'products-grid-compact' : ''}`}>
-      {products.map(renderProductCard)}
-    </div>
+    <>
+      <div className={`products-grid ${viewMode === 'compact' ? 'products-grid-compact' : ''}`}>
+        {products.map(renderProductCard)}
+      </div>
+      {modal}
+    </>
   );
 }
 
