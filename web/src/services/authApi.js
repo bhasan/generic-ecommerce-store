@@ -1,18 +1,6 @@
 import { post, get, setAuthToken, clearAuthToken } from './api';
 
 /**
- * Hash a password with SHA-256 before transmission.
- * The raw password never leaves the browser.
- */
-async function hashPassword(password) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-/**
  * Login user
  * @param {string} email - User email
  * @param {string} password - User password
@@ -20,8 +8,7 @@ async function hashPassword(password) {
  */
 export const login = async (email, password) => {
   try {
-    const hashedPassword = await hashPassword(password);
-    const response = await post('/auth/login', { email, password: hashedPassword });
+    const response = await post('/auth/login', { email, password });
     
     // Store token
     if (response.token) {
@@ -49,8 +36,7 @@ export const login = async (email, password) => {
  */
 export const register = async (data) => {
   try {
-    const hashedPassword = await hashPassword(data.password);
-    const response = await post('/auth/register', { ...data, password: hashedPassword });
+    const response = await post('/auth/register', data);
     
     // New registrations don't get a token (require approval)
     // Only store token if provided (shouldn't happen for new registrations)
