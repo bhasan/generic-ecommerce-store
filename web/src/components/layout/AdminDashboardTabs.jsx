@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Megaphone, UserPlus, Users, UserX, MessageSquare } from 'lucide-react';
+import { Megaphone, UserPlus, Users, UserX, MessageSquare, CreditCard } from 'lucide-react';
 import './AdminDashboardTabs.css';
 
 const SECTIONS = {
@@ -8,7 +8,8 @@ const SECTIONS = {
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
   REJECTED_USERS: 'rejected-users',
-  MESSAGES: 'messages'
+  MESSAGES: 'messages',
+  PAYMENT_SETTINGS: 'payment-settings',
 };
 
 function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSectionChange }) {
@@ -69,6 +70,15 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
         >
           <UserX size={20} />
           <span>Rejected Users</span>
+        </button>
+        <button
+          className={`dashboard-tab ${
+            currentTab === 'dashboard' && activeSection === SECTIONS.PAYMENT_SETTINGS ? 'active' : ''
+          }`}
+          onClick={() => handleSelect(SECTIONS.PAYMENT_SETTINGS)}
+        >
+          <CreditCard size={20} />
+          <span>Payment Settings</span>
         </button>
       </div>
     </div>

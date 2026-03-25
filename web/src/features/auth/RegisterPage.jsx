@@ -6,7 +6,7 @@ import { toNotificationMessage } from '../../utils/notificationMessage';
 import { UserPlus, Mail, Lock, User, Phone, DollarSign, AlertCircle, MapPin, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 function RegisterPage() {
-  const { register, showNotification, pickupLocation } = useApp();
+  const { register, showNotification, pickupLocation, paymentSettings } = useApp();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
@@ -40,7 +40,7 @@ function RegisterPage() {
       name: !nameTrimmed ? 'Full name is required' : '',
       email: !emailTrimmed ? 'Email is required' : '',
       password: !passwordTrimmed ? 'Password is required' : '',
-      cashapp: !cashappTrimmed ? 'CashApp username is required' : '',
+      cashapp: paymentSettings?.cashapp?.enabled && !cashappTrimmed ? 'CashApp username is required' : '',
       phoneNumber: !phoneTrimmed
         ? 'Phone number is required'
         : !/^\+?1?\s*[-.]?\s*\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/.test(phoneTrimmed)
@@ -217,33 +217,35 @@ function RegisterPage() {
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="cashapp" className="form-label">
-              <DollarSign size={16} />
-              <span>CashApp Username</span>
-            </label>
-            <input
-              id="cashapp"
-              name="cashapp"
-              type="text"
-              value={formData.cashapp}
-              onChange={(e) => {
-                let value = e.target.value;
-                if (value && !value.startsWith('$')) value = '$' + value;
-                setFormData({ ...formData, cashapp: value });
-                if (fieldErrors.cashapp) setFieldErrors((prev) => ({ ...prev, cashapp: '' }));
-              }}
-              className={`form-input ${fieldErrors.cashapp ? 'form-input-error' : ''}`}
-              placeholder="$YourCashApp"
-              required
-              aria-invalid={!!fieldErrors.cashapp}
-              aria-describedby={fieldErrors.cashapp ? 'cashapp-error' : undefined}
-            />
-            {fieldErrors.cashapp && (
-              <span id="cashapp-error" className="form-error-message" role="alert">{fieldErrors.cashapp}</span>
-            )}
-            <span className="form-hint">Required for payment processing</span>
-          </div>
+          {paymentSettings?.cashapp?.enabled && (
+            <div className="form-group">
+              <label htmlFor="cashapp" className="form-label">
+                <DollarSign size={16} />
+                <span>CashApp Username</span>
+              </label>
+              <input
+                id="cashapp"
+                name="cashapp"
+                type="text"
+                value={formData.cashapp}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  if (value && !value.startsWith('$')) value = '$' + value;
+                  setFormData({ ...formData, cashapp: value });
+                  if (fieldErrors.cashapp) setFieldErrors((prev) => ({ ...prev, cashapp: '' }));
+                }}
+                className={`form-input ${fieldErrors.cashapp ? 'form-input-error' : ''}`}
+                placeholder="$YourCashApp"
+                required
+                aria-invalid={!!fieldErrors.cashapp}
+                aria-describedby={fieldErrors.cashapp ? 'cashapp-error' : undefined}
+              />
+              {fieldErrors.cashapp && (
+                <span id="cashapp-error" className="form-error-message" role="alert">{fieldErrors.cashapp}</span>
+              )}
+              <span className="form-hint">Required for payment processing</span>
+            </div>
+          )}
 
           <div className="form-group">
             <label htmlFor="phoneNumber" className="form-label">
