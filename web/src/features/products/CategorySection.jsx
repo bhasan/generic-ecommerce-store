@@ -15,7 +15,7 @@ function CategorySection({
   const parentProducts = productsByCategory.get(parent.id) || [];
 
   return (
-    <div className="category-section">
+    <div className="category-section" id={`category-${parent.id}`}>
       <div className="category-section-header">
         <h3 className="category-section-title">{parent.name}</h3>
         {parent.description && (

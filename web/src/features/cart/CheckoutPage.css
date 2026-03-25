@@ -209,8 +209,30 @@
 
 .payment-instructions {
   color: var(--text-secondary);
-  margin: 0 0 1.5rem 0;
+  margin: 0.75rem 0 0 0;
   line-height: 1.6;
+}
+
+.payment-instructions:first-child {
+  margin-top: 0;
+}
+
+.payment-method-info + .payment-method-info {
+  margin-top: 0.75rem;
+}
+
+.form-group + .payment-method-info {
+  margin-top: 1rem;
+}
+
+.payment-memo-hint {
+  margin: 1.25rem 0 0 0;
+  font-size: 0.9rem;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.6);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  line-height: 1.5;
 }
 
 .payment-preview {

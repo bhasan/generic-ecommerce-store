@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { CheckCircle, PackageCheck, MapPin } from 'lucide-react';
+import { CheckCircle, PackageCheck, MapPin, X } from 'lucide-react';
 import './SendPaymentModal.css';
 
-function SendPaymentModal({ isOpen, onDone, pendingOrderState, storeCashappUsername }) {
+function SendPaymentModal({ isOpen, onDone, onCancel, pendingOrderState, storeCashappUsername, paymentSettings }) {
   const [paymentSent, setPaymentSent] = useState(false);
 
   if (!isOpen || !pendingOrderState) return null;
@@ -19,15 +19,20 @@ function SendPaymentModal({ isOpen, onDone, pendingOrderState, storeCashappUsern
   return (
     <div className="send-payment-modal-overlay">
       <div className="send-payment-modal-container">
-        <div className="send-payment-modal-content" style={{ textAlign: 'left' }}>
-          <div className="send-payment-modal-icon-wrapper" style={{ justifyContent: 'center', marginBottom: '1.5rem' }}>
-            <PackageCheck size={56} className="send-payment-modal-icon" style={{ color: 'var(--color-primary)' }} />
+        <div className="send-payment-modal-content">
+          {onCancel && (
+            <button className="send-payment-modal-close" onClick={onCancel} aria-label="Close">
+              <X size={20} />
+            </button>
+          )}
+          <div className="send-payment-modal-icon-wrapper">
+            <PackageCheck size={56} className="send-payment-modal-icon" />
           </div>
-          
-          <h2 className="send-payment-modal-title" style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+
+          <h2 className="send-payment-modal-title">
             Order Placed Successfully!
           </h2>
-          <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+          <p className="send-payment-subtitle">
             Your order has been created.
           </p>
           <div className="send-payment-order-id-badge">
@@ -35,58 +40,98 @@ function SendPaymentModal({ isOpen, onDone, pendingOrderState, storeCashappUsern
             <span className="send-payment-order-id-value">#{order?.id}</span>
           </div>
 
-          <div style={{ background: 'var(--bg-tertiary)', padding: '1.5rem', borderRadius: '0.75rem', marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', color: 'var(--text-primary)' }}>Payment Instructions</h3>
-            <p className="send-payment-modal-message" style={{ margin: '0 0 1rem 0' }}>
-              Please send <strong>${total?.toFixed(2)}</strong> via CashApp to complete your order.
+          <div className="send-payment-instructions-block">
+            <h3 className="send-payment-instructions-heading">Payment Instructions</h3>
+            <p className="send-payment-modal-message">
+              Please send <strong>${total?.toFixed(2)}</strong> to complete your order.
             </p>
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--color-secondary)', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-              <p style={{ margin: 0, color: 'var(--text-primary)' }}>
-                Send to: <strong style={{ color: 'var(--color-secondary)', fontSize: '1.1rem' }}>{storeCashappUsername || 'Loading...'}</strong>
+
+            <div className="send-payment-memo-card">
+              <p className="send-payment-memo-label">
+                <strong>Memo:</strong> Include the following in the memo/note field:
               </p>
-              <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem' }}>
-                <strong style={{ color: '#ef4444' }}>CRITICAL:</strong>{' '}
-                <span style={{ color: 'var(--text-secondary)' }}>Include your order ID <strong style={{ color: 'var(--text-primary)' }}>"{order?.id && `#${order.id}`}"</strong> in CashApp memo.</span>
-              </p>
+              <div className="send-payment-memo-value">#{order?.id}</div>
             </div>
+
+            {/* CashApp */}
+            {(paymentSettings?.cashapp?.enabled ?? true) && (
+              <div className="send-payment-method-card">
+                <p className="send-payment-method-handle">
+                  <strong>CashApp</strong> — Send to:{' '}
+                  <strong className="send-payment-method-handle-value">
+                    {paymentSettings?.cashapp?.handle || storeCashappUsername || 'Loading...'}
+                  </strong>
+                </p>
+              </div>
+            )}
+
+            {/* Zelle */}
+            {paymentSettings?.zelle?.enabled && (
+              <div className="send-payment-method-card">
+                <p className="send-payment-method-handle">
+                  <strong>Zelle</strong> — Send to:{' '}
+                  <strong className="send-payment-method-handle-value">
+                    {paymentSettings.zelle.handle}
+                  </strong>
+                </p>
+              </div>
+            )}
+
+            {/* Venmo */}
+            {paymentSettings?.venmo?.enabled && (
+              <div className="send-payment-method-card">
+                <p className="send-payment-method-handle">
+                  <strong>Venmo</strong> — Send to:{' '}
+                  <strong className="send-payment-method-handle-value">
+                    {paymentSettings.venmo.handle}
+                  </strong>
+                </p>
+              </div>
+            )}
           </div>
 
-          <div style={{ background: 'var(--bg-tertiary)', padding: '1.5rem', borderRadius: '0.75rem', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <MapPin size={18} style={{ color: 'var(--color-primary-light)' }} />
-              <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+          <div className="send-payment-location-block">
+            <div className="send-payment-location-header">
+              <MapPin size={18} className="send-payment-location-icon" />
+              <h3 className="send-payment-location-title">
                 {deliveryMethod === 'DELIVERY' ? 'Delivery Address' : 'Store Pickup Location'}
               </h3>
             </div>
-            <p style={{ margin: '0 0 0 1.5rem', color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
+            <p className="send-payment-location-address">
               {deliveryMethod === 'DELIVERY' ? deliveryAddress : pickupLocation}
             </p>
           </div>
 
-          <label className="send-payment-checkbox-label" style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', background: 'var(--surface)', padding: '1rem', borderRadius: '0.5rem', cursor: 'pointer', border: '1px solid var(--border-color)' }}>
+          <label className="send-payment-checkbox-label">
             <input
               type="checkbox"
               checked={paymentSent}
               onChange={(e) => setPaymentSent(e.target.checked)}
               className="send-payment-checkbox"
-              style={{ marginTop: '0.25rem', width: '1.25rem', height: '1.25rem' }}
             />
-            <span style={{ color: 'var(--text-primary)', lineHeight: '1.5' }}>
-              I have sent the payment on CashApp and included Order <strong>#{order?.id}</strong> in the memo.
+            <span>
+              {(paymentSettings?.cashapp?.enabled && !paymentSettings?.zelle?.enabled && !paymentSettings?.venmo?.enabled)
+                ? <>I have sent the payment on CashApp and included Order <strong>#{order?.id}</strong> in the memo.</>
+                : <>I have sent the payment using one of the methods above and included Order <strong>#{order?.id}</strong> as reference.</>
+              }
             </span>
           </label>
         </div>
-        
-        <div className="send-payment-modal-actions" style={{ marginTop: '2rem' }}>
+
+        <div className="send-payment-modal-actions">
           <button
             className="btn-send-payment-done"
             onClick={handleDone}
             disabled={!paymentSent}
-            style={{ width: '100%', padding: '1rem', fontSize: '1.1rem' }}
           >
             <CheckCircle size={20} />
             Complete Order
           </button>
+          {onCancel && (
+            <button className="btn-send-payment-cancel" onClick={onCancel}>
+              Cancel
+            </button>
+          )}
         </div>
       </div>
     </div>

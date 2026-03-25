@@ -55,6 +55,11 @@ export function AppProvider({ children }) {
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
   const [pickupLocation, setPickupLocation] = useState('');
   const [storeCashappUsername, setStoreCashappUsername] = useState('');
+  const [paymentSettings, setPaymentSettings] = useState({
+    cashapp: { enabled: true, handle: '' },
+    zelle: { enabled: false, handle: '' },
+    venmo: { enabled: false, handle: '' },
+  });
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -150,7 +155,12 @@ export function AppProvider({ children }) {
       if (config) {
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
         if (typeof config.pickupLocation === 'string') setPickupLocation(config.pickupLocation);
-        if (typeof config.storeCashappUsername === 'string') setStoreCashappUsername(config.storeCashappUsername);
+        if (config.paymentSettings) {
+          setPaymentSettings(config.paymentSettings);
+          setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
+        } else if (typeof config.storeCashappUsername === 'string') {
+          setStoreCashappUsername(config.storeCashappUsername);
+        }
       }
     } catch (e) {
       console.warn('Failed to load remote config, using default tax rate.', e);
@@ -508,15 +518,19 @@ export function AppProvider({ children }) {
     }
   };
 
-  const deleteOrder = async (orderId) => {
+  const restoreCart = (items) => {
+    setCart(items);
+  };
+
+  const deleteOrder = async (orderId, { silent = false } = {}) => {
     try {
       await ordersApi.deleteOrder(orderId);
-      
+
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
-      
-      showNotification('Order deleted', 'info');
+
+      if (!silent) showNotification('Order deleted', 'info');
     } catch (error) {
       const errorMessage = error.message || 'Failed to delete order. Please try again.';
       showNotification(errorMessage, 'error');
@@ -796,6 +810,9 @@ export function AppProvider({ children }) {
     taxRate,
     pickupLocation,
     storeCashappUsername,
+    paymentSettings,
+    loadConfig,
+    restoreCart,
   };
 
   return (

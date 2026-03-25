@@ -5,6 +5,7 @@ import { isGuest, ROLES } from '../../utils/roles';
 import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
+import ProductMediaModal from './ProductMediaModal';
 
 // Helper to check if a url is a video
 const isVideo = (url) => {
@@ -95,12 +96,26 @@ function ProductItemPage() {
   const navigate = useNavigate();
   const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const fallbackImage = PRODUCT_FALLBACK_IMAGE;
-  
+
   // Find the product by ID
   const product = products.find(p => p.id === parseInt(id));
-  
+
+  const allowedQuantities =
+    product?.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
+      ? product.allowedQuantitiesOverride
+      : product?.category?.allowedQuantities || [];
+
+  useEffect(() => {
+    if (allowedQuantities.length > 0) {
+      setSelectedQuantity(allowedQuantities[0]);
+    } else {
+      setSelectedQuantity(1);
+    }
+  }, [product?.id, allowedQuantities.length]);
+
   // Show loading state
   if (isLoadingProducts) {
     return (
@@ -154,10 +169,6 @@ function ProductItemPage() {
         : [fallbackImage];
   const showStock = product.stockEnabled !== false;
   const isOutOfStock = showStock && product.stock === 0;
-  const allowedQuantities =
-    product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
-      ? product.allowedQuantitiesOverride
-      : product.category?.allowedQuantities || [];
 
   // Get quantity discounts for this product
   const quantityDiscounts = resolveQuantityDiscounts(product);
@@ -181,14 +192,7 @@ function ProductItemPage() {
   const averageRating = getAverageRating();
   const reviewCount = product.reviews?.length || 0;
 
-  useEffect(() => {
-    if (allowedQuantities.length > 0) {
-      setSelectedQuantity(allowedQuantities[0]);
-    } else {
-      setSelectedQuantity(1);
-    }
-  }, [product.id, allowedQuantities.length]);
-  
+
   const handleAddToCart = () => {
     addToCart(product, selectedQuantity);
   };
@@ -217,8 +221,8 @@ function ProductItemPage() {
             )}
             
             {isVideo(images[selectedImageIndex]) ? (
-              <video 
-                src={images[selectedImageIndex]} 
+              <video
+                src={images[selectedImageIndex]}
                 className="main-product-image"
                 controls
                 autoPlay
@@ -229,10 +233,12 @@ function ProductItemPage() {
                 }}
               />
             ) : (
-              <img 
-                src={images[selectedImageIndex]} 
+              <img
+                src={images[selectedImageIndex]}
                 alt={product.name}
                 className="main-product-image"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setMediaModalOpen(true)}
                 onError={(e) => {
                   e.target.src = fallbackImage;
                 }}
@@ -394,6 +400,14 @@ function ProductItemPage() {
         <h2 className="reviews-section-title">Customer Reviews</h2>
         <ProductReviews productId={product.id} />
       </div> */}
+
+      {mediaModalOpen && (
+        <ProductMediaModal
+          product={product}
+          initialIndex={selectedImageIndex}
+          onClose={() => setMediaModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

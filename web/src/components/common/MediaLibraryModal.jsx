@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Loader2, UploadCloud, RefreshCw, PlayCircle, Grid, List as ListIcon, CheckCircle2 } from 'lucide-react';
 import { getImages, deleteImage, uploadFile } from '../../services/uploadApi';
+import ImageCropModal from './ImageCropModal';
 import './MediaLibraryModal.css';
 
 // Helper to check if a url is a video
@@ -16,6 +17,8 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('grid');
   const [selectedItems, setSelectedItems] = useState([]);
+  const [cropFile, setCropFile] = useState(null);
+  const [dimensions, setDimensions] = useState({});
 
   useEffect(() => {
     if (isOpen) {
@@ -29,12 +32,28 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     setError(null);
     try {
       const data = await getImages();
-      setImages(data.images || []);
+      const fetched = data.images || [];
+      setImages(fetched);
+      loadDimensions(fetched);
     } catch (err) {
       setError(err.message || 'Failed to load images');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadDimensions = (items) => {
+    items.forEach((item) => {
+      if (isVideo(item.url)) return;
+      const img = new Image();
+      img.onload = () => {
+        setDimensions((prev) => ({
+          ...prev,
+          [item.url]: { width: img.naturalWidth, height: img.naturalHeight },
+        }));
+      };
+      img.src = item.url;
+    });
   };
 
   const handleDelete = async (filename, e) => {
@@ -80,22 +99,38 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     }
   };
 
-  const handleUpload = async (e) => {
+  const handleUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    e.target.value = null;
 
+    if (file.type.startsWith('video/')) {
+      performUpload(file);
+    } else {
+      setCropFile(file);
+    }
+  };
+
+  const performUpload = async (file) => {
     setIsUploading(true);
     try {
-      const { url } = await uploadFile(file);
-      // Refetch images to show the new one at the top with proper metadata
+      await uploadFile(file);
       await fetchImages();
     } catch (err) {
       alert(`Upload failed: ${err.message}`);
     } finally {
       setIsUploading(false);
-      // Reset input
-      e.target.value = null;
     }
+  };
+
+  const handleCropConfirm = (croppedFile) => {
+    setCropFile(null);
+    performUpload(croppedFile);
+  };
+
+  const handleCropSkip = (originalFile) => {
+    setCropFile(null);
+    performUpload(originalFile);
   };
 
   const formatSize = (bytes) => {
@@ -125,6 +160,15 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
   if (!isOpen) return null;
 
   return (
+    <>
+    {cropFile && (
+      <ImageCropModal
+        file={cropFile}
+        onConfirm={handleCropConfirm}
+        onSkip={handleCropSkip}
+        onCancel={() => setCropFile(null)}
+      />
+    )}
     <div className="media-modal-overlay" onClick={onClose}>
       <div className="media-modal-content surface-card-accent" onClick={(e) => e.stopPropagation()}>
         <div className="media-modal-header">
@@ -212,6 +256,9 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                       <div className="media-item-name" title={image.filename}>{image.filename}</div>
                       <div className="media-item-meta">
                         <span className="media-item-size">{formatSize(image.size)}</span>
+                        {dimensions[image.url] && (
+                          <span className="media-item-size">{dimensions[image.url].width}×{dimensions[image.url].height}</span>
+                        )}
                         <span className="media-item-date">{new Date(image.createdAt).toLocaleDateString()}</span>
                         <button 
                           className="btn btn-ghost btn-icon btn-sm btn-delete-media" 
@@ -252,6 +299,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
         )}
       </div>
     </div>
+    </>
   );
 }
 

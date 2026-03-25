@@ -1,0 +1,73 @@
+.payment-settings-description {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.payment-method-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.payment-method-card {
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  background: var(--surface);
+  transition: background 0.2s;
+}
+
+.payment-method-card.enabled {
+  background: var(--bg-secondary);
+}
+
+.payment-method-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.payment-method-card-header.expanded {
+  margin-bottom: 1rem;
+}
+
+.payment-method-card-label {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.payment-method-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.payment-method-toggle-status {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.payment-method-toggle-status.enabled {
+  color: var(--color-secondary);
+}
+
+.payment-method-toggle-checkbox {
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+}
+
+.payment-method-form-group {
+  margin: 0;
+}
+
+.payment-settings-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

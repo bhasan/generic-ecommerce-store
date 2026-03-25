@@ -10,6 +10,7 @@ import ProductsHeader from './ProductsHeader';
 import ProductsGrid from './ProductsGrid';
 import ManageProductsPanel from './ManageProductsPanel';
 import CategorySection from './CategorySection';
+import CategoryNav from './CategoryNav';
 import { getProductCategoryLabel, groupProductsByCategory, sortProducts } from './productsHelpers';
 
 function ProductsPage({ mode = 'browse' }) {
@@ -78,7 +79,9 @@ function ProductsPage({ mode = 'browse' }) {
           showHiddenLabel={!isCustomer}
         />
       ) : (
-        topLevel.map((parent) => (
+        <>
+          {topLevel.length > 1 && <CategoryNav categories={topLevel} />}
+          {topLevel.map((parent) => (
           <CategorySection
             key={parent.id}
             parent={parent}
@@ -90,7 +93,8 @@ function ProductsPage({ mode = 'browse' }) {
             onProductClick={(id) => navigate(`/products/${id}`)}
             showHiddenLabel={!isCustomer}
           />
-        ))
+        ))}
+        </>
       )}
     </div>
   );

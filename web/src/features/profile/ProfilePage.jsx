@@ -55,7 +55,7 @@ const formatAddress = (address) => {
 };
 
 function ProfilePage() {
-  const { currentUser, updateUserProfile, showNotification } = useApp();
+  const { currentUser, updateUserProfile, showNotification, paymentSettings } = useApp();
   const [formData, setFormData] = useState({
     name: currentUser.name || '',
     email: currentUser.email || '',
@@ -167,28 +167,30 @@ function ProfilePage() {
               />
             </div>
 
-            <div className="form-group">
-              <label htmlFor="cashapp" className="form-label">
-                <DollarSign size={16} />
-                <span>CashApp Username</span>
-              </label>
-              <input
-                id="cashapp"
-                type="text"
-                value={formData.cashapp}
-                onChange={(e) => {
-                  let value = e.target.value;
-                  // Auto-add $ if not present
-                  if (value && !value.startsWith('$')) {
-                    value = '$' + value;
-                  }
-                  setFormData({ ...formData, cashapp: value });
-                }}
-                className="form-input"
-                placeholder="$YourCashApp"
-              />
-              <span className="form-hint">Required for payment processing</span>
-            </div>
+            {paymentSettings?.cashapp?.enabled && (
+              <div className="form-group">
+                <label htmlFor="cashapp" className="form-label">
+                  <DollarSign size={16} />
+                  <span>CashApp Username</span>
+                </label>
+                <input
+                  id="cashapp"
+                  type="text"
+                  value={formData.cashapp}
+                  onChange={(e) => {
+                    let value = e.target.value;
+                    // Auto-add $ if not present
+                    if (value && !value.startsWith('$')) {
+                      value = '$' + value;
+                    }
+                    setFormData({ ...formData, cashapp: value });
+                  }}
+                  className="form-input"
+                  placeholder="$YourCashApp"
+                />
+                <span className="form-hint">Required for payment processing</span>
+              </div>
+            )}
 
             <div className="form-section">
               <label className="form-label form-section-label">

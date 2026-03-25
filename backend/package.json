@@ -13,7 +13,8 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:seed:prod": "node prisma/seed-prod.js",
-    "prisma:backfill-categories": "ts-node prisma/backfill-categories.ts"
+    "prisma:backfill-categories": "ts-node prisma/backfill-categories.ts",
+    "migrate-password": "ts-node prisma/migrate-password.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

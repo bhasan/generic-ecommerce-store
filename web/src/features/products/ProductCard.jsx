@@ -1,13 +1,17 @@
 import React from 'react';
 import ProductImage from './ProductImage';
 
-function ProductCard({ product, imageSrc, categoryLabel, onClick, children, discountedPrice, hasDiscount, quantity }) {
+function ProductCard({ product, imageSrc, categoryLabel, onClick, onImageClick, children, discountedPrice, hasDiscount, quantity }) {
   const originalTotal = product.price * quantity;
   const discountedTotal = discountedPrice * quantity;
 
   return (
     <div className="product-card" onClick={onClick} style={{ cursor: 'pointer' }}>
-      <div className="product-image-container">
+      <div
+        className="product-image-container"
+        onClick={onImageClick ? (e) => { e.stopPropagation(); onImageClick(); } : undefined}
+        style={onImageClick ? { cursor: 'pointer' } : undefined}
+      >
         <ProductImage src={imageSrc} alt={product.name} className="product-image" />
       </div>
 

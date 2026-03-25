@@ -15,6 +15,7 @@ import { CSS } from '@dnd-kit/utilities';
 import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
 import MediaLibraryModal from '../../components/common/MediaLibraryModal';
+import ImageCropModal from '../../components/common/ImageCropModal';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
@@ -539,11 +540,22 @@ function ManageProductsPanel() {
   };
 
   const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
+  const [cropState, setCropState] = useState(null); // { file, index }
 
-  const handleImageUpload = async (index, event) => {
+  const isVideo = (file) => file.type.startsWith('video/');
+
+  const handleImageUpload = (index, event) => {
     const file = event.target.files[0];
     if (!file) return;
     event.target.value = '';
+    if (isVideo(file)) {
+      performUpload(index, file);
+    } else {
+      setCropState({ file, index });
+    }
+  };
+
+  const performUpload = async (index, file) => {
     setUploadingImageIndex(index);
     try {
       const { url } = await uploadApi.uploadFile(file);
@@ -554,6 +566,18 @@ function ManageProductsPanel() {
     } finally {
       setUploadingImageIndex(null);
     }
+  };
+
+  const handleCropConfirm = (croppedFile) => {
+    const { index } = cropState;
+    setCropState(null);
+    performUpload(index, croppedFile);
+  };
+
+  const handleCropSkip = (originalFile) => {
+    const { index } = cropState;
+    setCropState(null);
+    performUpload(index, originalFile);
   };
 
   const toggleHidden = (productId, currentHidden) => {
@@ -758,6 +782,15 @@ function ManageProductsPanel() {
             hideInsertButton={true}
           />
         </>
+      )}
+
+      {cropState && (
+        <ImageCropModal
+          file={cropState.file}
+          onConfirm={handleCropConfirm}
+          onSkip={handleCropSkip}
+          onCancel={() => setCropState(null)}
+        />
       )}
     </div>
   );
