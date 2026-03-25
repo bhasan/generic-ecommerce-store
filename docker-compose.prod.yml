@@ -82,20 +82,20 @@ services:
       retries: 3
 
   # 4. Cloudflare Dynamic DNS (updates DNS records when host IP changes)
-  cloudflare-ddns:
-    image: timothyjmiller/cloudflare-ddns:latest
-    container_name: smoke-station-delivery-cloudflare-ddns
-    restart: unless-stopped
-    network_mode: host
-    security_opt:
-      - no-new-privileges:true
-    env_file:
-      - .env.prod
-    environment:
-      - CF_DDNS_API_TOKEN=${CF_DDNS_API_TOKEN}
-      - CF_DDNS_ZONE_ID=${CF_DDNS_ZONE_ID}
-    volumes:
-      - ./cloudflare-ddns/config.json:/config.json
+  #  cloudflare-ddns:
+  #  image: timothyjmiller/cloudflare-ddns:latest
+  #  container_name: smoke-station-delivery-cloudflare-ddns
+  #  restart: unless-stopped
+  #  network_mode: host
+  #  security_opt:
+  #    - no-new-privileges:true
+  #  env_file:
+  #    - .env.prod
+  #  environment:
+  #    - CF_DDNS_API_TOKEN=${CF_DDNS_API_TOKEN}
+  #    - CF_DDNS_ZONE_ID=${CF_DDNS_ZONE_ID}
+  #  volumes:
+  #    - ./cloudflare-ddns/config.json:/config.json
 
 # Define the shared network
 networks:
