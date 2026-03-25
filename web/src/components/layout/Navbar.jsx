@@ -86,14 +86,16 @@ function Navbar() {
   // Render navigation links (reusable for both desktop and mobile)
   const renderNavLinks = () => (
     <>
-      {/* Products page - accessible to ALL users including admins/managers */}
-      <NavLink 
-        to="/products" 
-        className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-      >
-        <Package size={18} />
-        <span>Products</span>
-      </NavLink>
+      {/* Products page - only for authenticated users */}
+      {!isGuest && (
+        <NavLink
+          to="/products"
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Package size={18} />
+          <span>Products</span>
+        </NavLink>
+      )}
 
       {/* Delivery link */}
       {(isDeliveryDriver || isManagement) && (
@@ -221,7 +223,7 @@ function Navbar() {
             {canManageOrders && (
               <NotificationDropdown counts={staffNotificationCounts} canAccessDashboard={isManagement} />
             )}
-            <CartPreview cart={cart} cartCount={cartCount} />
+            {!isGuest && <CartPreview cart={cart} cartCount={cartCount} />}
             
             {isGuest ? (
               <Link to="/login" className="btn-login-nav">
@@ -268,13 +270,15 @@ function Navbar() {
             )}
 
             {/* Help link - right side, after profile */}
-            <NavLink 
-              to="/help" 
-              className={({ isActive }) => `nav-link-icon ${isActive ? 'nav-link-icon-active' : ''}`}
-              title="Help & Support"
-            >
-              <HelpCircle size={20} />
-            </NavLink>
+            {!isGuest && (
+              <NavLink
+                to="/help"
+                className={({ isActive }) => `nav-link-icon ${isActive ? 'nav-link-icon-active' : ''}`}
+                title="Help & Support"
+              >
+                <HelpCircle size={20} />
+              </NavLink>
+            )}
           </div>
         </div>
       </nav>

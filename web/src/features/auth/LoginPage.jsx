@@ -63,7 +63,7 @@ function LoginPage() {
           <div className="login-logo">
             <LogIn size={48} />
           </div>
-          <h1 className="login-title">Welcome Back</h1>
+          <h1 className="login-title">Welcome</h1>
           <p className="login-subtitle">Sign in to your account to continue</p>
         </div>
 
@@ -129,7 +129,8 @@ function LoginPage() {
         </form>
 
         <div className="login-footer">
-          <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
+          <p>Don't have an account?</p>
+          <Link to="/register" className="btn-signup">Create an Account</Link>
         </div>
       </div>
     </div>
