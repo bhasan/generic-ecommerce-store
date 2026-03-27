@@ -106,7 +106,7 @@ export class ProductService {
     const userIds = [...new Set(reviews.map(r => r.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true }
+      select: { id: true, username: true }
     });
 
     // Join reviews with users and attach to products
@@ -160,7 +160,7 @@ export class ProductService {
     const userIds = [...new Set(reviews.map(r => r.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true }
+      select: { id: true, username: true }
     });
 
     const userMap = new Map(users.map(u => [u.id, u]));

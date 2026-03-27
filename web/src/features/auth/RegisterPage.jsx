@@ -3,21 +3,20 @@ import './RegisterPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
-import { UserPlus, Mail, Lock, User, Phone, DollarSign, AlertCircle, MapPin, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, AtSign, Lock, Phone, DollarSign, AlertCircle, MapPin, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 function RegisterPage() {
   const { register, showNotification, pickupLocation, paymentSettings } = useApp();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: '',
-    name: '',
     address: '',
     cashapp: '',
     phoneNumber: ''
   });
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ name: '', email: '', password: '', cashapp: '', phoneNumber: '' });
+  const [fieldErrors, setFieldErrors] = useState({ username: '', password: '', cashapp: '', phoneNumber: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -31,14 +30,12 @@ function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const nameTrimmed = (formData.name || '').trim();
-    const emailTrimmed = (formData.email || '').trim();
+    const usernameTrimmed = (formData.username || '').trim();
     const passwordTrimmed = (formData.password || '').trim();
     const cashappTrimmed = (formData.cashapp || '').trim();
     const phoneTrimmed = (formData.phoneNumber || '').trim();
     const errors = {
-      name: !nameTrimmed ? 'Full name is required' : '',
-      email: !emailTrimmed ? 'Email is required' : '',
+      username: !usernameTrimmed ? 'Username is required' : '',
       password: !passwordTrimmed ? 'Password is required' : '',
       cashapp: paymentSettings?.cashapp?.enabled && !cashappTrimmed ? 'CashApp username is required' : '',
       phoneNumber: !phoneTrimmed
@@ -48,14 +45,13 @@ function RegisterPage() {
           : ''
     };
     setFieldErrors(errors);
-    if (errors.name || errors.email || errors.password || errors.cashapp || errors.phoneNumber) return;
+    if (errors.username || errors.password || errors.cashapp || errors.phoneNumber) return;
 
     setIsLoading(true);
     try {
       const response = await register({
-        email: emailTrimmed,
+        username: usernameTrimmed,
         password: passwordTrimmed,
-        name: nameTrimmed,
         address: formData.address || undefined,
         cashapp: cashappTrimmed,
         phoneNumber: phoneTrimmed
@@ -125,46 +121,24 @@ function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="register-form">
           <div className="form-group">
-            <label htmlFor="name" className="form-label">
-              <User size={16} />
-              <span>Full Name</span>
+            <label htmlFor="username" className="form-label">
+              <AtSign size={16} />
+              <span>Username</span>
             </label>
             <input
-              id="name"
-              name="name"
+              id="username"
+              name="username"
               type="text"
-              value={formData.name}
+              value={formData.username}
               onChange={handleChange}
-              className={`form-input ${fieldErrors.name ? 'form-input-error' : ''}`}
-              placeholder="John Doe"
+              className={`form-input ${fieldErrors.username ? 'form-input-error' : ''}`}
+              placeholder="your_username"
               required
-              aria-invalid={!!fieldErrors.name}
-              aria-describedby={fieldErrors.name ? 'name-error' : undefined}
+              aria-invalid={!!fieldErrors.username}
+              aria-describedby={fieldErrors.username ? 'username-error' : undefined}
             />
-            {fieldErrors.name && (
-              <span id="name-error" className="form-error-message" role="alert">{fieldErrors.name}</span>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="email" className="form-label">
-              <Mail size={16} />
-              <span>Email Address</span>
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              className={`form-input ${fieldErrors.email ? 'form-input-error' : ''}`}
-              placeholder="you@example.com"
-              required
-              aria-invalid={!!fieldErrors.email}
-              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
-            />
-            {fieldErrors.email && (
-              <span id="email-error" className="form-error-message" role="alert">{fieldErrors.email}</span>
+            {fieldErrors.username && (
+              <span id="username-error" className="form-error-message" role="alert">{fieldErrors.username}</span>
             )}
           </div>
 

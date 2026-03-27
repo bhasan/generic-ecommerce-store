@@ -528,8 +528,8 @@ function DashboardPage() {
           bValue = b.id;
           break;
         case 'name':
-          aValue = a.name?.toLowerCase() || '';
-          bValue = b.name?.toLowerCase() || '';
+          aValue = a.username?.toLowerCase() || '';
+          bValue = b.username?.toLowerCase() || '';
           break;
         case 'email':
           aValue = a.email?.toLowerCase() || '';
@@ -708,7 +708,7 @@ function DashboardPage() {
         title="Move User to Pending"
         message={
           <>
-            Move <strong>{userToUnReject?.name || ''}</strong> back to pending registrations?
+            Move <strong>{userToUnReject?.username || ''}</strong> back to pending registrations?
             <br />
             <br />
             This will allow them to be approved again.
@@ -727,7 +727,7 @@ function DashboardPage() {
         title="Delete User"
         message={
           <>
-            Are you sure you want to delete user <strong>"{userToDelete?.name || ''}"</strong>?
+            Are you sure you want to delete user <strong>"{userToDelete?.username || ''}"</strong>?
             <br />
             <br />
             This action cannot be undone.

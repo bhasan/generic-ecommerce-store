@@ -67,7 +67,7 @@ function UsersSection({
                   onClick={() => onSort('name')}
                 >
                   <div className="header-content">
-                    <span>Name</span>
+                    <span>Username</span>
                     <SortIcon field="name" sortField={sortField} sortDirection={sortDirection} />
                   </div>
                 </th>
@@ -109,7 +109,7 @@ function UsersSection({
                   <td>
                     <div className="user-name-cell">
                       <User size={16} />
-                      <span>{user.name}</span>
+                      <span>{user.username}</span>
                     </div>
                   </td>
                   <td>
@@ -207,7 +207,7 @@ function UsersSection({
                           </button>
                           {user.id !== currentUserId && (
                             <button
-                              onClick={() => onDeleteUser(user.id, user.name)}
+                              onClick={() => onDeleteUser(user.id, user.username)}
                               className="btn-delete-user"
                               title="Delete user"
                             >

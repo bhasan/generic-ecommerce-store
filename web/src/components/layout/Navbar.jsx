@@ -237,13 +237,13 @@ function Navbar() {
                   aria-label="User menu"
                 >
                   <User size={20} />
-                  <span className="profile-name">{currentUser.name}</span>
+                  <span className="profile-name">{currentUser.username}</span>
                 </button>
 
                 {showProfileMenu && (
                   <div className="profile-menu surface-card-accent">
                     <div className="profile-menu-header">
-                      <p className="profile-menu-name">{currentUser.name}</p>
+                      <p className="profile-menu-name">{currentUser.username}</p>
                       <p className="profile-menu-email">{currentUser.email}</p>
                     </div>
                     <div className="profile-menu-divider"></div>

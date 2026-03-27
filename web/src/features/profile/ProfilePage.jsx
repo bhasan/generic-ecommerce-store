@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
-import { User, Mail, Save, DollarSign, MapPin, Phone, Lock } from 'lucide-react';
+import { User, Save, DollarSign, MapPin, Phone, Lock } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { isGuest } from '../../utils/roles';
 
@@ -57,8 +57,6 @@ const formatAddress = (address) => {
 function ProfilePage() {
   const { currentUser, updateUserProfile, showNotification, paymentSettings } = useApp();
   const [formData, setFormData] = useState({
-    name: currentUser.name || '',
-    email: currentUser.email || '',
     cashapp: currentUser.cashapp || '',
     phoneNumber: currentUser.phoneNumber || '',
   });
@@ -137,36 +135,6 @@ function ProfilePage() {
           </div>
 
           <form onSubmit={handleSubmit} className="profile-form">
-            <div className="form-group">
-              <label htmlFor="name" className="form-label">
-                <User size={16} />
-                <span>Full Name</span>
-              </label>
-              <input
-                id="name"
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="form-input"
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="email" className="form-label">
-                <Mail size={16} />
-                <span>Email Address</span>
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="form-input"
-                required
-              />
-            </div>
-
             {paymentSettings?.cashapp?.enabled && (
               <div className="form-group">
                 <label htmlFor="cashapp" className="form-label">

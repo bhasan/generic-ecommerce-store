@@ -61,7 +61,7 @@ function ProductsPage({ mode = 'browse' }) {
         rightContent={
           currentUser ? (
             <div className="user-welcome">
-              Welcome, <span className="user-name">{currentUser.name}</span>
+              Welcome, <span className="user-name">{currentUser.username}</span>
             </div>
           ) : null
         }

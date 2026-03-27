@@ -110,7 +110,7 @@ export class OrderService {
 
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
+        select: { id: true, username: true, cashapp: true, phoneNumber: true, address: true }
       });
       const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -185,7 +185,7 @@ export class OrderService {
     const userIds = [...new Set(orders.map(o => o.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+      select: { id: true, username: true, address: true, phoneNumber: true }
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -225,7 +225,7 @@ export class OrderService {
         user: user ? {
           id: user.id,
           name: user.name,
-          email: user.email,
+          username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
         } : null,
@@ -263,7 +263,7 @@ export class OrderService {
     const userIds = [...new Set(orders.map(o => o.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+      select: { id: true, username: true, address: true, phoneNumber: true }
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -304,7 +304,7 @@ export class OrderService {
         user: user ? {
           id: user.id,
           name: user.name,
-          email: user.email,
+          username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
         } : null,
@@ -342,7 +342,7 @@ export class OrderService {
     const userIds = [...new Set(orders.map(o => o.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+      select: { id: true, username: true, address: true, phoneNumber: true }
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -383,7 +383,7 @@ export class OrderService {
         user: user ? {
           id: user.id,
           name: user.name,
-          email: user.email,
+          username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
         } : null,
@@ -424,7 +424,7 @@ export class OrderService {
     // Fetch user
     const user = await prisma.user.findUnique({
       where: { id: order.userId },
-      select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
+      select: { id: true, name: true, username: true, cashapp: true, phoneNumber: true, address: true }
     });
 
     // Fetch order items

@@ -146,7 +146,7 @@ function ProductReviews({ productId }) {
             <div key={review.id} className={`review-card ${review.flagged ? 'review-flagged' : ''}`}>
               <div className="review-header">
                 <div className="reviewer-info">
-                  <span className="reviewer-name">{review.userName}</span>
+                  <span className="reviewer-name">{review.user?.username}</span>
                   <div className="review-rating">
                     {[1, 2, 3, 4, 5].map(i => (
                       <Star
@@ -198,7 +198,7 @@ function ProductReviews({ productId }) {
                       </button>
                       <button
                         onClick={() => {
-                          setReviewToDelete({ productId, reviewId: review.id, userName: review.userName });
+                          setReviewToDelete({ productId, reviewId: review.id, userName: review.user?.username });
                           setDeleteReviewModalOpen(true);
                         }}
                         className="btn-delete-review"

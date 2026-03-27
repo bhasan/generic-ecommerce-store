@@ -240,9 +240,9 @@ export function AppProvider({ children }) {
     setNotification(null);
   };
 
-  const login = async (email, password) => {
+  const login = async (username, password) => {
     try {
-      const { user } = await authApi.login(email, password);
+      const { user } = await authApi.login(username, password);
       
       // Ensure roles array exists
       if (!user.roles && user.role) {
@@ -657,7 +657,7 @@ export function AppProvider({ children }) {
         const newReview = {
           id: (p.reviews?.length || 0) + 1,
           userId: currentUser.id,
-          userName: currentUser.name,
+          userName: currentUser.username,
           rating: review.rating,
           comment: review.comment,
           date: new Date().toISOString().split('T')[0],
@@ -706,7 +706,7 @@ export function AppProvider({ children }) {
               const newReply = {
                 id: (r.replies?.length || 0) + 1,
                 userId: currentUser.id,
-                userName: currentUser.name,
+                userName: currentUser.username,
                 userRole: currentUser.roles?.[0] || ROLES.CUSTOMER,
                 comment: reply,
                 date: new Date().toISOString().split('T')[0]
