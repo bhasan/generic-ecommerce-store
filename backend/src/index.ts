@@ -17,6 +17,7 @@ import contactRoutes from './routes/contact.routes';
 import notificationRoutes from './routes/notification.routes';
 import uploadRoutes from './routes/upload.routes';
 import paymentSettingsRoutes from './routes/paymentSettings.routes';
+import storeSettingsRoutes from './routes/storeSettings.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -148,19 +149,25 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-import { DEFAULT_TAX_RATE, DEFAULT_PICKUP_LOCATION, DEFAULT_STORE_CASHAPP_USERNAME } from './constants/settings';
+import { DEFAULT_TAX_RATE, DEFAULT_STORE_CASHAPP_USERNAME } from './constants/settings';
 import { PaymentSettingsService } from './services/paymentSettings.service';
+import { StoreSettingsService } from './services/storeSettings.service';
 
 const paymentSettingsService = new PaymentSettingsService();
+const storeSettingsService = new StoreSettingsService();
 
 // Config check route
 app.get('/api/config', async (_req, res) => {
-  const paymentSettings = await paymentSettingsService.getPaymentSettings();
+  const [paymentSettings, storeSettings] = await Promise.all([
+    paymentSettingsService.getPaymentSettings(),
+    storeSettingsService.getStoreSettings(),
+  ]);
   res.json({
     taxRate: DEFAULT_TAX_RATE,
-    pickupLocation: DEFAULT_PICKUP_LOCATION,
+    pickupLocation: storeSettings.address,
     storeCashappUsername: DEFAULT_STORE_CASHAPP_USERNAME,
     paymentSettings,
+    storeSettings,
   });
 });
 
@@ -178,6 +185,7 @@ app.use('/api/announcements', generalLimiter, announcementRoutes);
 app.use('/api/contact', generalLimiter, contactRoutes);
 app.use('/api/notifications', generalLimiter, notificationRoutes);
 app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
+app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 
 // ========================================
 // ERROR HANDLING

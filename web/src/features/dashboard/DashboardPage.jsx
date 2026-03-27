@@ -5,6 +5,7 @@ import * as usersApi from '../../services/usersApi';
 import * as announcementsApi from '../../services/announcementsApi';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 import * as paymentSettingsApi from '../../services/paymentSettingsApi';
+import * as storeSettingsApi from '../../services/storeSettingsApi';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
@@ -18,6 +19,7 @@ import AnnouncementsSection from './components/AnnouncementsSection';
 import RejectedUsersSection from './components/RejectedUsersSection';
 import MessagesSection from './components/MessagesSection';
 import PaymentSettingsSection from './components/PaymentSettingsSection';
+import StoreSettingsSection from './components/StoreSettingsSection';
 import { hasRole, ROLES } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
@@ -27,6 +29,7 @@ const DASHBOARD_SECTIONS = {
   ANNOUNCEMENTS: 'announcements',
   MESSAGES: 'messages',
   PAYMENT_SETTINGS: 'payment-settings',
+  STORE_SETTINGS: 'store-settings',
 };
 
 function DashboardPage() {
@@ -79,6 +82,10 @@ function DashboardPage() {
   // Payment Settings State
   const [localPaymentSettings, setLocalPaymentSettings] = useState(null);
   const [isLoadingPaymentSettings, setIsLoadingPaymentSettings] = useState(false);
+
+  // Store Settings State
+  const [localStoreSettings, setLocalStoreSettings] = useState(null);
+  const [isLoadingStoreSettings, setIsLoadingStoreSettings] = useState(false);
 
   // Contact Messages State
   const [contactMessages, setContactMessages] = useState([]);
@@ -191,6 +198,29 @@ function DashboardPage() {
     }
   };
 
+  // Load store settings
+  const loadStoreSettings = useCallback(async () => {
+    try {
+      setIsLoadingStoreSettings(true);
+      const settings = await storeSettingsApi.getStoreSettings();
+      setLocalStoreSettings(settings);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load store settings', 'error');
+    } finally {
+      setIsLoadingStoreSettings(false);
+    }
+  }, [showNotification]);
+
+  const handleSaveStoreSettings = async (data) => {
+    try {
+      await storeSettingsApi.updateStoreSettings(data);
+      showNotification('Store settings updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save store settings', 'error');
+    }
+  };
+
   // Load data based on active section
   useEffect(() => {
     if (activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS) {
@@ -206,8 +236,10 @@ function DashboardPage() {
       loadContactMessages(messagesStatusFilter);
     } else if (activeSection === DASHBOARD_SECTIONS.PAYMENT_SETTINGS) {
       loadPaymentSettings();
+    } else if (activeSection === DASHBOARD_SECTIONS.STORE_SETTINGS) {
+      loadStoreSettings();
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings]);
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
@@ -634,6 +666,14 @@ function DashboardPage() {
             isLoading={isLoadingPaymentSettings}
             paymentSettings={localPaymentSettings}
             onSave={handleSavePaymentSettings}
+          />
+        );
+      case DASHBOARD_SECTIONS.STORE_SETTINGS:
+        return (
+          <StoreSettingsSection
+            isLoading={isLoadingStoreSettings}
+            storeSettings={localStoreSettings}
+            onSave={handleSaveStoreSettings}
           />
         );
       default:

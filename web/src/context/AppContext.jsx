@@ -60,6 +60,7 @@ export function AppProvider({ children }) {
     zelle: { enabled: false, handle: '' },
     venmo: { enabled: false, handle: '' },
   });
+  const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -154,7 +155,12 @@ export function AppProvider({ children }) {
       const config = await configApi.getConfig();
       if (config) {
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
-        if (typeof config.pickupLocation === 'string') setPickupLocation(config.pickupLocation);
+        if (config.storeSettings) {
+          setStoreSettings(config.storeSettings);
+          if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
+        } else if (typeof config.pickupLocation === 'string') {
+          setPickupLocation(config.pickupLocation);
+        }
         if (config.paymentSettings) {
           setPaymentSettings(config.paymentSettings);
           setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
@@ -811,6 +817,7 @@ export function AppProvider({ children }) {
     pickupLocation,
     storeCashappUsername,
     paymentSettings,
+    storeSettings,
     loadConfig,
     restoreCart,
   };
