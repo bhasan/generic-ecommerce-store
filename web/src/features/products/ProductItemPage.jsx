@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag } from 'lucide-react';
+import { isGuest, ROLES } from '../../utils/roles';
+import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
+import ProductMediaModal from './ProductMediaModal';
+
+// Helper to check if a url is a video
+const isVideo = (url) => {
+  if (!url) return false;
+  return url.match(/\.(mp4|webm)$/i);
+};
 import './ProductItemPage.css';
 
 // Component to display available quantity discounts
@@ -88,12 +96,26 @@ function ProductItemPage() {
   const navigate = useNavigate();
   const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const fallbackImage = PRODUCT_FALLBACK_IMAGE;
-  
+
   // Find the product by ID
   const product = products.find(p => p.id === parseInt(id));
-  
+
+  const allowedQuantities =
+    product?.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
+      ? product.allowedQuantitiesOverride
+      : product?.category?.allowedQuantities || [];
+
+  useEffect(() => {
+    if (allowedQuantities.length > 0) {
+      setSelectedQuantity(allowedQuantities[0]);
+    } else {
+      setSelectedQuantity(1);
+    }
+  }, [product?.id, allowedQuantities.length]);
+
   // Show loading state
   if (isLoadingProducts) {
     return (
@@ -123,7 +145,7 @@ function ProductItemPage() {
   }
   
   // Check if product is hidden and user is customer/guest
-  if (product.hidden && (currentUser.role === 'CUSTOMER' || currentUser.email === 'guest@smokestation.com')) {
+  if (product.hidden && (currentUser.role === ROLES.CUSTOMER || isGuest(currentUser))) {
     return (
       <div className="product-item-container">
         <div className="product-not-found">
@@ -147,10 +169,6 @@ function ProductItemPage() {
         : [fallbackImage];
   const showStock = product.stockEnabled !== false;
   const isOutOfStock = showStock && product.stock === 0;
-  const allowedQuantities =
-    product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
-      ? product.allowedQuantitiesOverride
-      : product.category?.allowedQuantities || [];
 
   // Get quantity discounts for this product
   const quantityDiscounts = resolveQuantityDiscounts(product);
@@ -174,14 +192,7 @@ function ProductItemPage() {
   const averageRating = getAverageRating();
   const reviewCount = product.reviews?.length || 0;
 
-  useEffect(() => {
-    if (allowedQuantities.length > 0) {
-      setSelectedQuantity(allowedQuantities[0]);
-    } else {
-      setSelectedQuantity(1);
-    }
-  }, [product.id, allowedQuantities.length]);
-  
+
   const handleAddToCart = () => {
     addToCart(product, selectedQuantity);
   };
@@ -199,14 +210,50 @@ function ProductItemPage() {
         {/* Image Gallery */}
         <div className="product-gallery">
           <div className="main-image-container">
-            <img 
-              src={images[selectedImageIndex]} 
-              alt={product.name}
-              className="main-product-image"
-              onError={(e) => {
-                e.target.src = fallbackImage;
-              }}
-            />
+            {images.length > 1 && (
+              <button 
+                className="btn-gallery-nav btn-gallery-prev"
+                onClick={() => setSelectedImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)}
+                aria-label="Previous image"
+              >
+                <ChevronLeft size={24} />
+              </button>
+            )}
+            
+            {isVideo(images[selectedImageIndex]) ? (
+              <video
+                src={images[selectedImageIndex]}
+                className="main-product-image"
+                controls
+                autoPlay
+                muted
+                loop
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <img
+                src={images[selectedImageIndex]}
+                alt={product.name}
+                className="main-product-image"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setMediaModalOpen(true)}
+                onError={(e) => {
+                  e.target.src = fallbackImage;
+                }}
+              />
+            )}
+
+            {images.length > 1 && (
+              <button 
+                className="btn-gallery-nav btn-gallery-next"
+                onClick={() => setSelectedImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)}
+                aria-label="Next image"
+              >
+                <ChevronRight size={24} />
+              </button>
+            )}
             {/* HIDDEN: Stock badge - may re-enable later */}
             {/* {showStock && (
               <div className={`stock-badge ${isOutOfStock ? 'out-of-stock' : product.stock <= 10 ? 'low-stock' : 'in-stock'}`}>
@@ -219,16 +266,35 @@ function ProductItemPage() {
           {images.length > 1 && (
             <div className="thumbnail-container">
               {images.map((img, index) => (
-                <img
+                <div 
                   key={index}
-                  src={img}
-                  alt={`${product.name} ${index + 1}`}
-                  className={`thumbnail ${selectedImageIndex === index ? 'thumbnail-active' : ''}`}
+                  className={`thumbnail-wrapper ${selectedImageIndex === index ? 'thumbnail-active' : ''}`}
                   onClick={() => setSelectedImageIndex(index)}
-                  onError={(e) => {
-                    e.target.src = fallbackImage;
-                  }}
-                />
+                >
+                  {isVideo(img) ? (
+                    <>
+                      <video
+                        src={img}
+                        className="thumbnail"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                      <div className="video-thumbnail-overlay">
+                        <PlayCircle size={20} color="white" />
+                      </div>
+                    </>
+                  ) : (
+                    <img
+                      src={img}
+                      alt={`${product.name} ${index + 1}`}
+                      className="thumbnail"
+                      onError={(e) => {
+                        e.target.src = fallbackImage;
+                      }}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -334,6 +400,14 @@ function ProductItemPage() {
         <h2 className="reviews-section-title">Customer Reviews</h2>
         <ProductReviews productId={product.id} />
       </div> */}
+
+      {mediaModalOpen && (
+        <ProductMediaModal
+          product={product}
+          initialIndex={selectedImageIndex}
+          onClose={() => setMediaModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

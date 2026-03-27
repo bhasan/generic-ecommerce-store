@@ -1,4 +1,5 @@
 import express, { Application } from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -14,6 +15,8 @@ import announcementRoutes from './routes/announcement.routes';
 import categoryRoutes from './routes/category.routes';
 import contactRoutes from './routes/contact.routes';
 import notificationRoutes from './routes/notification.routes';
+import uploadRoutes from './routes/upload.routes';
+import paymentSettingsRoutes from './routes/paymentSettings.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -23,6 +26,7 @@ import { requestLogger } from './middleware/logger.middleware';
 dotenv.config();
 
 const app: Application = express();
+app.set('trust proxy', 1); // Trust Nginx reverse proxy so rate limiter uses real client IPs
 const PORT = process.env.PORT || 3000;
 const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10);
 
@@ -33,10 +37,19 @@ const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 1
 // Helmet helps secure Express apps by setting various HTTP headers
 app.use(helmet());
 
+// Validate CORS origin
+const corsOrigin = process.env.CORS_ORIGIN;
+if (!corsOrigin || corsOrigin === '*') {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: CORS_ORIGIN must be set to a specific domain in production (not *)');
+  }
+  console.warn('[WARN] CORS_ORIGIN is wildcard — acceptable for development only');
+}
+
 // Enable CORS for all routes
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
+  origin: corsOrigin || '*',
+  credentials: true,
 }));
 
 // Rate limiting for authentication routes
@@ -135,8 +148,28 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+import { DEFAULT_TAX_RATE, DEFAULT_PICKUP_LOCATION, DEFAULT_STORE_CASHAPP_USERNAME } from './constants/settings';
+import { PaymentSettingsService } from './services/paymentSettings.service';
+
+const paymentSettingsService = new PaymentSettingsService();
+
+// Config check route
+app.get('/api/config', async (_req, res) => {
+  const paymentSettings = await paymentSettingsService.getPaymentSettings();
+  res.json({
+    taxRate: DEFAULT_TAX_RATE,
+    pickupLocation: DEFAULT_PICKUP_LOCATION,
+    storeCashappUsername: DEFAULT_STORE_CASHAPP_USERNAME,
+    paymentSettings,
+  });
+});
+
+// Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
+app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/upload', generalLimiter, uploadRoutes);
 app.use('/api/products', generalLimiter, productRoutes);
 app.use('/api/categories', generalLimiter, categoryRoutes);
 app.use('/api/orders', generalLimiter, orderRoutes);
@@ -144,6 +177,7 @@ app.use('/api/users', generalLimiter, userRoutes);
 app.use('/api/announcements', generalLimiter, announcementRoutes);
 app.use('/api/contact', generalLimiter, contactRoutes);
 app.use('/api/notifications', generalLimiter, notificationRoutes);
+app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 
 // ========================================
 // ERROR HANDLING
@@ -158,6 +192,20 @@ app.use(errorHandler);
 // ========================================
 // SERVER START
 // ========================================
+
+function validateProductionEnv() {
+  if (process.env.NODE_ENV !== 'production') return;
+  const required = ['JWT_SECRET', 'CORS_ORIGIN', 'DATABASE_URL'];
+  const missing = required.filter(key => !process.env[key]);
+  if (missing.length > 0) {
+    throw new Error(`FATAL: Missing required environment variables: ${missing.join(', ')}`);
+  }
+  if (process.env.CORS_ORIGIN === '*') {
+    throw new Error('FATAL: CORS_ORIGIN must not be wildcard (*) in production');
+  }
+}
+
+validateProductionEnv();
 
 app.listen(PORT, () => {
   console.log('========================================');

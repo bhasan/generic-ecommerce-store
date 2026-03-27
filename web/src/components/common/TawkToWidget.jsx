@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext';
+import { isGuest as checkIsGuest, ROLES } from '../../utils/roles';
 
 /**
  * Tawk.to Live Chat Widget
@@ -27,7 +28,7 @@ function TawkToWidget() {
   const hasSetAttributes = useRef(false);
 
   // Check if user is a guest
-  const isGuest = currentUser?.email === 'guest@smokestation.com';
+  const isGuest = checkIsGuest(currentUser);
 
   useEffect(() => {
     // Don't load for guests or unauthenticated users
@@ -93,7 +94,7 @@ function TawkToWidget() {
         phone: currentUser.phoneNumber || '',
         // Custom attributes
         userId: currentUser.id?.toString() || '',
-        role: (currentUser.roles?.[0] || currentUser.role || 'CUSTOMER')
+        role: (currentUser.roles?.[0] || currentUser.role || ROLES.CUSTOMER)
       }, function(error) {
         if (error) {
           console.warn('Tawk.to: Error setting attributes', error);

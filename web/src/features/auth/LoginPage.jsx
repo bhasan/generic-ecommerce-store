@@ -3,6 +3,7 @@ import './LoginPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
+import { isGuest, ROLES } from '../../utils/roles';
 import { LogIn, User, Lock } from 'lucide-react';
 
 function LoginPage() {
@@ -16,10 +17,10 @@ function LoginPage() {
 
   // Redirect authenticated users away from login page
   useEffect(() => {
-    if (!authLoading && isAuthenticated && currentUser.email !== 'guest@smokestation.com') {
+    if (!authLoading && isAuthenticated && !isGuest(currentUser)) {
       // Redirect based on user role
-      const primaryRole = currentUser.roles?.[0] || currentUser.role || 'CUSTOMER';
-      if (primaryRole === 'CUSTOMER') {
+      const primaryRole = currentUser.roles?.[0] || currentUser.role || ROLES.CUSTOMER;
+      if (primaryRole === ROLES.CUSTOMER) {
         navigate('/products', { replace: true });
       } else {
         navigate('/orders', { replace: true });
@@ -62,7 +63,7 @@ function LoginPage() {
           <div className="login-logo">
             <LogIn size={48} />
           </div>
-          <h1 className="login-title">Welcome Back</h1>
+          <h1 className="login-title">Welcome</h1>
           <p className="login-subtitle">Sign in to your account to continue</p>
         </div>
 
@@ -128,7 +129,8 @@ function LoginPage() {
         </form>
 
         <div className="login-footer">
-          <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
+          <p>Don't have an account?</p>
+          <Link to="/register" className="btn-signup">Create an Account</Link>
         </div>
       </div>
     </div>

@@ -3,7 +3,6 @@ import { getProductImageSrc, getDiscountedUnitPrice, resolveQuantityDiscounts } 
 import ProductQuantityActions from './ProductQuantityActions';
 import ProductCard from './ProductCard';
 import ProductListItem from './ProductListItem';
-
 function ProductsGrid({
   products,
   viewMode,
@@ -102,7 +101,9 @@ function ProductsGrid({
   };
 
   if (viewMode === 'list') {
-    return <div className="products-list">{products.map(renderProductListItem)}</div>;
+    return (
+      <div className="products-list">{products.map(renderProductListItem)}</div>
+    );
   }
 
   return (

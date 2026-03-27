@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { isGuest as checkIsGuest } from '../../utils/roles';
 import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
-import { hasRole } from '../../utils/roles';
+import { hasRole, ROLES } from '../../utils/roles';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
@@ -19,17 +20,17 @@ function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const cartCount = cart.length;
-  const isGuest = currentUser.email === 'guest@smokestation.com';
+  const isGuest = checkIsGuest(currentUser);
 
-  const isCustomer = hasRole(currentUser, 'CUSTOMER')
-    && !hasRole(currentUser, 'EMPLOYEE')
-    && !hasRole(currentUser, 'MANAGEMENT')
-    && !hasRole(currentUser, 'ADMIN')
-    && !hasRole(currentUser, 'DELIVERY_DRIVER');
-  const isEmployee = hasRole(currentUser, 'EMPLOYEE');
-  const isManagement = hasRole(currentUser, 'MANAGEMENT') || hasRole(currentUser, 'ADMIN');
-  const isAdmin = hasRole(currentUser, 'ADMIN');
-  const isDeliveryDriver = hasRole(currentUser, 'DELIVERY_DRIVER');
+  const isCustomer = hasRole(currentUser, ROLES.CUSTOMER)
+    && !hasRole(currentUser, ROLES.EMPLOYEE)
+    && !hasRole(currentUser, ROLES.MANAGEMENT)
+    && !hasRole(currentUser, ROLES.ADMIN)
+    && !hasRole(currentUser, ROLES.DELIVERY_DRIVER);
+  const isEmployee = hasRole(currentUser, ROLES.EMPLOYEE);
+  const isManagement = hasRole(currentUser, ROLES.MANAGEMENT) || hasRole(currentUser, ROLES.ADMIN);
+  const isAdmin = hasRole(currentUser, ROLES.ADMIN);
+  const isDeliveryDriver = hasRole(currentUser, ROLES.DELIVERY_DRIVER);
   // Can manage orders: employees, managers, and admins
   const canManageOrders = isEmployee || isManagement;
 
@@ -85,14 +86,16 @@ function Navbar() {
   // Render navigation links (reusable for both desktop and mobile)
   const renderNavLinks = () => (
     <>
-      {/* Products page - accessible to ALL users including admins/managers */}
-      <NavLink 
-        to="/products" 
-        className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-      >
-        <Package size={18} />
-        <span>Products</span>
-      </NavLink>
+      {/* Products page - only for authenticated users */}
+      {!isGuest && (
+        <NavLink
+          to="/products"
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Package size={18} />
+          <span>Products</span>
+        </NavLink>
+      )}
 
       {/* Delivery link */}
       {(isDeliveryDriver || isManagement) && (
@@ -220,7 +223,7 @@ function Navbar() {
             {canManageOrders && (
               <NotificationDropdown counts={staffNotificationCounts} canAccessDashboard={isManagement} />
             )}
-            <CartPreview cart={cart} cartCount={cartCount} />
+            {!isGuest && <CartPreview cart={cart} cartCount={cartCount} />}
             
             {isGuest ? (
               <Link to="/login" className="btn-login-nav">
@@ -267,13 +270,15 @@ function Navbar() {
             )}
 
             {/* Help link - right side, after profile */}
-            <NavLink 
-              to="/help" 
-              className={({ isActive }) => `nav-link-icon ${isActive ? 'nav-link-icon-active' : ''}`}
-              title="Help & Support"
-            >
-              <HelpCircle size={20} />
-            </NavLink>
+            {!isGuest && (
+              <NavLink
+                to="/help"
+                className={({ isActive }) => `nav-link-icon ${isActive ? 'nav-link-icon-active' : ''}`}
+                title="Help & Support"
+              >
+                <HelpCircle size={20} />
+              </NavLink>
+            )}
           </div>
         </div>
       </nav>

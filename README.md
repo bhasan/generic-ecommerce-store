@@ -2,8 +2,6 @@
 
 E-commerce platform with React frontend, Express backend, PostgreSQL database, and Nginx reverse proxy.
 
-> **📘 Production Deployment**: See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) for complete production deployment instructions.
-
 ## Prerequisites
 
 - **Node.js** v18+ (v24.11.1 recommended)
@@ -24,7 +22,7 @@ npm run build
 cd ..
 
 # 2. Start all services (database, backend, nginx)
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 Access the application at: **http://localhost:80**
@@ -32,21 +30,6 @@ Access the application at: **http://localhost:80**
 Command to update only backend Docker container:
 
 `docker compose up --build --force-recreate -d backend`
-
-```bash
-# 1. Build web using npm install && npm run build
-# 2. Migrate if any schema changes
-
-cd backend
-npx prisma migrate dev --name add_user_rejected_field
-# Apply the migration to docker
-docker exec smoke-station-delivery-backend npx prisma migrate deploy
-cd ..
-
-# Build specific directories otherwise use docker-compose up --build
-# Below is same as running docker-compose build web && docker-compose up -d web
-docker-compose up --build -d web
-```
 
 ### What Gets Started
 
@@ -66,22 +49,22 @@ docker-compose up --build -d web
 
 ```bash
 # Start services
-docker-compose up
+docker compose up
 
 # Start in background
-docker-compose up -d
+docker compose up -d
 
 # Rebuild and start
-docker-compose up --build
+docker compose up --build
 
 # Stop services
-docker-compose down
+docker compose down
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop and remove volumes (clears database)
-docker-compose down -v
+docker compose down -v
 ```
 
 ---
@@ -181,45 +164,14 @@ cat backend/prisma/migrations/*/migration.sql
 ls -la backend/prisma/migrations/
 ```
 
-### Production Migration Workflow
+### Migration Commands Reference
 
-Migrations are **automatically applied** when the Docker container starts:
-
-1. **During Docker Build**: `npx prisma generate` runs (generates Prisma client)
-2. **At Container Startup**: `npx prisma migrate deploy` runs (applies pending migrations)
-
-#### Production Deployment Steps
-
-```bash
-# 1. Create migration locally (as shown above)
-cd backend
-npx prisma migrate dev --name your_migration_name
-
-# 2. Commit migration files to Git
-git add backend/prisma/migrations/
-git commit -m "Add migration: your_migration_name"
-git push
-
-# 3. Deploy to production (rebuild Docker)
-docker-compose up --build
-```
-
-The container will automatically:
-- Generate Prisma client with updated schema
-- Apply any pending migrations on startup
-- Start the application
-
-#### Manual Production Migration (if needed)
-
-If you need to run migrations manually in production:
-
-```bash
-# Run migrations inside the backend container
-docker exec smoke-station-delivery-backend npx prisma migrate deploy
-
-# Check migration status
-docker exec smoke-station-delivery-backend npx prisma migrate status
-```
+| Command | Use Case | Description |
+|---------|----------|-------------|
+| `prisma migrate dev` | Development | Creates migration + applies it + regenerates client |
+| `prisma migrate deploy` | Production | Only applies existing migrations (doesn't create new ones) |
+| `prisma migrate status` | Any | Shows which migrations are applied/pending |
+| `prisma generate` | After schema changes | Regenerates Prisma client (auto-run in Docker build) |
 
 ### Migration Best Practices
 
@@ -233,7 +185,7 @@ docker exec smoke-station-delivery-backend npx prisma migrate status
    # Good
    npx prisma migrate dev --name add_user_roles_table
    npx prisma migrate dev --name remove_product_relations
-   
+
    # Avoid
    npx prisma migrate dev --name migration1
    ```
@@ -243,25 +195,12 @@ docker exec smoke-station-delivery-backend npx prisma migrate status
    - Ensure it's safe for production data
    - Verify no data loss will occur
 
-4. **Backup production database before major migrations**
-   ```bash
-   # If you have direct database access
-   pg_dump -h your-db-host -U user -d database > backup.sql
-   ```
-
-5. **Commit migration files to version control**
+4. **Commit migration files to version control**
    - Migration files in `prisma/migrations/` should be committed
    - Never edit migration files after they've been applied
    - Create new migrations for schema changes
 
-### Migration Commands Reference
-
-| Command | Use Case | Description |
-|---------|----------|-------------|
-| `prisma migrate dev` | Development | Creates migration + applies it + regenerates client |
-| `prisma migrate deploy` | Production | Only applies existing migrations (doesn't create new ones) |
-| `prisma migrate status` | Any | Shows which migrations are applied/pending |
-| `prisma generate` | After schema changes | Regenerates Prisma client (auto-run in Docker build) |
+> **Production migrations** are applied automatically when the Docker container starts via `npx prisma migrate deploy`. See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) for the full production workflow.
 
 ### Troubleshooting Migrations
 
@@ -271,7 +210,7 @@ docker exec smoke-station-delivery-backend npx prisma migrate status
 docker exec smoke-station-delivery-backend npx prisma migrate status
 
 # View backend logs
-docker-compose logs backend
+docker compose logs backend
 
 # If needed, manually resolve and re-run
 docker exec smoke-station-delivery-backend npx prisma migrate deploy
@@ -304,22 +243,22 @@ After making code changes, rebuild and redeploy the Docker containers:
 
 ```bash
 # Stop running containers
-docker-compose down
+docker compose down
 
 # Rebuild and start all services
-docker-compose up --build
+docker compose up --build
 ```
 
 ### Deploy Backend Changes Only
 
-From project root directory
+From project root directory:
 
 ```bash
 # Rebuild only the backend service
-docker-compose build backend
+docker compose build backend
 
 # Restart the backend container
-docker-compose up -d backend
+docker compose up -d backend
 ```
 
 ### Deploy Frontend Changes Only
@@ -332,29 +271,11 @@ npm run build
 cd ..
 
 # 2. Rebuild the web container
-docker-compose build web
+docker compose build web
 
 # 3. Restart the web container
-docker-compose up -d web
+docker compose up -d web
 ```
-
-### Deploy Database Changes (Migrations)
-
-**Note**: Migrations run automatically on container startup via `prisma migrate deploy`. If you've created new migrations locally:
-
-```bash
-# 1. Commit migration files to Git
-git add backend/prisma/migrations/
-git commit -m "Add migration: migration_name"
-
-# 2. Rebuild and restart backend (migrations apply automatically)
-docker-compose up --build backend
-
-# Or manually apply migrations if needed
-docker exec smoke-station-delivery-backend npx prisma migrate deploy
-```
-
-See the [Database Migrations](#database-migrations) section for detailed workflow.
 
 ### Quick Restart (No Rebuild)
 
@@ -362,22 +283,24 @@ If you only changed environment variables or config files:
 
 ```bash
 # Restart specific service
-docker-compose restart backend
+docker compose restart backend
 
 # Or restart all services
-docker-compose restart
+docker compose restart
 ```
 
 ### View Deployment Logs
 
 ```bash
 # View all logs
-docker-compose logs -f
+docker compose logs -f
 
 # View specific service logs
-docker-compose logs -f backend
-docker-compose logs -f web
+docker compose logs -f backend
+docker compose logs -f web
 ```
+
+> **Production deployments:** See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md).
 
 ---
 
@@ -528,6 +451,18 @@ For production deployment, use Docker Compose as shown in Quick Start.
 
 ---
 
+## Project Structure
+
+```
+smoke-station-delivery/
+├── backend/          # Express API (TypeScript)
+├── web/              # React frontend (Vite)
+├── nginx/            # Nginx configuration
+└── docker-compose.yml # Docker services configuration
+```
+
+---
+
 ## Troubleshooting
 
 ### Backend won't start
@@ -543,7 +478,7 @@ For production deployment, use Docker Compose as shown in Quick Start.
 ### Docker issues
 - Ensure Docker is running
 - Check ports 80 and 5432 are not in use
-- Try `docker-compose down -v` to reset volumes
+- Try `docker compose down -v` to reset volumes
 
 ---
 
@@ -558,7 +493,7 @@ For production deployment, use Docker Compose as shown in Quick Start.
 - Action: Check backend logs for slow endpoints and tune `REQUEST_TIMEOUT_MS`
 
 ### Frontend network errors
-- Symptom: Users see “Network error” or repeated retries
+- Symptom: Users see "Network error" or repeated retries
 - Action: Verify API availability and confirm `VITE_API_BASE_URL` is correct
 
 ### Post-deploy instability
@@ -567,12 +502,8 @@ For production deployment, use Docker Compose as shown in Quick Start.
 
 ---
 
-## Project Structure
+## Related Docs
 
-```
-smoke-station-delivery/
-├── backend/          # Express API (TypeScript)
-├── web/              # React frontend (Vite)
-├── nginx/            # Nginx configuration
-└── docker-compose.yml # Docker services configuration
-```
+- [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) — Full production server setup, SSL, backups, and security
+- [OPERATIONS_PIPELINE.md](./OPERATIONS_PIPELINE.md) — Cross-machine build → export → deploy pipeline
+- [MONITORING.md](./MONITORING.md) — Health checks, uptime monitoring, metrics, and alerting
