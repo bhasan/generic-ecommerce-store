@@ -54,6 +54,8 @@ export function AppProvider({ children }) {
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
+  const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
+  const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
   const [pickupLocation, setPickupLocation] = useState('');
   const [storeCashappUsername, setStoreCashappUsername] = useState('');
   const [paymentSettings, setPaymentSettings] = useState({
@@ -164,6 +166,8 @@ export function AppProvider({ children }) {
       const config = await configApi.getConfig();
       if (config) {
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
+        if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
+        if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
         if (config.storeSettings) {
           setStoreSettings(config.storeSettings);
           if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
@@ -837,6 +841,8 @@ export function AppProvider({ children }) {
     voteReview,
     flagReview,
     taxRate,
+    minimumDeliveryOrder,
+    minimumDeliveryOrderEnabled,
     pickupLocation,
     storeCashappUsername,
     paymentSettings,

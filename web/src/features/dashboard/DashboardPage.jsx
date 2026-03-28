@@ -6,6 +6,7 @@ import * as announcementsApi from '../../services/announcementsApi';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 import * as paymentSettingsApi from '../../services/paymentSettingsApi';
 import * as storeSettingsApi from '../../services/storeSettingsApi';
+import * as orderingConstraintsApi from '../../services/orderingConstraintsApi';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
@@ -20,6 +21,7 @@ import RejectedUsersSection from './components/RejectedUsersSection';
 import MessagesSection from './components/MessagesSection';
 import PaymentSettingsSection from './components/PaymentSettingsSection';
 import StoreSettingsSection from './components/StoreSettingsSection';
+import OrderingConstraintsSection from './components/OrderingConstraintsSection';
 import { hasRole, ROLES } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
@@ -30,6 +32,7 @@ const DASHBOARD_SECTIONS = {
   MESSAGES: 'messages',
   PAYMENT_SETTINGS: 'payment-settings',
   STORE_SETTINGS: 'store-settings',
+  ORDERING_CONSTRAINTS: 'ordering-constraints',
 };
 
 function DashboardPage() {
@@ -86,6 +89,10 @@ function DashboardPage() {
   // Store Settings State
   const [localStoreSettings, setLocalStoreSettings] = useState(null);
   const [isLoadingStoreSettings, setIsLoadingStoreSettings] = useState(false);
+
+  // Ordering Constraints State
+  const [localOrderingConstraints, setLocalOrderingConstraints] = useState(null);
+  const [isLoadingOrderingConstraints, setIsLoadingOrderingConstraints] = useState(false);
 
   // Contact Messages State
   const [contactMessages, setContactMessages] = useState([]);
@@ -221,6 +228,29 @@ function DashboardPage() {
     }
   };
 
+  // Load ordering constraints
+  const loadOrderingConstraints = useCallback(async () => {
+    try {
+      setIsLoadingOrderingConstraints(true);
+      const constraints = await orderingConstraintsApi.getOrderingConstraints();
+      setLocalOrderingConstraints(constraints);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load ordering constraints', 'error');
+    } finally {
+      setIsLoadingOrderingConstraints(false);
+    }
+  }, [showNotification]);
+
+  const handleSaveOrderingConstraints = async (data) => {
+    try {
+      await orderingConstraintsApi.updateOrderingConstraints(data);
+      showNotification('Ordering constraints updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save ordering constraints', 'error');
+    }
+  };
+
   // Load data based on active section
   useEffect(() => {
     if (activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS) {
@@ -238,8 +268,10 @@ function DashboardPage() {
       loadPaymentSettings();
     } else if (activeSection === DASHBOARD_SECTIONS.STORE_SETTINGS) {
       loadStoreSettings();
+    } else if (activeSection === DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS) {
+      loadOrderingConstraints();
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints]);
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
@@ -674,6 +706,14 @@ function DashboardPage() {
             isLoading={isLoadingStoreSettings}
             storeSettings={localStoreSettings}
             onSave={handleSaveStoreSettings}
+          />
+        );
+      case DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS:
+        return (
+          <OrderingConstraintsSection
+            isLoading={isLoadingOrderingConstraints}
+            orderingConstraints={localOrderingConstraints}
+            onSave={handleSaveOrderingConstraints}
           />
         );
       default:

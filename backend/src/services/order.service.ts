@@ -5,6 +5,9 @@ import { RoleName, hasAnyRole } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { logger } from '../utils/logger';
 import creditService from './credit.service';
+import { OrderingConstraintsService } from './orderingConstraints.service';
+
+const orderingConstraintsService = new OrderingConstraintsService();
 
 interface CreateOrderData {
   userId: number;
@@ -535,6 +538,12 @@ export class OrderService {
         price: unitPrice
       };
     });
+
+      // Enforce minimum delivery order
+      const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = await orderingConstraintsService.getOrderingConstraints();
+      if (deliveryMethod === 'DELIVERY' && minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
+        throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
+      }
 
       // Calculate tax and final total
       const tax = Number((subtotal * DEFAULT_TAX_RATE).toFixed(2));

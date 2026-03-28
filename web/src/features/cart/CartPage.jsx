@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartPage.css';
 import { useApp } from '../../context/AppContext';
@@ -9,12 +9,19 @@ import HeaderDivider from '../../components/common/HeaderDivider';
 
 function CartPage() {
   const navigate = useNavigate();
-  const { cart, removeFromCart, updateCartQuantity, taxRate } = useApp();
-  const [deliveryMethod, setDeliveryMethod] = useState('DELIVERY');
+  const { cart, removeFromCart, updateCartQuantity, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled } = useApp();
+  const [deliveryMethod, setDeliveryMethod] = useState('PICKUP');
   const total = cart.reduce((sum, item) => {
     const unitPrice = getDiscountedUnitPrice(item, item.quantity);
     return sum + (unitPrice * item.quantity);
   }, 0);
+  const deliveryBlocked = minimumDeliveryOrderEnabled && total < minimumDeliveryOrder;
+
+  useEffect(() => {
+    if (deliveryBlocked && deliveryMethod === 'DELIVERY') {
+      setDeliveryMethod('PICKUP');
+    }
+  }, [deliveryBlocked, deliveryMethod]);
 
   const resolveAllowedQuantities = (item) => {
     if (item.allowedQuantitiesOverride && item.allowedQuantitiesOverride.length > 0) {
@@ -122,8 +129,10 @@ function CartPage() {
 
           <div className="delivery-method-toggle delivery-method-toggle-large">
             <button
-              onClick={() => setDeliveryMethod('DELIVERY')}
-              className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''}`}
+              onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
+              className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
+              disabled={deliveryBlocked}
+              title={deliveryBlocked ? `Add $${(minimumDeliveryOrder - total).toFixed(2)} more for delivery` : undefined}
             >
               Delivery
             </button>
@@ -134,6 +143,13 @@ function CartPage() {
               Pick Up
             </button>
           </div>
+
+          {deliveryBlocked && (
+            <div className="minimum-order-notice">
+              Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum
+              {' '}(${(minimumDeliveryOrder - total).toFixed(2)} more needed)
+            </div>
+          )}
 
           <div className="cart-summary-details">
             <div className="summary-row">

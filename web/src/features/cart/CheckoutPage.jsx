@@ -49,8 +49,8 @@ const parseAddress = (addressStr) => {
 function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, pickupLocation, storeCashappUsername, paymentSettings, creditBalance } = useApp();
-  const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || 'DELIVERY');
+  const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled, pickupLocation, storeCashappUsername, paymentSettings, creditBalance } = useApp();
+  const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || 'PICKUP');
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -90,6 +90,15 @@ function CheckoutPage() {
   }, 0);
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
+
+  const deliveryBlocked = minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder;
+
+  // Auto-switch to pickup if delivery becomes unavailable
+  useEffect(() => {
+    if (deliveryBlocked && deliveryMethod === 'DELIVERY') {
+      setDeliveryMethod('PICKUP');
+    }
+  }, [deliveryBlocked, deliveryMethod]);
 
   // Redirect if cart is empty and we haven't just placed or cancelled an order
   useEffect(() => {
@@ -410,8 +419,10 @@ function CheckoutPage() {
             <div className="delivery-method-toggle delivery-method-toggle-large">
               <button
                 type="button"
-                onClick={() => setDeliveryMethod('DELIVERY')}
-                className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''}`}
+                onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
+                className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
+                disabled={deliveryBlocked}
+                title={deliveryBlocked ? `Add $${(minimumDeliveryOrder - subtotal).toFixed(2)} more for delivery` : undefined}
               >
                 Delivery
               </button>
@@ -423,6 +434,11 @@ function CheckoutPage() {
                 Pick Up
               </button>
             </div>
+            {deliveryBlocked && (
+              <p className="delivery-blocked-hint">
+                Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum (${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)
+              </p>
+            )}
 
             {deliveryMethod === 'DELIVERY' ? (
               <div className="address-form">

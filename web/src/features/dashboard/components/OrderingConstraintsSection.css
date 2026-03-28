@@ -1,0 +1,42 @@
+.ordering-constraints-description {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.ordering-constraints-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.ordering-constraints-amount-input {
+  max-width: 160px;
+}
+
+.ordering-constraint-row {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ordering-constraint-row-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.ordering-constraint-amount-group {
+  margin: 0;
+}
+
+.ordering-constraints-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

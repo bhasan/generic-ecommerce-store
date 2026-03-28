@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Megaphone, UserPlus, Users, UserX, MessageSquare, CreditCard, Store } from 'lucide-react';
+import { Megaphone, UserPlus, Users, UserX, MessageSquare, CreditCard, Store, ShoppingCart } from 'lucide-react';
 import './AdminDashboardTabs.css';
 
 const SECTIONS = {
@@ -11,6 +11,7 @@ const SECTIONS = {
   MESSAGES: 'messages',
   PAYMENT_SETTINGS: 'payment-settings',
   STORE_SETTINGS: 'store-settings',
+  ORDERING_CONSTRAINTS: 'ordering-constraints',
 };
 
 function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSectionChange }) {
@@ -89,6 +90,15 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
         >
           <Store size={20} />
           <span>Store Settings</span>
+        </button>
+        <button
+          className={`dashboard-tab ${
+            currentTab === 'dashboard' && activeSection === SECTIONS.ORDERING_CONSTRAINTS ? 'active' : ''
+          }`}
+          onClick={() => handleSelect(SECTIONS.ORDERING_CONSTRAINTS)}
+        >
+          <ShoppingCart size={20} />
+          <span>Ordering Constraints</span>
         </button>
       </div>
     </div>

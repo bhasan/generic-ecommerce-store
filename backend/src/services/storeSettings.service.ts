@@ -1,5 +1,4 @@
 import prisma from '../config/database';
-import { DEFAULT_PICKUP_LOCATION } from '../constants/settings';
 import { AppError } from '../middleware/error.middleware';
 
 export interface StoreSettings {
@@ -10,7 +9,7 @@ export interface StoreSettings {
 
 const DEFAULT_STORE_SETTINGS: StoreSettings = {
   name: 'Smoke Station',
-  address: DEFAULT_PICKUP_LOCATION,
+  address: '9400 S Texas 6 Suite C, Houston, TX 77083',
   phoneNumber: '',
 };
 

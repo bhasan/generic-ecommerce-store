@@ -342,6 +342,20 @@
   color: var(--color-primary-light);
 }
 
+.minimum-order-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #ca8a04;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
 .btn-place-order {
   width: 100%;
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
@@ -489,6 +503,18 @@
   padding: 1rem 1.5rem;
   font-size: 1.125rem;
   border-radius: 0.75rem;
+}
+
+.delivery-method-toggle .toggle-btn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.delivery-blocked-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin-top: 0.5rem;
 }
 
 .delivery-method-toggle .toggle-btn:hover:not(.active) {
