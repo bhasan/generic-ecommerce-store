@@ -377,6 +377,7 @@
   margin-top: 0.5rem;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
   background: color-mix(in srgb, var(--color-secondary, #10b981) 12%, transparent);
   color: var(--color-secondary, #10b981);
   font-size: 0.75rem;
@@ -391,6 +392,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
+  background: rgba(16, 185, 129, 0.25);
   background: color-mix(in srgb, var(--color-secondary, #10b981) 25%, transparent);
   font-size: 0.65rem;
   font-weight: 700;

@@ -149,6 +149,7 @@
 }
 
 .credits-balance-positive {
+  background: rgba(22, 163, 74, 0.12);
   background: color-mix(in srgb, var(--color-secondary, #16a34a) 12%, transparent);
   color: var(--color-secondary, #16a34a);
 }

@@ -96,6 +96,7 @@
   border-radius: 0.75rem;
   font-weight: 600;
   font-size: 0.875rem;
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   text-transform: uppercase;
   letter-spacing: 0.05em;
