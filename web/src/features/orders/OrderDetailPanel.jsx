@@ -157,8 +157,8 @@ function OrderDetailPanel({
               </h4>
               <div className="order-customer-info">
                 <div className="customer-info-row">
-                  <span className="customer-info-label">Name:</span>
-                  <span className="customer-info-value">{order.user.name || 'N/A'}</span>
+                  <span className="customer-info-label">Username:</span>
+                  <span className="customer-info-value">{order.user.username || 'N/A'}</span>
                 </div>
                 <div className="customer-info-row">
                   <CreditCard size={14} className="customer-info-icon" />

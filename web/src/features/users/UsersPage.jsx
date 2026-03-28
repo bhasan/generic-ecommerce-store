@@ -189,7 +189,7 @@ function UsersPage() {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Name</th>
+                  <th>Username</th>
                   <th>Email</th>
                   <th>Roles</th>
                   <th>Created</th>
@@ -203,7 +203,7 @@ function UsersPage() {
                     <td>
                       <div className="user-name-cell">
                         <User size={16} />
-                        <span>{user.name}</span>
+                        <span>{user.username}</span>
                       </div>
                     </td>
                     <td>
@@ -283,7 +283,7 @@ function UsersPage() {
                             </button>
                             {user.id !== currentUser.id && (
                               <button
-                                onClick={() => handleDeleteUserClick(user.id, user.name)}
+                                onClick={() => handleDeleteUserClick(user.id, user.username)}
                                 className="btn-delete-user"
                                 title="Delete user"
                               >
@@ -312,7 +312,7 @@ function UsersPage() {
         title="Delete User"
         message={
           <>
-            Are you sure you want to delete user <strong>"{userToDelete?.name || ''}"</strong>?
+            Are you sure you want to delete user <strong>"{userToDelete?.username || ''}"</strong>?
             <br />
             <br />
             This action cannot be undone.

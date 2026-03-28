@@ -7,6 +7,7 @@ import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
 import * as configApi from '../services/configApi';
+import * as creditApi from '../services/creditApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
@@ -53,6 +54,8 @@ export function AppProvider({ children }) {
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
+  const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
+  const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
   const [pickupLocation, setPickupLocation] = useState('');
   const [storeCashappUsername, setStoreCashappUsername] = useState('');
   const [paymentSettings, setPaymentSettings] = useState({
@@ -60,6 +63,8 @@ export function AppProvider({ children }) {
     zelle: { enabled: false, handle: '' },
     venmo: { enabled: false, handle: '' },
   });
+  const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [creditBalance, setCreditBalance] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,6 +81,13 @@ export function AppProvider({ children }) {
           }
           setCurrentUser(user);
           setIsAuthenticated(true);
+          // Load credit balance for authenticated user
+          try {
+            const creditData = await creditApi.getUserCredit(user.id);
+            setCreditBalance(creditData.balance ?? 0);
+          } catch {
+            // Non-fatal: credit balance defaults to 0
+          }
         } catch (error) {
           // Token invalid or expired
           console.error('Auth check failed:', error);
@@ -154,7 +166,14 @@ export function AppProvider({ children }) {
       const config = await configApi.getConfig();
       if (config) {
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
-        if (typeof config.pickupLocation === 'string') setPickupLocation(config.pickupLocation);
+        if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
+        if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
+        if (config.storeSettings) {
+          setStoreSettings(config.storeSettings);
+          if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
+        } else if (typeof config.pickupLocation === 'string') {
+          setPickupLocation(config.pickupLocation);
+        }
         if (config.paymentSettings) {
           setPaymentSettings(config.paymentSettings);
           setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
@@ -240,9 +259,9 @@ export function AppProvider({ children }) {
     setNotification(null);
   };
 
-  const login = async (email, password) => {
+  const login = async (username, password) => {
     try {
-      const { user } = await authApi.login(email, password);
+      const { user } = await authApi.login(username, password);
       
       // Ensure roles array exists
       if (!user.roles && user.role) {
@@ -381,7 +400,16 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const checkout = async (cashAppUsername, deliveryMethod) => {
+  const refreshCreditBalance = useCallback(async (userId) => {
+    try {
+      const creditData = await creditApi.getUserCredit(userId);
+      setCreditBalance(creditData.balance ?? 0);
+    } catch {
+      // Non-fatal
+    }
+  }, []);
+
+  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -389,23 +417,28 @@ export function AppProvider({ children }) {
         quantity: item.quantity
       }));
 
-      // Create order via API (pass CashApp username - saved to User.cashapp for orders page)
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod);
-      
-      // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
-      const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
-      setCurrentUser(updatedUserData);
-      localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      
+      // Create order via API
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
+
+      if (paymentMethod !== 'CREDIT') {
+        // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
+        const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
+        setCurrentUser(updatedUserData);
+        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+      } else {
+        // Refresh credit balance after credit payment
+        await refreshCreditBalance(currentUser.id);
+      }
+
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
-      
+
       // Clear cart
       setCart([]);
-      
-      showNotification('Order placed successfully! 🎉', 'success');
-      
+
+      showNotification('Order placed successfully!', 'success');
+
       // Return order for caller to handle navigation with additional data
       return newOrder;
     } catch (error) {
@@ -657,7 +690,7 @@ export function AppProvider({ children }) {
         const newReview = {
           id: (p.reviews?.length || 0) + 1,
           userId: currentUser.id,
-          userName: currentUser.name,
+          userName: currentUser.username,
           rating: review.rating,
           comment: review.comment,
           date: new Date().toISOString().split('T')[0],
@@ -706,7 +739,7 @@ export function AppProvider({ children }) {
               const newReply = {
                 id: (r.replies?.length || 0) + 1,
                 userId: currentUser.id,
-                userName: currentUser.name,
+                userName: currentUser.username,
                 userRole: currentUser.roles?.[0] || ROLES.CUSTOMER,
                 comment: reply,
                 date: new Date().toISOString().split('T')[0]
@@ -808,11 +841,16 @@ export function AppProvider({ children }) {
     voteReview,
     flagReview,
     taxRate,
+    minimumDeliveryOrder,
+    minimumDeliveryOrderEnabled,
     pickupLocation,
     storeCashappUsername,
     paymentSettings,
+    storeSettings,
     loadConfig,
     restoreCart,
+    creditBalance,
+    refreshCreditBalance,
   };
 
   return (

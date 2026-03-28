@@ -15,8 +15,7 @@ async function seedProd() {
   console.log('🌱 Production seed: roles, admin user, admin role mapping...');
 
   const plainPassword = 'admin';
-  const email = 'admin@setup.com';
-  const name = 'Admin';
+  const username = 'admin';
 
   // 1. Roles: ensure all app roles exist
   console.log('   Ensuring roles exist...');
@@ -32,20 +31,20 @@ async function seedProd() {
   const adminRoleId = roleMap['ADMIN'].id;
 
   // 2. Admin user: create or get existing
-  let adminUser = await prisma.user.findUnique({ where: { email } });
+  let adminUser = await prisma.user.findUnique({ where: { username } });
   if (!adminUser) {
     const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
     adminUser = await prisma.user.create({
       data: {
-        email,
+        username,
         password: hashedPassword,
-        name,
+        phoneNumber: null,
         approved: true,
       },
     });
-    console.log(`   Admin user created: ${email}`);
+    console.log(`   Admin user created: ${username}`);
   } else {
-    console.log(`   Admin user already exists: ${email}`);
+    console.log(`   Admin user already exists: ${username}`);
   }
 
   // 3. Admin user -> ADMIN role mapping: ensure UserRole exists

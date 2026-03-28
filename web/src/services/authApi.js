@@ -2,13 +2,13 @@ import { post, get, setAuthToken, clearAuthToken } from './api';
 
 /**
  * Login user
- * @param {string} email - User email
+ * @param {string} username - Username
  * @param {string} password - User password
  * @returns {Promise<{user: object, token: string}>}
  */
-export const login = async (email, password) => {
+export const login = async (username, password) => {
   try {
-    const response = await post('/auth/login', { email, password });
+    const response = await post('/auth/login', { username, password });
     
     // Store token
     if (response.token) {

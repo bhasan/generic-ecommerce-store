@@ -7,7 +7,17 @@ export const getCategoryLabel = (category) => {
 export const PRODUCT_FALLBACK_IMAGE = '/images/smokestationtitle.png';
 
 export const getProductImageSrc = (item) =>
-  item?.image || (item?.images && item.images[0]) || PRODUCT_FALLBACK_IMAGE;
+  item?.thumbnail || (item?.images && item.images[0]) || item?.image || PRODUCT_FALLBACK_IMAGE;
+
+export const getProductAllImages = (item) => {
+  const base = item?.images?.length > 0
+    ? item.images
+    : item?.image ? [item.image] : [];
+  const withThumb = item?.thumbnail && item.thumbnail !== base[0]
+    ? [item.thumbnail, ...base.filter(img => img !== item.thumbnail)]
+    : base;
+  return withThumb.length > 0 ? withThumb : [PRODUCT_FALLBACK_IMAGE];
+};
 
 export const getProductCategoryLabel = (product) => {
   if (product?.category && typeof product.category === 'object') {

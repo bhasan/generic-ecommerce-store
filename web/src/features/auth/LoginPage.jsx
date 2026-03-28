@@ -9,10 +9,10 @@ import { LogIn, User, Lock } from 'lucide-react';
 function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading, currentUser } = useApp();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect authenticated users away from login page
@@ -31,21 +31,21 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const emailTrimmed = (email || '').trim();
+    const usernameTrimmed = (username || '').trim();
     const passwordTrimmed = (password || '').trim();
     const errors = {
-      email: !emailTrimmed ? 'Email is required' : '',
+      username: !usernameTrimmed ? 'Username is required' : '',
       password: !passwordTrimmed ? 'Password is required' : ''
     };
     setFieldErrors(errors);
-    if (errors.email || errors.password) return;
+    if (errors.username || errors.password) return;
 
     setIsLoading(true);
     try {
-      const success = await login(emailTrimmed, passwordTrimmed);
+      const success = await login(usernameTrimmed, passwordTrimmed);
       if (success) {
         setError('');
-        setFieldErrors({ email: '', password: '' });
+        setFieldErrors({ username: '', password: '' });
       } else {
         setError('Invalid credentials. Please try again.');
       }
@@ -69,26 +69,26 @@ function LoginPage() {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="email" className="form-label">
+            <label htmlFor="username" className="form-label">
               <User size={16} />
-              <span>Email Address</span>
+              <span>Username</span>
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
+              id="username"
+              type="text"
+              value={username}
               onChange={(e) => {
-                setEmail(e.target.value);
-                if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }));
+                setUsername(e.target.value);
+                if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }));
               }}
-              className={`form-input ${fieldErrors.email ? 'form-input-error' : ''}`}
-              placeholder="you@example.com"
+              className={`form-input ${fieldErrors.username ? 'form-input-error' : ''}`}
+              placeholder="Enter your Username"
               required
-              aria-invalid={!!fieldErrors.email}
-              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+              aria-invalid={!!fieldErrors.username}
+              aria-describedby={fieldErrors.username ? 'username-error' : undefined}
             />
-            {fieldErrors.email && (
-              <span id="email-error" className="form-error-message" role="alert">{fieldErrors.email}</span>
+            {fieldErrors.username && (
+              <span id="username-error" className="form-error-message" role="alert">{fieldErrors.username}</span>
             )}
           </div>
 

@@ -44,6 +44,48 @@ export const uploadFile = async (file) => {
 };
 
 /**
+ * Upload multiple files to the server
+ * @param {File[]} files - The files to upload
+ * @returns {Promise<{urls: string[]}>} Object with the URLs of the uploaded files
+ */
+export const uploadFiles = async (files) => {
+  const token = getAuthToken();
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append('files', file);
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+  const response = await fetch(`${API_BASE_URL}/upload/multiple`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+    signal: controller.signal,
+  });
+
+  clearTimeout(timeoutId);
+
+  if (!response.ok) {
+    let errorMessage = 'Upload failed';
+    try {
+      const data = await response.json();
+      errorMessage = data?.error?.message ?? errorMessage;
+    } catch (_e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+};
+
+/**
  * Get a list of uploaded images
  * @returns {Promise<{images: Array<{url: string, filename: string, size: number, createdAt: string}>}>}
  */

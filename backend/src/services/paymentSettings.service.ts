@@ -1,5 +1,4 @@
 import prisma from '../config/database';
-import { DEFAULT_STORE_CASHAPP_USERNAME } from '../constants/settings';
 import { AppError } from '../middleware/error.middleware';
 
 export interface PaymentMethodSettings {
@@ -14,7 +13,7 @@ export interface PaymentSettings {
 }
 
 const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
-  cashapp: { enabled: true, handle: DEFAULT_STORE_CASHAPP_USERNAME },
+  cashapp: { enabled: true, handle: '$SmokeStationX' },
   zelle: { enabled: false, handle: '' },
   venmo: { enabled: false, handle: '' },
 };

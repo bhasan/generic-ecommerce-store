@@ -342,6 +342,20 @@
   color: var(--color-primary-light);
 }
 
+.minimum-order-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #ca8a04;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
 .btn-place-order {
   width: 100%;
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
@@ -491,6 +505,18 @@
   border-radius: 0.75rem;
 }
 
+.delivery-method-toggle .toggle-btn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.delivery-blocked-hint {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
 .delivery-method-toggle .toggle-btn:hover:not(.active) {
   background: rgba(124, 58, 237, 0.1);
   color: var(--color-primary-light);
@@ -529,4 +555,45 @@
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin: 0;
+}
+/* Store Credit Payment Method */
+.payment-method-select-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.payment-method-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.payment-method-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.payment-method-option.selected {
+  border-color: var(--color-primary);
+  background: rgba(124, 58, 237, 0.05);
+}
+
+.payment-method-option input[type="radio"] {
+  accent-color: var(--color-primary);
+}
+
+.payment-credit-confirm {
+  background: rgba(22, 163, 74, 0.07);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  border-radius: var(--border-radius-md);
+  padding: 0.875rem 1rem;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
 }

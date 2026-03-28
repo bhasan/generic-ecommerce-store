@@ -40,9 +40,9 @@ async function seed() {
   const adminPassword = await hashPassword('admin123');
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@test.com',
+      username: 'admin',
       password: adminPassword,
-      name: 'Admin User',
+      phoneNumber: '(512) 555-0100',
       approved: true,
     },
   });
@@ -53,9 +53,9 @@ async function seed() {
   const managerPassword = await hashPassword('manager123');
   const manager = await prisma.user.create({
     data: {
-      email: 'manager@test.com',
+      username: 'manager',
       password: managerPassword,
-      name: 'Jane Manager',
+      phoneNumber: '(512) 555-0200',
       approved: true,
     },
   });
@@ -66,9 +66,9 @@ async function seed() {
   const employeePassword = await hashPassword('employee123');
   const employee = await prisma.user.create({
     data: {
-      email: 'employee@test.com',
+      username: 'employee',
       password: employeePassword,
-      name: 'Sam Employee',
+      phoneNumber: '(512) 555-0300',
       approved: true,
     },
   });
@@ -79,9 +79,8 @@ async function seed() {
   const customerPassword = await hashPassword('customer123');
   const customer = await prisma.user.create({
     data: {
-      email: 'customer@test.com',
+      username: 'johncustomer',
       password: customerPassword,
-      name: 'John Customer',
       address: '123 Main Street, Austin, TX 78701',
       cashapp: '$JohnCustomer',
       phoneNumber: '(512) 555-0101',
@@ -96,9 +95,8 @@ async function seed() {
   const sarahPassword = await hashPassword('customer123');
   const sarah = await prisma.user.create({
     data: {
-      email: 'sarah@test.com',
+      username: 'sarahjohnson',
       password: sarahPassword,
-      name: 'Sarah Johnson',
       address: '456 Oak Avenue, Austin, TX 78702',
       cashapp: '$SarahJ',
       phoneNumber: '(512) 555-0102',
@@ -112,11 +110,11 @@ async function seed() {
   const mikePassword = await hashPassword('customer123');
   const mike = await prisma.user.create({
     data: {
-      email: 'mike@test.com',
+      username: 'mikethompson',
       password: mikePassword,
-      name: 'Mike Thompson',
       address: '789 Pine Road, Austin, TX 78703',
       cashapp: '$MikeT',
+      phoneNumber: '(512) 555-0103',
       approved: true,
     },
   });
@@ -127,9 +125,8 @@ async function seed() {
   const emilyPassword = await hashPassword('customer123');
   const emily = await prisma.user.create({
     data: {
-      email: 'emily@test.com',
+      username: 'emilychen',
       password: emilyPassword,
-      name: 'Emily Chen',
       address: '321 Elm Street, Austin, TX 78704',
       cashapp: '$EmilyC',
       phoneNumber: '(512) 555-0104',
@@ -143,11 +140,11 @@ async function seed() {
   const davidPassword = await hashPassword('customer123');
   const david = await prisma.user.create({
     data: {
-      email: 'david@test.com',
+      username: 'davidwilliams',
       password: davidPassword,
-      name: 'David Williams',
       address: '654 Maple Drive, Austin, TX 78705',
       cashapp: '$DavidW',
+      phoneNumber: '(512) 555-0105',
       approved: true,
     },
   });
@@ -159,9 +156,9 @@ async function seed() {
   const driverPassword = await hashPassword('driver123');
   const driver = await prisma.user.create({
     data: {
-      email: 'driver@test.com',
+      username: 'driver',
       password: driverPassword,
-      name: 'Delivery Driver',
+      phoneNumber: '(512) 555-0400',
       approved: true,
     },
   });
@@ -170,15 +167,15 @@ async function seed() {
   });
 
   console.log('✅ Users created');
-  console.log('   Admin:', admin.email, '/ admin123');
-  console.log('   Manager:', manager.email, '/ manager123');
-  console.log('   Employee:', employee.email, '/ employee123');
-  console.log('   Customer:', customer.email, '/ customer123');
-  console.log('   Driver:', driver.email, '/ driver123');
-  console.log('   Sarah:', sarah.email, '/ customer123');
-  console.log('   Mike:', mike.email, '/ customer123');
-  console.log('   Emily:', emily.email, '/ customer123');
-  console.log('   David:', david.email, '/ customer123');
+  console.log('   Admin:', admin.username, '/ admin123');
+  console.log('   Manager:', manager.username, '/ manager123');
+  console.log('   Employee:', employee.username, '/ employee123');
+  console.log('   Customer:', customer.username, '/ customer123');
+  console.log('   Driver:', driver.username, '/ driver123');
+  console.log('   Sarah:', sarah.username, '/ customer123');
+  console.log('   Mike:', mike.username, '/ customer123');
+  console.log('   Emily:', emily.username, '/ customer123');
+  console.log('   David:', david.username, '/ customer123');
 
   // Create categories
   console.log('🗂️ Creating categories...');
@@ -492,15 +489,15 @@ async function seed() {
   console.log(`   Orders: ${5} (2 regular, 3 ready for delivery)`);
   console.log('');
   console.log('🔐 Test Accounts:');
-  console.log('   Admin:    admin@test.com / admin123');
-  console.log('   Manager:  manager@test.com / manager123');
-  console.log('   Employee: employee@test.com / employee123');
-  console.log('   Customer: customer@test.com / customer123');
-  console.log('   Driver:   driver@test.com / driver123');
-  console.log('   Sarah:    sarah@test.com / customer123');
-  console.log('   Mike:     mike@test.com / customer123');
-  console.log('   Emily:    emily@test.com / customer123');
-  console.log('   David:    david@test.com / customer123');
+  console.log('   Admin:    admin / admin123');
+  console.log('   Manager:  manager / manager123');
+  console.log('   Employee: employee / employee123');
+  console.log('   Customer: johncustomer / customer123');
+  console.log('   Driver:   driver / driver123');
+  console.log('   Sarah:    sarahjohnson / customer123');
+  console.log('   Mike:     mikethompson / customer123');
+  console.log('   Emily:    emilychen / customer123');
+  console.log('   David:    davidwilliams / customer123');
   console.log('');
 }
 

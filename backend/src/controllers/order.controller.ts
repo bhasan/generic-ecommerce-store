@@ -119,7 +119,8 @@ export class OrderController {
         userId: req.user.userId,
         items: req.body.items,
         cashAppUsername: req.body.cashAppUsername,
-        deliveryMethod: req.body.deliveryMethod
+        deliveryMethod: req.body.deliveryMethod,
+        paymentMethod: req.body.paymentMethod
       });
 
       logger.info('Order created successfully via API', {

@@ -161,12 +161,16 @@ function ProductItemPage() {
     );
   }
   
-  const images =
+  const baseImages =
     product.images && product.images.length > 0
       ? product.images
       : product.image
         ? [product.image]
         : [fallbackImage];
+
+  const images = product.thumbnail && product.thumbnail !== baseImages[0]
+    ? [product.thumbnail, ...baseImages.filter(img => img !== product.thumbnail)]
+    : baseImages;
   const showStock = product.stockEnabled !== false;
   const isOutOfStock = showStock && product.stock === 0;
 
@@ -289,6 +293,7 @@ function ProductItemPage() {
                       src={img}
                       alt={`${product.name} ${index + 1}`}
                       className="thumbnail"
+                      loading={index === selectedImageIndex ? 'eager' : 'lazy'}
                       onError={(e) => {
                         e.target.src = fallbackImage;
                       }}

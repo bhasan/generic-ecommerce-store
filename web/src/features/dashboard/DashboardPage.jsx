@@ -5,6 +5,8 @@ import * as usersApi from '../../services/usersApi';
 import * as announcementsApi from '../../services/announcementsApi';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 import * as paymentSettingsApi from '../../services/paymentSettingsApi';
+import * as storeSettingsApi from '../../services/storeSettingsApi';
+import * as orderingConstraintsApi from '../../services/orderingConstraintsApi';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
@@ -18,6 +20,8 @@ import AnnouncementsSection from './components/AnnouncementsSection';
 import RejectedUsersSection from './components/RejectedUsersSection';
 import MessagesSection from './components/MessagesSection';
 import PaymentSettingsSection from './components/PaymentSettingsSection';
+import StoreSettingsSection from './components/StoreSettingsSection';
+import OrderingConstraintsSection from './components/OrderingConstraintsSection';
 import { hasRole, ROLES } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
@@ -27,6 +31,8 @@ const DASHBOARD_SECTIONS = {
   ANNOUNCEMENTS: 'announcements',
   MESSAGES: 'messages',
   PAYMENT_SETTINGS: 'payment-settings',
+  STORE_SETTINGS: 'store-settings',
+  ORDERING_CONSTRAINTS: 'ordering-constraints',
 };
 
 function DashboardPage() {
@@ -79,6 +85,14 @@ function DashboardPage() {
   // Payment Settings State
   const [localPaymentSettings, setLocalPaymentSettings] = useState(null);
   const [isLoadingPaymentSettings, setIsLoadingPaymentSettings] = useState(false);
+
+  // Store Settings State
+  const [localStoreSettings, setLocalStoreSettings] = useState(null);
+  const [isLoadingStoreSettings, setIsLoadingStoreSettings] = useState(false);
+
+  // Ordering Constraints State
+  const [localOrderingConstraints, setLocalOrderingConstraints] = useState(null);
+  const [isLoadingOrderingConstraints, setIsLoadingOrderingConstraints] = useState(false);
 
   // Contact Messages State
   const [contactMessages, setContactMessages] = useState([]);
@@ -191,6 +205,52 @@ function DashboardPage() {
     }
   };
 
+  // Load store settings
+  const loadStoreSettings = useCallback(async () => {
+    try {
+      setIsLoadingStoreSettings(true);
+      const settings = await storeSettingsApi.getStoreSettings();
+      setLocalStoreSettings(settings);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load store settings', 'error');
+    } finally {
+      setIsLoadingStoreSettings(false);
+    }
+  }, [showNotification]);
+
+  const handleSaveStoreSettings = async (data) => {
+    try {
+      await storeSettingsApi.updateStoreSettings(data);
+      showNotification('Store settings updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save store settings', 'error');
+    }
+  };
+
+  // Load ordering constraints
+  const loadOrderingConstraints = useCallback(async () => {
+    try {
+      setIsLoadingOrderingConstraints(true);
+      const constraints = await orderingConstraintsApi.getOrderingConstraints();
+      setLocalOrderingConstraints(constraints);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load ordering constraints', 'error');
+    } finally {
+      setIsLoadingOrderingConstraints(false);
+    }
+  }, [showNotification]);
+
+  const handleSaveOrderingConstraints = async (data) => {
+    try {
+      await orderingConstraintsApi.updateOrderingConstraints(data);
+      showNotification('Ordering constraints updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save ordering constraints', 'error');
+    }
+  };
+
   // Load data based on active section
   useEffect(() => {
     if (activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS) {
@@ -206,8 +266,12 @@ function DashboardPage() {
       loadContactMessages(messagesStatusFilter);
     } else if (activeSection === DASHBOARD_SECTIONS.PAYMENT_SETTINGS) {
       loadPaymentSettings();
+    } else if (activeSection === DASHBOARD_SECTIONS.STORE_SETTINGS) {
+      loadStoreSettings();
+    } else if (activeSection === DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS) {
+      loadOrderingConstraints();
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints]);
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
@@ -528,8 +592,8 @@ function DashboardPage() {
           bValue = b.id;
           break;
         case 'name':
-          aValue = a.name?.toLowerCase() || '';
-          bValue = b.name?.toLowerCase() || '';
+          aValue = a.username?.toLowerCase() || '';
+          bValue = b.username?.toLowerCase() || '';
           break;
         case 'email':
           aValue = a.email?.toLowerCase() || '';
@@ -636,6 +700,22 @@ function DashboardPage() {
             onSave={handleSavePaymentSettings}
           />
         );
+      case DASHBOARD_SECTIONS.STORE_SETTINGS:
+        return (
+          <StoreSettingsSection
+            isLoading={isLoadingStoreSettings}
+            storeSettings={localStoreSettings}
+            onSave={handleSaveStoreSettings}
+          />
+        );
+      case DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS:
+        return (
+          <OrderingConstraintsSection
+            isLoading={isLoadingOrderingConstraints}
+            orderingConstraints={localOrderingConstraints}
+            onSave={handleSaveOrderingConstraints}
+          />
+        );
       default:
         return (
           <PendingRegistrationsSection
@@ -708,7 +788,7 @@ function DashboardPage() {
         title="Move User to Pending"
         message={
           <>
-            Move <strong>{userToUnReject?.name || ''}</strong> back to pending registrations?
+            Move <strong>{userToUnReject?.username || ''}</strong> back to pending registrations?
             <br />
             <br />
             This will allow them to be approved again.
@@ -727,7 +807,7 @@ function DashboardPage() {
         title="Delete User"
         message={
           <>
-            Are you sure you want to delete user <strong>"{userToDelete?.name || ''}"</strong>?
+            Are you sure you want to delete user <strong>"{userToDelete?.username || ''}"</strong>?
             <br />
             <br />
             This action cannot be undone.

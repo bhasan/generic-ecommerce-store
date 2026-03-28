@@ -305,10 +305,11 @@ function ManageProductsPanel() {
   const [childCategoriesByParent, setChildCategoriesByParent] = useState({});
   const [productsByCategory, setProductsByCategory] = useState({});
   const [formData, setFormData] = useState({
-    name: '', 
-    categoryId: '', 
-    price: '', 
-    description: '', 
+    name: '',
+    categoryId: '',
+    price: '',
+    description: '',
+    thumbnail: '',
     images: [''],
     stock: '',
     stockEnabled: false,
@@ -375,6 +376,7 @@ function ManageProductsPanel() {
     setFormData({
       ...product,
       categoryId: selectedCategoryId,
+      thumbnail: product.thumbnail || '',
       images: product.images || [product.image],
       stockEnabled: product.stockEnabled !== false,
       hidden: product.hidden || false,
@@ -399,6 +401,7 @@ function ManageProductsPanel() {
       categoryId: parseInt(formData.categoryId, 10),
       price: parseFloat(formData.price),
       stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
+      thumbnail: formData.thumbnail || null,
       images: formData.images.filter(img => img.trim() !== ''),
       image: formData.images[0],
       quantityDiscountsOverride: parseQuantityDiscounts(formData.quantityDiscountsOverride)
@@ -411,11 +414,12 @@ function ManageProductsPanel() {
       addProduct(productData);
       setShowAddForm(false);
     }
-    setFormData({ 
-      name: '', 
-      categoryId: '', 
-      price: '', 
-      description: '', 
+    setFormData({
+      name: '',
+      categoryId: '',
+      price: '',
+      description: '',
+      thumbnail: '',
       images: [''],
       stock: '',
       stockEnabled: false,
@@ -434,11 +438,12 @@ function ManageProductsPanel() {
   const handleCancel = () => {
     setEditingId(null);
     setShowAddForm(false);
-    setFormData({ 
-      name: '', 
-      categoryId: '', 
-      price: '', 
-      description: '', 
+    setFormData({
+      name: '',
+      categoryId: '',
+      price: '',
+      description: '',
+      thumbnail: '',
       images: [''],
       stock: '',
       stockEnabled: false,
@@ -545,13 +550,51 @@ function ManageProductsPanel() {
   const isVideo = (file) => file.type.startsWith('video/');
 
   const handleImageUpload = (index, event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
     event.target.value = '';
-    if (isVideo(file)) {
-      performUpload(index, file);
+
+    if (index === 'thumbnail') {
+      const file = files[0];
+      if (isVideo(file)) {
+        performUpload('thumbnail', file);
+      } else {
+        setCropState({ file, index: 'thumbnail' });
+      }
+      return;
+    }
+
+    if (files.length > 1) {
+      // Multiple files: upload all directly without crop
+      performMultiUpload(index, files);
     } else {
-      setCropState({ file, index });
+      const file = files[0];
+      if (isVideo(file)) {
+        performUpload(index, file);
+      } else {
+        setCropState({ file, index });
+      }
+    }
+  };
+
+  const performMultiUpload = async (startIndex, files) => {
+    setUploadingImageIndex(startIndex);
+    try {
+      const { urls } = await uploadApi.uploadFiles(files);
+      // Replace startIndex slot with first URL, append rest
+      setFormData(prev => {
+        const newImages = [...prev.images];
+        newImages[startIndex] = urls[0];
+        if (urls.length > 1) newImages.push(...urls.slice(1));
+        return { ...prev, images: newImages.filter(img => img.trim() !== '').length > 0
+          ? newImages.filter(img => img !== '' || newImages.indexOf(img) === 0)
+          : [''] };
+      });
+      showNotification(`${urls.length} image${urls.length > 1 ? 's' : ''} uploaded successfully`, 'success');
+    } catch (err) {
+      showNotification(err.message || 'Failed to upload images', 'error');
+    } finally {
+      setUploadingImageIndex(null);
     }
   };
 
@@ -559,7 +602,11 @@ function ManageProductsPanel() {
     setUploadingImageIndex(index);
     try {
       const { url } = await uploadApi.uploadFile(file);
-      updateImageField(index, url);
+      if (index === 'thumbnail') {
+        setFormData(prev => ({ ...prev, thumbnail: url }));
+      } else {
+        updateImageField(index, url);
+      }
       showNotification('Image uploaded successfully', 'success');
     } catch (err) {
       showNotification(err.message || 'Failed to upload image', 'error');

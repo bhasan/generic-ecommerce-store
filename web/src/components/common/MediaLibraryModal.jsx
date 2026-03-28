@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Loader2, UploadCloud, RefreshCw, PlayCircle, Grid, List as ListIcon, CheckCircle2 } from 'lucide-react';
-import { getImages, deleteImage, uploadFile } from '../../services/uploadApi';
+import { getImages, deleteImage, uploadFile, uploadFiles } from '../../services/uploadApi';
 import ImageCropModal from './ImageCropModal';
 import './MediaLibraryModal.css';
 
@@ -100,14 +100,20 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
   };
 
   const handleUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     e.target.value = null;
 
-    if (file.type.startsWith('video/')) {
-      performUpload(file);
+    if (files.length > 1) {
+      // Multiple files: upload all directly without crop
+      performMultiUpload(files);
     } else {
-      setCropFile(file);
+      const file = files[0];
+      if (file.type.startsWith('video/')) {
+        performUpload(file);
+      } else {
+        setCropFile(file);
+      }
     }
   };
 
@@ -115,6 +121,18 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     setIsUploading(true);
     try {
       await uploadFile(file);
+      await fetchImages();
+    } catch (err) {
+      alert(`Upload failed: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const performMultiUpload = async (files) => {
+    setIsUploading(true);
+    try {
+      await uploadFiles(files);
       await fetchImages();
     } catch (err) {
       alert(`Upload failed: ${err.message}`);
@@ -161,14 +179,6 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
   return (
     <>
-    {cropFile && (
-      <ImageCropModal
-        file={cropFile}
-        onConfirm={handleCropConfirm}
-        onSkip={handleCropSkip}
-        onCancel={() => setCropFile(null)}
-      />
-    )}
     <div className="media-modal-overlay" onClick={onClose}>
       <div className="media-modal-content surface-card-accent" onClick={(e) => e.stopPropagation()}>
         <div className="media-modal-header">
@@ -197,7 +207,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
             <label className={`btn-upload-prominent ${isUploading ? 'loading' : ''}`}>
               {isUploading ? <Loader2 size={18} className="spin" /> : <UploadCloud size={18} />}
               <span>{isUploading ? 'Uploading...' : 'Upload New'}</span>
-              <input type="file" accept="image/*,video/mp4,video/webm" onChange={handleUpload} disabled={isUploading} hidden />
+              <input type="file" accept="image/*,video/mp4,video/webm" multiple onChange={handleUpload} disabled={isUploading} hidden />
             </label>
             
             <button className="btn btn-secondary btn-icon" onClick={fetchImages} title="Refresh Library">
@@ -299,6 +309,14 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
         )}
       </div>
     </div>
+    {cropFile && (
+      <ImageCropModal
+        file={cropFile}
+        onConfirm={handleCropConfirm}
+        onSkip={handleCropSkip}
+        onCancel={() => setCropFile(null)}
+      />
+    )}
     </>
   );
 }

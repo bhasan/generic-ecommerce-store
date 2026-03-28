@@ -13,9 +13,8 @@ const router = Router();
 router.post(
   '/register',
   [
-    body('email').isEmail().withMessage('Valid email is required'),
+    body('username').notEmpty().isString().withMessage('Username is required'),
     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-    body('name').notEmpty().withMessage('Name is required'),
     body('address').optional().isString().withMessage('Address must be a string'),
     body('cashapp').optional().isString().withMessage('CashApp must be a string'),
     body('phoneNumber').notEmpty().withMessage('Phone number is required').isString().withMessage('Phone number must be a string')
@@ -31,7 +30,7 @@ router.post(
 router.post(
   '/login',
   [
-    body('email').isEmail().withMessage('Valid email is required'),
+    body('username').notEmpty().withMessage('Username is required'),
     body('password').notEmpty().withMessage('Password is required')
   ],
   authController.login

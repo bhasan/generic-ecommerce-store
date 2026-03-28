@@ -4,6 +4,10 @@ import { OrderStatus } from '../../generated/prisma';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { logger } from '../utils/logger';
+import creditService from './credit.service';
+import { OrderingConstraintsService } from './orderingConstraints.service';
+
+const orderingConstraintsService = new OrderingConstraintsService();
 
 interface CreateOrderData {
   userId: number;
@@ -13,6 +17,7 @@ interface CreateOrderData {
   }>;
   cashAppUsername?: string;
   deliveryMethod?: string;
+  paymentMethod?: string;
 }
 
 interface UpdateOrderStatusData {
@@ -110,7 +115,7 @@ export class OrderService {
 
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
+        select: { id: true, username: true, cashapp: true, phoneNumber: true, address: true }
       });
       const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -185,7 +190,7 @@ export class OrderService {
     const userIds = [...new Set(orders.map(o => o.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+      select: { id: true, username: true, address: true, phoneNumber: true }
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -224,8 +229,7 @@ export class OrderService {
         updatedAt: order.updatedAt,
         user: user ? {
           id: user.id,
-          name: user.name,
-          email: user.email,
+          username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
         } : null,
@@ -263,7 +267,7 @@ export class OrderService {
     const userIds = [...new Set(orders.map(o => o.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+      select: { id: true, username: true, address: true, phoneNumber: true }
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -294,7 +298,7 @@ export class OrderService {
     return orders.map(order => {
       const user = userMap.get(order.userId);
       const items = itemsByOrder.get(order.id) || [];
-      
+
       return {
         id: order.id,
         status: order.status,
@@ -303,8 +307,7 @@ export class OrderService {
         updatedAt: order.updatedAt,
         user: user ? {
           id: user.id,
-          name: user.name,
-          email: user.email,
+          username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
         } : null,
@@ -342,7 +345,7 @@ export class OrderService {
     const userIds = [...new Set(orders.map(o => o.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true, address: true, phoneNumber: true }
+      select: { id: true, username: true, address: true, phoneNumber: true }
     });
     const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -373,7 +376,7 @@ export class OrderService {
     return orders.map(order => {
       const user = userMap.get(order.userId);
       const items = itemsByOrder.get(order.id) || [];
-      
+
       return {
         id: order.id,
         status: order.status,
@@ -382,8 +385,7 @@ export class OrderService {
         updatedAt: order.updatedAt,
         user: user ? {
           id: user.id,
-          name: user.name,
-          email: user.email,
+          username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
         } : null,
@@ -424,7 +426,7 @@ export class OrderService {
     // Fetch user
     const user = await prisma.user.findUnique({
       where: { id: order.userId },
-      select: { id: true, name: true, email: true, cashapp: true, phoneNumber: true, address: true }
+      select: { id: true, username: true, cashapp: true, phoneNumber: true, address: true }
     });
 
     // Fetch order items
@@ -456,7 +458,8 @@ export class OrderService {
    * Create a new order (checkout)
    */
   async createOrder(data: CreateOrderData) {
-    const { userId, items, cashAppUsername, deliveryMethod } = data;
+    const { userId, items, cashAppUsername, deliveryMethod, paymentMethod } = data;
+    const isCredit = paymentMethod === 'CREDIT';
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -533,6 +536,12 @@ export class OrderService {
       };
     });
 
+      // Enforce minimum delivery order
+      const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = await orderingConstraintsService.getOrderingConstraints();
+      if (deliveryMethod === 'DELIVERY' && minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
+        throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
+      }
+
       // Calculate tax and final total
       const tax = Number((subtotal * DEFAULT_TAX_RATE).toFixed(2));
       const total = subtotal + tax;
@@ -544,42 +553,83 @@ export class OrderService {
         tax,
         total,
         status: OrderStatus.PENDING,
+        paymentMethod: paymentMethod || 'EXTERNAL',
       });
 
-      const order = await prisma.order.create({
-        data: {
-          userId,
-          total,
-          status: OrderStatus.PENDING,
-          deliveryMethod: deliveryMethod || 'DELIVERY',
-        }
-      });
+      let order: Awaited<ReturnType<typeof prisma.order.create>>;
+      let createdItems: Awaited<ReturnType<typeof prisma.orderItem.create>>[];
+
+      if (isCredit) {
+        // Use a transaction to atomically create the order and deduct credit
+        const result = await prisma.$transaction(async (tx) => {
+          const newOrder = await tx.order.create({
+            data: {
+              userId,
+              total,
+              status: OrderStatus.PENDING,
+              deliveryMethod: deliveryMethod || 'DELIVERY',
+              paymentMethod: 'CREDIT',
+            }
+          });
+
+          const newItems = await Promise.all(
+            orderItems.map(item =>
+              tx.orderItem.create({
+                data: {
+                  orderId: newOrder.id,
+                  productId: item.productId,
+                  quantity: item.quantity,
+                  price: item.price
+                }
+              })
+            )
+          );
+
+          // Deduct credit inside the same transaction
+          await creditService.useCredit(userId, total, newOrder.id, tx);
+
+          return { newOrder, newItems };
+        });
+
+        order = result.newOrder;
+        createdItems = result.newItems;
+      } else {
+        order = await prisma.order.create({
+          data: {
+            userId,
+            total,
+            status: OrderStatus.PENDING,
+            deliveryMethod: deliveryMethod || 'DELIVERY',
+            paymentMethod: 'EXTERNAL',
+          }
+        });
+
+        createdItems = await Promise.all(
+          orderItems.map(item =>
+            prisma.orderItem.create({
+              data: {
+                orderId: order.id,
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.price
+              }
+            })
+          )
+        );
+      }
 
       logger.info('Order created in database', {
         orderId: order.id,
         userId,
         total,
         status: order.status,
+        paymentMethod: order.paymentMethod,
       });
 
-      // Create order items
       logger.debug('Creating order items', {
         orderId: order.id,
         itemCount: orderItems.length,
       });
-
-      const createdItems = await Promise.all(
-        orderItems.map(item =>
-          prisma.orderItem.create({
-            data: {
-              orderId: order.id,
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.price
-            }
-          })
-        )
-      );
 
       logger.info('Order items created in database', {
         orderId: order.id,
@@ -988,6 +1038,12 @@ export class OrderService {
         status: order.status,
         total: order.total,
       });
+
+      // Auto-refund credit if this was a credit-paid order
+      if (order.paymentMethod === 'CREDIT') {
+        logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
+        await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
+      }
 
       return { message: 'Order deleted successfully' };
     } catch (error) {
