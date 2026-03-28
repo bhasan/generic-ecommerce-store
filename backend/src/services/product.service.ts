@@ -1,12 +1,14 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, hasAnyRole } from '../constants/roles';
+import { deleteUploadedFile, collectProductImageUrls } from '../utils/fileUtils';
 
 interface CreateProductData {
   name: string;
   categoryId: number;
   price: number;
   description?: string;
+  thumbnail?: string;
   image?: string;
   images?: string[];
   stock?: number;
@@ -23,6 +25,7 @@ interface UpdateProductData {
   categoryId?: number;
   price?: number;
   description?: string;
+  thumbnail?: string;
   image?: string;
   images?: string[];
   stock?: number;
@@ -220,7 +223,7 @@ export class ProductService {
     // Filter out non-updatable fields (reviews, id, createdAt, updatedAt, etc.)
     const allowedFields: (keyof UpdateProductData)[] = [
       'name', 'categoryId', 'price', 'description',
-      'image', 'images', 'stock', 'stockEnabled', 'hidden',
+      'thumbnail', 'image', 'images', 'stock', 'stockEnabled', 'hidden',
       'sortOrder', 'cardSize', 'allowedQuantitiesOverride', 'quantityDiscountsOverride'
     ];
 
@@ -250,10 +253,42 @@ export class ProductService {
       }
     }
 
-    return await prisma.productItem.update({
+    const updated = await prisma.productItem.update({
       where: { id },
       data: filteredData
     });
+
+    // Clean up any upload URLs that were removed from this product
+    const oldUrls = collectProductImageUrls(product);
+    const newUrls = collectProductImageUrls(updated);
+    const removedUrls = oldUrls.filter((u) => !newUrls.includes(u));
+    if (removedUrls.length > 0) {
+      const orphaned = await this.getOrphanedUrls(id, removedUrls);
+      await Promise.all(orphaned.map((url) => deleteUploadedFile(url)));
+    }
+
+    return updated;
+  }
+
+  /**
+   * Returns upload URLs from a product that are not referenced by any other product.
+   */
+  private async getOrphanedUrls(excludeId: number, urls: string[]): Promise<string[]> {
+    if (urls.length === 0) return [];
+
+    const others = await prisma.productItem.findMany({
+      where: { id: { not: excludeId } },
+      select: { thumbnail: true, image: true, images: true }
+    });
+
+    const usedElsewhere = new Set<string>();
+    for (const p of others) {
+      for (const u of collectProductImageUrls(p)) {
+        usedElsewhere.add(u);
+      }
+    }
+
+    return urls.filter((u) => !usedElsewhere.has(u));
   }
 
   /**
@@ -266,7 +301,12 @@ export class ProductService {
       throw new AppError('Product not found', 404);
     }
 
+    const urlsToCheck = collectProductImageUrls(product);
     await prisma.productItem.delete({ where: { id } });
+
+    const orphaned = await this.getOrphanedUrls(id, urlsToCheck);
+    await Promise.all(orphaned.map((url) => deleteUploadedFile(url)));
+
     return { message: 'Product deleted successfully' };
   }
 }

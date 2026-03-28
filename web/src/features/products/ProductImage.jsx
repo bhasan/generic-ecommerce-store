@@ -38,6 +38,7 @@ function ProductImage({ src, alt, className }) {
       src={resolvedSrc}
       alt={alt}
       className={className}
+      loading="lazy"
       onError={(e) => {
         // Prevent infinite loop if the fallback image itself is missing
         if (e.target.src.includes(PRODUCT_FALLBACK_IMAGE)) {

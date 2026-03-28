@@ -20,6 +20,19 @@ router.post(
 );
 
 /**
+ * @route   POST /api/upload/multiple
+ * @desc    Upload multiple image files at once (max 20)
+ * @access  Private (Management/Admin only)
+ */
+router.post(
+  '/multiple',
+  authenticate,
+  authorizeManagement,
+  upload.array('files', 20),
+  uploadController.uploadImages
+);
+
+/**
  * @route   GET /api/upload
  * @desc    Get a list of all uploaded images
  * @access  Private (Management/Admin only)

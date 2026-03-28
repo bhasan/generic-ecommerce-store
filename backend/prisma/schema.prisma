@@ -109,6 +109,7 @@ model ProductItem {
   name                      String
   price                     Float
   description               String?
+  thumbnail                 String?
   image                     String?
   images                    String[]
   stock                     Float    @default(0)
