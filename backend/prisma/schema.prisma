@@ -17,6 +17,8 @@ model User {
   updatedAt     DateTime @updatedAt
   approved      Boolean  @default(false)
   cashapp       String?
+  zelle         String?
+  venmo         String?
   phoneNumber   String?
   address       String?
   rejected      Boolean  @default(false)

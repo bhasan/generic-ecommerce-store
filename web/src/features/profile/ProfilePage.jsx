@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import './ProfilePage.css';
 import { useApp } from '../../context/AppContext';
-import { User, Save, DollarSign, MapPin, Phone, Lock } from 'lucide-react';
+import { User, Save, DollarSign, MapPin, Phone, Lock, AtSign } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { isGuest } from '../../utils/roles';
 
 // Helper to parse address string into components
 const parseAddress = (addressStr) => {
   if (!addressStr) return { street: '', apartment: '', city: '', state: 'TX', zipCode: '' };
-  
+
   // Try to parse address like "123 Main St, Apt 4B, City, TX 12345"
   const parts = addressStr.split(',').map(p => p.trim());
-  
+
   if (parts.length >= 3) {
     // Check if second part looks like an apartment
     const hasApt = parts[1]?.toLowerCase().includes('apt') || parts[1]?.toLowerCase().includes('suite');
-    
+
     if (hasApt && parts.length >= 4) {
       // Format: street, apt, city, state zip
       const stateZip = parts[3]?.split(' ') || [];
@@ -38,7 +38,7 @@ const parseAddress = (addressStr) => {
       };
     }
   }
-  
+
   // Fallback - just put everything in street
   return { street: addressStr, apartment: '', city: '', state: 'TX', zipCode: '' };
 };
@@ -57,7 +57,10 @@ const formatAddress = (address) => {
 function ProfilePage() {
   const { currentUser, updateUserProfile, showNotification, paymentSettings } = useApp();
   const [formData, setFormData] = useState({
+    username: currentUser.username || '',
     cashapp: currentUser.cashapp || '',
+    zelle: currentUser.zelle || '',
+    venmo: currentUser.venmo || '',
     phoneNumber: currentUser.phoneNumber || '',
   });
   const [address, setAddress] = useState(parseAddress(currentUser.address));
@@ -75,7 +78,7 @@ function ProfilePage() {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
+
     try {
       // Combine address fields into single string for storage
       const fullAddress = formatAddress(address);
@@ -135,11 +138,26 @@ function ProfilePage() {
           </div>
 
           <form onSubmit={handleSubmit} className="profile-form">
+            <div className="form-group">
+              <label htmlFor="username" className="form-label">
+                <AtSign size={16} />
+                <span>Username</span>
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                className="form-input"
+                placeholder="your_username"
+              />
+            </div>
+
             {paymentSettings?.cashapp?.enabled && (
               <div className="form-group">
                 <label htmlFor="cashapp" className="form-label">
                   <DollarSign size={16} />
-                  <span>CashApp Username</span>
+                  <span>CashApp</span>
                 </label>
                 <input
                   id="cashapp"
@@ -160,12 +178,48 @@ function ProfilePage() {
               </div>
             )}
 
+            {paymentSettings?.zelle?.enabled && (
+              <div className="form-group">
+                <label htmlFor="zelle" className="form-label">
+                  <DollarSign size={16} />
+                  <span>Zelle</span>
+                </label>
+                <input
+                  id="zelle"
+                  type="text"
+                  value={formData.zelle}
+                  onChange={(e) => setFormData({ ...formData, zelle: e.target.value })}
+                  className="form-input"
+                  placeholder="Phone or email"
+                />
+                <span className="form-hint">Required for payment processing</span>
+              </div>
+            )}
+
+            {paymentSettings?.venmo?.enabled && (
+              <div className="form-group">
+                <label htmlFor="venmo" className="form-label">
+                  <DollarSign size={16} />
+                  <span>Venmo</span>
+                </label>
+                <input
+                  id="venmo"
+                  type="text"
+                  value={formData.venmo}
+                  onChange={(e) => setFormData({ ...formData, venmo: e.target.value })}
+                  className="form-input"
+                  placeholder="@YourVenmo"
+                />
+                <span className="form-hint">Required for payment processing</span>
+              </div>
+            )}
+
             <div className="form-section">
               <label className="form-label form-section-label">
                 <MapPin size={16} />
                 <span>Delivery Address</span>
               </label>
-              
+
               <div className="form-group">
                 <label htmlFor="street" className="form-label-small">Street Address</label>
                 <input
