@@ -49,7 +49,7 @@ const parseAddress = (addressStr) => {
 function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, pickupLocation, storeCashappUsername, paymentSettings } = useApp();
+  const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, pickupLocation, storeCashappUsername, paymentSettings, creditBalance } = useApp();
   const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || 'DELIVERY');
   const [address, setAddress] = useState({
     street: '',
@@ -60,6 +60,7 @@ function CheckoutPage() {
   });
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cashAppUsername, setCashAppUsername] = useState('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('EXTERNAL');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
   const [pendingOrderState, setPendingOrderState] = useState(null);
@@ -124,7 +125,7 @@ function CheckoutPage() {
       }
     }
 
-    if (paymentSettings?.cashapp?.enabled) {
+    if (selectedPaymentMethod !== 'CREDIT' && paymentSettings?.cashapp?.enabled) {
       if (!cashAppUsername.trim()) {
         newErrors.cashAppUsername = 'CashApp username is required';
       } else if (!cashAppUsername.startsWith('$')) {
@@ -132,6 +133,10 @@ function CheckoutPage() {
       } else if (cashAppUsername.length < 2 || cashAppUsername.length > 21) {
         newErrors.cashAppUsername = 'CashApp username must be between 1-20 characters (excluding $)';
       }
+    }
+
+    if (selectedPaymentMethod === 'CREDIT' && creditBalance < total) {
+      newErrors.credit = `Insufficient credit balance. You have $${creditBalance.toFixed(2)} but the order total is $${total.toFixed(2)}.`;
     }
 
     setErrors(newErrors);
@@ -150,8 +155,8 @@ function CheckoutPage() {
       // Capture cart items before checkout clears them
       const itemsForSuccess = [...cart];
 
-      // Call checkout function which creates order via API (pass CashApp for orders page)
-      const newOrder = await checkout(cashAppUsername, deliveryMethod);
+      // Call checkout function which creates order via API
+      const newOrder = await checkout(cashAppUsername, deliveryMethod, selectedPaymentMethod);
 
       // Format full address for display
       const fullAddress = [
@@ -171,12 +176,18 @@ function CheckoutPage() {
         subtotal,
         tax,
         total,
-        items: itemsForSuccess
+        items: itemsForSuccess,
+        paymentMethod: selectedPaymentMethod
       };
 
-      // Show send-payment modal before navigating to success page
-      setPendingOrderState(orderState);
-      setShowSendPaymentModal(true);
+      if (selectedPaymentMethod === 'CREDIT') {
+        // Credit payment is already handled — skip SendPaymentModal
+        navigate('/order-success', { state: orderState });
+      } else {
+        // Show send-payment modal before navigating to success page
+        setPendingOrderState(orderState);
+        setShowSendPaymentModal(true);
+      }
     } catch (error) {
       // Error is already handled in checkout function
     } finally {
@@ -279,63 +290,113 @@ function CheckoutPage() {
               <h3>Payment Information</h3>
             </div>
             <div className="payment-info-box">
-              {paymentSettings?.cashapp?.enabled && (
+              {/* Store Credit Option */}
+              {creditBalance > 0 && (
                 <div className="form-group">
-                  <label htmlFor="cashapp">Payment will be received from (your payment username):</label>
-                  <input
-                    id="cashapp"
-                    type="text"
-                    value={cashAppUsername}
-                    onChange={(e) => {
-                      let value = e.target.value;
-                      if (value && !value.startsWith('$')) {
-                        value = '$' + value;
-                      }
-                      setCashAppUsername(value);
-                      if (errors.cashAppUsername) {
-                        setErrors({ ...errors, cashAppUsername: '' });
-                      }
-                    }}
-                    placeholder="$username"
-                    className={`form-input ${errors.cashAppUsername ? 'form-error' : ''}`}
-                  />
-                  {errors.cashAppUsername && (
+                  <label className="payment-method-select-label">Payment Method</label>
+                  <div className="payment-method-options">
+                    <label className={`payment-method-option ${selectedPaymentMethod === 'CREDIT' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="CREDIT"
+                        checked={selectedPaymentMethod === 'CREDIT'}
+                        onChange={() => {
+                          setSelectedPaymentMethod('CREDIT');
+                          setErrors({ ...errors, credit: '', cashAppUsername: '' });
+                        }}
+                      />
+                      <span>Store Credit (${creditBalance.toFixed(2)} available)</span>
+                    </label>
+                    <label className={`payment-method-option ${selectedPaymentMethod === 'EXTERNAL' ? 'selected' : ''}`}>
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="EXTERNAL"
+                        checked={selectedPaymentMethod === 'EXTERNAL'}
+                        onChange={() => {
+                          setSelectedPaymentMethod('EXTERNAL');
+                          setErrors({ ...errors, credit: '' });
+                        }}
+                      />
+                      <span>Pay via CashApp / Zelle / Venmo</span>
+                    </label>
+                  </div>
+                  {errors.credit && (
                     <span className="error-message">
                       <AlertCircle size={14} />
-                      {errors.cashAppUsername}
+                      {errors.credit}
                     </span>
                   )}
                 </div>
               )}
 
+              {selectedPaymentMethod !== 'CREDIT' && (
+                <>
+                  {paymentSettings?.cashapp?.enabled && (
+                    <div className="form-group">
+                      <label htmlFor="cashapp">Payment will be received from (your payment username):</label>
+                      <input
+                        id="cashapp"
+                        type="text"
+                        value={cashAppUsername}
+                        onChange={(e) => {
+                          let value = e.target.value;
+                          if (value && !value.startsWith('$')) {
+                            value = '$' + value;
+                          }
+                          setCashAppUsername(value);
+                          if (errors.cashAppUsername) {
+                            setErrors({ ...errors, cashAppUsername: '' });
+                          }
+                        }}
+                        placeholder="$username"
+                        className={`form-input ${errors.cashAppUsername ? 'form-error' : ''}`}
+                      />
+                      {errors.cashAppUsername && (
+                        <span className="error-message">
+                          <AlertCircle size={14} />
+                          {errors.cashAppUsername}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
-              {paymentSettings?.cashapp?.enabled && (
-                <div className="payment-method-info">
-                  <p className="payment-instructions">
-                    <strong>CashApp:</strong> Send payment to <strong>{paymentSettings.cashapp.handle}</strong>
+                  {paymentSettings?.cashapp?.enabled && (
+                    <div className="payment-method-info">
+                      <p className="payment-instructions">
+                        <strong>CashApp:</strong> Send payment to <strong>{paymentSettings.cashapp.handle}</strong>
+                      </p>
+                    </div>
+                  )}
+
+                  {paymentSettings?.zelle?.enabled && (
+                    <div className="payment-method-info">
+                      <p className="payment-instructions">
+                        <strong>Zelle:</strong> Send payment to <strong>{paymentSettings.zelle.handle}</strong>
+                      </p>
+                    </div>
+                  )}
+
+                  {paymentSettings?.venmo?.enabled && (
+                    <div className="payment-method-info">
+                      <p className="payment-instructions">
+                        <strong>Venmo:</strong> Send payment to <strong>{paymentSettings.venmo.handle}</strong>
+                      </p>
+                    </div>
+                  )}
+
+                  <p className="payment-memo-hint">
+                    After "Place Order" is clicked, you will get an order number. Put that in the memo.
                   </p>
-                </div>
+                </>
               )}
 
-              {paymentSettings?.zelle?.enabled && (
-                <div className="payment-method-info">
-                  <p className="payment-instructions">
-                    <strong>Zelle:</strong> Send payment to <strong>{paymentSettings.zelle.handle}</strong>
-                  </p>
+              {selectedPaymentMethod === 'CREDIT' && (
+                <div className="payment-credit-confirm">
+                  <p>Your store credit balance of <strong>${creditBalance.toFixed(2)}</strong> will be used to pay for this order.</p>
                 </div>
               )}
-
-              {paymentSettings?.venmo?.enabled && (
-                <div className="payment-method-info">
-                  <p className="payment-instructions">
-                    <strong>Venmo:</strong> Send payment to <strong>{paymentSettings.venmo.handle}</strong>
-                  </p>
-                </div>
-              )}
-
-              <p className="payment-memo-hint">
-                After "Place Order" is clicked, you will get an order number. Put that in the memo.
-              </p>
             </div>
           </div>
 
@@ -529,7 +590,9 @@ function CheckoutPage() {
             </button>
 
             <p className="checkout-note">
-              By placing this order, you agree to send payment via the method(s) shown above
+              {selectedPaymentMethod === 'CREDIT'
+                ? 'Store credit will be deducted from your balance when you place this order.'
+                : 'By placing this order, you agree to send payment via the method(s) shown above'}
             </p>
           </div>
         </div>

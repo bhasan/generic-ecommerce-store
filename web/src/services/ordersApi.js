@@ -47,11 +47,12 @@ export const getOrderById = async (id) => {
  * @param {string} [deliveryMethod] - 'DELIVERY' or 'PICKUP'
  * @returns {Promise<object>} Created order object
  */
-export const createOrder = async (items, cashAppUsername, deliveryMethod) => {
+export const createOrder = async (items, cashAppUsername, deliveryMethod, paymentMethod) => {
   try {
     const payload = { items };
     if (cashAppUsername) payload.cashAppUsername = cashAppUsername;
     if (deliveryMethod) payload.deliveryMethod = deliveryMethod;
+    if (paymentMethod) payload.paymentMethod = paymentMethod;
     const response = await post('/orders', payload);
     return response.order || response;
   } catch (error) {

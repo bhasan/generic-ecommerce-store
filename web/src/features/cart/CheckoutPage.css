@@ -530,3 +530,44 @@
   font-size: 0.9rem;
   margin: 0;
 }
+/* Store Credit Payment Method */
+.payment-method-select-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.payment-method-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.payment-method-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.payment-method-option.selected {
+  border-color: var(--color-primary);
+  background: rgba(124, 58, 237, 0.05);
+}
+
+.payment-method-option input[type="radio"] {
+  accent-color: var(--color-primary);
+}
+
+.payment-credit-confirm {
+  background: rgba(22, 163, 74, 0.07);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+  border-radius: var(--border-radius-md);
+  padding: 0.875rem 1rem;
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+}

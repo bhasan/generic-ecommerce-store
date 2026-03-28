@@ -4,6 +4,7 @@ import { OrderStatus } from '../../generated/prisma';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { logger } from '../utils/logger';
+import creditService from './credit.service';
 
 interface CreateOrderData {
   userId: number;
@@ -13,6 +14,7 @@ interface CreateOrderData {
   }>;
   cashAppUsername?: string;
   deliveryMethod?: string;
+  paymentMethod?: string;
 }
 
 interface UpdateOrderStatusData {
@@ -456,7 +458,8 @@ export class OrderService {
    * Create a new order (checkout)
    */
   async createOrder(data: CreateOrderData) {
-    const { userId, items, cashAppUsername, deliveryMethod } = data;
+    const { userId, items, cashAppUsername, deliveryMethod, paymentMethod } = data;
+    const isCredit = paymentMethod === 'CREDIT';
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -544,42 +547,83 @@ export class OrderService {
         tax,
         total,
         status: OrderStatus.PENDING,
+        paymentMethod: paymentMethod || 'EXTERNAL',
       });
 
-      const order = await prisma.order.create({
-        data: {
-          userId,
-          total,
-          status: OrderStatus.PENDING,
-          deliveryMethod: deliveryMethod || 'DELIVERY',
-        }
-      });
+      let order: Awaited<ReturnType<typeof prisma.order.create>>;
+      let createdItems: Awaited<ReturnType<typeof prisma.orderItem.create>>[];
+
+      if (isCredit) {
+        // Use a transaction to atomically create the order and deduct credit
+        const result = await prisma.$transaction(async (tx) => {
+          const newOrder = await tx.order.create({
+            data: {
+              userId,
+              total,
+              status: OrderStatus.PENDING,
+              deliveryMethod: deliveryMethod || 'DELIVERY',
+              paymentMethod: 'CREDIT',
+            }
+          });
+
+          const newItems = await Promise.all(
+            orderItems.map(item =>
+              tx.orderItem.create({
+                data: {
+                  orderId: newOrder.id,
+                  productId: item.productId,
+                  quantity: item.quantity,
+                  price: item.price
+                }
+              })
+            )
+          );
+
+          // Deduct credit inside the same transaction
+          await creditService.useCredit(userId, total, newOrder.id, tx);
+
+          return { newOrder, newItems };
+        });
+
+        order = result.newOrder;
+        createdItems = result.newItems;
+      } else {
+        order = await prisma.order.create({
+          data: {
+            userId,
+            total,
+            status: OrderStatus.PENDING,
+            deliveryMethod: deliveryMethod || 'DELIVERY',
+            paymentMethod: 'EXTERNAL',
+          }
+        });
+
+        createdItems = await Promise.all(
+          orderItems.map(item =>
+            prisma.orderItem.create({
+              data: {
+                orderId: order.id,
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.price
+              }
+            })
+          )
+        );
+      }
 
       logger.info('Order created in database', {
         orderId: order.id,
         userId,
         total,
         status: order.status,
+        paymentMethod: order.paymentMethod,
       });
 
-      // Create order items
       logger.debug('Creating order items', {
         orderId: order.id,
         itemCount: orderItems.length,
       });
-
-      const createdItems = await Promise.all(
-        orderItems.map(item =>
-          prisma.orderItem.create({
-            data: {
-              orderId: order.id,
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.price
-            }
-          })
-        )
-      );
 
       logger.info('Order items created in database', {
         orderId: order.id,
@@ -988,6 +1032,12 @@ export class OrderService {
         status: order.status,
         total: order.total,
       });
+
+      // Auto-refund credit if this was a credit-paid order
+      if (order.paymentMethod === 'CREDIT') {
+        logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
+        await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
+      }
 
       return { message: 'Order deleted successfully' };
     } catch (error) {

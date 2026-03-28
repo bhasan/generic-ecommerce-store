@@ -18,6 +18,7 @@ import OrderSuccessPage from './features/cart/OrderSuccessPage';
 import OrdersPage from './features/orders/OrdersPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import StoreCreditPage from './features/credits/StoreCreditPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import OrderHistoryPage from './features/orders/OrderHistoryPage';
 import HelpPage from './features/help/HelpPage';
@@ -91,6 +92,13 @@ function App() {
                 </ProtectedRoute>
               } />
 
+
+              {/* Store Credit - Admin/Manager only */}
+              <Route path="/store-credit" element={
+                <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
+                  <StoreCreditPage />
+                </ProtectedRoute>
+              } />
 
               {/* Order History - Admin only */}
               <Route path="/order-history" element={

@@ -18,6 +18,7 @@ import notificationRoutes from './routes/notification.routes';
 import uploadRoutes from './routes/upload.routes';
 import paymentSettingsRoutes from './routes/paymentSettings.routes';
 import storeSettingsRoutes from './routes/storeSettings.routes';
+import creditRoutes from './routes/credit.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -186,6 +187,7 @@ app.use('/api/contact', generalLimiter, contactRoutes);
 app.use('/api/notifications', generalLimiter, notificationRoutes);
 app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
+app.use('/api/credits', generalLimiter, creditRoutes);
 
 // ========================================
 // ERROR HANDLING

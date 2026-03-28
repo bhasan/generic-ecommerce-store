@@ -7,6 +7,7 @@ import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
 import * as configApi from '../services/configApi';
+import * as creditApi from '../services/creditApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
@@ -61,6 +62,7 @@ export function AppProvider({ children }) {
     venmo: { enabled: false, handle: '' },
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [creditBalance, setCreditBalance] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -77,6 +79,13 @@ export function AppProvider({ children }) {
           }
           setCurrentUser(user);
           setIsAuthenticated(true);
+          // Load credit balance for authenticated user
+          try {
+            const creditData = await creditApi.getUserCredit(user.id);
+            setCreditBalance(creditData.balance ?? 0);
+          } catch {
+            // Non-fatal: credit balance defaults to 0
+          }
         } catch (error) {
           // Token invalid or expired
           console.error('Auth check failed:', error);
@@ -387,7 +396,16 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const checkout = async (cashAppUsername, deliveryMethod) => {
+  const refreshCreditBalance = useCallback(async (userId) => {
+    try {
+      const creditData = await creditApi.getUserCredit(userId);
+      setCreditBalance(creditData.balance ?? 0);
+    } catch {
+      // Non-fatal
+    }
+  }, []);
+
+  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -395,23 +413,28 @@ export function AppProvider({ children }) {
         quantity: item.quantity
       }));
 
-      // Create order via API (pass CashApp username - saved to User.cashapp for orders page)
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod);
-      
-      // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
-      const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
-      setCurrentUser(updatedUserData);
-      localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      
+      // Create order via API
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
+
+      if (paymentMethod !== 'CREDIT') {
+        // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
+        const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
+        setCurrentUser(updatedUserData);
+        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+      } else {
+        // Refresh credit balance after credit payment
+        await refreshCreditBalance(currentUser.id);
+      }
+
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
-      
+
       // Clear cart
       setCart([]);
-      
-      showNotification('Order placed successfully! 🎉', 'success');
-      
+
+      showNotification('Order placed successfully!', 'success');
+
       // Return order for caller to handle navigation with additional data
       return newOrder;
     } catch (error) {
@@ -820,6 +843,8 @@ export function AppProvider({ children }) {
     storeSettings,
     loadConfig,
     restoreCart,
+    creditBalance,
+    refreshCreditBalance,
   };
 
   return (

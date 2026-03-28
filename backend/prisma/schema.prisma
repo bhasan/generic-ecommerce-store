@@ -23,6 +23,7 @@ model User {
   address       String?
   rejected      Boolean  @default(false)
   rejectionNote String?
+  creditBalance Float    @default(0)
 
   @@map("users")
 }
@@ -54,8 +55,22 @@ model Order {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   deliveryMethod String      @default("DELIVERY")
+  paymentMethod  String      @default("EXTERNAL")
 
   @@map("orders")
+}
+
+model CreditTransaction {
+  id        Int                   @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  type      CreditTransactionType
+  orderId   Int?
+  note      String?
+  createdBy Int?
+  createdAt DateTime              @default(now())
+
+  @@map("credit_transactions")
 }
 
 model OrderItem {
@@ -201,4 +216,11 @@ enum ContactMessageStatus {
   NEW
   READ
   RESOLVED
+}
+
+enum CreditTransactionType {
+  ADDED
+  USED
+  REFUNDED
+  REMOVED
 }
