@@ -229,7 +229,6 @@ export class OrderService {
         updatedAt: order.updatedAt,
         user: user ? {
           id: user.id,
-          name: user.name,
           username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
@@ -299,7 +298,7 @@ export class OrderService {
     return orders.map(order => {
       const user = userMap.get(order.userId);
       const items = itemsByOrder.get(order.id) || [];
-      
+
       return {
         id: order.id,
         status: order.status,
@@ -308,7 +307,6 @@ export class OrderService {
         updatedAt: order.updatedAt,
         user: user ? {
           id: user.id,
-          name: user.name,
           username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
@@ -378,7 +376,7 @@ export class OrderService {
     return orders.map(order => {
       const user = userMap.get(order.userId);
       const items = itemsByOrder.get(order.id) || [];
-      
+
       return {
         id: order.id,
         status: order.status,
@@ -387,7 +385,6 @@ export class OrderService {
         updatedAt: order.updatedAt,
         user: user ? {
           id: user.id,
-          name: user.name,
           username: user.username,
           address: user.address,
           phoneNumber: user.phoneNumber
@@ -429,7 +426,7 @@ export class OrderService {
     // Fetch user
     const user = await prisma.user.findUnique({
       where: { id: order.userId },
-      select: { id: true, name: true, username: true, cashapp: true, phoneNumber: true, address: true }
+      select: { id: true, username: true, cashapp: true, phoneNumber: true, address: true }
     });
 
     // Fetch order items
