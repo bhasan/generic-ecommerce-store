@@ -32,7 +32,7 @@ function RejectedUsersSection({
             <div key={user.id} className="rejected-user-card">
               <div className="rejected-user-header">
                 <div>
-                  <h4 className="rejected-user-name">{user.name}</h4>
+                  <h4 className="rejected-user-name">{user.username}</h4>
                   <div className="rejected-user-info">
                     <div className="rejected-info-item">
                       <Mail size={16} />
@@ -82,7 +82,7 @@ function RejectedUsersSection({
                   <span>Rejected: {formatDate(user.createdAt)}</span>
                 </div>
                 <button
-                  onClick={() => onMoveToPending(user.id, user.name)}
+                  onClick={() => onMoveToPending(user.id, user.username)}
                   className="btn-action btn-approve"
                 >
                   <UserPlus size={16} />

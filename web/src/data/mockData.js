@@ -17,7 +17,7 @@ export const initialProducts = [
       {
         id: 1,
         userId: 2,
-        userName: 'John Customer',
+        userName: 'johncustomer',
         rating: 5,
         comment: 'Amazing sound quality! The noise cancellation is fantastic. Best headphones I have ever owned.',
         date: '2024-11-10',
@@ -29,7 +29,7 @@ export const initialProducts = [
       {
         id: 2,
         userId: 3,
-        userName: 'Sarah Johnson',
+        userName: 'sarahjohnson',
         rating: 4,
         comment: 'Very comfortable for long listening sessions. Battery life is impressive. Only minor issue is the Bluetooth range could be better.',
         date: '2024-11-08',
@@ -41,7 +41,7 @@ export const initialProducts = [
       {
         id: 3,
         userId: 4,
-        userName: 'Mike Thompson',
+        userName: 'mikethompson',
         rating: 5,
         comment: 'Perfect for work from home! The noise cancellation helps me focus. Highly recommend!',
         date: '2024-11-05',
@@ -71,7 +71,7 @@ export const initialProducts = [
       {
         id: 1,
         userId: 2,
-        userName: 'John Customer',
+        userName: 'johncustomer',
         rating: 4,
         comment: 'Great health tracking features. Sleep monitoring is accurate. Would give 5 stars if battery lasted longer.',
         date: '2024-11-12',
@@ -83,7 +83,7 @@ export const initialProducts = [
       {
         id: 2,
         userId: 5,
-        userName: 'Emily Chen',
+        userName: 'emilychen',
         rating: 5,
         comment: 'Love this watch! All the features I need for fitness tracking. The heart rate monitor is very accurate.',
         date: '2024-11-09',
@@ -111,7 +111,7 @@ export const initialProducts = [
       {
         id: 1,
         userId: 6,
-        userName: 'David Williams',
+        userName: 'davidwilliams',
         rating: 5,
         comment: 'Perfect size for my 15-inch laptop. Great quality materials and lots of pockets for organization.',
         date: '2024-11-11',

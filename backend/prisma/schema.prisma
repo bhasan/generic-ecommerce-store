@@ -11,17 +11,19 @@ datasource db {
 
 model User {
   id            Int      @id @default(autoincrement())
-  email         String   @unique
+  username      String   @unique
   password      String
-  name          String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   approved      Boolean  @default(false)
   cashapp       String?
+  zelle         String?
+  venmo         String?
   phoneNumber   String?
   address       String?
   rejected      Boolean  @default(false)
   rejectionNote String?
+  creditBalance Float    @default(0)
 
   @@map("users")
 }
@@ -53,8 +55,22 @@ model Order {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   deliveryMethod String      @default("DELIVERY")
+  paymentMethod  String      @default("EXTERNAL")
 
   @@map("orders")
+}
+
+model CreditTransaction {
+  id        Int                   @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  type      CreditTransactionType
+  orderId   Int?
+  note      String?
+  createdBy Int?
+  createdAt DateTime              @default(now())
+
+  @@map("credit_transactions")
 }
 
 model OrderItem {
@@ -93,6 +109,7 @@ model ProductItem {
   name                      String
   price                     Float
   description               String?
+  thumbnail                 String?
   image                     String?
   images                    String[]
   stock                     Float    @default(0)
@@ -200,4 +217,11 @@ enum ContactMessageStatus {
   NEW
   READ
   RESOLVED
+}
+
+enum CreditTransactionType {
+  ADDED
+  USED
+  REFUNDED
+  REMOVED
 }

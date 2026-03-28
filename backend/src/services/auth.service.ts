@@ -5,9 +5,8 @@ import { AppError } from '../middleware/error.middleware';
 import { RoleName, isRoleName } from '../constants/roles';
 
 interface RegisterData {
-  email: string;
+  username: string;
   password: string;
-  name: string;
   address?: string;
   cashapp?: string;
   phoneNumber?: string;
@@ -16,7 +15,7 @@ interface RegisterData {
 }
 
 interface LoginData {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -25,18 +24,18 @@ export class AuthService {
    * Register a new user (requires admin approval)
    */
   async register(data: RegisterData) {
-    const { email, password, name, address, cashapp, phoneNumber } = data;
-    
+    const { username, password, address, cashapp, phoneNumber } = data;
+
     // New registrations always get CUSTOMER role and require approval
     const requestedRoles: RoleName[] = ['CUSTOMER'];
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { username }
     });
 
     if (existingUser) {
-      throw new AppError('User with this email already exists', 409);
+      throw new AppError('User with this username already exists', 409);
     }
 
     // Hash password
@@ -47,9 +46,8 @@ export class AuthService {
     // Create user (not approved by default)
     const user = await prisma.user.create({
       data: {
-        email,
+        username,
         password: hashedPassword,
-        name,
         address: address || null,
         cashapp: cashapp || null,
         phoneNumber: phoneNumber || null,
@@ -96,22 +94,22 @@ export class AuthService {
    * Login user
    */
   async login(data: LoginData) {
-    const { email, password } = data;
+    const { username, password } = data;
 
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { username }
     });
 
     if (!user) {
-      throw new AppError('Invalid email or password', 401);
+      throw new AppError('Invalid username or password', 401);
     }
 
     // Verify password
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
-      throw new AppError('Invalid email or password', 401);
+      throw new AppError('Invalid username or password', 401);
     }
 
     // Check if user is approved
@@ -141,7 +139,7 @@ export class AuthService {
 
     const token = generateToken({
       userId: user.id,
-      email: user.email,
+      username: user.username,
       roles: roleNames
     });
 
@@ -213,12 +211,11 @@ export class AuthService {
       .filter((name): name is RoleName => isRoleName(name));
   }
 
-  private formatUser<T extends { id: number; email: string; name: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
-    const { id, email, name, address, cashapp, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
+  private formatUser<T extends { id: number; username: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
+    const { id, username, address, cashapp, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
     return {
       id,
-      email,
-      name,
+      username,
       ...(address ? { address } : {}),
       ...(cashapp ? { cashapp } : {}),
       ...(phoneNumber ? { phoneNumber } : {}),

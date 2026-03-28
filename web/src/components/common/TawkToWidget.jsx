@@ -89,7 +89,7 @@ function TawkToWidget() {
 
     try {
       window.Tawk_API.setAttributes({
-        name: currentUser.name || 'Customer',
+        name: currentUser.username,
         email: currentUser.email || '',
         phone: currentUser.phoneNumber || '',
         // Custom attributes

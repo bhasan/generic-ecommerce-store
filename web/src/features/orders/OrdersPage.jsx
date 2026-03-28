@@ -452,7 +452,7 @@ function OrdersPage() {
                           {isNew && <span className="kanban-card-new-badge">New</span>}
                         </div>
                         <div className="kanban-card-date">{formatOrderDate(order.createdAt)}</div>
-                        <div className="kanban-card-customer">{order.user?.name ?? 'N/A'}</div>
+                        <div className="kanban-card-customer">{order.user?.username ?? 'N/A'}</div>
                         <div className="kanban-card-meta">
                           ${order.total.toFixed(2)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
                         </div>

@@ -84,7 +84,7 @@ function PendingRegistrationsSection({
             <div key={user.id} className="pending-registration-card">
               <div className="pending-registration-header">
                 <div>
-                  <h4 className="pending-user-name">{user.name}</h4>
+                  <h4 className="pending-user-name">{user.username}</h4>
                   <div className="pending-user-info">
                     <div className="pending-info-item">
                       <Mail size={16} />
@@ -124,14 +124,14 @@ function PendingRegistrationsSection({
                 </div>
                 <div className="pending-actions">
                   <button
-                    onClick={() => handleApproveClick(user.id, user.name)}
+                    onClick={() => handleApproveClick(user.id, user.username)}
                     className="btn-action btn-approve"
                   >
                     <Check size={16} />
                     <span>Approve</span>
                   </button>
                   <button
-                    onClick={() => handleRejectClick(user.id, user.name)}
+                    onClick={() => handleRejectClick(user.id, user.username)}
                     className="btn-action btn-reject"
                   >
                     <X size={16} />
@@ -151,7 +151,7 @@ function PendingRegistrationsSection({
         title="Approve User Registration"
         message={
           <>
-            Are you sure you want to approve registration for <strong>{userToApprove?.name || ''}</strong>?
+            Are you sure you want to approve registration for <strong>{userToApprove?.username || ''}</strong>?
             <br />
             <br />
             This will grant them access to the system.
@@ -166,7 +166,7 @@ function PendingRegistrationsSection({
         isOpen={rejectModalOpen}
         onClose={handleRejectCancel}
         onConfirm={handleRejectConfirm}
-        userName={userToReject?.name || ''}
+        userName={userToReject?.username || ''}
       />
     </div>
   );

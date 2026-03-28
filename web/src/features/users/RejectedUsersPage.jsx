@@ -69,7 +69,7 @@ function RejectedUsersPage() {
             <div key={user.id} className="rejected-user-card">
               <div className="rejected-user-header">
                 <div>
-                  <h4 className="rejected-user-name">{user.name}</h4>
+                  <h4 className="rejected-user-name">{user.username}</h4>
                   <div className="rejected-user-info">
                     <div className="rejected-info-item">
                       <Mail size={16} />
