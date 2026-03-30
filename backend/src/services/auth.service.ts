@@ -24,7 +24,8 @@ export class AuthService {
    * Register a new user (requires admin approval)
    */
   async register(data: RegisterData) {
-    const { username, password, address, cashapp, phoneNumber } = data;
+    const { password, address, cashapp, phoneNumber } = data;
+    const username = data.username.trim().toLowerCase();
 
     // New registrations always get CUSTOMER role and require approval
     const requestedRoles: RoleName[] = ['CUSTOMER'];
@@ -94,7 +95,8 @@ export class AuthService {
    * Login user
    */
   async login(data: LoginData) {
-    const { username, password } = data;
+    const { password } = data;
+    const username = data.username.trim().toLowerCase();
 
     // Find user
     const user = await prisma.user.findUnique({

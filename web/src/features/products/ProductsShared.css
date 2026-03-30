@@ -68,3 +68,25 @@
 .products-grid-compact .product-footer {
   padding-top: var(--spacing-sm);
 }
+
+@media (max-width: 600px) {
+  .products-grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--spacing-sm);
+  }
+}
+
+@media (max-width: 400px) {
+  .products-grid-compact {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-xs);
+  }
+
+  .products-grid-compact .product-content {
+    padding: var(--spacing-sm);
+  }
+
+  .products-grid-compact .product-name {
+    font-size: var(--font-size-sm);
+  }
+}

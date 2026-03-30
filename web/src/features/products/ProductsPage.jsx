@@ -12,6 +12,7 @@ import ManageProductsPanel from './ManageProductsPanel';
 import CategorySection from './CategorySection';
 import CategoryNav from './CategoryNav';
 import { getProductCategoryLabel, groupProductsByCategory, sortProducts } from './productsHelpers';
+import ProductItemModal from './ProductItemModal';
 
 function ProductsPage({ mode = 'browse' }) {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ function ProductsPage({ mode = 'browse' }) {
     const savedView = localStorage.getItem('productsViewMode');
     return savedView === 'compact' || savedView === 'list' ? savedView : 'compact';
   });
+  const [selectedProductId, setSelectedProductId] = useState(null);
 
   useEffect(() => {
     loadCategories();
@@ -38,6 +40,32 @@ function ProductsPage({ mode = 'browse' }) {
   useEffect(() => {
     localStorage.setItem('productsViewMode', viewMode);
   }, [viewMode]);
+
+  // Scroll to previously viewed product when returning from full product page
+  useEffect(() => {
+    if (isLoadingProducts || isLoadingCategories) return;
+    const targetId = sessionStorage.getItem('productsScrollProductId');
+    if (!targetId) return;
+    sessionStorage.removeItem('productsScrollProductId');
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-product-id="${targetId}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [isLoadingProducts, isLoadingCategories]);
+
+  const handleProductClick = (id) => {
+    setSelectedProductId(id);
+  };
+
+  const handleModalClose = () => {
+    setSelectedProductId(null);
+  };
+
+  const handleViewFullPage = (id) => {
+    // Save product ID so scroll restoration fires when user navigates back
+    sessionStorage.setItem('productsScrollProductId', String(id));
+    navigate(`/products/${id}`);
+  };
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
   const isManagement = userRoles.includes(ROLES.ADMIN) || userRoles.includes(ROLES.MANAGEMENT);
@@ -75,7 +103,7 @@ function ProductsPage({ mode = 'browse' }) {
           viewMode={viewMode}
           getCategoryLabel={productCategoryLabel}
           onAddToCart={addToCart}
-          onProductClick={(id) => navigate(`/products/${id}`)}
+          onProductClick={handleProductClick}
           showHiddenLabel={!isCustomer}
         />
       ) : (
@@ -90,11 +118,19 @@ function ProductsPage({ mode = 'browse' }) {
             viewMode={viewMode}
             getCategoryLabel={productCategoryLabel}
             onAddToCart={addToCart}
-            onProductClick={(id) => navigate(`/products/${id}`)}
+            onProductClick={handleProductClick}
             showHiddenLabel={!isCustomer}
           />
         ))}
         </>
+      )}
+
+      {selectedProductId && (
+        <ProductItemModal
+          productId={selectedProductId}
+          onClose={handleModalClose}
+          onViewFullPage={handleViewFullPage}
+        />
       )}
     </div>
   );

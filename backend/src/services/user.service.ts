@@ -136,9 +136,10 @@ export class UserService {
     }
 
     // If username is being updated, check if it's already taken
-    if (data.username && data.username !== existingUser.username) {
+    const newUsername = data.username ? data.username.trim().toLowerCase() : undefined;
+    if (newUsername && newUsername !== existingUser.username) {
       const usernameExists = await prisma.user.findUnique({
-        where: { username: data.username }
+        where: { username: newUsername }
       });
 
       if (usernameExists) {
@@ -149,7 +150,7 @@ export class UserService {
     // Prepare update data
     const updateData: any = {};
 
-    if (data.username) updateData.username = data.username;
+    if (newUsername) updateData.username = newUsername;
     if (data.address !== undefined) updateData.address = data.address || null;
     if (data.cashapp !== undefined) updateData.cashapp = data.cashapp || null;
     if (data.zelle !== undefined) updateData.zelle = data.zelle || null;
