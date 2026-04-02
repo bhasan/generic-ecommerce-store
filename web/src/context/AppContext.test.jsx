@@ -42,6 +42,10 @@ const categoriesApi = vi.hoisted(() => ({
 }));
 
 const notificationsApi = vi.hoisted(() => ({
+  getNotifications: vi.fn(),
+  getUnreadNotificationCount: vi.fn(),
+  markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
   getStaffNotificationCounts: vi.fn(),
 }));
 
@@ -92,6 +96,7 @@ function ContextHarness() {
       <div data-testid="credit-balance">{app.creditBalance}</div>
       <div data-testid="minimum-delivery-order">{app.minimumDeliveryOrder}</div>
       <div data-testid="staff-notifications">{JSON.stringify(app.staffNotificationCounts)}</div>
+      <div data-testid="unread-notification-count">{app.unreadNotificationCount}</div>
       <div data-testid="notification">{app.notification?.message || ''}</div>
       <div data-testid="cart-count">{app.cart.length}</div>
       <button onClick={() => app.addToCart(sampleProducts[0], 1)}>Add To Cart</button>
@@ -110,6 +115,12 @@ describe('AppContext', () => {
     ordersApi.getAllOrders.mockResolvedValue(sampleOrders);
     categoriesApi.getAllCategories.mockResolvedValue(sampleCategories);
     notificationsApi.getStaffNotificationCounts.mockResolvedValue({ pendingRegistrations: 2, ordersByStatus: { READY: 1 } });
+    notificationsApi.getNotifications.mockResolvedValue([
+      { id: 11, title: 'New order', message: 'Order #11 is waiting.', requiresAttention: true, readAt: null, metadata: { path: '/orders' } }
+    ]);
+    notificationsApi.getUnreadNotificationCount.mockResolvedValue({ count: 1 });
+    notificationsApi.markNotificationRead.mockResolvedValue({ updated: true });
+    notificationsApi.markAllNotificationsRead.mockResolvedValue({ updated: 1 });
     configApi.getConfig.mockResolvedValue(sampleConfig);
     creditApi.getUserCredit.mockResolvedValue({ balance: 20 });
   });
@@ -136,6 +147,7 @@ describe('AppContext', () => {
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('20');
     expect(screen.getByTestId('minimum-delivery-order')).toHaveTextContent('35');
     expect(screen.getByTestId('staff-notifications')).toHaveTextContent('pendingRegistrations');
+    expect(screen.getByTestId('unread-notification-count')).toHaveTextContent('1');
   });
 
   it('redirects to login and clears auth state after an unauthorized event', async () => {

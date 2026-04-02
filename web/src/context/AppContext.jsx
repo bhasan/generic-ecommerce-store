@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as authApi from '../services/authApi';
 import * as usersApi from '../services/usersApi';
@@ -53,6 +53,11 @@ export function AppProvider({ children }) {
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
+  const [inboxNotifications, setInboxNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [notificationsMuted, setNotificationsMuted] = useState(
+    () => sessionStorage.getItem('notificationsMuted') === 'true'
+  );
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
   const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
   const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
@@ -65,6 +70,9 @@ export function AppProvider({ children }) {
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
   const [creditBalance, setCreditBalance] = useState(0);
+  const hasInteractedRef = useRef(false);
+  const hasLoadedNotificationsRef = useRef(false);
+  const knownAttentionNotificationIdsRef = useRef(new Set());
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -140,6 +148,114 @@ export function AppProvider({ children }) {
     loadCategories();
   }, [loadCategories]);
 
+  useEffect(() => {
+    const markInteracted = () => {
+      hasInteractedRef.current = true;
+    };
+
+    window.addEventListener('pointerdown', markInteracted, { once: true });
+    window.addEventListener('keydown', markInteracted, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', markInteracted);
+      window.removeEventListener('keydown', markInteracted);
+    };
+  }, []);
+
+  const playStaffAttentionSound = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const audioContext = new AudioContextClass();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.3);
+    oscillator.onended = () => {
+      audioContext.close().catch(() => {});
+    };
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    if (!isAuthenticated) return [];
+    try {
+      const data = await notificationsApi.getNotifications();
+      setInboxNotifications(data);
+      return data;
+    } catch {
+      return [];
+    }
+  }, [isAuthenticated]);
+
+  const loadUnreadNotificationCount = useCallback(async () => {
+    if (!isAuthenticated) return { count: 0 };
+    try {
+      const data = await notificationsApi.getUnreadNotificationCount();
+      setUnreadNotificationCount(data.count ?? 0);
+      return data;
+    } catch {
+      return { count: 0 };
+    }
+  }, [isAuthenticated]);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!isAuthenticated) {
+      setInboxNotifications([]);
+      setUnreadNotificationCount(0);
+      hasLoadedNotificationsRef.current = false;
+      knownAttentionNotificationIdsRef.current = new Set();
+      return { notifications: [], unreadCount: 0 };
+    }
+
+    const [notifications, unread] = await Promise.all([
+      loadNotifications(),
+      loadUnreadNotificationCount(),
+    ]);
+
+    const isStaffUser = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
+    const attentionIds = new Set(
+      notifications
+        .filter((item) => item.requiresAttention && !item.readAt)
+        .map((item) => item.id)
+    );
+
+    if (!hasLoadedNotificationsRef.current) {
+      hasLoadedNotificationsRef.current = true;
+      knownAttentionNotificationIdsRef.current = attentionIds;
+      return { notifications, unreadCount: unread.count ?? 0 };
+    }
+
+    const newAttentionIds = [...attentionIds].filter(
+      (id) => !knownAttentionNotificationIdsRef.current.has(id)
+    );
+    knownAttentionNotificationIdsRef.current = attentionIds;
+
+    if (
+      isStaffUser
+      && newAttentionIds.length > 0
+      && !notificationsMuted
+      && hasInteractedRef.current
+    ) {
+      playStaffAttentionSound();
+    }
+
+    return { notifications, unreadCount: unread.count ?? 0 };
+  }, [
+    currentUser,
+    isAuthenticated,
+    loadNotifications,
+    loadUnreadNotificationCount,
+    notificationsMuted,
+    playStaffAttentionSound,
+  ]);
+
   const loadStaffNotificationCounts = useCallback(async () => {
     if (!isAuthenticated) return;
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
@@ -161,6 +277,31 @@ export function AppProvider({ children }) {
     const interval = setInterval(loadStaffNotificationCounts, 50000);
     return () => clearInterval(interval);
   }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    refreshNotifications();
+    if (!isAuthenticated) return;
+    const interval = setInterval(refreshNotifications, 50000);
+    return () => clearInterval(interval);
+  }, [refreshNotifications, isAuthenticated]);
+
+  const toggleNotificationsMuted = useCallback(() => {
+    setNotificationsMuted((prev) => {
+      const next = !prev;
+      sessionStorage.setItem('notificationsMuted', String(next));
+      return next;
+    });
+  }, []);
+
+  const markNotificationRead = useCallback(async (notificationId) => {
+    await notificationsApi.markNotificationRead(notificationId);
+    await refreshNotifications();
+  }, [refreshNotifications]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    await notificationsApi.markAllNotificationsRead();
+    await refreshNotifications();
+  }, [refreshNotifications]);
 
   const loadConfig = useCallback(async () => {
     try {
@@ -318,6 +459,8 @@ export function AppProvider({ children }) {
       setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setCart([]);
+      setInboxNotifications([]);
+      setUnreadNotificationCount(0);
       setReturnPath(null);
       navigate('/products');
       showNotification('You have been logged out', 'info');
@@ -443,6 +586,7 @@ export function AppProvider({ children }) {
       setCart([]);
 
       showNotification('Order placed successfully!', 'success');
+      await Promise.all([refreshNotifications(), loadStaffNotificationCounts()]);
 
       // Return order for caller to handle navigation with additional data
       return newOrder;
@@ -549,6 +693,7 @@ export function AppProvider({ children }) {
       setOrders(ordersData);
       
       showNotification('Order status updated', 'success');
+      await Promise.all([refreshNotifications(), loadStaffNotificationCounts()]);
     } catch (error) {
       const errorMessage = error.message || 'Failed to update order status. Please try again.';
       showNotification(errorMessage, 'error');
@@ -837,6 +982,13 @@ export function AppProvider({ children }) {
     closeNotification,
     returnPath,
     setReturnPath,
+    inboxNotifications,
+    unreadNotificationCount,
+    refreshNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    notificationsMuted,
+    toggleNotificationsMuted,
     staffNotificationCounts,
     loadStaffNotificationCounts,
     addReview,

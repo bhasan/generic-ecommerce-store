@@ -5,6 +5,7 @@ import contactMessageService from '../services/contactMessage.service';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { logger } from '../utils/logger';
+import { notificationEventsService } from '../services/notificationEvents.service';
 
 export class ContactController {
   /**
@@ -64,6 +65,11 @@ export class ContactController {
         messageId: savedMessage.id,
         orderId: orderId ? parseInt(orderId, 10) : null,
         subject,
+      });
+
+      await notificationEventsService.notifyContactMessageReceived(savedMessage.id, {
+        userId,
+        username,
       });
 
 
@@ -333,6 +339,15 @@ export class ContactController {
         customerEmail: originalMessage.userEmail,
         requestId: req.requestId,
       });
+
+      await notificationEventsService.notifyContactReplySent(
+        parseInt(id, 10),
+        originalMessage.userId,
+        {
+          userId,
+          username: repliedByName,
+        }
+      );
 
       res.status(200).json({
         success: true,

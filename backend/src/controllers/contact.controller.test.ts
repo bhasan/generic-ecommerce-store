@@ -2,6 +2,7 @@ const {
   validationResultMock,
   emailServiceMock,
   contactMessageServiceMock,
+  notificationEventsServiceMock,
   prismaMock,
   logger,
 } = vi.hoisted(() => ({
@@ -19,6 +20,10 @@ const {
     markAsRead: vi.fn(),
     markAsResolved: vi.fn(),
     deleteMessage: vi.fn(),
+  },
+  notificationEventsServiceMock: {
+    notifyContactMessageReceived: vi.fn(),
+    notifyContactReplySent: vi.fn(),
   },
   prismaMock: {
     user: {
@@ -43,6 +48,10 @@ vi.mock('../services/email.service', () => ({
 
 vi.mock('../services/contactMessage.service', () => ({
   default: contactMessageServiceMock,
+}));
+
+vi.mock('../services/notificationEvents.service', () => ({
+  notificationEventsService: notificationEventsServiceMock,
 }));
 
 vi.mock('../config/database', () => ({
@@ -94,7 +103,7 @@ describe('contact controller logging', () => {
     const req: any = {
       requestId: 'req-2',
       body: { subject: 'Help', orderId: '12', message: 'Need help' },
-      user: { userId: 5, email: 'customer@test.com' },
+      user: { userId: 5, username: 'customer@test.com' },
     };
     const res = createResponse();
 
@@ -107,6 +116,10 @@ describe('contact controller logging', () => {
       orderId: 12,
       subject: 'Help',
     });
+    expect(notificationEventsServiceMock.notifyContactMessageReceived).toHaveBeenCalledWith(44, {
+      userId: 5,
+      username: 'customer@test.com',
+    });
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
@@ -117,6 +130,7 @@ describe('contact controller logging', () => {
     });
     contactMessageServiceMock.getMessageById.mockResolvedValue({
       id: 6,
+      userId: 12,
       userEmail: 'customer@test.com',
       userName: 'Customer',
       subject: 'Question',
@@ -147,6 +161,10 @@ describe('contact controller logging', () => {
       requestId: 'req-3',
       actorUserId: 9,
       messageId: 6,
+    });
+    expect(notificationEventsServiceMock.notifyContactReplySent).toHaveBeenCalledWith(6, 12, {
+      userId: 9,
+      username: 'Manager',
     });
   });
 });

@@ -36,7 +36,8 @@
   position: absolute;
   top: calc(100% + var(--spacing-sm));
   right: 0;
-  min-width: 220px;
+  min-width: 320px;
+  max-width: 360px;
   background: var(--bg-dashboard-sidebar);
   border: 2px solid var(--color-primary-dark);
   border-radius: var(--radius-lg);
@@ -46,11 +47,51 @@
   animation: slideDown var(--transition-fast) ease-out;
 }
 
+.notification-panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .notification-panel-header {
   padding: var(--spacing-xs) var(--spacing-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
+}
+
+.notification-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.notification-utility,
+.notification-utility-text {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: var(--radius-md);
+}
+
+.notification-utility {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+}
+
+.notification-utility-text {
+  font-size: var(--font-size-xs);
+  padding: 0.35rem 0.5rem;
+}
+
+.notification-utility:hover,
+.notification-utility-text:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .notification-item {
@@ -71,6 +112,45 @@
 
 .notification-item:hover {
   background: var(--bg-hover);
+}
+
+.notification-item-inbox {
+  align-items: flex-start;
+}
+
+.notification-item-main {
+  display: flex;
+  gap: var(--spacing-xs);
+  width: 100%;
+}
+
+.notification-item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.notification-item-title {
+  font-weight: var(--font-weight-semibold);
+}
+
+.notification-item-message {
+  color: var(--text-secondary);
+  white-space: normal;
+}
+
+.notification-item-unread {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.notification-item-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  background: var(--color-danger);
+  flex-shrink: 0;
 }
 
 .notification-item-label {

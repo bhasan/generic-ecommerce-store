@@ -1,5 +1,12 @@
 import prisma from '../config/database';
-import { OrderStatus } from '../../generated/prisma';
+import {
+  NotificationCategory,
+  NotificationDeliveryStatus,
+  NotificationEntityType,
+  NotificationType,
+  OrderStatus,
+} from '../../generated/prisma';
+import { RoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 
 const UNFULFILLED_STATUSES: OrderStatus[] = [
@@ -9,6 +16,44 @@ const UNFULFILLED_STATUSES: OrderStatus[] = [
   'READY_FOR_DELIVERY',
   'OUT_FOR_DELIVERY'
 ];
+
+const ROLE_DOMAIN_MAP: Partial<Record<NotificationCategory, RoleName[]>> = {
+  ORDERS: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
+  AUTH: ['MANAGEMENT', 'ADMIN'],
+  CONTACT: ['MANAGEMENT', 'ADMIN'],
+  DRIVER: ['DELIVERY_DRIVER', 'MANAGEMENT', 'ADMIN'],
+  ADMIN: ['MANAGEMENT', 'ADMIN'],
+};
+
+export interface NotificationMetadata {
+  orderId?: number;
+  status?: string;
+  previousStatus?: string | null;
+  path?: string;
+  section?: string;
+  label?: string;
+  userId?: number;
+  contactMessageId?: number;
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+export interface NotificationInput {
+  type: NotificationType;
+  category: NotificationCategory;
+  title: string;
+  message: string;
+  recipientUserIds?: number[];
+  recipientRoles?: RoleName[];
+  metadata?: NotificationMetadata;
+  sourceEntityType?: NotificationEntityType;
+  sourceEntityId?: number;
+  requiresAttention?: boolean;
+}
+
+export interface NotificationListOptions {
+  unreadOnly?: boolean;
+  limit?: number;
+}
 
 export class NotificationService {
   /**
@@ -39,8 +84,6 @@ export class NotificationService {
       }
     }
 
-    // This count log is the primary breadcrumb for dashboard badge debugging.
-    // Keep it aligned with the current count rules unless those rules change.
     logger.info('Staff notification counts computed', {
       ordersByStatus,
       pendingRegistrations,
@@ -50,6 +93,166 @@ export class NotificationService {
       ordersByStatus,
       pendingRegistrations
     };
+  }
+
+  async listForUser(recipientUserId: number, options: NotificationListOptions = {}) {
+    const limit = Math.min(Math.max(options.limit ?? 25, 1), 100);
+    const notifications = await prisma.notification.findMany({
+      where: {
+        recipientUserId,
+        ...(options.unreadOnly ? { readAt: null } : {}),
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+      take: limit,
+    });
+
+    return notifications;
+  }
+
+  async getUnreadCount(recipientUserId: number) {
+    const count = await prisma.notification.count({
+      where: {
+        recipientUserId,
+        readAt: null,
+      },
+    });
+
+    return { count };
+  }
+
+  async markAsRead(notificationId: number, recipientUserId: number) {
+    const notification = await prisma.notification.updateMany({
+      where: {
+        id: notificationId,
+        recipientUserId,
+        readAt: null,
+      },
+      data: {
+        readAt: new Date(),
+      },
+    });
+
+    return { updated: notification.count > 0 };
+  }
+
+  async markAllAsRead(recipientUserId: number) {
+    const result = await prisma.notification.updateMany({
+      where: {
+        recipientUserId,
+        readAt: null,
+      },
+      data: {
+        readAt: new Date(),
+      },
+    });
+
+    return { updated: result.count };
+  }
+
+  async createNotifications(input: NotificationInput) {
+    const recipientUserIds = await this.resolveRecipientUserIds(
+      input.recipientUserIds ?? [],
+      input.recipientRoles ?? ROLE_DOMAIN_MAP[input.category] ?? [],
+    );
+
+    if (recipientUserIds.length === 0) {
+      logger.warn('Notification skipped because no recipients were resolved', {
+        type: input.type,
+        category: input.category,
+        sourceEntityType: input.sourceEntityType ?? null,
+        sourceEntityId: input.sourceEntityId ?? null,
+      });
+      return [];
+    }
+
+    const records = await Promise.all(
+      recipientUserIds.map((recipientUserId) => prisma.notification.create({
+        data: {
+          recipientUserId,
+          type: input.type,
+          category: input.category,
+          title: input.title,
+          message: input.message,
+          metadata: input.metadata,
+          sourceEntityType: input.sourceEntityType,
+          sourceEntityId: input.sourceEntityId,
+          requiresAttention: input.requiresAttention ?? false,
+        },
+      }))
+    );
+
+    logger.info('Notifications created', {
+      type: input.type,
+      category: input.category,
+      recipientCount: records.length,
+      requiresAttention: input.requiresAttention ?? false,
+      sourceEntityType: input.sourceEntityType ?? null,
+      sourceEntityId: input.sourceEntityId ?? null,
+    });
+
+    return records;
+  }
+
+  async updateDeliveryStatus(
+    notificationIds: number[],
+    status: NotificationDeliveryStatus,
+  ) {
+    if (notificationIds.length === 0) return;
+
+    await prisma.notification.updateMany({
+      where: {
+        id: { in: notificationIds },
+      },
+      data: {
+        deliveryStatus: status,
+        ...(status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
+      },
+    });
+  }
+
+  private async resolveRecipientUserIds(
+    directRecipientUserIds: number[],
+    recipientRoles: RoleName[],
+  ) {
+    const uniqueIds = new Set<number>(directRecipientUserIds);
+
+    if (recipientRoles.length > 0) {
+      const roles = await prisma.role.findMany({
+        where: {
+          name: {
+            in: recipientRoles,
+          },
+        },
+      });
+
+      if (roles.length > 0) {
+        const roleAssignments = await prisma.userRole.findMany({
+          where: {
+            roleId: { in: roles.map((role) => role.id) },
+          },
+        });
+
+        const candidateUserIds = [...new Set(roleAssignments.map((assignment) => assignment.userId))];
+        if (candidateUserIds.length > 0) {
+          const approvedUsers = await prisma.user.findMany({
+            where: {
+              id: { in: candidateUserIds },
+              approved: true,
+              rejected: false,
+            },
+            select: { id: true },
+          });
+
+          for (const user of approvedUsers) {
+            uniqueIds.add(user.id);
+          }
+        }
+      }
+    }
+
+    return [...uniqueIds];
   }
 }
 

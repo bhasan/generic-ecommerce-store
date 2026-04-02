@@ -109,6 +109,71 @@ Common values include:
 - `NODE_ENV`
 - `CORS_ORIGIN`
 - `REQUEST_TIMEOUT_MS`
+- `MAKE_API_KEY`
+- `MAKE_WEBHOOK_URL` for the existing contact email flow
+- `MAKE_NOTIFICATION_WEBHOOK_URL` as the default notification webhook
+- Optional notification overrides such as `MAKE_NOTIFICATION_WEBHOOK_URL_ORDERS`, `MAKE_NOTIFICATION_WEBHOOK_URL_AUTH`, `MAKE_NOTIFICATION_WEBHOOK_URL_CONTACT`, `MAKE_NOTIFICATION_WEBHOOK_URL_DRIVER`, and `MAKE_NOTIFICATION_WEBHOOK_URL_ADMIN`
+
+Notification delivery can share the same Make scenario as the contact email flow. If notification-specific webhook vars are not set, notification delivery falls back to `MAKE_WEBHOOK_URL`. Branch the shared Make scenario using payload fields such as `eventType`, `category`, `channelIntent`, `status`, `path`, and `requiresAttention`.
+
+### Make Webhook Payload
+
+Notification and email-style automation events sent to Make use one JSON payload per notification event.
+
+```json
+{
+  "eventType": "ORDER_CREATED",
+  "category": "ORDERS",
+  "channelIntent": "ops_alert",
+  "notificationId": 123,
+  "occurredAt": "2026-04-02T21:30:00.000Z",
+  "recipient": {
+    "userId": 45
+  },
+  "targetRoles": ["EMPLOYEE", "MANAGEMENT", "ADMIN"],
+  "actor": {
+    "userId": 12,
+    "username": "customer1"
+  },
+  "entity": {
+    "type": "ORDER",
+    "id": 987
+  },
+  "message": {
+    "title": "New order submitted",
+    "body": "Order #987 is waiting for review."
+  },
+  "status": "PENDING",
+  "path": "/orders?status=PENDING",
+  "requiresAttention": true,
+  "metadata": {
+    "orderId": 987,
+    "path": "/orders?status=PENDING",
+    "label": "Review order"
+  }
+}
+```
+
+Payload fields:
+
+- `eventType`: event name such as `ORDER_CREATED`, `ORDER_STATUS_UPDATED`, `REGISTRATION_SUBMITTED`, or `CONTACT_REPLY_SENT`
+- `category`: high-level domain such as `ORDERS`, `AUTH`, `CONTACT`, `DRIVER`, or `ADMIN`
+- `channelIntent`: Make routing hint such as `ops_alert`, `email`, or `in_app_sync`
+- `notificationId`: internal notification row id
+- `occurredAt`: ISO timestamp
+- `recipient.userId`: target user id
+- `targetRoles`: role audience for role-targeted notifications when present
+- `actor`: user who triggered the event when known
+- `entity`: source record reference such as order, user, or contact message
+- `message`: sanitized title/body for display or automation
+- `status`: status value when relevant, mainly for order notifications
+- `path`: frontend route to open when the notification is clicked
+- `requiresAttention`: urgent flag used for Make branching and staff alert UX
+- `metadata`: additional safe routing/display fields
+
+Privacy note:
+
+- Keep payloads sanitized. Do not add addresses, phone numbers, payment handles, rejection notes, or raw contact/support message bodies to this webhook contract.
 
 ### Frontend
 
@@ -152,6 +217,50 @@ npm --prefix web run build
 - Prefer shared test helpers and fixtures over per-file ad hoc mocks.
 - Add short comments only when they explain business intent or a compatibility rule.
 - If application behavior changes, update the nearest relevant tests in the same branch.
+
+## Notification Release QA
+
+Run this checklist before treating the notification feature as release-ready.
+
+### Customer
+
+- Place an order and confirm staff receives a new-order notification.
+- Move the order through `APPROVED`, `READY_FOR_DELIVERY`, `OUT_FOR_DELIVERY`, and `DELIVERED` and confirm customer inbox updates appear with the expected route targets.
+- Mark notifications read and confirm the bell count decreases.
+- Confirm no browser sound plays for customer notifications.
+- Submit a support message, then send a reply from staff and confirm the customer sees the `Support replied` notification linking to `/help`.
+- Verify notification rows do not expose address, phone number, payment handles, rejection notes, or raw support-message bodies.
+
+### Employee
+
+- Confirm a new order creates an urgent notification with unread badge, red-dot treatment, and a one-time sound alert.
+- Open the notification and confirm it routes to `/orders?status=PENDING`.
+- Confirm unchanged polling does not replay the same sound.
+
+### Management/Admin
+
+- Confirm `REGISTRATION_SUBMITTED` creates an urgent notification that links to `/dashboard?section=pending-registrations`.
+- Confirm `CONTACT_MESSAGE_RECEIVED` creates an urgent notification that links to `/dashboard?section=messages`.
+- Confirm `READY_FOR_DELIVERY` appears as an operational notification and links to `/delivery-dashboard`.
+- Confirm delivered-order visibility appears for management/admin without requiring Make delivery to succeed.
+
+### Delivery Driver
+
+- Confirm `READY_FOR_DELIVERY` and `OUT_FOR_DELIVERY` notifications appear in-app with `/delivery-dashboard` as the click target.
+- Confirm `READY_FOR_DELIVERY` plays the one-time staff alert sound and `OUT_FOR_DELIVERY` does not.
+
+### Make And Delivery Status
+
+- Confirm important events reach the shared Make endpoint with routing fields such as `eventType`, `category`, `channelIntent`, `status`, `path`, and `requiresAttention`.
+- Confirm webhook failures do not block the business action and that failed deliveries are logged with failed delivery status.
+
+## Migration Validation
+
+The repository includes the notification migration SQL at `backend/prisma/migrations/20260402152919_add_notifications/migration.sql`.
+
+- Local database validation: the SQL migration has been applied successfully to the local Docker Postgres instance and the `notifications` table exists.
+- Official Prisma runner status in this environment: `prisma migrate deploy` still fails with an opaque schema-engine error even when the local Windows schema engine binary is provided directly.
+- Release recommendation: run the official Prisma migration command in the target deployment or CI environment before release and confirm the full migration chain completes there.
 
 ## Troubleshooting
 
