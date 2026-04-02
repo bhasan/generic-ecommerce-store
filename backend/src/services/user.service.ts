@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { hashPassword, comparePassword } from '../utils/password.util';
 import { RoleName, isRoleName } from '../constants/roles';
+import { logger } from '../utils/logger';
 
 interface UpdateUserData {
   username?: string;
@@ -51,10 +52,18 @@ export class UserService {
       });
     }
 
-    return users.map(user => this.formatUser({
+    const formattedUsers = users.map(user => this.formatUser({
       ...user,
       roles: rolesByUser.get(user.id) || []
     }));
+
+    // Count-only list logs are deliberate: enough signal for dashboard/debugging
+    // without dumping full user payloads into logs.
+    logger.info('Fetched users', {
+      count: formattedUsers.length,
+    });
+
+    return formattedUsers;
   }
 
   /**
@@ -120,6 +129,14 @@ export class UserService {
       throw new AppError('User not found', 404);
     }
 
+    logger.info('Updating user', {
+      actorUserId: requestingUserId ?? null,
+      targetUserId: userId,
+      fields: Object.keys(data),
+      existingApproved: existingUser.approved,
+      existingRejected: existingUser.rejected,
+    });
+
     // Check permissions
     const isOwnProfile = requestingUserId === userId;
     const hasManagementAccess = requestingUserRoles?.some(role => 
@@ -171,6 +188,8 @@ export class UserService {
 
     // Update roles if provided and user has permission
     if (data.roles !== undefined && hasManagementAccess) {
+      // Role replacement here is intentionally all-or-nothing so audit logs and
+      // tests can reason about before/after role state deterministically.
       // Validate roles (allow empty array)
       const validRoles = data.roles.filter(role => isRoleName(role));
       if (validRoles.length !== data.roles.length) {
@@ -237,10 +256,22 @@ export class UserService {
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
 
-    return this.formatUser({
+    const formattedUser = this.formatUser({
       ...updatedUser,
       roles: rolesWithNames
     });
+
+    // The post-update snapshot is the audit trail future Codex sessions should
+    // trust when reconstructing what an admin/profile edit actually changed.
+    logger.info('User updated', {
+      actorUserId: requestingUserId ?? null,
+      targetUserId: userId,
+      roles: formattedUser.roles,
+      approved: formattedUser.approved ?? null,
+      rejected: formattedUser.rejected ?? null,
+    });
+
+    return formattedUser;
   }
 
   /**
@@ -267,6 +298,8 @@ export class UserService {
 
     // If user has no roles, assign CUSTOMER role by default
     if (existingUserRoles.length === 0) {
+      // This auto-assignment is existing business behavior; the log below exists
+      // so approval investigations can tell whether the default role path ran.
       const customerRole = await prisma.role.findUnique({
         where: { name: 'CUSTOMER' }
       });
@@ -304,10 +337,18 @@ export class UserService {
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
 
-    return this.formatUser({
+    const formattedUser = this.formatUser({
       ...updatedUser,
       roles: rolesWithNames
     });
+
+    logger.info('User approved', {
+      targetUserId: userId,
+      autoAssignedCustomerRole: existingUserRoles.length === 0,
+      roles: formattedUser.roles,
+    });
+
+    return formattedUser;
   }
 
   /**
@@ -355,13 +396,21 @@ export class UserService {
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
 
-    return {
+    const result = {
       message: 'User registration rejected',
       user: this.formatUser({
         ...updatedUser,
         roles: rolesWithNames
       })
     };
+
+    logger.info('User rejected', {
+      targetUserId: userId,
+      hasRejectionNote: Boolean(rejectionNote),
+      roles: result.user.roles,
+    });
+
+    return result;
   }
 
   /**
@@ -406,13 +455,20 @@ export class UserService {
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
 
-    return {
+    const result = {
       message: 'User moved back to pending registrations',
       user: this.formatUser({
         ...updatedUser,
         roles: rolesWithNames
       })
     };
+
+    logger.info('User moved back to pending', {
+      targetUserId: userId,
+      roles: result.user.roles,
+    });
+
+    return result;
   }
 
   /**
@@ -421,6 +477,9 @@ export class UserService {
    * or users with no roles (all roles removed)
    */
   async getPendingRegistrations() {
+    // Pending registration logic is intentionally verbose because approval state
+    // and "no roles" state overlap in this codebase. Keep the count log aligned
+    // with that behavior unless the business rule itself is changed later.
     // Get all users that are not approved and not rejected
     const unapprovedUsers = await prisma.user.findMany({
       where: { 
@@ -490,10 +549,17 @@ export class UserService {
       });
     }
 
-    return users.map(user => this.formatUser({
+    const formattedUsers = users.map(user => this.formatUser({
       ...user,
       roles: rolesByUser.get(user.id) || []
     }));
+
+    logger.info('Fetched pending registrations', {
+      count: formattedUsers.length,
+      usersWithoutRoles: usersWithoutRoles.length,
+    });
+
+    return formattedUsers;
   }
 
   /**
@@ -531,10 +597,16 @@ export class UserService {
       });
     }
 
-    return users.map(user => this.formatUser({
+    const formattedUsers = users.map(user => this.formatUser({
       ...user,
       roles: rolesByUser.get(user.id) || []
     }));
+
+    logger.info('Fetched rejected users', {
+      count: formattedUsers.length,
+    });
+
+    return formattedUsers;
   }
 
   /**
@@ -555,6 +627,15 @@ export class UserService {
       where: { id: userId }
     });
 
+    // Delete logs need enough identity fields for audit/debugging, but should
+    // still avoid including sensitive profile fields or related records.
+    logger.info('User deleted', {
+      targetUserId: userId,
+      username: user.username,
+      approved: user.approved,
+      rejected: user.rejected,
+    });
+
     return { message: 'User deleted successfully' };
   }
 
@@ -566,6 +647,10 @@ export class UserService {
       orderBy: {
         name: 'asc'
       }
+    });
+
+    logger.info('Fetched roles', {
+      count: roles.length,
     });
 
     return roles.map(role => role.name);

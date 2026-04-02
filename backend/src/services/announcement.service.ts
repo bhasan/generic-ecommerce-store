@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
+import { logger } from '../utils/logger';
 
 export interface CreateAnnouncementData {
   message: string;
@@ -29,7 +30,9 @@ export class AnnouncementService {
         createdAt: 'desc'
       }
     });
-
+    // Count logs here help explain homepage/banner mismatches without logging
+    // every announcement body on each public request.
+    logger.info('Active announcements retrieved', { count: announcements.length });
     return announcements;
   }
 
@@ -43,7 +46,7 @@ export class AnnouncementService {
         createdAt: 'desc'
       }
     });
-
+    logger.info('All announcements retrieved', { count: announcements.length });
     return announcements;
   }
 
@@ -71,6 +74,13 @@ export class AnnouncementService {
       throw new AppError('Message is required', 400);
     }
 
+    // Mutation logs intentionally focus on state flags, not message text, so we
+    // keep enough auditability without copying user-facing content into logs.
+    logger.info('Creating announcement', {
+      type: data.type,
+      enabled: data.enabled !== undefined ? data.enabled : true,
+      dismissible: data.dismissible !== undefined ? data.dismissible : true,
+    });
     const announcement = await prisma.announcement.create({
       data: {
         message: data.message.trim(),
@@ -79,7 +89,11 @@ export class AnnouncementService {
         enabled: data.enabled !== undefined ? data.enabled : true
       }
     });
-
+    logger.info('Announcement created', {
+      announcementId: announcement.id,
+      enabled: announcement.enabled,
+      type: announcement.type,
+    });
     return announcement;
   }
 
@@ -101,11 +115,21 @@ export class AnnouncementService {
     if (data.dismissible !== undefined) updateData.dismissible = data.dismissible;
     if (data.enabled !== undefined) updateData.enabled = data.enabled;
 
+    // Field lists are logged instead of raw payloads to keep this audit trail
+    // readable and to avoid coupling tests to full request body serialization.
+    logger.info('Updating announcement', {
+      announcementId: id,
+      fields: Object.keys(data),
+    });
     const announcement = await prisma.announcement.update({
       where: { id },
       data: updateData
     });
-
+    logger.info('Announcement updated', {
+      announcementId: announcement.id,
+      enabled: announcement.enabled,
+      type: announcement.type,
+    });
     return announcement;
   }
 
@@ -115,8 +139,13 @@ export class AnnouncementService {
    */
   async deleteAnnouncement(id: number) {
     // Check if announcement exists
-    await this.getAnnouncementById(id);
+    const announcement = await this.getAnnouncementById(id);
 
+    logger.info('Deleting announcement', {
+      announcementId: id,
+      type: announcement.type,
+      enabled: announcement.enabled,
+    });
     await prisma.announcement.delete({
       where: { id }
     });

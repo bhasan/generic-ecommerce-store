@@ -16,12 +16,20 @@ export class ContactController {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('Contact form validation failed', {
+          requestId: req.requestId,
+          actorUserId: req.user?.userId ?? null,
+          errors: errors.array(),
+        });
         res.status(400).json({ errors: errors.array() });
         return;
       }
 
       // Ensure user is authenticated
       if (!req.user) {
+        logger.warn('Contact form rejected: unauthenticated request', {
+          requestId: req.requestId,
+        });
         res.status(401).json({ error: 'Authentication required' });
         return;
       }
@@ -46,6 +54,16 @@ export class ContactController {
         subject,
         orderId: orderId ? parseInt(orderId, 10) : null,
         message
+      });
+
+      // This is the controller-level handoff point between auth, persistence,
+      // and outbound support workflows, so we keep a single correlation log here.
+      logger.info('Contact form submitted', {
+        requestId: req.requestId,
+        actorUserId: userId,
+        messageId: savedMessage.id,
+        orderId: orderId ? parseInt(orderId, 10) : null,
+        subject,
       });
 
 
@@ -79,6 +97,12 @@ export class ContactController {
       }
 
       const messages = await contactMessageService.getAllMessages(filters);
+      logger.info('Contact messages fetched', {
+        requestId: req.requestId,
+        actorUserId: req.user?.userId ?? null,
+        filters,
+        count: messages.length,
+      });
       res.status(200).json(messages);
     } catch (error) {
       next(error);
@@ -93,6 +117,9 @@ export class ContactController {
   async getNewMessageCount(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const count = await contactMessageService.getNewMessageCount();
+      logger.info('Contact message count fetched', {
+        count,
+      });
       res.status(200).json({ count });
     } catch (error) {
       next(error);
@@ -108,6 +135,11 @@ export class ContactController {
     try {
       const { id } = req.params;
       const message = await contactMessageService.getMessageById(parseInt(id, 10));
+      logger.info('Contact message fetched', {
+        requestId: req.requestId,
+        actorUserId: req.user?.userId ?? null,
+        messageId: parseInt(id, 10),
+      });
       res.status(200).json(message);
     } catch (error) {
       next(error);
@@ -123,6 +155,12 @@ export class ContactController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('Contact message update validation failed', {
+          requestId: req.requestId,
+          actorUserId: req.user?.userId ?? null,
+          targetMessageId: req.params.id,
+          errors: errors.array(),
+        });
         res.status(400).json({ errors: errors.array() });
         return;
       }
@@ -133,6 +171,14 @@ export class ContactController {
       const message = await contactMessageService.updateMessage(parseInt(id, 10), {
         status,
         adminNotes
+      });
+
+      logger.info('Contact message updated via controller', {
+        requestId: req.requestId,
+        actorUserId: req.user?.userId ?? null,
+        messageId: parseInt(id, 10),
+        status: status ?? null,
+        hasAdminNotes: adminNotes !== undefined,
       });
 
       res.status(200).json(message);
@@ -150,6 +196,11 @@ export class ContactController {
     try {
       const { id } = req.params;
       const message = await contactMessageService.markAsRead(parseInt(id, 10));
+      logger.info('Contact message marked as read', {
+        requestId: req.requestId,
+        actorUserId: req.user?.userId ?? null,
+        messageId: parseInt(id, 10),
+      });
       res.status(200).json(message);
     } catch (error) {
       next(error);
@@ -165,6 +216,11 @@ export class ContactController {
     try {
       const { id } = req.params;
       const message = await contactMessageService.markAsResolved(parseInt(id, 10));
+      logger.info('Contact message marked as resolved', {
+        requestId: req.requestId,
+        actorUserId: req.user?.userId ?? null,
+        messageId: parseInt(id, 10),
+      });
       res.status(200).json(message);
     } catch (error) {
       next(error);
@@ -180,6 +236,11 @@ export class ContactController {
     try {
       const { id } = req.params;
       await contactMessageService.deleteMessage(parseInt(id, 10));
+      logger.info('Contact message deleted via controller', {
+        requestId: req.requestId,
+        actorUserId: req.user?.userId ?? null,
+        messageId: parseInt(id, 10),
+      });
       res.status(200).json({ success: true, message: 'Message deleted successfully' });
     } catch (error) {
       next(error);
@@ -195,11 +256,21 @@ export class ContactController {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('Reply validation failed', {
+          requestId: req.requestId,
+          actorUserId: req.user?.userId ?? null,
+          targetMessageId: req.params.id,
+          errors: errors.array(),
+        });
         res.status(400).json({ errors: errors.array() });
         return;
       }
 
       if (!req.user) {
+        logger.warn('Reply rejected: unauthenticated request', {
+          requestId: req.requestId,
+          targetMessageId: req.params.id,
+        });
         res.status(401).json({ error: 'Authentication required' });
         return;
       }
@@ -228,6 +299,8 @@ export class ContactController {
         throw new AppError('Email service is currently unavailable. Please try again later.', 503, 'EMAIL_SERVICE_UNAVAILABLE');
       }
 
+      // requestId/messageId are forwarded for debugging only; they must never
+      // affect the webhook payload or the customer-visible reply behavior.
       // Send reply email via Make.com webhook
       await emailService.sendReplyEmail({
         type: 'reply',
@@ -238,6 +311,10 @@ export class ContactController {
         replyMessage: replyMessage,
         repliedBy: repliedByName,
         orderId: originalMessage.orderId,
+      }, {
+        requestId: req.requestId,
+        actorUserId: userId,
+        messageId: parseInt(id, 10),
       });
 
       // Update the message with reply details and mark as resolved

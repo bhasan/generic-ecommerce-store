@@ -5,12 +5,7 @@ import { get, put, del, post } from './api';
  * @returns {Promise<Array>} Array of user objects
  */
 export const getAllUsers = async () => {
-  try {
-    const response = await get('/users');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/users');
 };
 
 /**
@@ -19,27 +14,18 @@ export const getAllUsers = async () => {
  * @returns {Promise<object>} User object
  */
 export const getUserById = async (id) => {
-  try {
-    const response = await get(`/users/${id}`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get(`/users/${id}`);
 };
 
 /**
  * Update user
  * @param {number} id - User ID
- * @param {object} data - Update data {email?, name?, password?, roles?}
+ * @param {object} data - Update data
  * @returns {Promise<object>} Updated user object
  */
 export const updateUser = async (id, data) => {
-  try {
-    const response = await put(`/users/${id}`, data, { skipAutoLogout: true });
-    return response.user || response;
-  } catch (error) {
-    throw error;
-  }
+  const response = await put(`/users/${id}`, data, { skipAutoLogout: true });
+  return response.user || response;
 };
 
 /**
@@ -47,12 +33,7 @@ export const updateUser = async (id, data) => {
  * @returns {Promise<Array>} Array of pending user objects
  */
 export const getPendingRegistrations = async () => {
-  try {
-    const response = await get('/users/pending');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/users/pending');
 };
 
 /**
@@ -60,12 +41,7 @@ export const getPendingRegistrations = async () => {
  * @returns {Promise<Array>} Array of rejected user objects
  */
 export const getRejectedUsers = async () => {
-  try {
-    const response = await get('/users/rejected');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/users/rejected');
 };
 
 /**
@@ -74,12 +50,8 @@ export const getRejectedUsers = async () => {
  * @returns {Promise<object>} Approved user object
  */
 export const approveUser = async (id) => {
-  try {
-    const response = await post(`/users/${id}/approve`);
-    return response.user || response;
-  } catch (error) {
-    throw error;
-  }
+  const response = await post(`/users/${id}/approve`);
+  return response.user || response;
 };
 
 /**
@@ -89,12 +61,7 @@ export const approveUser = async (id) => {
  * @returns {Promise<object>} Success message
  */
 export const rejectUser = async (id, rejectionNote) => {
-  try {
-    const response = await post(`/users/${id}/reject`, { rejectionNote });
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return post(`/users/${id}/reject`, { rejectionNote });
 };
 
 /**
@@ -103,12 +70,7 @@ export const rejectUser = async (id, rejectionNote) => {
  * @returns {Promise<object>} Success message
  */
 export const unRejectUser = async (id) => {
-  try {
-    const response = await post(`/users/${id}/unreject`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return post(`/users/${id}/unreject`);
 };
 
 /**
@@ -117,12 +79,7 @@ export const unRejectUser = async (id) => {
  * @returns {Promise<object>} Success message
  */
 export const deleteUser = async (id) => {
-  try {
-    const response = await del(`/users/${id}`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return del(`/users/${id}`);
 };
 
 /**
@@ -130,11 +87,5 @@ export const deleteUser = async (id) => {
  * @returns {Promise<Array>} Array of role names
  */
 export const getAllRoles = async () => {
-  try {
-    const response = await get('/users/roles');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/users/roles');
 };
-
