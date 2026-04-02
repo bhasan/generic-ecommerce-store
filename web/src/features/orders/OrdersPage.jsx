@@ -114,6 +114,7 @@ function OrdersPage() {
       ? selectedStatuses.filter((x) => x !== status)
       : [...selectedStatuses, status];
     const safeNext = next.length > 0 ? next : [...DEFAULT_SELECTED_STATUSES];
+    // Mirror filter state into the URL so staff can refresh or share the same kanban view.
     setSelectedStatuses(safeNext);
     const isDefault = safeNext.length === DEFAULT_SELECTED_STATUSES.length &&
       DEFAULT_SELECTED_STATUSES.every((x) => safeNext.includes(x));
@@ -152,6 +153,7 @@ function OrdersPage() {
   useEffect(() => {
     loadOrders();
     const handleFocus = () => {
+      // Reset new-order highlighting when the user returns so only fresh arrivals after that moment stand out.
       viewStartAtRef.current = Date.now();
       setNewOrderIds([]);
       knownOrderIdsRef.current = new Set(ordersRef.current.map((o) => o.id));
@@ -163,6 +165,7 @@ function OrdersPage() {
 
   useEffect(() => {
     if (!canModifyOrders) return undefined;
+    // Staff views poll in the background so the board stays current during active fulfillment work.
     const intervalId = setInterval(() => {
       if (!document.hidden) loadOrders();
     }, ORDER_POLL_INTERVAL_MS);
@@ -179,6 +182,7 @@ function OrdersPage() {
     const viewStartAt = viewStartAtRef.current;
     const knownOrderIds = knownOrderIdsRef.current;
     const newIds = [];
+    // New badges are limited to orders created while this board view has been open.
     orders.forEach((o) => {
       if (!knownOrderIds.has(o.id)) {
         const createdAt = new Date(o.createdAt).getTime();
@@ -226,6 +230,7 @@ function OrdersPage() {
 
   const performStatusUpdate = (orderId, newStatus) => {
     setUpdatingOrderId(orderId);
+    // Track the in-flight order so the same card cannot trigger overlapping status transitions.
     Promise.resolve(updateOrderStatus(orderId, newStatus)).finally(() => setUpdatingOrderId(null));
   };
 
@@ -301,6 +306,7 @@ function OrdersPage() {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return;
     if (editingOrderId === orderId) return;
+    // Snapshot the original order so cancel can restore local edits without another fetch.
     setOriginalOrderState(JSON.parse(JSON.stringify(order)));
     setEditingOrderId(orderId);
   };
