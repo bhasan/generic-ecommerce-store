@@ -5,12 +5,7 @@ import { get, post, patch, del } from './api';
  * @returns {Promise<Array>} Array of active announcement objects
  */
 export const getActiveAnnouncements = async () => {
-  try {
-    const response = await get('/announcements/active');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/announcements/active');
 };
 
 /**
@@ -18,12 +13,7 @@ export const getActiveAnnouncements = async () => {
  * @returns {Promise<Array>} Array of all announcement objects
  */
 export const getAllAnnouncements = async () => {
-  try {
-    const response = await get('/announcements');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/announcements');
 };
 
 /**
@@ -32,12 +22,7 @@ export const getAllAnnouncements = async () => {
  * @returns {Promise<object>} Announcement object
  */
 export const getAnnouncementById = async (id) => {
-  try {
-    const response = await get(`/announcements/${id}`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get(`/announcements/${id}`);
 };
 
 /**
@@ -46,12 +31,8 @@ export const getAnnouncementById = async (id) => {
  * @returns {Promise<object>} Created announcement object
  */
 export const createAnnouncement = async (data) => {
-  try {
-    const response = await post('/announcements', data);
-    return response.announcement || response;
-  } catch (error) {
-    throw error;
-  }
+  const response = await post('/announcements', data);
+  return response.announcement || response;
 };
 
 /**
@@ -61,12 +42,8 @@ export const createAnnouncement = async (data) => {
  * @returns {Promise<object>} Updated announcement object
  */
 export const updateAnnouncement = async (id, data) => {
-  try {
-    const response = await patch(`/announcements/${id}`, data);
-    return response.announcement || response;
-  } catch (error) {
-    throw error;
-  }
+  const response = await patch(`/announcements/${id}`, data);
+  return response.announcement || response;
 };
 
 /**
@@ -75,11 +52,6 @@ export const updateAnnouncement = async (id, data) => {
  * @returns {Promise<object>} Success message
  */
 export const deleteAnnouncement = async (id) => {
-  try {
-    const response = await del(`/announcements/${id}`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return del(`/announcements/${id}`);
 };
 

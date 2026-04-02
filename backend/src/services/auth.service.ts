@@ -3,6 +3,7 @@ import { hashPassword, comparePassword } from '../utils/password.util';
 import { generateToken } from '../utils/jwt.util';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, isRoleName } from '../constants/roles';
+import { logger } from '../utils/logger';
 
 interface RegisterData {
   username: string;
@@ -25,6 +26,14 @@ export class AuthService {
    */
   async register(data: RegisterData) {
     const { username, password, address, cashapp, phoneNumber } = data;
+    // Registration logs intentionally describe the business decision path without
+    // changing the approval/token semantics for new accounts.
+    logger.info('Registration attempt received', {
+      username,
+      hasAddress: Boolean(address),
+      hasCashapp: Boolean(cashapp),
+      hasPhoneNumber: Boolean(phoneNumber),
+    });
 
     // New registrations always get CUSTOMER role and require approval
     const requestedRoles: RoleName[] = ['CUSTOMER'];
@@ -35,6 +44,7 @@ export class AuthService {
     });
 
     if (existingUser) {
+      logger.warn('Registration rejected: username already exists', { username });
       throw new AppError('User with this username already exists', 409);
     }
 
@@ -42,6 +52,11 @@ export class AuthService {
     const hashedPassword = await hashPassword(password);
 
     const roleConnections = await this.resolveRoleConnections(requestedRoles);
+    logger.info('Registration roles resolved', {
+      username,
+      roles: requestedRoles,
+      resolvedRoleCount: roleConnections.length,
+    });
 
     // Create user (not approved by default)
     const user = await prisma.user.create({
@@ -54,6 +69,11 @@ export class AuthService {
         approved: false // Requires admin approval
       }
     });
+    logger.info('Registration user record created', {
+      userId: user.id,
+      username: user.username,
+      approved: user.approved,
+    });
 
     // Create user roles
     await prisma.userRole.createMany({
@@ -62,8 +82,12 @@ export class AuthService {
         roleId: role.id
       }))
     });
+    logger.info('Registration role assignments created', {
+      userId: user.id,
+      username: user.username,
+      roles: requestedRoles,
+    });
 
-    // Fetch user roles for response
     const userRoles = await prisma.userRole.findMany({
       where: { userId: user.id }
     });
@@ -77,9 +101,6 @@ export class AuthService {
     const rolesWithNames = userRoles.map(ur => ({
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
-
-    // Don't generate token for unapproved users
-    // They need to wait for admin approval before logging in
 
     return {
       user: this.formatUser({
@@ -95,29 +116,37 @@ export class AuthService {
    */
   async login(data: LoginData) {
     const { username, password } = data;
+    // Login decision logs are used by tests and support flows to distinguish
+    // bad credentials, approval gating, and successful token issuance.
+    logger.info('Login attempt received', { username });
 
-    // Find user
     const user = await prisma.user.findUnique({
       where: { username }
     });
 
     if (!user) {
+      logger.warn('Login rejected: user not found', { username });
       throw new AppError('Invalid username or password', 401);
     }
 
-    // Verify password
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
+      logger.warn('Login rejected: password mismatch', {
+        username,
+        userId: user.id,
+      });
       throw new AppError('Invalid username or password', 401);
     }
 
-    // Check if user is approved
     if (!user.approved) {
+      logger.warn('Login rejected: account pending approval', {
+        username,
+        userId: user.id,
+      });
       throw new AppError('Your account is pending approval. Please visit the store to get approved.', 403);
     }
 
-    // Fetch user roles
     const userRoles = await prisma.userRole.findMany({
       where: { userId: user.id }
     });
@@ -132,7 +161,6 @@ export class AuthService {
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
 
-    // Generate token
     const roleNames = rolesWithNames
       .map(ur => ur.role?.name)
       .filter((name): name is RoleName => isRoleName(name));
@@ -141,6 +169,11 @@ export class AuthService {
       userId: user.id,
       username: user.username,
       roles: roleNames
+    });
+    logger.info('Login succeeded', {
+      userId: user.id,
+      username: user.username,
+      roles: roleNames,
     });
 
     return {
@@ -156,15 +189,18 @@ export class AuthService {
    * Get current user profile
    */
   async getProfile(userId: number) {
+    // Keep profile lookup logs lightweight: this is a hot path, but having a
+    // trace here makes stale-token/user-deleted investigations much faster.
+    logger.debug('Profile lookup requested', { userId });
     const user = await prisma.user.findUnique({
       where: { id: userId }
     });
 
     if (!user) {
+      logger.warn('Profile lookup failed: user not found', { userId });
       throw new AppError('User not found', 404);
     }
 
-    // Fetch user roles
     const userRoles = await prisma.userRole.findMany({
       where: { userId }
     });
@@ -187,6 +223,8 @@ export class AuthService {
   }
 
   private async resolveRoleConnections(roleNames: RoleName[]) {
+    // Centralizing role resolution keeps register/update flows consistent and
+    // gives us one place to log invalid role drift from seed/config changes.
     const dbRoles = await prisma.role.findMany({
       where: {
         name: {
@@ -199,6 +237,10 @@ export class AuthService {
       const missing = roleNames.filter(
         (name) => !dbRoles.some((dbRole) => dbRole.name === name)
       );
+      logger.warn('Role resolution failed', {
+        requestedRoles: roleNames,
+        missingRoles: missing,
+      });
       throw new AppError(`Invalid roles: ${missing.join(', ')}`, 400);
     }
 

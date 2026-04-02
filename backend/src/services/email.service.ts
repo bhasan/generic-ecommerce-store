@@ -21,6 +21,12 @@ interface ReplyEmailData {
   orderId?: number | null;
 }
 
+interface EmailLogContext {
+  requestId?: string;
+  actorUserId?: number | null;
+  messageId?: number | null;
+}
+
 /**
  * Email Service
  * Sends contact form submissions via Make.com webhook
@@ -53,9 +59,13 @@ export class EmailService {
   /**
    * Send a contact form submission via Make.com webhook
    */
-  async sendContactEmail(data: ContactEmailData): Promise<boolean> {
+  async sendContactEmail(data: ContactEmailData, context: EmailLogContext = {}): Promise<boolean> {
     if (!this.isReady()) {
-      logger.warn('Attempted to send contact email but webhook is not configured');
+      logger.warn('Attempted to send contact email but webhook is not configured', {
+        requestId: context.requestId,
+        actorUserId: context.actorUserId ?? null,
+        messageId: context.messageId ?? null,
+      });
       throw new AppError('Email service is not configured', 503, 'EMAIL_NOT_CONFIGURED');
     }
 
@@ -68,6 +78,8 @@ export class EmailService {
       message: data.message,
     };
 
+    // Correlation context stays out of the webhook payload on purpose: it is for
+    // local observability only and should not change the Make.com contract.
     try {
       const response = await fetch(this.webhookUrl!, {
         method: 'POST',
@@ -83,6 +95,9 @@ export class EmailService {
         logger.error('Make.com webhook returned error', new Error(errorText), {
           status: response.status,
           statusText: response.statusText,
+          requestId: context.requestId,
+          actorUserId: context.actorUserId ?? null,
+          messageId: context.messageId ?? null,
         });
         throw new AppError('Failed to send contact form', 500, 'WEBHOOK_ERROR');
       }
@@ -92,6 +107,9 @@ export class EmailService {
         userEmail: data.userEmail,
         subject: data.subject,
         orderId: data.orderId,
+        requestId: context.requestId,
+        actorUserId: context.actorUserId ?? null,
+        messageId: context.messageId ?? null,
       });
 
       return true;
@@ -104,6 +122,9 @@ export class EmailService {
         userName: data.userName,
         userEmail: data.userEmail,
         subject: data.subject,
+        requestId: context.requestId,
+        actorUserId: context.actorUserId ?? null,
+        messageId: context.messageId ?? null,
       });
       throw new AppError('Failed to send contact form', 500, 'WEBHOOK_SEND_FAILED');
     }
@@ -112,9 +133,13 @@ export class EmailService {
   /**
    * Send a reply email to customer via Make.com webhook
    */
-  async sendReplyEmail(data: ReplyEmailData): Promise<boolean> {
+  async sendReplyEmail(data: ReplyEmailData, context: EmailLogContext = {}): Promise<boolean> {
     if (!this.isReady()) {
-      logger.warn('Attempted to send reply email but webhook is not configured');
+      logger.warn('Attempted to send reply email but webhook is not configured', {
+        requestId: context.requestId,
+        actorUserId: context.actorUserId ?? null,
+        messageId: context.messageId ?? null,
+      });
       throw new AppError('Email service is currently unavailable. Please try again later.', 503, 'EMAIL_SERVICE_UNAVAILABLE');
     }
 
@@ -129,6 +154,8 @@ export class EmailService {
       orderId: data.orderId || null,
     };
 
+    // Keep this payload stable for production; request/message correlation is
+    // logged separately so future debugging does not require webhook changes.
     try {
       const response = await fetch(this.webhookUrl!, {
         method: 'POST',
@@ -144,6 +171,9 @@ export class EmailService {
         logger.error('Make.com webhook returned error for reply', new Error(errorText), {
           status: response.status,
           statusText: response.statusText,
+          requestId: context.requestId,
+          actorUserId: context.actorUserId ?? null,
+          messageId: context.messageId ?? null,
         });
         throw new AppError('Failed to send reply email', 500, 'WEBHOOK_ERROR');
       }
@@ -153,6 +183,9 @@ export class EmailService {
         toName: data.toName,
         subject: data.subject,
         repliedBy: data.repliedBy,
+        requestId: context.requestId,
+        actorUserId: context.actorUserId ?? null,
+        messageId: context.messageId ?? null,
       });
 
       return true;
@@ -165,6 +198,9 @@ export class EmailService {
         toEmail: data.toEmail,
         toName: data.toName,
         subject: data.subject,
+        requestId: context.requestId,
+        actorUserId: context.actorUserId ?? null,
+        messageId: context.messageId ?? null,
       });
       throw new AppError('Failed to send reply email', 500, 'WEBHOOK_SEND_FAILED');
     }

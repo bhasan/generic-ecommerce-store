@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import authService from '../services/auth.service';
+import { logger } from '../utils/logger';
 
 export class AuthController {
   /**
@@ -12,6 +13,12 @@ export class AuthController {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('Auth register validation failed', {
+          requestId: req.requestId || 'unknown',
+          path: req.path,
+          method: req.method,
+          errors: errors.array(),
+        });
         res.status(400).json({ errors: errors.array() });
         return;
       }
@@ -32,6 +39,12 @@ export class AuthController {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('Auth login validation failed', {
+          requestId: req.requestId || 'unknown',
+          path: req.path,
+          method: req.method,
+          errors: errors.array(),
+        });
         res.status(400).json({ errors: errors.array() });
         return;
       }
