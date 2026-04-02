@@ -12,6 +12,13 @@ const BACKEND_ERROR_COOLDOWN_MS = Number(import.meta.env.VITE_BACKEND_ERROR_COOL
 
 let lastBackendErrorAt = 0;
 
+const debugClient = (event, context = {}) => {
+  // Dev-only trace surface for Codex/debugging sessions. Do not promote this to
+  // user-visible behavior or rely on it in production logic.
+  if (!import.meta.env.DEV) return;
+  console.debug(`[api] ${event}`, context);
+};
+
 const shouldNotifyBackendError = () => {
   const now = Date.now();
   if (now - lastBackendErrorAt < BACKEND_ERROR_COOLDOWN_MS) {
@@ -72,7 +79,7 @@ const handleError = async (response) => {
       errorData = await response.json();
       const raw = errorData?.error?.message ?? errorData?.message ?? errorData?.errors;
       errorMessage = toNotificationMessage(raw, response.statusText || 'An error occurred');
-    } catch (e) {
+    } catch {
       // If response is not JSON, use status text
       errorMessage = response.statusText || 'An error occurred';
     }
@@ -81,7 +88,10 @@ const handleError = async (response) => {
     error.status = response.status;
     error.data = errorData;
     error.code = errorData?.error?.code;
+    // requestId/responseUrl preservation is intentional so frontend failures can
+    // be matched back to backend logs without reproducing the request manually.
     error.requestId = errorData?.error?.requestId;
+    error.responseUrl = response.url;
 
     // Handle 401 Unauthorized - clear token and redirect to login
     if (response.status === 401) {
@@ -132,11 +142,24 @@ const apiClient = async (url, options = {}) => {
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
     try {
+      debugClient('request:start', {
+        url,
+        method: config.method || 'GET',
+        attempt: attempt + 1,
+        hasToken: Boolean(token),
+      });
       const response = await fetch(`${API_BASE_URL}${url}`, {
         ...config,
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
+      debugClient('request:response', {
+        url,
+        method: config.method || 'GET',
+        attempt: attempt + 1,
+        status: response.status,
+        requestId: response.headers.get('x-request-id') || undefined,
+      });
 
       const processedResponse = await handleError(response);
       
@@ -155,6 +178,16 @@ const apiClient = async (url, options = {}) => {
       const isNetworkError = error?.name === 'TypeError' && `${error?.message}`.includes('fetch');
       const retryableStatus = error?.status && isRetryableStatus(error.status);
       const shouldRetry = attempt < maxRetries && (isAbortError || isNetworkError || retryableStatus);
+      debugClient('request:error', {
+        url,
+        method: config.method || 'GET',
+        attempt: attempt + 1,
+        shouldRetry,
+        requestId: error?.requestId,
+        code: error?.code,
+        status: error?.status,
+        message: error?.message,
+      });
 
       if (!shouldRetry) {
         if (retryableStatus || isNetworkError || isAbortError) {
@@ -166,11 +199,15 @@ const apiClient = async (url, options = {}) => {
         if (isNetworkError) {
           const networkError = new Error('Network error. Please check your connection.');
           networkError.code = 'NETWORK_ERROR';
+          // Preserve requestId when available so callers/tests can keep a single
+          // correlation story even after transport-level normalization happens.
+          networkError.requestId = error?.requestId;
           throw networkError;
         }
         if (isAbortError) {
           const timeoutError = new Error('Request timed out. Please try again.');
           timeoutError.code = 'REQUEST_TIMEOUT';
+          timeoutError.requestId = error?.requestId;
           throw timeoutError;
         }
         throw error;

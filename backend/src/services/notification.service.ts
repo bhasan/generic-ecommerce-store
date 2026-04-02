@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { OrderStatus } from '../../generated/prisma';
+import { logger } from '../utils/logger';
 
 const UNFULFILLED_STATUSES: OrderStatus[] = [
   'PENDING',
@@ -38,6 +39,12 @@ export class NotificationService {
       }
     }
 
+    // This count log is the primary breadcrumb for dashboard badge debugging.
+    // Keep it aligned with the current count rules unless those rules change.
+    logger.info('Staff notification counts computed', {
+      ordersByStatus,
+      pendingRegistrations,
+    });
     return {
       ordersByStatus,
       pendingRegistrations

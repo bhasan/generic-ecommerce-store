@@ -11,8 +11,14 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    // eslint-disable-next-line no-console
-    console.error('UI Error Boundary', { error, info });
+    // Route metadata is included here because many frontend failures are only
+    // reproducible on a specific page/query-string combination.
+    console.error('UI Error Boundary', {
+      error,
+      info,
+      path: window.location.pathname,
+      search: window.location.search,
+    });
   }
 
   handleReload = () => {

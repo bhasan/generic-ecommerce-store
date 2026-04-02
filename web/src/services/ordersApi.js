@@ -5,12 +5,7 @@ import { get, post, patch, del } from './api';
  * @returns {Promise<Array>} Array of order objects
  */
 export const getAllOrders = async () => {
-  try {
-    const response = await get('/orders');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/orders');
 };
 
 /**
@@ -18,12 +13,7 @@ export const getAllOrders = async () => {
  * @returns {Promise<Array>} Array of ready-for-delivery order objects
  */
 export const getReadyForDeliveryOrders = async () => {
-  try {
-    const response = await get('/orders/ready-for-delivery');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/orders/ready-for-delivery');
 };
 
 /**
@@ -32,12 +22,7 @@ export const getReadyForDeliveryOrders = async () => {
  * @returns {Promise<object>} Order object
  */
 export const getOrderById = async (id) => {
-  try {
-    const response = await get(`/orders/${id}`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get(`/orders/${id}`);
 };
 
 /**
@@ -47,14 +32,10 @@ export const getOrderById = async (id) => {
  * @returns {Promise<object>} Created order object
  */
 export const createOrder = async (items, cashAppUsername) => {
-  try {
-    const payload = { items };
-    if (cashAppUsername) payload.cashAppUsername = cashAppUsername;
-    const response = await post('/orders', payload);
-    return response.order || response;
-  } catch (error) {
-    throw error;
-  }
+  const payload = { items };
+  if (cashAppUsername) payload.cashAppUsername = cashAppUsername;
+  const response = await post('/orders', payload);
+  return response.order || response;
 };
 
 /**
@@ -64,12 +45,8 @@ export const createOrder = async (items, cashAppUsername) => {
  * @returns {Promise<object>} Updated order object
  */
 export const updateOrderStatus = async (id, status) => {
-  try {
-    const response = await patch(`/orders/${id}/status`, { status });
-    return response.order || response;
-  } catch (error) {
-    throw error;
-  }
+  const response = await patch(`/orders/${id}/status`, { status });
+  return response.order || response;
 };
 
 /**
@@ -80,12 +57,8 @@ export const updateOrderStatus = async (id, status) => {
  * @returns {Promise<object>} Order item object
  */
 export const addItemToOrder = async (orderId, productId, quantity) => {
-  try {
-    const response = await post(`/orders/${orderId}/items`, { productId, quantity });
-    return response.orderItem || response;
-  } catch (error) {
-    throw error;
-  }
+  const response = await post(`/orders/${orderId}/items`, { productId, quantity });
+  return response.orderItem || response;
 };
 
 /**
@@ -95,12 +68,8 @@ export const addItemToOrder = async (orderId, productId, quantity) => {
  * @returns {Promise<object>} Voided order item object
  */
 export const voidOrderItem = async (orderId, itemId) => {
-  try {
-    const response = await patch(`/orders/${orderId}/items/${itemId}/void`);
-    return response.orderItem || response;
-  } catch (error) {
-    throw error;
-  }
+  const response = await patch(`/orders/${orderId}/items/${itemId}/void`);
+  return response.orderItem || response;
 };
 
 /**
@@ -110,12 +79,7 @@ export const voidOrderItem = async (orderId, itemId) => {
  * @returns {Promise<object>} Success message
  */
 export const deleteOrderItem = async (orderId, itemId) => {
-  try {
-    const response = await del(`/orders/${orderId}/items/${itemId}`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return del(`/orders/${orderId}/items/${itemId}`);
 };
 
 /**
@@ -124,12 +88,7 @@ export const deleteOrderItem = async (orderId, itemId) => {
  * @returns {Promise<object>} Success message
  */
 export const deleteOrder = async (id) => {
-  try {
-    const response = await del(`/orders/${id}`);
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return del(`/orders/${id}`);
 };
 
 /**
@@ -137,12 +96,7 @@ export const deleteOrder = async (id) => {
  * @returns {Promise<Array>} Array of delivered order objects
  */
 export const getDeliveredOrders = async () => {
-  try {
-    const response = await get('/orders/delivered');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/orders/delivered');
 };
 
 /**
@@ -150,11 +104,6 @@ export const getDeliveredOrders = async () => {
  * @returns {Promise<Array>} Array of out-for-delivery order objects
  */
 export const getOutForDeliveryOrders = async () => {
-  try {
-    const response = await get('/orders/out-for-delivery');
-    return response;
-  } catch (error) {
-    throw error;
-  }
+  return get('/orders/out-for-delivery');
 };
 

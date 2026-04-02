@@ -1,0 +1,11 @@
+{
+  "name": "smoke-station-delivery-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test": "npm run test:backend && npm run test:web",
+    "test:backend": "npm --prefix backend run test",
+    "test:web": "npm --prefix web run test",
+    "test:hardening": "npm run test:backend && npm run test:web"
+  }
+}

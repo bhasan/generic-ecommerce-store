@@ -5,6 +5,7 @@ import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag } from 'lucide
 import ProductReviews from '../../components/product/ProductReviews';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
 import './ProductItemPage.css';
+import { hasRole } from '../../utils/roles';
 
 // Component to display available quantity discounts
 function QuantityDiscountsTable({ product, discounts }) {
@@ -123,7 +124,9 @@ function ProductItemPage() {
   }
   
   // Check if product is hidden and user is customer/guest
-  if (product.hidden && (currentUser.role === 'CUSTOMER' || currentUser.email === 'guest@smokestation.com')) {
+  // Use the shared helper here so hidden-product gating stays aligned with the
+  // repo's mixed legacy/new role representations.
+  if (product.hidden && (hasRole(currentUser, 'CUSTOMER') || currentUser.email === 'guest@smokestation.com')) {
     return (
       <div className="product-item-container">
         <div className="product-not-found">
@@ -154,15 +157,6 @@ function ProductItemPage() {
 
   // Get quantity discounts for this product
   const quantityDiscounts = resolveQuantityDiscounts(product);
-  
-  // Debug: Log discount data (remove after debugging)
-  console.log('Product discount debug:', {
-    productName: product.name,
-    productQuantityDiscountsOverride: product.quantityDiscountsOverride,
-    categoryName: product.category?.name,
-    categoryQuantityDiscounts: product.category?.quantityDiscounts,
-    resolvedDiscounts: quantityDiscounts
-  });
   
   // Calculate average rating
   const getAverageRating = () => {

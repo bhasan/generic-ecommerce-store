@@ -2,6 +2,17 @@
 
 E-commerce platform with React frontend, Express backend, PostgreSQL database, and Nginx reverse proxy.
 
+## Current Status
+
+This repository is a full-stack application.
+
+- Frontend runtime code lives in `web/`
+- Backend API code lives in `backend/`
+- Nginx config lives in `nginx/`
+- The most up-to-date inspected inventory is in `CODEBASE_WORKING_DOCUMENT.md`
+
+Some older markdown files and examples in the repo were written before the backend and role model evolved. When in doubt, use the route files, service files, Prisma schema, and `CODEBASE_WORKING_DOCUMENT.md` as the current source of truth.
+
 > **📘 Production Deployment**: See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) for complete production deployment instructions.
 
 ## Prerequisites

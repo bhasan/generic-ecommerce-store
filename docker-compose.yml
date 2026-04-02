@@ -6,9 +6,9 @@ services:
     restart: always
     environment:
       # These variables are used by Postgres to create the DB
-      POSTGRES_USER: backend_user
-      POSTGRES_PASSWORD: bfe4af37d97cd02d
-      POSTGRES_DB: smoke-station-delivery-db
+      POSTGRES_USER: ${DB_USER:-backend_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
+      POSTGRES_DB: ${DB_NAME:-smoke-station-delivery-db}
     ports:
       - "5432:5432"  # Add this to expose PostgreSQL to your host
     volumes:
@@ -26,7 +26,7 @@ services:
     environment:
       # This MUST match the 'db' service's credentials
       # Note the hostname is 'db' (the service name), NOT 'localhost'
-      DATABASE_URL: "postgresql://backend_user:bfe4af37d97cd02d@db:5432/smoke-station-delivery-db"
+      DATABASE_URL: "postgresql://${DB_USER:-backend_user}:${DB_PASSWORD:-change-me}@db:5432/${DB_NAME:-smoke-station-delivery-db}"
       PORT: 3000 # The port your Express app listens on *inside* the container
       NODE_ENV: "development" # Set to development to skip rate limiting
     ports:

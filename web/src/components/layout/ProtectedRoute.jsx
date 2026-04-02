@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { getUserRoles } from '../../utils/roles';
 
 function ProtectedRoute({ children, roles }) {
   const { currentUser, setReturnPath } = useApp();
@@ -28,8 +29,9 @@ function ProtectedRoute({ children, roles }) {
   
   // If roles specified and user doesn't have permission
   if (roles) {
-    // Support both old format (single role) and new format (roles array)
-    const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
+    // Use the shared helper so ProtectedRoute stays compatible with both the
+    // legacy role field and the newer roles array/user-role normalization path.
+    const userRoles = getUserRoles(currentUser);
     const hasRequiredRole = roles.some(role => userRoles.includes(role));
     
     if (!hasRequiredRole) {

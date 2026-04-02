@@ -3,6 +3,7 @@ import './ProductReviews.css';
 import { useApp } from '../../context/AppContext';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { Star, ThumbsUp, ThumbsDown, Flag, MessageCircle, Trash2, Send } from 'lucide-react';
+import { hasAnyRole } from '../../utils/roles';
 
 function ProductReviews({ productId }) {
   const { currentUser, products, addReview, updateReview, deleteReview, addReviewReply, voteReview, flagReview } = useApp();
@@ -18,7 +19,9 @@ function ProductReviews({ productId }) {
   const product = products.find(p => p.id === productId);
   const reviews = product?.reviews || [];
   const isGuest = currentUser.email === 'guest@smokestation.com';
-  const canModerate = currentUser.role === 'MANAGEMENT' || currentUser.role === 'ADMIN';
+  // Shared helper avoids duplicating the role-shape compatibility logic in each
+  // review/admin surface while the repo still has legacy role access patterns.
+  const canModerate = hasAnyRole(currentUser, ['MANAGEMENT', 'ADMIN']);
   
   const averageRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
