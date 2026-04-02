@@ -136,7 +136,7 @@ function ContactForm({ prefilledOrderId = '', prefilledSubject = '' }) {
       <div className="contact-form-user-info">
         <div className="user-info-item">
           <User size={16} />
-          <span>{currentUser.name}</span>
+          <span>{currentUser.username}</span>
         </div>
         <div className="user-info-item">
           <Mail size={16} />

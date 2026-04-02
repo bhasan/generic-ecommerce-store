@@ -2,8 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './AnnouncementBanner.css';
 import { X, Megaphone } from 'lucide-react';
 import * as announcementsApi from '../../services/announcementsApi';
+import { useApp } from '../../context/AppContext';
+import { isGuest } from '../../utils/roles';
 
 function AnnouncementBanner() {
+  const { currentUser } = useApp();
   const [isVisible, setIsVisible] = useState(true);
   const [announcement, setAnnouncement] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +38,7 @@ function AnnouncementBanner() {
     loadAnnouncements();
   }, [loadAnnouncements]);
 
-  if (isLoading || !isVisible || !announcement || !announcement.message) return null;
+  if (isGuest(currentUser) || isLoading || !isVisible || !announcement || !announcement.message) return null;
 
   // Map backend type (INFO, WARNING, SUCCESS) to CSS class (info, warning, success)
   const typeClass = announcement.type ? announcement.type.toLowerCase() : 'info';

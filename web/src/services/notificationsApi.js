@@ -10,5 +10,5 @@ import { get } from './api';
  * @returns {Promise<{ordersByStatus: Record<string, number>, pendingRegistrations: number}>}
  */
 export const getStaffNotificationCounts = async () => {
-  return get('/notifications/staff');
+  return get('/notifications/staff', { skipAutoLogout: true });
 };

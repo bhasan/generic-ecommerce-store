@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartPage.css';
 import { useApp } from '../../context/AppContext';
@@ -9,11 +9,19 @@ import HeaderDivider from '../../components/common/HeaderDivider';
 
 function CartPage() {
   const navigate = useNavigate();
-  const { cart, removeFromCart, updateCartQuantity } = useApp();
+  const { cart, removeFromCart, updateCartQuantity, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled } = useApp();
+  const [deliveryMethod, setDeliveryMethod] = useState('PICKUP');
   const total = cart.reduce((sum, item) => {
     const unitPrice = getDiscountedUnitPrice(item, item.quantity);
     return sum + (unitPrice * item.quantity);
   }, 0);
+  const deliveryBlocked = minimumDeliveryOrderEnabled && total < minimumDeliveryOrder;
+
+  useEffect(() => {
+    if (deliveryBlocked && deliveryMethod === 'DELIVERY') {
+      setDeliveryMethod('PICKUP');
+    }
+  }, [deliveryBlocked, deliveryMethod]);
 
   const resolveAllowedQuantities = (item) => {
     if (item.allowedQuantitiesOverride && item.allowedQuantitiesOverride.length > 0) {
@@ -50,67 +58,67 @@ function CartPage() {
             (() => {
               const imageSrc = getProductImageSrc(item);
               return (
-            <div key={item.id} className="cart-item surface-card">
-              <div className="cart-item-image-container">
-                <ProductImage src={imageSrc} alt={item.name} className="cart-item-image" />
-              </div>
-
-              <div className="cart-item-details">
-                <h3 className="cart-item-name">{item.name}</h3>
-                <p className="cart-item-category">{getProductCategoryLabel(item)}</p>
-                <p className="cart-item-price">
-                  ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} each
-                </p>
-              </div>
-
-              <div className="cart-item-actions">
-                {resolveAllowedQuantities(item).length > 0 ? (
-                  <div className="quantity-controls">
-                    <select
-                      className="quantity-select"
-                      value={item.quantity}
-                      onChange={(e) => updateCartQuantity(item.id, parseFloat(e.target.value))}
-                    >
-                      {resolveAllowedQuantities(item).map((quantity) => (
-                        <option key={quantity} value={quantity}>
-                          {quantity}
-                        </option>
-                      ))}
-                    </select>
+                <div key={item.id} className="cart-item surface-card">
+                  <div className="cart-item-image-container">
+                    <ProductImage src={imageSrc} alt={item.name} className="cart-item-image" />
                   </div>
-                ) : (
-                  <div className="quantity-controls">
+
+                  <div className="cart-item-details">
+                    <h3 className="cart-item-name">{item.name}</h3>
+                    <p className="cart-item-category">{getProductCategoryLabel(item)}</p>
+                    <p className="cart-item-price">
+                      ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} each
+                    </p>
+                  </div>
+
+                  <div className="cart-item-actions">
+                    {resolveAllowedQuantities(item).length > 0 ? (
+                      <div className="quantity-controls">
+                        <select
+                          className="quantity-select"
+                          value={item.quantity}
+                          onChange={(e) => updateCartQuantity(item.id, parseFloat(e.target.value))}
+                        >
+                          {resolveAllowedQuantities(item).map((quantity) => (
+                            <option key={quantity} value={quantity}>
+                              {quantity}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="quantity-controls">
+                        <button
+                          onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                          className="quantity-btn"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus size={16} />
+                        </button>
+                        <span className="quantity-display">{item.quantity}</span>
+                        <button
+                          onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                          className="quantity-btn"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus size={16} />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="cart-item-total">
+                      ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
+                    </div>
+
                     <button
-                      onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                      className="quantity-btn"
-                      aria-label="Decrease quantity"
+                      onClick={() => removeFromCart(item.id)}
+                      className="btn-remove-item"
+                      aria-label="Remove item"
                     >
-                      <Minus size={16} />
-                    </button>
-                    <span className="quantity-display">{item.quantity}</span>
-                    <button
-                      onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                      className="quantity-btn"
-                      aria-label="Increase quantity"
-                    >
-                      <Plus size={16} />
+                      <Trash2 size={20} />
                     </button>
                   </div>
-                )}
-
-                <div className="cart-item-total">
-                  ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
                 </div>
-
-                <button
-                  onClick={() => removeFromCart(item.id)}
-                  className="btn-remove-item"
-                  aria-label="Remove item"
-                >
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            </div>
               );
             })()
           ))}
@@ -118,29 +126,49 @@ function CartPage() {
 
         <div className="cart-summary surface-card-accent">
           <h3 className="cart-summary-title">Order Summary</h3>
-          
+
+          <div className="delivery-method-toggle delivery-method-toggle-large">
+            <button
+              onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
+              className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
+              disabled={deliveryBlocked}
+              title={deliveryBlocked ? `Add $${(minimumDeliveryOrder - total).toFixed(2)} more for delivery` : undefined}
+            >
+              Delivery
+            </button>
+            <button
+              onClick={() => setDeliveryMethod('PICKUP')}
+              className={`toggle-btn ${deliveryMethod === 'PICKUP' ? 'active' : ''}`}
+            >
+              Pick Up
+            </button>
+          </div>
+
+          {deliveryBlocked && (
+            <div className="minimum-order-notice">
+              Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum
+              {' '}(${(minimumDeliveryOrder - total).toFixed(2)} more needed)
+            </div>
+          )}
+
           <div className="cart-summary-details">
             <div className="summary-row">
               <span>Subtotal</span>
               <span>${total.toFixed(2)}</span>
             </div>
             <div className="summary-row">
-              <span>Shipping</span>
-              <span className="shipping-free">Free</span>
-            </div>
-            <div className="summary-row">
               <span>Tax (estimated)</span>
-              <span>${(total * 0.08).toFixed(2)}</span>
+              <span>${(total * taxRate).toFixed(2)}</span>
             </div>
             <div className="summary-divider"></div>
             <div className="summary-row summary-total">
               <span>Total</span>
-              <span>${(total * 1.08).toFixed(2)}</span>
+              <span>${(total * (1 + taxRate)).toFixed(2)}</span>
             </div>
           </div>
 
           <button
-            onClick={() => navigate('/checkout')}
+            onClick={() => navigate('/checkout', { state: { deliveryMethod } })}
             className="btn-checkout"
           >
             Proceed to Checkout

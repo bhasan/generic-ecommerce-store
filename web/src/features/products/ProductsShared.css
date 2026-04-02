@@ -49,7 +49,7 @@
 }
 
 .products-grid-compact .product-image-container {
-  height: 160px;
+  aspect-ratio: 1 / 1;
 }
 
 .products-grid-compact .product-content {

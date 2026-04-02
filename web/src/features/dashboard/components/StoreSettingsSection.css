@@ -1,0 +1,18 @@
+.store-settings-description {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.store-settings-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.store-settings-save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}

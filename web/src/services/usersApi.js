@@ -20,11 +20,11 @@ export const getUserById = async (id) => {
 /**
  * Update user
  * @param {number} id - User ID
- * @param {object} data - Update data {email?, name?, password?, roles?}
+ * @param {object} data - Update data
  * @returns {Promise<object>} Updated user object
  */
 export const updateUser = async (id, data) => {
-  const response = await put(`/users/${id}`, data);
+  const response = await put(`/users/${id}`, data, { skipAutoLogout: true });
   return response.user || response;
 };
 
@@ -89,4 +89,3 @@ export const deleteUser = async (id) => {
 export const getAllRoles = async () => {
   return get('/users/roles');
 };
-

@@ -128,7 +128,7 @@ describe('user service logging', () => {
   it('logs user deletion details', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 8,
-      email: 'delete@test.com',
+      username: 'delete-user',
       approved: true,
       rejected: false,
     });
@@ -141,7 +141,7 @@ describe('user service logging', () => {
 
     expect(logger.info).toHaveBeenCalledWith('User deleted', {
       targetUserId: 8,
-      email: 'delete@test.com',
+      username: 'delete-user',
       approved: true,
       rejected: false,
     });

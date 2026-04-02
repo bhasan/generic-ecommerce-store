@@ -1,16 +1,18 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { hashPassword } from '../utils/password.util';
+import { hashPassword, comparePassword } from '../utils/password.util';
 import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 
 interface UpdateUserData {
-  email?: string;
-  name?: string;
+  username?: string;
   password?: string;
+  currentPassword?: string;
   roles?: RoleName[];
   address?: string | null;
   cashapp?: string | null;
+  zelle?: string | null;
+  venmo?: string | null;
   phoneNumber?: string | null;
 }
 
@@ -150,27 +152,37 @@ export class UserService {
       throw new AppError('Access denied. Only MANAGEMENT/ADMIN can update user roles.', 403);
     }
 
-    // If email is being updated, check if it's already taken
-    if (data.email && data.email !== existingUser.email) {
-      const emailExists = await prisma.user.findUnique({
-        where: { email: data.email }
+    // If username is being updated, check if it's already taken
+    if (data.username && data.username !== existingUser.username) {
+      const usernameExists = await prisma.user.findUnique({
+        where: { username: data.username }
       });
 
-      if (emailExists) {
-        throw new AppError('Email already in use', 409);
+      if (usernameExists) {
+        throw new AppError('Username already in use', 409);
       }
     }
 
     // Prepare update data
     const updateData: any = {};
-    
-    if (data.email) updateData.email = data.email;
-    if (data.name) updateData.name = data.name;
+
+    if (data.username) updateData.username = data.username;
     if (data.address !== undefined) updateData.address = data.address || null;
     if (data.cashapp !== undefined) updateData.cashapp = data.cashapp || null;
+    if (data.zelle !== undefined) updateData.zelle = data.zelle || null;
+    if (data.venmo !== undefined) updateData.venmo = data.venmo || null;
     if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber || null;
 
     if (data.password) {
+      if (isOwnProfile) {
+        if (!data.currentPassword) {
+          throw new AppError('Current password is required to change password', 400);
+        }
+        const isCurrentValid = await comparePassword(data.currentPassword, existingUser.password);
+        if (!isCurrentValid) {
+          throw new AppError('Current password is incorrect', 400);
+        }
+      }
       updateData.password = await hashPassword(data.password);
     }
 
@@ -619,7 +631,7 @@ export class UserService {
     // still avoid including sensitive profile fields or related records.
     logger.info('User deleted', {
       targetUserId: userId,
-      email: user.email,
+      username: user.username,
       approved: user.approved,
       rejected: user.rejected,
     });
@@ -647,14 +659,15 @@ export class UserService {
   /**
    * Format user response (exclude password, format roles)
    */
-  private formatUser<T extends { id: number; email: string; name: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
-    const { id, email, name, address, cashapp, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
+  private formatUser<T extends { id: number; username: string; address?: string | null; cashapp?: string | null; zelle?: string | null; venmo?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
+    const { id, username, address, cashapp, zelle, venmo, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
     return {
       id,
-      email,
-      name,
+      username,
       ...(address ? { address } : {}),
       ...(cashapp ? { cashapp } : {}),
+      ...(zelle ? { zelle } : {}),
+      ...(venmo ? { venmo } : {}),
       ...(phoneNumber ? { phoneNumber } : {}),
       ...(approved !== undefined ? { approved } : {}),
       ...(rejected !== undefined ? { rejected } : {}),

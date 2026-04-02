@@ -2,12 +2,14 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { logger } from '../utils/logger';
+import { deleteUploadedFile, collectProductImageUrls } from '../utils/fileUtils';
 
 interface CreateProductData {
   name: string;
   categoryId: number;
   price: number;
   description?: string;
+  thumbnail?: string;
   image?: string;
   images?: string[];
   stock?: number;
@@ -24,6 +26,7 @@ interface UpdateProductData {
   categoryId?: number;
   price?: number;
   description?: string;
+  thumbnail?: string;
   image?: string;
   images?: string[];
   stock?: number;
@@ -97,7 +100,6 @@ export class ProductService {
       ]
     });
 
-    // Fetch reviews with users for each product
     const productIds = products.map(p => p.id);
     const reviews = await prisma.review.findMany({
       where: { productId: { in: productIds } },
@@ -107,13 +109,12 @@ export class ProductService {
     const userIds = [...new Set(reviews.map(r => r.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true }
+      select: { id: true, username: true }
     });
 
-    // Join reviews with users and attach to products
     const userMap = new Map(users.map(u => [u.id, u]));
     const reviewsByProduct = new Map<number, any[]>();
-    
+
     for (const review of reviews) {
       if (!reviewsByProduct.has(review.productId)) {
         reviewsByProduct.set(review.productId, []);
@@ -147,12 +148,10 @@ export class ProductService {
       throw new AppError('Product not found', 404);
     }
 
-    // Check if product is hidden and user is not admin/management
     if (product.hidden && !hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) {
       throw new AppError('Product not found', 404);
     }
 
-    // Fetch reviews with users
     const reviews = await prisma.review.findMany({
       where: { productId: id },
       orderBy: { createdAt: 'desc' }
@@ -161,7 +160,7 @@ export class ProductService {
     const userIds = [...new Set(reviews.map(r => r.userId))];
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, name: true, email: true }
+      select: { id: true, username: true }
     });
 
     const userMap = new Map(users.map(u => [u.id, u]));
@@ -245,10 +244,9 @@ export class ProductService {
       previousStock: product.stock,
     });
 
-    // Filter out non-updatable fields (reviews, id, createdAt, updatedAt, etc.)
     const allowedFields: (keyof UpdateProductData)[] = [
       'name', 'categoryId', 'price', 'description',
-      'image', 'images', 'stock', 'stockEnabled', 'hidden',
+      'thumbnail', 'image', 'images', 'stock', 'stockEnabled', 'hidden',
       'sortOrder', 'cardSize', 'allowedQuantitiesOverride', 'quantityDiscountsOverride'
     ];
 
@@ -282,6 +280,17 @@ export class ProductService {
       where: { id },
       data: filteredData
     });
+
+    // Uploaded media cleanup is existing product behavior from develop. Keep the
+    // log/audit additions around it, but do not change the cleanup contract.
+    const oldUrls = collectProductImageUrls(product);
+    const newUrls = collectProductImageUrls(updatedProduct);
+    const removedUrls = oldUrls.filter((u) => !newUrls.includes(u));
+    if (removedUrls.length > 0) {
+      const orphaned = await this.getOrphanedUrls(id, removedUrls);
+      await Promise.all(orphaned.map((url) => deleteUploadedFile(url)));
+    }
+
     logger.info('Product updated', {
       productId: id,
       categoryId: updatedProduct.categoryId,
@@ -291,6 +300,27 @@ export class ProductService {
       sortOrder: updatedProduct.sortOrder,
     });
     return updatedProduct;
+  }
+
+  /**
+   * Returns upload URLs from a product that are not referenced by any other product.
+   */
+  private async getOrphanedUrls(excludeId: number, urls: string[]): Promise<string[]> {
+    if (urls.length === 0) return [];
+
+    const others = await prisma.productItem.findMany({
+      where: { id: { not: excludeId } },
+      select: { thumbnail: true, image: true, images: true }
+    });
+
+    const usedElsewhere = new Set<string>();
+    for (const p of others) {
+      for (const u of collectProductImageUrls(p)) {
+        usedElsewhere.add(u);
+      }
+    }
+
+    return urls.filter((u) => !usedElsewhere.has(u));
   }
 
   /**
@@ -310,7 +340,13 @@ export class ProductService {
       name: product.name,
       categoryId: product.categoryId,
     });
+
+    const urlsToCheck = collectProductImageUrls(product);
     await prisma.productItem.delete({ where: { id } });
+
+    const orphaned = await this.getOrphanedUrls(id, urlsToCheck);
+    await Promise.all(orphaned.map((url) => deleteUploadedFile(url)));
+
     return { message: 'Product deleted successfully' };
   }
 }

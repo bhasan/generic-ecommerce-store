@@ -1,6 +1,6 @@
 # Monitoring Guide
 
-This document outlines practical monitoring and debugging steps for the Smoke Station stack (React + Express + PostgreSQL + Nginx), from basic local checks to the current repo-level diagnostics.
+This document outlines practical monitoring and debugging steps for the Smoke Station stack (React + Express + PostgreSQL + Nginx), from local checks to production observability.
 
 ## 0) Current Debugging Baseline
 
@@ -23,13 +23,13 @@ Use the backend `requestId` as the primary correlation key between UI failures a
 ### View logs
 ```bash
 # Backend logs
-docker-compose logs -f backend
+docker compose logs -f backend
 
 # Nginx / web proxy logs
-docker-compose logs -f web
+docker compose logs -f web
 
 # Database logs
-docker-compose logs -f db
+docker compose logs -f db
 ```
 
 ### Health check
@@ -51,7 +51,29 @@ If the DB is down:
 - `status: "degraded"`
 - `checks.database: "error"`
 
-## 2) Uptime Monitoring
+### Resource usage
+```bash
+docker stats
+docker system df
+```
+
+## 2) Log Rotation
+
+Docker defaults to unbounded JSON logs. Add rotation to `docker-compose.prod.yml` to prevent disk growth:
+
+```yaml
+services:
+  backend:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+Repeat the same pattern for `web` and `db`.
+
+## 3) Uptime Monitoring
 
 Use a managed uptime service such as UptimeRobot, Better Uptime, or Pingdom to ping:
 
@@ -62,7 +84,7 @@ Alert on:
 - non-200 responses
 - response time above your threshold
 
-## 3) Metrics and Dashboards
+## 4) Metrics and Dashboards
 
 Recommended minimum metrics:
 
@@ -72,7 +94,7 @@ Recommended minimum metrics:
 - backend container CPU and memory
 - Nginx 4xx and 5xx rate
 
-## 4) Error Tracking
+## 5) Error Tracking
 
 Use Sentry or LogRocket to capture:
 
@@ -86,7 +108,7 @@ If you are debugging locally without a third-party tool:
 - search backend logs for the same `requestId`
 - follow matching auth, user, product, category, announcement, contact, or notification logs
 
-## 5) Alerting Rules
+## 6) Alerting Rules
 
 Recommended alerts:
 
@@ -95,7 +117,7 @@ Recommended alerts:
 - p95 latency above 1 second for 5 minutes
 - database connections above 80 percent of max
 
-## 6) Docker Test Flow
+## 7) Docker Test Flow
 
 ### Build and start
 ```bash
@@ -104,42 +126,37 @@ npm install
 npm run build
 cd ..
 
-docker-compose up --build -d
+docker compose up --build -d
 ```
 
 ### Check containers
 ```bash
-docker-compose ps
-docker-compose logs -f backend
+docker compose ps
+docker compose logs -f backend
 ```
 
 ### Health checks
 ```bash
 curl http://localhost/api/health
-docker-compose stop db
+docker compose stop db
 curl http://localhost/api/health
-docker-compose start db
+docker compose start db
 ```
 
 ### Retry behavior
 ```bash
-docker-compose stop backend
+docker compose stop backend
 # Open the app and trigger an API call to observe retry + error handling
-docker-compose start backend
+docker compose start backend
 ```
 
-## 7) Workspace Verification Flow
+## 8) Workspace Verification Flow
 
 Use these after logging or debugging changes:
 
 ```bash
-# root workspace
 npm test
-
-# backend only
 npm --prefix backend test
-
-# frontend only
 npm --prefix web test
 ```
 

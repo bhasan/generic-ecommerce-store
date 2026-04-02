@@ -3,23 +3,24 @@ import './LoginPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
+import { isGuest, ROLES } from '../../utils/roles';
 import { LogIn, User, Lock } from 'lucide-react';
 
 function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading, currentUser } = useApp();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
 
   // Redirect authenticated users away from login page
   useEffect(() => {
-    if (!authLoading && isAuthenticated && currentUser.email !== 'guest@smokestation.com') {
+    if (!authLoading && isAuthenticated && !isGuest(currentUser)) {
       // Redirect based on user role
-      const primaryRole = currentUser.roles?.[0] || currentUser.role || 'CUSTOMER';
-      if (primaryRole === 'CUSTOMER') {
+      const primaryRole = currentUser.roles?.[0] || currentUser.role || ROLES.CUSTOMER;
+      if (primaryRole === ROLES.CUSTOMER) {
         navigate('/products', { replace: true });
       } else {
         navigate('/orders', { replace: true });
@@ -30,21 +31,21 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const emailTrimmed = (email || '').trim();
+    const usernameTrimmed = (username || '').trim();
     const passwordTrimmed = (password || '').trim();
     const errors = {
-      email: !emailTrimmed ? 'Email is required' : '',
+      username: !usernameTrimmed ? 'Username is required' : '',
       password: !passwordTrimmed ? 'Password is required' : ''
     };
     setFieldErrors(errors);
-    if (errors.email || errors.password) return;
+    if (errors.username || errors.password) return;
 
     setIsLoading(true);
     try {
-      const success = await login(emailTrimmed, passwordTrimmed);
+      const success = await login(usernameTrimmed, passwordTrimmed);
       if (success) {
         setError('');
-        setFieldErrors({ email: '', password: '' });
+        setFieldErrors({ username: '', password: '' });
       } else {
         setError('Invalid credentials. Please try again.');
       }
@@ -62,32 +63,32 @@ function LoginPage() {
           <div className="login-logo">
             <LogIn size={48} />
           </div>
-          <h1 className="login-title">Welcome Back</h1>
+          <h1 className="login-title">Welcome</h1>
           <p className="login-subtitle">Sign in to your account to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="email" className="form-label">
+            <label htmlFor="username" className="form-label">
               <User size={16} />
-              <span>Email Address</span>
+              <span>Username</span>
             </label>
             <input
-              id="email"
-              type="email"
-              value={email}
+              id="username"
+              type="text"
+              value={username}
               onChange={(e) => {
-                setEmail(e.target.value);
-                if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }));
+                setUsername(e.target.value);
+                if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }));
               }}
-              className={`form-input ${fieldErrors.email ? 'form-input-error' : ''}`}
-              placeholder="you@example.com"
+              className={`form-input ${fieldErrors.username ? 'form-input-error' : ''}`}
+              placeholder="Enter your Username"
               required
-              aria-invalid={!!fieldErrors.email}
-              aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+              aria-invalid={!!fieldErrors.username}
+              aria-describedby={fieldErrors.username ? 'username-error' : undefined}
             />
-            {fieldErrors.email && (
-              <span id="email-error" className="form-error-message" role="alert">{fieldErrors.email}</span>
+            {fieldErrors.username && (
+              <span id="username-error" className="form-error-message" role="alert">{fieldErrors.username}</span>
             )}
           </div>
 
@@ -128,7 +129,8 @@ function LoginPage() {
         </form>
 
         <div className="login-footer">
-          <p>Don't have an account? <Link to="/register" className="login-link">Sign up</Link></p>
+          <p>Don't have an account?</p>
+          <Link to="/register" className="btn-signup">Create an Account</Link>
         </div>
       </div>
     </div>

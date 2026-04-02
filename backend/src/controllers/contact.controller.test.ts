@@ -124,7 +124,7 @@ describe('contact controller logging', () => {
       repliedAt: null,
       orderId: 3,
     });
-    prismaMock.user.findUnique.mockResolvedValue({ name: 'Manager' });
+    prismaMock.user.findUnique.mockResolvedValue({ username: 'Manager' });
     emailServiceMock.isReady.mockReturnValue(true);
     emailServiceMock.sendReplyEmail.mockResolvedValue(true);
     contactMessageServiceMock.updateMessage.mockResolvedValue({ id: 6 });

@@ -41,5 +41,8 @@ nginx/ssl/
 *.sql
 backups/
 
+# Uploaded files (product images, etc.)
+backend/uploads/
+
 # Ensure Prisma migrations are tracked
 !backend/prisma/migrations/

@@ -1,10 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
   output        = "../generated/prisma"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
@@ -12,29 +9,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model with role-based access control
 model User {
-  id            Int       @id @default(autoincrement())
-  email         String    @unique
-  password      String    // Hashed with bcrypt
-  name          String
-  address       String?   // Optional delivery address
-  cashapp       String?   // Optional CashApp handle (payment method)
-  phoneNumber   String?   // Optional 5-star rewards phone number
-  approved      Boolean   @default(false) // Admin approval status
-  rejected      Boolean   @default(false) // Rejection status
-  rejectionNote String?   // Optional note explaining rejection
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id            Int      @id @default(autoincrement())
+  username      String   @unique
+  password      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  approved      Boolean  @default(false)
+  cashapp       String?
+  zelle         String?
+  venmo         String?
+  phoneNumber   String?
+  address       String?
+  rejected      Boolean  @default(false)
+  rejectionNote String?
+  creditBalance Float    @default(0)
 
   @@map("users")
 }
 
 model Role {
-  id        Int        @id @default(autoincrement())
-  name      String     @unique
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("roles")
 }
@@ -49,16 +47,155 @@ model UserRole {
   @@map("user_roles")
 }
 
-// Order model
 model Order {
-  id        Int         @id @default(autoincrement())
-  userId    Int
-  status    OrderStatus @default(PENDING)
-  total     Float
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id             Int         @id @default(autoincrement())
+  userId         Int
+  status         OrderStatus @default(PENDING)
+  total          Float
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deliveryMethod String      @default("DELIVERY")
+  paymentMethod  String      @default("EXTERNAL")
 
   @@map("orders")
+}
+
+model CreditTransaction {
+  id        Int                   @id @default(autoincrement())
+  userId    Int
+  amount    Float
+  type      CreditTransactionType
+  orderId   Int?
+  note      String?
+  createdBy Int?
+  createdAt DateTime              @default(now())
+
+  @@map("credit_transactions")
+}
+
+model OrderItem {
+  id                   Int      @id @default(autoincrement())
+  orderId              Int
+  productId            Int
+  quantity             Float
+  price                Float
+  voided               Boolean  @default(false)
+  addedAfterSubmission Boolean  @default(false)
+  createdAt            DateTime @default(now())
+
+  @@map("order_items")
+}
+
+model Category {
+  id                Int           @id @default(autoincrement())
+  name              String
+  description       String?
+  parentId          Int?
+  sortOrder         Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  allowedQuantities Float[]       @default([])
+  quantityDiscounts Json?
+  parent            Category?     @relation("CategoryParent", fields: [parentId], references: [id])
+  children          Category[]    @relation("CategoryParent")
+  products          ProductItem[]
+
+  @@unique([name, parentId])
+  @@map("categories")
+}
+
+model ProductItem {
+  id                        Int      @id @default(autoincrement())
+  name                      String
+  price                     Float
+  description               String?
+  thumbnail                 String?
+  image                     String?
+  images                    String[]
+  stock                     Float    @default(0)
+  stockEnabled              Boolean  @default(true)
+  hidden                    Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+  categoryId                Int
+  sortOrder                 Int      @default(0)
+  cardSize                  String   @default("standard")
+  allowedQuantitiesOverride Float[]  @default([])
+  quantityDiscountsOverride Json?
+  category                  Category @relation(fields: [categoryId], references: [id])
+
+  @@map("products")
+}
+
+model UiSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ui_settings")
+}
+
+model Review {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  productId         Int
+  rating            Int
+  comment           String
+  helpful           Int      @default(0)
+  notHelpful        Int      @default(0)
+  flagged           Boolean  @default(false)
+  votedByHelpful    Int[]
+  votedByNotHelpful Int[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("reviews")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  productId Int
+  quantity  Float
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("cart_items")
+}
+
+model Announcement {
+  id          Int              @id @default(autoincrement())
+  message     String
+  type        AnnouncementType @default(INFO)
+  enabled     Boolean          @default(true)
+  dismissible Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@map("announcements")
+}
+
+model ContactMessage {
+  id            Int                  @id @default(autoincrement())
+  userId        Int
+  userName      String
+  userEmail     String
+  userPhone     String?
+  subject       String
+  orderId       Int?
+  message       String
+  status        ContactMessageStatus @default(NEW)
+  adminNotes    String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  repliedAt     DateTime?
+  repliedBy     Int?
+  repliedByName String?
+  replyMessage  String?
+
+  @@map("contact_messages")
 }
 
 enum OrderStatus {
@@ -82,134 +219,9 @@ enum ContactMessageStatus {
   RESOLVED
 }
 
-// Order item model with void tracking
-model OrderItem {
-  id                   Int      @id @default(autoincrement())
-  orderId              Int
-  productId            Int
-  quantity             Float
-  price                Float    // Price at time of order
-  voided               Boolean  @default(false)
-  addedAfterSubmission Boolean  @default(false)
-  createdAt            DateTime @default(now())
-
-  @@map("order_items")
-}
-
-model Category {
-  id          Int       @id @default(autoincrement())
-  name        String
-  description String?
-  parentId    Int?
-  sortOrder   Int       @default(0)
-  allowedQuantities Float[] @default([])
-  quantityDiscounts Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryParent")
-  products ProductItem[]
-
-  @@unique([name, parentId])
-  @@map("categories")
-}
-
-// Enhanced ProductItem model (renamed from Product)
-model ProductItem {
-  id           Int         @id @default(autoincrement())
-  name         String
-  categoryId   Int
-  price        Float
-  description  String?
-  image        String?     // Primary image URL
-  images       String[]    // Array of image URLs
-  stock        Float       @default(0)
-  stockEnabled Boolean     @default(true)
-  hidden       Boolean     @default(false)
-  sortOrder    Int         @default(0)
-  cardSize     String      @default("standard")
-  allowedQuantitiesOverride Float[] @default([])
-  quantityDiscountsOverride Json?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-
-  category     Category    @relation(fields: [categoryId], references: [id])
-
-  @@map("products")
-}
-
-model UiSetting {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique
-  value     Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("ui_settings")
-}
-
-// Review model
-model Review {
-  id                Int      @id @default(autoincrement())
-  userId            Int
-  productId         Int
-  rating            Int      // 1-5
-  comment           String
-  helpful           Int      @default(0)
-  notHelpful        Int      @default(0)
-  flagged           Boolean  @default(false)
-  votedByHelpful    Int[]    // Array of user IDs who voted helpful
-  votedByNotHelpful Int[]    // Array of user IDs who voted not helpful
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@map("reviews")
-}
-
-// Shopping cart model
-model CartItem {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  productId Int
-  quantity  Float
-  createdAt DateTime @default(now())
-
-  @@unique([userId, productId])
-  @@map("cart_items")
-}
-
-// Announcement model
-model Announcement {
-  id          Int               @id @default(autoincrement())
-  message     String
-  type        AnnouncementType  @default(INFO)
-  enabled     Boolean           @default(true)
-  dismissible Boolean           @default(true)
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  @@map("announcements")
-}
-
-// Contact message model for support requests
-model ContactMessage {
-  id            Int                   @id @default(autoincrement())
-  userId        Int
-  userName      String
-  userEmail     String
-  userPhone     String?
-  subject       String
-  orderId       Int?
-  message       String
-  status        ContactMessageStatus  @default(NEW)
-  adminNotes    String?               // Internal notes from admin/manager
-  replyMessage  String?               // The reply text sent to customer
-  repliedAt     DateTime?             // When the reply was sent
-  repliedBy     Int?                  // User ID of admin/manager who replied
-  repliedByName String?               // Name of admin/manager who replied
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-
-  @@map("contact_messages")
+enum CreditTransactionType {
+  ADDED
+  USED
+  REFUNDED
+  REMOVED
 }

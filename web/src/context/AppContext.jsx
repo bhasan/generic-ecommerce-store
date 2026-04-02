@@ -6,9 +6,11 @@ import * as productsApi from '../services/productsApi';
 import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
+import * as configApi from '../services/configApi';
+import * as creditApi from '../services/creditApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
-import { hasAnyRole } from '../utils/roles';
+import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -35,7 +37,7 @@ export function AppProvider({ children }) {
         console.error('Error parsing stored user data:', e);
       }
     }
-    return { id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' };
+    return GUEST_USER;
   };
 
   const [currentUser, setCurrentUser] = useState(getInitialUser);
@@ -51,6 +53,18 @@ export function AppProvider({ children }) {
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
+  const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
+  const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
+  const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
+  const [pickupLocation, setPickupLocation] = useState('');
+  const [storeCashappUsername, setStoreCashappUsername] = useState('');
+  const [paymentSettings, setPaymentSettings] = useState({
+    cashapp: { enabled: true, handle: '' },
+    zelle: { enabled: false, handle: '' },
+    venmo: { enabled: false, handle: '' },
+  });
+  const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [creditBalance, setCreditBalance] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -67,10 +81,17 @@ export function AppProvider({ children }) {
           }
           setCurrentUser(user);
           setIsAuthenticated(true);
+          // Load credit balance for authenticated user
+          try {
+            const creditData = await creditApi.getUserCredit(user.id);
+            setCreditBalance(creditData.balance ?? 0);
+          } catch {
+            // Non-fatal: credit balance defaults to 0
+          }
         } catch (error) {
           // Token invalid or expired
           console.error('Auth check failed:', error);
-          setCurrentUser({ id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' });
+          setCurrentUser(GUEST_USER);
           setIsAuthenticated(false);
         }
       } else {
@@ -121,7 +142,7 @@ export function AppProvider({ children }) {
 
   const loadStaffNotificationCounts = useCallback(async () => {
     if (!isAuthenticated) return;
-    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
     try {
       const data = await notificationsApi.getStaffNotificationCounts();
@@ -134,11 +155,40 @@ export function AppProvider({ children }) {
   useEffect(() => {
     loadStaffNotificationCounts();
     if (!isAuthenticated) return;
-    const isStaff = hasAnyRole(currentUser, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN']);
+    const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
     const interval = setInterval(loadStaffNotificationCounts, 50000);
     return () => clearInterval(interval);
   }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
+
+  const loadConfig = useCallback(async () => {
+    try {
+      const config = await configApi.getConfig();
+      if (config) {
+        if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
+        if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
+        if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
+        if (config.storeSettings) {
+          setStoreSettings(config.storeSettings);
+          if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
+        } else if (typeof config.pickupLocation === 'string') {
+          setPickupLocation(config.pickupLocation);
+        }
+        if (config.paymentSettings) {
+          setPaymentSettings(config.paymentSettings);
+          setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
+        } else if (typeof config.storeCashappUsername === 'string') {
+          setStoreCashappUsername(config.storeCashappUsername);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load remote config, using default tax rate.', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   // Load orders function (can be called manually)
   const loadOrders = useCallback(async () => {
@@ -189,13 +239,29 @@ export function AppProvider({ children }) {
     };
   }, [showNotification]);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setCurrentUser(GUEST_USER);
+      setIsAuthenticated(false);
+      setCart([]);
+      setReturnPath(null);
+      navigate('/login');
+      showNotification('Your session has expired. Please log in again.', 'warning');
+    };
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized);
+    };
+  }, [navigate, showNotification]);
+
   const closeNotification = () => {
     setNotification(null);
   };
 
-  const login = async (email, password) => {
+  const login = async (username, password) => {
     try {
-      const { user } = await authApi.login(email, password);
+      const { user } = await authApi.login(username, password);
       
       // Ensure roles array exists
       if (!user.roles && user.role) {
@@ -211,8 +277,8 @@ export function AppProvider({ children }) {
         setReturnPath(null);
       } else {
         // Otherwise, default navigation based on primary role
-        const primaryRole = user.roles?.[0] || 'CUSTOMER';
-        navigate(primaryRole === 'CUSTOMER' ? '/products' : '/orders');
+        const primaryRole = user.roles?.[0] || ROLES.CUSTOMER;
+        navigate(primaryRole === ROLES.CUSTOMER ? '/products' : '/orders');
       }
       
       showNotification('Login successful!', 'success');
@@ -246,7 +312,7 @@ export function AppProvider({ children }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      setCurrentUser({ id: 999, email: 'guest@smokestation.com', roles: ['CUSTOMER'], name: 'Guest' });
+      setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setCart([]);
       setReturnPath(null);
@@ -334,7 +400,16 @@ export function AppProvider({ children }) {
     ));
   };
 
-  const checkout = async (cashAppUsername) => {
+  const refreshCreditBalance = useCallback(async (userId) => {
+    try {
+      const creditData = await creditApi.getUserCredit(userId);
+      setCreditBalance(creditData.balance ?? 0);
+    } catch {
+      // Non-fatal
+    }
+  }, []);
+
+  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -342,23 +417,28 @@ export function AppProvider({ children }) {
         quantity: item.quantity
       }));
 
-      // Create order via API (pass CashApp username - saved to User.cashapp for orders page)
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername);
-      
-      // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
-      const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
-      setCurrentUser(updatedUserData);
-      localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      
+      // Create order via API
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
+
+      if (paymentMethod !== 'CREDIT') {
+        // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
+        const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
+        setCurrentUser(updatedUserData);
+        localStorage.setItem('userData', JSON.stringify(updatedUserData));
+      } else {
+        // Refresh credit balance after credit payment
+        await refreshCreditBalance(currentUser.id);
+      }
+
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
-      
+
       // Clear cart
       setCart([]);
-      
-      showNotification('Order placed successfully! 🎉', 'success');
-      
+
+      showNotification('Order placed successfully!', 'success');
+
       // Return order for caller to handle navigation with additional data
       return newOrder;
     } catch (error) {
@@ -471,15 +551,19 @@ export function AppProvider({ children }) {
     }
   };
 
-  const deleteOrder = async (orderId) => {
+  const restoreCart = (items) => {
+    setCart(items);
+  };
+
+  const deleteOrder = async (orderId, { silent = false } = {}) => {
     try {
       await ordersApi.deleteOrder(orderId);
-      
+
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
-      
-      showNotification('Order deleted', 'info');
+
+      if (!silent) showNotification('Order deleted', 'info');
     } catch (error) {
       const errorMessage = error.message || 'Failed to delete order. Please try again.';
       showNotification(errorMessage, 'error');
@@ -606,7 +690,7 @@ export function AppProvider({ children }) {
         const newReview = {
           id: (p.reviews?.length || 0) + 1,
           userId: currentUser.id,
-          userName: currentUser.name,
+          userName: currentUser.username,
           rating: review.rating,
           comment: review.comment,
           date: new Date().toISOString().split('T')[0],
@@ -655,8 +739,8 @@ export function AppProvider({ children }) {
               const newReply = {
                 id: (r.replies?.length || 0) + 1,
                 userId: currentUser.id,
-                userName: currentUser.name,
-                userRole: currentUser.roles?.[0] || 'CUSTOMER',
+                userName: currentUser.username,
+                userRole: currentUser.roles?.[0] || ROLES.CUSTOMER,
                 comment: reply,
                 date: new Date().toISOString().split('T')[0]
               };
@@ -755,7 +839,18 @@ export function AppProvider({ children }) {
     deleteReview,
     addReviewReply,
     voteReview,
-    flagReview
+    flagReview,
+    taxRate,
+    minimumDeliveryOrder,
+    minimumDeliveryOrderEnabled,
+    pickupLocation,
+    storeCashappUsername,
+    paymentSettings,
+    storeSettings,
+    loadConfig,
+    restoreCart,
+    creditBalance,
+    refreshCreditBalance,
   };
 
   return (

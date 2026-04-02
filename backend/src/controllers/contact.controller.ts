@@ -35,22 +35,21 @@ export class ContactController {
       }
 
       const { subject, orderId, message } = req.body;
-      const { userId, email } = req.user;
+      const { userId, username } = req.user;
 
       // Fetch additional user info from database
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { name: true, phoneNumber: true }
+        select: { phoneNumber: true }
       });
 
-      const name = user?.name || 'Customer';
       const phoneNumber = user?.phoneNumber || undefined;
 
       // Save message to database
       const savedMessage = await contactMessageService.createMessage({
         userId,
-        userName: name,
-        userEmail: email,
+        userName: username,
+        userEmail: username,
         userPhone: phoneNumber,
         subject,
         orderId: orderId ? parseInt(orderId, 10) : null,
@@ -288,12 +287,12 @@ export class ContactController {
         throw new AppError('This message has already been replied to', 400, 'ALREADY_REPLIED');
       }
 
-      // Get admin/manager name
+      // Get admin/manager username
       const adminUser = await prisma.user.findUnique({
         where: { id: userId },
-        select: { name: true }
+        select: { username: true }
       });
-      const repliedByName = adminUser?.name || 'Support Team';
+      const repliedByName = adminUser?.username || 'Support Team';
 
       // Check if email service is ready
       if (!emailService.isReady()) {

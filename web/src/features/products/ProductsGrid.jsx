@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { getProductImageSrc, getDiscountedUnitPrice, resolveQuantityDiscounts } from './productsHelpers';
+import { getProductImageSrc, getProductAllImages, getDiscountedUnitPrice, resolveQuantityDiscounts } from './productsHelpers';
 import ProductQuantityActions from './ProductQuantityActions';
 import ProductCard from './ProductCard';
 import ProductListItem from './ProductListItem';
-
 function ProductsGrid({
   products,
   viewMode,
@@ -33,6 +32,7 @@ function ProductsGrid({
 
   const renderProductCard = (product) => {
     const mainImage = getProductImageSrc(product);
+    const allImages = getProductAllImages(product);
     const showStock = product.stockEnabled !== false;
     const allowedQuantities = resolveAllowedQuantities(product);
     const quantityValue = getQuantityValue(product);
@@ -44,6 +44,7 @@ function ProductsGrid({
         key={product.id}
         product={product}
         imageSrc={mainImage}
+        images={allImages}
         categoryLabel={getCategoryLabel(product)}
         onClick={() => onProductClick(product.id)}
         discountedPrice={discountedPrice}
@@ -102,7 +103,9 @@ function ProductsGrid({
   };
 
   if (viewMode === 'list') {
-    return <div className="products-list">{products.map(renderProductListItem)}</div>;
+    return (
+      <div className="products-list">{products.map(renderProductListItem)}</div>
+    );
   }
 
   return (

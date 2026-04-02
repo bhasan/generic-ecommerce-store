@@ -3,15 +3,19 @@ import './ProductCard.css';
 import './ProductsShared.css';
 import './ProductsPageAdmin.css';
 import { useApp } from '../../context/AppContext';
+import { ROLES } from '../../utils/roles';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as productsApi from '../../services/productsApi';
 import * as categoriesApi from '../../services/categoriesApi';
+import * as uploadApi from '../../services/uploadApi';
 import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
+import MediaLibraryModal from '../../components/common/MediaLibraryModal';
+import ImageCropModal from '../../components/common/ImageCropModal';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
@@ -277,7 +281,8 @@ function ManageProductsPanel() {
     deleteProduct,
     categories,
     isLoadingCategories,
-    loadCategories
+    loadCategories,
+    showNotification
   } = useApp();
   
   useEffect(() => {
@@ -292,6 +297,7 @@ function ManageProductsPanel() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [deleteProductModalOpen, setDeleteProductModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [orderedProducts, setOrderedProducts] = useState([]);
@@ -299,10 +305,11 @@ function ManageProductsPanel() {
   const [childCategoriesByParent, setChildCategoriesByParent] = useState({});
   const [productsByCategory, setProductsByCategory] = useState({});
   const [formData, setFormData] = useState({
-    name: '', 
-    categoryId: '', 
-    price: '', 
-    description: '', 
+    name: '',
+    categoryId: '',
+    price: '',
+    description: '',
+    thumbnail: '',
     images: [''],
     stock: '',
     stockEnabled: false,
@@ -322,7 +329,7 @@ function ManageProductsPanel() {
   }, [viewMode]);
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
-  const canManageProducts = userRoles.includes('ADMIN') || userRoles.includes('MANAGEMENT');
+  const canManageProducts = userRoles.includes(ROLES.ADMIN) || userRoles.includes(ROLES.MANAGEMENT);
 
   useEffect(() => {
     const sorted = [...products].sort(
@@ -369,6 +376,7 @@ function ManageProductsPanel() {
     setFormData({
       ...product,
       categoryId: selectedCategoryId,
+      thumbnail: product.thumbnail || '',
       images: product.images || [product.image],
       stockEnabled: product.stockEnabled !== false,
       hidden: product.hidden || false,
@@ -393,6 +401,7 @@ function ManageProductsPanel() {
       categoryId: parseInt(formData.categoryId, 10),
       price: parseFloat(formData.price),
       stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
+      thumbnail: formData.thumbnail || null,
       images: formData.images.filter(img => img.trim() !== ''),
       image: formData.images[0],
       quantityDiscountsOverride: parseQuantityDiscounts(formData.quantityDiscountsOverride)
@@ -405,11 +414,12 @@ function ManageProductsPanel() {
       addProduct(productData);
       setShowAddForm(false);
     }
-    setFormData({ 
-      name: '', 
-      categoryId: '', 
-      price: '', 
-      description: '', 
+    setFormData({
+      name: '',
+      categoryId: '',
+      price: '',
+      description: '',
+      thumbnail: '',
       images: [''],
       stock: '',
       stockEnabled: false,
@@ -428,11 +438,12 @@ function ManageProductsPanel() {
   const handleCancel = () => {
     setEditingId(null);
     setShowAddForm(false);
-    setFormData({ 
-      name: '', 
-      categoryId: '', 
-      price: '', 
-      description: '', 
+    setFormData({
+      name: '',
+      categoryId: '',
+      price: '',
+      description: '',
+      thumbnail: '',
       images: [''],
       stock: '',
       stockEnabled: false,
@@ -533,15 +544,87 @@ function ManageProductsPanel() {
     setFormData({ ...formData, images: newImages });
   };
 
+  const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
+  const [cropState, setCropState] = useState(null); // { file, index }
+
+  const isVideo = (file) => file.type.startsWith('video/');
+
   const handleImageUpload = (index, event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateImageField(index, reader.result);
-      };
-      reader.readAsDataURL(file);
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    event.target.value = '';
+
+    if (index === 'thumbnail') {
+      const file = files[0];
+      if (isVideo(file)) {
+        performUpload('thumbnail', file);
+      } else {
+        setCropState({ file, index: 'thumbnail' });
+      }
+      return;
     }
+
+    if (files.length > 1) {
+      // Multiple files: upload all directly without crop
+      performMultiUpload(index, files);
+    } else {
+      const file = files[0];
+      if (isVideo(file)) {
+        performUpload(index, file);
+      } else {
+        setCropState({ file, index });
+      }
+    }
+  };
+
+  const performMultiUpload = async (startIndex, files) => {
+    setUploadingImageIndex(startIndex);
+    try {
+      const { urls } = await uploadApi.uploadFiles(files);
+      // Replace startIndex slot with first URL, append rest
+      setFormData(prev => {
+        const newImages = [...prev.images];
+        newImages[startIndex] = urls[0];
+        if (urls.length > 1) newImages.push(...urls.slice(1));
+        return { ...prev, images: newImages.filter(img => img.trim() !== '').length > 0
+          ? newImages.filter(img => img !== '' || newImages.indexOf(img) === 0)
+          : [''] };
+      });
+      showNotification(`${urls.length} image${urls.length > 1 ? 's' : ''} uploaded successfully`, 'success');
+    } catch (err) {
+      showNotification(err.message || 'Failed to upload images', 'error');
+    } finally {
+      setUploadingImageIndex(null);
+    }
+  };
+
+  const performUpload = async (index, file) => {
+    setUploadingImageIndex(index);
+    try {
+      const { url } = await uploadApi.uploadFile(file);
+      if (index === 'thumbnail') {
+        setFormData(prev => ({ ...prev, thumbnail: url }));
+      } else {
+        updateImageField(index, url);
+      }
+      showNotification('Image uploaded successfully', 'success');
+    } catch (err) {
+      showNotification(err.message || 'Failed to upload image', 'error');
+    } finally {
+      setUploadingImageIndex(null);
+    }
+  };
+
+  const handleCropConfirm = (croppedFile) => {
+    const { index } = cropState;
+    setCropState(null);
+    performUpload(index, croppedFile);
+  };
+
+  const handleCropSkip = (originalFile) => {
+    const { index } = cropState;
+    setCropState(null);
+    performUpload(index, originalFile);
   };
 
   const toggleHidden = (productId, currentHidden) => {
@@ -561,7 +644,7 @@ function ManageProductsPanel() {
               product={product}
               dragEnabled={canManageProducts}
               canManage={canManageProducts}
-              canDelete={userRoles.includes('ADMIN')}
+              canDelete={userRoles.includes(ROLES.ADMIN)}
               onToggleHidden={toggleHidden}
               onEdit={handleEdit}
               onDeleteClick={handleDeleteClick}
@@ -574,7 +657,7 @@ function ManageProductsPanel() {
               product={product}
               dragEnabled={canManageProducts}
               canManage={canManageProducts}
-              canDelete={userRoles.includes('ADMIN')}
+              canDelete={userRoles.includes(ROLES.ADMIN)}
               onToggleHidden={toggleHidden}
               onEdit={handleEdit}
               onDeleteClick={handleDeleteClick}
@@ -596,17 +679,28 @@ function ManageProductsPanel() {
         onViewModeChange={setViewMode}
         rightContent={
           canManageProducts ? (
-            <button
-              onClick={() => {
-                setManageTab('products');
-                setShowAddForm(true);
-              }}
-              className="btn-add-product"
-              disabled={showAddForm || editingId}
-            >
-              <Plus size={20} />
-              <span>Add New Product</span>
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => setShowMediaLibrary(true)}
+                className="btn-add-product"
+                disabled={showAddForm || editingId}
+                title="Manage Media Library"
+              >
+                <ImageIcon size={20} />
+                <span className="hide-on-mobile">Media Library</span>
+              </button>
+              <button
+                onClick={() => {
+                  setManageTab('products');
+                  setShowAddForm(true);
+                }}
+                className="btn-add-product"
+                disabled={showAddForm || editingId}
+              >
+                <Plus size={20} />
+                <span>Add New Product</span>
+              </button>
+            </div>
           ) : null
         }
       />
@@ -653,6 +747,7 @@ function ManageProductsPanel() {
               removeImageField={removeImageField}
               updateImageField={updateImageField}
               handleImageUpload={handleImageUpload}
+              uploadingImageIndex={uploadingImageIndex}
               formErrors={formErrors}
             />
           )}
@@ -725,7 +820,24 @@ function ManageProductsPanel() {
             cancelText="Cancel"
             type="danger"
           />
+
+          <MediaLibraryModal
+            isOpen={showMediaLibrary}
+            onClose={() => setShowMediaLibrary(false)}
+            onSelect={() => setShowMediaLibrary(false)} // Just view/manage mode, selection auto closes
+            multiSelect={true}
+            hideInsertButton={true}
+          />
         </>
+      )}
+
+      {cropState && (
+        <ImageCropModal
+          file={cropState.file}
+          onConfirm={handleCropConfirm}
+          onSkip={handleCropSkip}
+          onCancel={() => setCropState(null)}
+        />
       )}
     </div>
   );

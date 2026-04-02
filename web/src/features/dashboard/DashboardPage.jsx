@@ -4,6 +4,9 @@ import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import * as announcementsApi from '../../services/announcementsApi';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
+import * as paymentSettingsApi from '../../services/paymentSettingsApi';
+import * as storeSettingsApi from '../../services/storeSettingsApi';
+import * as orderingConstraintsApi from '../../services/orderingConstraintsApi';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
@@ -16,18 +19,24 @@ import UsersSection from './components/UsersSection';
 import AnnouncementsSection from './components/AnnouncementsSection';
 import RejectedUsersSection from './components/RejectedUsersSection';
 import MessagesSection from './components/MessagesSection';
-import { hasRole } from '../../utils/roles';
+import PaymentSettingsSection from './components/PaymentSettingsSection';
+import StoreSettingsSection from './components/StoreSettingsSection';
+import OrderingConstraintsSection from './components/OrderingConstraintsSection';
+import { hasRole, ROLES } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
   REJECTED_USERS: 'rejected-users',
   ANNOUNCEMENTS: 'announcements',
-  MESSAGES: 'messages'
+  MESSAGES: 'messages',
+  PAYMENT_SETTINGS: 'payment-settings',
+  STORE_SETTINGS: 'store-settings',
+  ORDERING_CONSTRAINTS: 'ordering-constraints',
 };
 
 function DashboardPage() {
-  const { showNotification, currentUser } = useApp();
+  const { showNotification, currentUser, loadConfig } = useApp();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState(() => {
     const section = new URLSearchParams(location.search).get('section');
@@ -73,6 +82,18 @@ function DashboardPage() {
   const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
 
+  // Payment Settings State
+  const [localPaymentSettings, setLocalPaymentSettings] = useState(null);
+  const [isLoadingPaymentSettings, setIsLoadingPaymentSettings] = useState(false);
+
+  // Store Settings State
+  const [localStoreSettings, setLocalStoreSettings] = useState(null);
+  const [isLoadingStoreSettings, setIsLoadingStoreSettings] = useState(false);
+
+  // Ordering Constraints State
+  const [localOrderingConstraints, setLocalOrderingConstraints] = useState(null);
+  const [isLoadingOrderingConstraints, setIsLoadingOrderingConstraints] = useState(false);
+
   // Contact Messages State
   const [contactMessages, setContactMessages] = useState([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -82,7 +103,7 @@ function DashboardPage() {
   const [isReplyingToMessage, setIsReplyingToMessage] = useState(false);
 
   // Check if user is admin
-  const isAdmin = hasRole(currentUser, 'ADMIN');
+  const isAdmin = hasRole(currentUser, ROLES.ADMIN);
 
   // Load pending registrations
   const loadPendingRegistrations = useCallback(async () => {
@@ -130,7 +151,7 @@ function DashboardPage() {
       setAvailableRoles(rolesData);
     } catch (error) {
       console.error('Failed to load roles:', error);
-      setAvailableRoles(['CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'GUEST']);
+      setAvailableRoles([ROLES.CUSTOMER, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER, ROLES.GUEST]);
     }
   }, []);
 
@@ -161,6 +182,75 @@ function DashboardPage() {
     }
   }, [showNotification]);
 
+  // Load payment settings
+  const loadPaymentSettings = useCallback(async () => {
+    try {
+      setIsLoadingPaymentSettings(true);
+      const settings = await paymentSettingsApi.getPaymentSettings();
+      setLocalPaymentSettings(settings);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load payment settings', 'error');
+    } finally {
+      setIsLoadingPaymentSettings(false);
+    }
+  }, [showNotification]);
+
+  const handleSavePaymentSettings = async (data) => {
+    try {
+      await paymentSettingsApi.updatePaymentSettings(data);
+      showNotification('Payment settings updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save payment settings', 'error');
+    }
+  };
+
+  // Load store settings
+  const loadStoreSettings = useCallback(async () => {
+    try {
+      setIsLoadingStoreSettings(true);
+      const settings = await storeSettingsApi.getStoreSettings();
+      setLocalStoreSettings(settings);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load store settings', 'error');
+    } finally {
+      setIsLoadingStoreSettings(false);
+    }
+  }, [showNotification]);
+
+  const handleSaveStoreSettings = async (data) => {
+    try {
+      await storeSettingsApi.updateStoreSettings(data);
+      showNotification('Store settings updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save store settings', 'error');
+    }
+  };
+
+  // Load ordering constraints
+  const loadOrderingConstraints = useCallback(async () => {
+    try {
+      setIsLoadingOrderingConstraints(true);
+      const constraints = await orderingConstraintsApi.getOrderingConstraints();
+      setLocalOrderingConstraints(constraints);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load ordering constraints', 'error');
+    } finally {
+      setIsLoadingOrderingConstraints(false);
+    }
+  }, [showNotification]);
+
+  const handleSaveOrderingConstraints = async (data) => {
+    try {
+      await orderingConstraintsApi.updateOrderingConstraints(data);
+      showNotification('Ordering constraints updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save ordering constraints', 'error');
+    }
+  };
+
   // Load data based on active section
   useEffect(() => {
     if (activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS) {
@@ -174,8 +264,14 @@ function DashboardPage() {
       loadRejectedUsers();
     } else if (activeSection === DASHBOARD_SECTIONS.MESSAGES) {
       loadContactMessages(messagesStatusFilter);
+    } else if (activeSection === DASHBOARD_SECTIONS.PAYMENT_SETTINGS) {
+      loadPaymentSettings();
+    } else if (activeSection === DASHBOARD_SECTIONS.STORE_SETTINGS) {
+      loadStoreSettings();
+    } else if (activeSection === DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS) {
+      loadOrderingConstraints();
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints]);
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
@@ -461,15 +557,15 @@ function DashboardPage() {
   const getRoleBadgeClass = (role) => {
     const roleName = Array.isArray(role) ? role[0] : role;
     switch (roleName) {
-      case 'ADMIN':
+      case ROLES.ADMIN:
         return 'role-badge role-badge-admin';
-      case 'MANAGEMENT':
+      case ROLES.MANAGEMENT:
         return 'role-badge role-badge-management';
-      case 'DELIVERY_DRIVER':
+      case ROLES.DELIVERY_DRIVER:
         return 'role-badge role-badge-delivery-driver';
-      case 'GUEST':
+      case ROLES.GUEST:
         return 'role-badge role-badge-guest';
-      case 'CUSTOMER':
+      case ROLES.CUSTOMER:
       default:
         return 'role-badge role-badge-customer';
     }
@@ -496,16 +592,16 @@ function DashboardPage() {
           bValue = b.id;
           break;
         case 'name':
-          aValue = a.name?.toLowerCase() || '';
-          bValue = b.name?.toLowerCase() || '';
+          aValue = a.username?.toLowerCase() || '';
+          bValue = b.username?.toLowerCase() || '';
           break;
         case 'email':
           aValue = a.email?.toLowerCase() || '';
           bValue = b.email?.toLowerCase() || '';
           break;
         case 'roles':
-          aValue = (a.roles && a.roles.length > 0) ? a.roles.join(',') : (a.role || 'CUSTOMER');
-          bValue = (b.roles && b.roles.length > 0) ? b.roles.join(',') : (b.role || 'CUSTOMER');
+          aValue = (a.roles && a.roles.length > 0) ? a.roles.join(',') : (a.role || ROLES.CUSTOMER);
+          bValue = (b.roles && b.roles.length > 0) ? b.roles.join(',') : (b.role || ROLES.CUSTOMER);
           break;
         case 'createdAt':
           aValue = new Date(a.createdAt || 0).getTime();
@@ -596,6 +692,30 @@ function DashboardPage() {
             isAdmin={isAdmin}
           />
         );
+      case DASHBOARD_SECTIONS.PAYMENT_SETTINGS:
+        return (
+          <PaymentSettingsSection
+            isLoading={isLoadingPaymentSettings}
+            paymentSettings={localPaymentSettings}
+            onSave={handleSavePaymentSettings}
+          />
+        );
+      case DASHBOARD_SECTIONS.STORE_SETTINGS:
+        return (
+          <StoreSettingsSection
+            isLoading={isLoadingStoreSettings}
+            storeSettings={localStoreSettings}
+            onSave={handleSaveStoreSettings}
+          />
+        );
+      case DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS:
+        return (
+          <OrderingConstraintsSection
+            isLoading={isLoadingOrderingConstraints}
+            orderingConstraints={localOrderingConstraints}
+            onSave={handleSaveOrderingConstraints}
+          />
+        );
       default:
         return (
           <PendingRegistrationsSection
@@ -668,7 +788,7 @@ function DashboardPage() {
         title="Move User to Pending"
         message={
           <>
-            Move <strong>{userToUnReject?.name || ''}</strong> back to pending registrations?
+            Move <strong>{userToUnReject?.username || ''}</strong> back to pending registrations?
             <br />
             <br />
             This will allow them to be approved again.
@@ -687,7 +807,7 @@ function DashboardPage() {
         title="Delete User"
         message={
           <>
-            Are you sure you want to delete user <strong>"{userToDelete?.name || ''}"</strong>?
+            Are you sure you want to delete user <strong>"{userToDelete?.username || ''}"</strong>?
             <br />
             <br />
             This action cannot be undone.

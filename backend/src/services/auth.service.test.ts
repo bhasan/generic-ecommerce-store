@@ -54,32 +54,30 @@ describe('auth service', () => {
   });
 
   it('logs and rejects duplicate registrations', async () => {
-    prismaMock.user.findUnique.mockResolvedValue({ id: 1, email: 'dup@test.com' });
+    prismaMock.user.findUnique.mockResolvedValue({ id: 1, username: 'dup-user' });
     const { AuthService } = await import('./auth.service');
     const service = new AuthService();
 
     await expect(service.register({
-      email: 'dup@test.com',
+      username: 'dup-user',
       password: 'secret123',
-      name: 'Dup User',
       phoneNumber: '1234567890',
     })).rejects.toBeInstanceOf(AppError);
 
     expect(logger.info).toHaveBeenCalledWith('Registration attempt received', expect.objectContaining({
-      email: 'dup@test.com',
+      username: 'dup-user',
     }));
-    expect(logger.warn).toHaveBeenCalledWith('Registration rejected: email already exists', {
-      email: 'dup@test.com',
+    expect(logger.warn).toHaveBeenCalledWith('Registration rejected: username already exists', {
+      username: 'dup-user',
     });
   });
 
   it('logs and completes successful login', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 7,
-      email: 'user@test.com',
+      username: 'user-test',
       password: 'hashed',
       approved: true,
-      name: 'User',
       createdAt: new Date('2024-01-01'),
       updatedAt: new Date('2024-01-01'),
     });
@@ -91,18 +89,18 @@ describe('auth service', () => {
     const { AuthService } = await import('./auth.service');
     const service = new AuthService();
     const result = await service.login({
-      email: 'user@test.com',
+      username: 'user-test',
       password: 'secret123',
     });
 
     expect(generateToken).toHaveBeenCalledWith({
       userId: 7,
-      email: 'user@test.com',
+      username: 'user-test',
       roles: ['ADMIN'],
     });
     expect(logger.info).toHaveBeenCalledWith('Login succeeded', expect.objectContaining({
       userId: 7,
-      email: 'user@test.com',
+      username: 'user-test',
       roles: ['ADMIN'],
     }));
     expect(result.token).toBe('jwt-token');
@@ -115,10 +113,9 @@ describe('auth service', () => {
   it('logs and rejects unapproved login attempts', async () => {
     prismaMock.user.findUnique.mockResolvedValue({
       id: 8,
-      email: 'pending@test.com',
+      username: 'pending-user',
       password: 'hashed',
       approved: false,
-      name: 'Pending',
       createdAt: new Date('2024-01-01'),
     });
     comparePassword.mockResolvedValue(true);
@@ -127,12 +124,12 @@ describe('auth service', () => {
     const service = new AuthService();
 
     await expect(service.login({
-      email: 'pending@test.com',
+      username: 'pending-user',
       password: 'secret123',
     })).rejects.toBeInstanceOf(AppError);
 
     expect(logger.warn).toHaveBeenCalledWith('Login rejected: account pending approval', expect.objectContaining({
-      email: 'pending@test.com',
+      username: 'pending-user',
       userId: 8,
     }));
   });

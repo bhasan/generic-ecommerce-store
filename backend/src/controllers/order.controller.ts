@@ -118,7 +118,9 @@ export class OrderController {
       const order = await orderService.createOrder({
         userId: req.user.userId,
         items: req.body.items,
-        cashAppUsername: req.body.cashAppUsername
+        cashAppUsername: req.body.cashAppUsername,
+        deliveryMethod: req.body.deliveryMethod,
+        paymentMethod: req.body.paymentMethod
       });
 
       logger.info('Order created successfully via API', {

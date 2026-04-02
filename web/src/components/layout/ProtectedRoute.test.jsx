@@ -18,7 +18,7 @@ describe('ProtectedRoute', () => {
   it('redirects guests to login', async () => {
     const { useApp } = await import('../../context/AppContext');
     useApp.mockReturnValue({
-      currentUser: { email: 'guest@smokestation.com' },
+      currentUser: { email: 'guest@guest.com', roles: ['GUEST'] },
       setReturnPath: vi.fn(),
     });
     const { default: ProtectedRoute } = await import('./ProtectedRoute');

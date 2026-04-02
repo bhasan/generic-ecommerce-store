@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag } from 'lucide-react';
+import { isGuest } from '../../utils/roles';
+import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
+import ProductMediaModal from './ProductMediaModal';
 import './ProductItemPage.css';
 import { hasRole } from '../../utils/roles';
 
-// Component to display available quantity discounts
+const isVideo = (url) => {
+  if (!url) return false;
+  return url.match(/\.(mp4|webm)$/i);
+};
+
 function QuantityDiscountsTable({ product, discounts }) {
   if (!discounts || discounts.length === 0) return null;
 
-  // Sort discounts by quantity
   const sortedDiscounts = [...discounts].sort((a, b) => a.quantity - b.quantity);
 
   return (
@@ -25,7 +30,7 @@ function QuantityDiscountsTable({ product, discounts }) {
           const discountLabel = discount.type === 'percent'
             ? `${discount.value}% off`
             : `$${discount.value.toFixed(2)} off`;
-          
+
           return (
             <div key={index} className="discount-tier">
               <span className="discount-qty">Buy {discount.quantity}:</span>
@@ -38,25 +43,21 @@ function QuantityDiscountsTable({ product, discounts }) {
   );
 }
 
-// Component to display dynamic price based on selected quantity
 function DynamicPriceDisplay({ product, quantity, discounts }) {
   const basePrice = product.price;
   const originalTotal = basePrice * quantity;
-  
-  // Find matching discount rule
+
   const matchingDiscount = discounts.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
-  
-  // Calculate discount on total amount
+
   let totalSavings = 0;
   if (matchingDiscount) {
     if (matchingDiscount.type === 'percent') {
       totalSavings = originalTotal * (matchingDiscount.value / 100);
     } else {
-      // Fixed discount applies to the total, not per unit
       totalSavings = matchingDiscount.value;
     }
   }
-  
+
   const totalPrice = Math.max(0, originalTotal - totalSavings);
   const hasDiscount = totalSavings > 0;
 
@@ -67,7 +68,7 @@ function DynamicPriceDisplay({ product, quantity, discounts }) {
           <div className="price-row price-total-row">
             <span className="price-label">Total ({quantity} items):</span>
             <span className="price-original">${originalTotal.toFixed(2)}</span>
-            <span className="price-arrow">→</span>
+            <span className="price-arrow">â†’</span>
             <span className="price-total">${totalPrice.toFixed(2)}</span>
           </div>
           <div className="price-row">
@@ -89,13 +90,25 @@ function ProductItemPage() {
   const navigate = useNavigate();
   const { products, addToCart, currentUser, isLoadingProducts } = useApp();
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const fallbackImage = PRODUCT_FALLBACK_IMAGE;
-  
-  // Find the product by ID
+
   const product = products.find(p => p.id === parseInt(id));
-  
-  // Show loading state
+
+  const allowedQuantities =
+    product?.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
+      ? product.allowedQuantitiesOverride
+      : product?.category?.allowedQuantities || [];
+
+  useEffect(() => {
+    if (allowedQuantities.length > 0) {
+      setSelectedQuantity(allowedQuantities[0]);
+    } else {
+      setSelectedQuantity(1);
+    }
+  }, [product?.id, allowedQuantities.length]);
+
   if (isLoadingProducts) {
     return (
       <div className="product-item-container">
@@ -105,8 +118,7 @@ function ProductItemPage() {
       </div>
     );
   }
-  
-  // If product not found, show error
+
   if (!product) {
     return (
       <div className="product-item-container">
@@ -122,11 +134,10 @@ function ProductItemPage() {
       </div>
     );
   }
-  
-  // Check if product is hidden and user is customer/guest
+
   // Use the shared helper here so hidden-product gating stays aligned with the
   // repo's mixed legacy/new role representations.
-  if (product.hidden && (hasRole(currentUser, 'CUSTOMER') || currentUser.email === 'guest@smokestation.com')) {
+  if (product.hidden && (hasRole(currentUser, 'CUSTOMER') || isGuest(currentUser))) {
     return (
       <div className="product-item-container">
         <div className="product-not-found">
@@ -141,66 +152,80 @@ function ProductItemPage() {
       </div>
     );
   }
-  
-  const images =
+
+  const baseImages =
     product.images && product.images.length > 0
       ? product.images
       : product.image
         ? [product.image]
         : [fallbackImage];
+
+  const images = product.thumbnail && product.thumbnail !== baseImages[0]
+    ? [product.thumbnail, ...baseImages.filter(img => img !== product.thumbnail)]
+    : baseImages;
   const showStock = product.stockEnabled !== false;
   const isOutOfStock = showStock && product.stock === 0;
-  const allowedQuantities =
-    product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
-      ? product.allowedQuantitiesOverride
-      : product.category?.allowedQuantities || [];
 
-  // Get quantity discounts for this product
   const quantityDiscounts = resolveQuantityDiscounts(product);
-  
-  // Calculate average rating
-  const getAverageRating = () => {
-    if (!product.reviews || product.reviews.length === 0) return 0;
-    const sum = product.reviews.reduce((acc, review) => acc + review.rating, 0);
-    return (sum / product.reviews.length).toFixed(1);
-  };
-  
-  const averageRating = getAverageRating();
-  const reviewCount = product.reviews?.length || 0;
 
-  useEffect(() => {
-    if (allowedQuantities.length > 0) {
-      setSelectedQuantity(allowedQuantities[0]);
-    } else {
-      setSelectedQuantity(1);
-    }
-  }, [product.id, allowedQuantities.length]);
-  
   const handleAddToCart = () => {
     addToCart(product, selectedQuantity);
   };
-  
+
   return (
     <div className="product-item-container">
-      {/* Back Button */}
       <button onClick={() => navigate('/products')} className="btn-back">
         <ArrowLeft size={18} />
         Back to Products
       </button>
-      
-      {/* Product Detail Section */}
+
       <div className="product-detail-grid surface-card">
-        {/* Image Gallery */}
         <div className="product-gallery">
           <div className="main-image-container">
-            <img 
-              src={images[selectedImageIndex]} 
-              alt={product.name}
-              className="main-product-image"
-              onError={(e) => {
-                e.target.src = fallbackImage;
-              }}
-            />
+            {images.length > 1 && (
+              <button
+                className="btn-gallery-nav btn-gallery-prev"
+                onClick={() => setSelectedImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)}
+                aria-label="Previous image"
+              >
+                <ChevronLeft size={24} />
+              </button>
+            )}
+
+            {isVideo(images[selectedImageIndex]) ? (
+              <video
+                src={images[selectedImageIndex]}
+                className="main-product-image"
+                controls
+                autoPlay
+                muted
+                loop
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                }}
+              />
+            ) : (
+              <img
+                src={images[selectedImageIndex]}
+                alt={product.name}
+                className="main-product-image"
+                style={{ cursor: 'pointer' }}
+                onClick={() => setMediaModalOpen(true)}
+                onError={(e) => {
+                  e.target.src = fallbackImage;
+                }}
+              />
+            )}
+
+            {images.length > 1 && (
+              <button
+                className="btn-gallery-nav btn-gallery-next"
+                onClick={() => setSelectedImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)}
+                aria-label="Next image"
+              >
+                <ChevronRight size={24} />
+              </button>
+            )}
             {/* HIDDEN: Stock badge - may re-enable later */}
             {/* {showStock && (
               <div className={`stock-badge ${isOutOfStock ? 'out-of-stock' : product.stock <= 10 ? 'low-stock' : 'in-stock'}`}>
@@ -209,58 +234,58 @@ function ProductItemPage() {
               </div>
             )} */}
           </div>
-          
+
           {images.length > 1 && (
             <div className="thumbnail-container">
               {images.map((img, index) => (
-                <img
+                <div
                   key={index}
-                  src={img}
-                  alt={`${product.name} ${index + 1}`}
-                  className={`thumbnail ${selectedImageIndex === index ? 'thumbnail-active' : ''}`}
+                  className={`thumbnail-wrapper ${selectedImageIndex === index ? 'thumbnail-active' : ''}`}
                   onClick={() => setSelectedImageIndex(index)}
-                  onError={(e) => {
-                    e.target.src = fallbackImage;
-                  }}
-                />
+                >
+                  {isVideo(img) ? (
+                    <>
+                      <video
+                        src={img}
+                        className="thumbnail"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                        }}
+                      />
+                      <div className="video-thumbnail-overlay">
+                        <PlayCircle size={20} color="white" />
+                      </div>
+                    </>
+                  ) : (
+                    <img
+                      src={img}
+                      alt={`${product.name} ${index + 1}`}
+                      className="thumbnail"
+                      loading={index === selectedImageIndex ? 'eager' : 'lazy'}
+                      onError={(e) => {
+                        e.target.src = fallbackImage;
+                      }}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           )}
         </div>
-        
-        {/* Product Info */}
+
         <div className="product-info">
           <div className="product-category-badge">{getProductCategoryLabel(product)}</div>
           <h1 className="product-title">{product.name}</h1>
-          
-          {/* HIDDEN: Rating Summary - may re-enable later */}
-          {/* {reviewCount > 0 && (
-            <div className="rating-summary">
-              <div className="stars-display">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <Star
-                    key={i}
-                    size={20}
-                    fill={i <= Math.round(averageRating) ? '#fbbf24' : 'none'}
-                    color={i <= Math.round(averageRating) ? '#fbbf24' : '#9ca3af'}
-                  />
-                ))}
-              </div>
-              <span className="rating-value">{averageRating}</span>
-              <span className="review-count">({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
-            </div>
-          )} */}
-          
+
           <div className="product-price-display">
             ${product.price.toFixed(2)}
             {quantityDiscounts.length > 0 && <span className="price-per-unit">/ each</span>}
           </div>
 
-          {/* Quantity Discounts Table */}
           <QuantityDiscountsTable product={product} discounts={quantityDiscounts} />
-          
+
           <p className="product-description-full">{product.description}</p>
-          
+
           {/* HIDDEN: Stock Information - may re-enable later */}
           {/* {showStock && (
             <div className="stock-info">
@@ -270,7 +295,7 @@ function ProductItemPage() {
               </span>
             </div>
           )} */}
-          
+
           <div className="quantity-selector">
             <label className="quantity-label">Quantity</label>
             {allowedQuantities.length > 0 ? (
@@ -297,14 +322,12 @@ function ProductItemPage() {
             )}
           </div>
 
-          {/* Dynamic Price Display */}
-          <DynamicPriceDisplay 
-            product={product} 
-            quantity={selectedQuantity} 
-            discounts={quantityDiscounts} 
+          <DynamicPriceDisplay
+            product={product}
+            quantity={selectedQuantity}
+            discounts={quantityDiscounts}
           />
 
-          {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
             disabled={isOutOfStock || selectedQuantity <= 0}
@@ -313,7 +336,7 @@ function ProductItemPage() {
             <ShoppingCart size={20} />
             {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
           </button>
-          
+
           {product.hidden && (
             <div className="admin-notice">
               <AlertCircle size={16} />
@@ -322,12 +345,20 @@ function ProductItemPage() {
           )}
         </div>
       </div>
-      
+
       {/* HIDDEN: Reviews Section - may re-enable later */}
       {/* <div className="reviews-section">
         <h2 className="reviews-section-title">Customer Reviews</h2>
         <ProductReviews productId={product.id} />
       </div> */}
+
+      {mediaModalOpen && (
+        <ProductMediaModal
+          product={product}
+          initialIndex={selectedImageIndex}
+          onClose={() => setMediaModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -70,14 +70,16 @@ const clearAuthToken = () => {
 /**
  * Handle API errors
  */
-const handleError = async (response) => {
+const handleError = async (response, requestOptions = {}) => {
   if (!response.ok) {
     let errorMessage = 'An error occurred';
     let errorData = null;
 
     try {
       errorData = await response.json();
-      const raw = errorData?.error?.message ?? errorData?.message ?? errorData?.errors;
+      const raw = errorData?.error?.message
+        ?? (typeof errorData?.error === 'string' ? errorData.error : null)
+        ?? errorData?.message ?? errorData?.errors;
       errorMessage = toNotificationMessage(raw, response.statusText || 'An error occurred');
     } catch {
       // If response is not JSON, use status text
@@ -93,13 +95,11 @@ const handleError = async (response) => {
     error.requestId = errorData?.error?.requestId;
     error.responseUrl = response.url;
 
-    // Handle 401 Unauthorized - clear token and redirect to login
-    if (response.status === 401) {
+    // Handle 401 Unauthorized - clear token and notify app to redirect
+    // skipAutoLogout allows callers to handle auth errors themselves (e.g. password change form)
+    if (response.status === 401 && !requestOptions.skipAutoLogout) {
       clearAuthToken();
-      // Redirect to login if not already there
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     }
 
     throw error;
@@ -117,7 +117,7 @@ const isRetryableStatus = (status) => status === 429 || (status >= 500 && status
 
 const apiClient = async (url, options = {}) => {
   const token = getAuthToken();
-  const { retries, ...requestOptions } = options;
+  const { retries, skipAutoLogout, ...requestOptions } = options;
   
   const headers = {
     'Content-Type': 'application/json',
@@ -161,7 +161,7 @@ const apiClient = async (url, options = {}) => {
         requestId: response.headers.get('x-request-id') || undefined,
       });
 
-      const processedResponse = await handleError(response);
+      const processedResponse = await handleError(response, { skipAutoLogout });
       
       // Handle empty responses
       const contentType = processedResponse.headers.get('content-type');

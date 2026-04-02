@@ -6,9 +6,8 @@ import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 
 interface RegisterData {
-  email: string;
+  username: string;
   password: string;
-  name: string;
   address?: string;
   cashapp?: string;
   phoneNumber?: string;
@@ -17,7 +16,7 @@ interface RegisterData {
 }
 
 interface LoginData {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -26,27 +25,27 @@ export class AuthService {
    * Register a new user (requires admin approval)
    */
   async register(data: RegisterData) {
-    const { email, password, name, address, cashapp, phoneNumber } = data;
+    const { username, password, address, cashapp, phoneNumber } = data;
     // Registration logs intentionally describe the business decision path without
     // changing the approval/token semantics for new accounts.
     logger.info('Registration attempt received', {
-      email,
+      username,
       hasAddress: Boolean(address),
       hasCashapp: Boolean(cashapp),
       hasPhoneNumber: Boolean(phoneNumber),
     });
-    
+
     // New registrations always get CUSTOMER role and require approval
     const requestedRoles: RoleName[] = ['CUSTOMER'];
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email }
+      where: { username }
     });
 
     if (existingUser) {
-      logger.warn('Registration rejected: email already exists', { email });
-      throw new AppError('User with this email already exists', 409);
+      logger.warn('Registration rejected: username already exists', { username });
+      throw new AppError('User with this username already exists', 409);
     }
 
     // Hash password
@@ -54,7 +53,7 @@ export class AuthService {
 
     const roleConnections = await this.resolveRoleConnections(requestedRoles);
     logger.info('Registration roles resolved', {
-      email,
+      username,
       roles: requestedRoles,
       resolvedRoleCount: roleConnections.length,
     });
@@ -62,9 +61,8 @@ export class AuthService {
     // Create user (not approved by default)
     const user = await prisma.user.create({
       data: {
-        email,
+        username,
         password: hashedPassword,
-        name,
         address: address || null,
         cashapp: cashapp || null,
         phoneNumber: phoneNumber || null,
@@ -73,7 +71,7 @@ export class AuthService {
     });
     logger.info('Registration user record created', {
       userId: user.id,
-      email: user.email,
+      username: user.username,
       approved: user.approved,
     });
 
@@ -86,11 +84,10 @@ export class AuthService {
     });
     logger.info('Registration role assignments created', {
       userId: user.id,
-      email: user.email,
+      username: user.username,
       roles: requestedRoles,
     });
 
-    // Fetch user roles for response
     const userRoles = await prisma.userRole.findMany({
       where: { userId: user.id }
     });
@@ -104,9 +101,6 @@ export class AuthService {
     const rolesWithNames = userRoles.map(ur => ({
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
-
-    // Don't generate token for unapproved users
-    // They need to wait for admin approval before logging in
 
     return {
       user: this.formatUser({
@@ -121,42 +115,38 @@ export class AuthService {
    * Login user
    */
   async login(data: LoginData) {
-    const { email, password } = data;
+    const { username, password } = data;
     // Login decision logs are used by tests and support flows to distinguish
     // bad credentials, approval gating, and successful token issuance.
-    logger.info('Login attempt received', { email });
+    logger.info('Login attempt received', { username });
 
-    // Find user
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { username }
     });
 
     if (!user) {
-      logger.warn('Login rejected: user not found', { email });
-      throw new AppError('Invalid email or password', 401);
+      logger.warn('Login rejected: user not found', { username });
+      throw new AppError('Invalid username or password', 401);
     }
 
-    // Verify password
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
       logger.warn('Login rejected: password mismatch', {
-        email,
+        username,
         userId: user.id,
       });
-      throw new AppError('Invalid email or password', 401);
+      throw new AppError('Invalid username or password', 401);
     }
 
-    // Check if user is approved
     if (!user.approved) {
       logger.warn('Login rejected: account pending approval', {
-        email,
+        username,
         userId: user.id,
       });
       throw new AppError('Your account is pending approval. Please visit the store to get approved.', 403);
     }
 
-    // Fetch user roles
     const userRoles = await prisma.userRole.findMany({
       where: { userId: user.id }
     });
@@ -171,19 +161,18 @@ export class AuthService {
       role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
     }));
 
-    // Generate token
     const roleNames = rolesWithNames
       .map(ur => ur.role?.name)
       .filter((name): name is RoleName => isRoleName(name));
 
     const token = generateToken({
       userId: user.id,
-      email: user.email,
+      username: user.username,
       roles: roleNames
     });
     logger.info('Login succeeded', {
       userId: user.id,
-      email: user.email,
+      username: user.username,
       roles: roleNames,
     });
 
@@ -212,7 +201,6 @@ export class AuthService {
       throw new AppError('User not found', 404);
     }
 
-    // Fetch user roles
     const userRoles = await prisma.userRole.findMany({
       where: { userId }
     });
@@ -265,12 +253,11 @@ export class AuthService {
       .filter((name): name is RoleName => isRoleName(name));
   }
 
-  private formatUser<T extends { id: number; email: string; name: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
-    const { id, email, name, address, cashapp, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
+  private formatUser<T extends { id: number; username: string; address?: string | null; cashapp?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
+    const { id, username, address, cashapp, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
     return {
       id,
-      email,
-      name,
+      username,
       ...(address ? { address } : {}),
       ...(cashapp ? { cashapp } : {}),
       ...(phoneNumber ? { phoneNumber } : {}),

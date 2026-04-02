@@ -45,6 +45,7 @@ export class NotificationService {
       ordersByStatus,
       pendingRegistrations,
     });
+
     return {
       ordersByStatus,
       pendingRegistrations

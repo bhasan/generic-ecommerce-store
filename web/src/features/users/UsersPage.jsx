@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './UsersPage.css';
 import { useApp } from '../../context/AppContext';
+import { ROLES } from '../../utils/roles';
 import * as usersApi from '../../services/usersApi';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
@@ -39,7 +40,7 @@ function UsersPage() {
     } catch (err) {
       console.error('Failed to load roles:', err);
       // Fallback to default roles if API fails
-      setAvailableRoles(['CUSTOMER', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'GUEST']);
+      setAvailableRoles([ROLES.CUSTOMER, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER, ROLES.GUEST]);
     }
   }, []);
 
@@ -125,15 +126,15 @@ function UsersPage() {
   const getRoleBadgeClass = (role) => {
     const roleName = Array.isArray(role) ? role[0] : role;
     switch (roleName) {
-      case 'ADMIN':
+      case ROLES.ADMIN:
         return 'role-badge role-badge-admin';
-      case 'MANAGEMENT':
+      case ROLES.MANAGEMENT:
         return 'role-badge role-badge-management';
-      case 'DELIVERY_DRIVER':
+      case ROLES.DELIVERY_DRIVER:
         return 'role-badge role-badge-delivery-driver';
-      case 'GUEST':
+      case ROLES.GUEST:
         return 'role-badge role-badge-guest';
-      case 'CUSTOMER':
+      case ROLES.CUSTOMER:
       default:
         return 'role-badge role-badge-customer';
     }
@@ -188,7 +189,7 @@ function UsersPage() {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Name</th>
+                  <th>Username</th>
                   <th>Email</th>
                   <th>Roles</th>
                   <th>Created</th>
@@ -202,7 +203,7 @@ function UsersPage() {
                     <td>
                       <div className="user-name-cell">
                         <User size={16} />
-                        <span>{user.name}</span>
+                        <span>{user.username}</span>
                       </div>
                     </td>
                     <td>
@@ -282,7 +283,7 @@ function UsersPage() {
                             </button>
                             {user.id !== currentUser.id && (
                               <button
-                                onClick={() => handleDeleteUserClick(user.id, user.name)}
+                                onClick={() => handleDeleteUserClick(user.id, user.username)}
                                 className="btn-delete-user"
                                 title="Delete user"
                               >
@@ -311,7 +312,7 @@ function UsersPage() {
         title="Delete User"
         message={
           <>
-            Are you sure you want to delete user <strong>"{userToDelete?.name || ''}"</strong>?
+            Are you sure you want to delete user <strong>"{userToDelete?.username || ''}"</strong>?
             <br />
             <br />
             This action cannot be undone.
