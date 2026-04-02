@@ -278,7 +278,7 @@ export function AppProvider({ children }) {
       } else {
         // Otherwise, default navigation based on primary role
         const primaryRole = user.roles?.[0] || ROLES.CUSTOMER;
-        navigate(primaryRole === ROLES.CUSTOMER ? '/products' : '/orders');
+        navigate(primaryRole === ROLES.CUSTOMER ? '/' : '/orders');
       }
       
       showNotification('Login successful!', 'success');
@@ -316,7 +316,7 @@ export function AppProvider({ children }) {
       setIsAuthenticated(false);
       setCart([]);
       setReturnPath(null);
-      navigate('/products');
+      navigate('/login');
       showNotification('You have been logged out', 'info');
     }
   };
