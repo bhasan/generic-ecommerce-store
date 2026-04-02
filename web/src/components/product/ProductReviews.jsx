@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
 import './ProductReviews.css';
 import { useApp } from '../../context/AppContext';
-import { isGuest as checkIsGuest, ROLES } from '../../utils/roles';
+import { isGuest as checkIsGuest, ROLES, hasAnyRole } from '../../utils/roles';
 import ConfirmationModal from '../common/ConfirmationModal';
 import { Star, ThumbsUp, ThumbsDown, Flag, MessageCircle, Trash2, Send } from 'lucide-react';
 
 function ProductReviews({ productId }) {
   const { currentUser, products, addReview, updateReview, deleteReview, addReviewReply, voteReview, flagReview } = useApp();
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [rating, setRating] = useState(0); // Default to 0, not 5
+  const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
   const [replyText, setReplyText] = useState({});
   const [showReplyForm, setShowReplyForm] = useState({});
   const [deleteReviewModalOpen, setDeleteReviewModalOpen] = useState(false);
   const [reviewToDelete, setReviewToDelete] = useState(null);
-  
+
   const product = products.find(p => p.id === productId);
   const reviews = product?.reviews || [];
   const isGuest = checkIsGuest(currentUser);
-  const canModerate = currentUser.role === ROLES.MANAGEMENT || currentUser.role === ROLES.ADMIN;
-  
+  // Shared helper avoids duplicating the role-shape compatibility logic in each
+  // review/admin surface while the repo still has legacy role access patterns.
+  const canModerate = hasAnyRole(currentUser, ['MANAGEMENT', 'ADMIN']);
+
   const averageRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : 0;
@@ -71,7 +73,7 @@ function ProductReviews({ productId }) {
             </div>
           </div>
         </div>
-        
+
         {!isGuest && (
           <button
             onClick={() => setShowReviewForm(!showReviewForm)}
@@ -212,7 +214,7 @@ function ProductReviews({ productId }) {
                     <button
                       onClick={() => flagReview(productId, review.id)}
                       className={`btn-flag ${review.flagged ? 'btn-flag-active' : ''}`}
-                      title={review.flagged ? "Unflag review" : "Flag review"}
+                      title={review.flagged ? 'Unflag review' : 'Flag review'}
                     >
                       <Flag size={16} />
                       {review.flagged ? 'Unflag' : 'Flag'}
@@ -269,7 +271,6 @@ function ProductReviews({ productId }) {
         )}
       </div>
 
-      {/* Delete Review Confirmation Modal */}
       <ConfirmationModal
         isOpen={deleteReviewModalOpen}
         onClose={() => {

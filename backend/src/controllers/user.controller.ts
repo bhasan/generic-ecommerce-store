@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import userService from '../services/user.service';
+import { logger } from '../utils/logger';
 
 export class UserController {
   /**
@@ -48,6 +49,12 @@ export class UserController {
       // Check for validation errors
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        logger.warn('User update validation failed', {
+          requestId: req.requestId || 'unknown',
+          actorUserId: req.user?.userId || 'anonymous',
+          targetUserId: req.params.id,
+          errors: errors.array(),
+        });
         res.status(400).json({ errors: errors.array() });
         return;
       }
@@ -68,6 +75,11 @@ export class UserController {
         requestingUserId,
         requestingUserRoles
       );
+      logger.info('User update completed', {
+        requestId: req.requestId || 'unknown',
+        actorUserId: requestingUserId || 'anonymous',
+        targetUserId: userId,
+      });
       
       res.status(200).json({
         message: 'User updated successfully',
@@ -104,6 +116,11 @@ export class UserController {
         return;
       }
 
+      logger.info('User approval requested', {
+        requestId: req.requestId || 'unknown',
+        actorUserId: req.user?.userId || 'anonymous',
+        targetUserId: userId,
+      });
       const approvedUser = await userService.approveUser(userId);
       res.status(200).json({
         message: 'User approved successfully',
@@ -141,6 +158,12 @@ export class UserController {
       }
 
       const { rejectionNote } = req.body;
+      logger.info('User rejection requested', {
+        requestId: req.requestId || 'unknown',
+        actorUserId: req.user?.userId || 'anonymous',
+        targetUserId: userId,
+        hasRejectionNote: Boolean(rejectionNote),
+      });
       const result = await userService.rejectUser(userId, rejectionNote);
       res.status(200).json(result);
     } catch (error) {
@@ -161,6 +184,11 @@ export class UserController {
         return;
       }
 
+      logger.info('User un-reject requested', {
+        requestId: req.requestId || 'unknown',
+        actorUserId: req.user?.userId || 'anonymous',
+        targetUserId: userId,
+      });
       const result = await userService.unRejectUser(userId);
       res.status(200).json(result);
     } catch (error) {
@@ -181,6 +209,11 @@ export class UserController {
         return;
       }
 
+      logger.info('User delete requested', {
+        requestId: req.requestId || 'unknown',
+        actorUserId: req.user?.userId || 'anonymous',
+        targetUserId: userId,
+      });
       const result = await userService.deleteUser(userId);
       res.status(200).json(result);
     } catch (error) {

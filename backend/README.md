@@ -2,6 +2,24 @@
 
 Complete TypeScript backend with authentication, authorization, and role-based access control for the Smoke Station e-commerce platform.
 
+## Documentation Status
+
+This README contains older sections that were written before the current approval flow, multi-role model, and some route behavior changed.
+
+Use these files as the authoritative source of truth before making changes:
+
+- `src/routes/*.ts`
+- `src/services/*.ts`
+- `prisma/schema.prisma`
+- `../CODEBASE_WORKING_DOCUMENT.md`
+
+Current auth behavior to keep in mind:
+
+- Registration creates an unapproved user and does not issue a token by default
+- Login requires approval
+- User roles are represented as arrays in the active backend/frontend contract
+- Product and category behavior should be verified against current route/service code, not older examples below
+
 ## 🚀 Features
 
 - ✅ **TypeScript** - Full type safety

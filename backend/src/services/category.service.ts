@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
+import { logger } from '../utils/logger';
 
 interface CreateCategoryData {
   name: string;
@@ -69,6 +70,13 @@ export class CategoryService {
   }
 
   async createCategory(data: CreateCategoryData) {
+    // Category logs intentionally capture hierarchy/sort metadata because those
+    // are the fields most likely to cause "catalog looks wrong" reports later.
+    logger.info('Creating category', {
+      name: data.name,
+      parentId: data.parentId ?? null,
+      sortOrder: data.sortOrder ?? 0,
+    });
     if (data.parentId) {
       const parent = await prisma.category.findUnique({ where: { id: data.parentId } });
       if (!parent) {
@@ -79,7 +87,7 @@ export class CategoryService {
     const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantities);
     const normalizedQuantityDiscounts = this.normalizeQuantityDiscounts(data.quantityDiscounts);
 
-    return prisma.category.create({
+    const category = await prisma.category.create({
       data: {
         name: data.name,
         description: data.description,
@@ -97,6 +105,12 @@ export class CategoryService {
         children: true
       }
     });
+    logger.info('Category created', {
+      categoryId: category.id,
+      parentId: category.parentId ?? null,
+      name: category.name,
+    });
+    return category;
   }
 
   async updateCategory(id: number, data: UpdateCategoryData) {
@@ -104,6 +118,15 @@ export class CategoryService {
     if (!existing) {
       throw new AppError('Category not found', 404);
     }
+
+    // Parent/sort snapshots are logged before validation so failures can still
+    // be explained when a malformed admin request never reaches prisma.update.
+    logger.info('Updating category', {
+      categoryId: id,
+      previousParentId: existing.parentId ?? null,
+      previousSortOrder: existing.sortOrder,
+      fields: Object.keys(data),
+    });
 
     if (data.parentId === id) {
       throw new AppError('Category cannot be its own parent', 400);
@@ -129,7 +152,7 @@ export class CategoryService {
         : {})
     };
 
-    return prisma.category.update({
+    const category = await prisma.category.update({
       where: { id },
       data: updateData,
       include: {
@@ -137,6 +160,13 @@ export class CategoryService {
         children: true
       }
     });
+    logger.info('Category updated', {
+      categoryId: id,
+      parentId: category.parentId ?? null,
+      sortOrder: category.sortOrder,
+      name: category.name,
+    });
+    return category;
   }
 
   async deleteCategory(id: number) {
@@ -155,6 +185,13 @@ export class CategoryService {
       throw new AppError('Cannot delete category with assigned products', 400);
     }
 
+    // Deletion logs are especially useful here because categories can be blocked
+    // by child/product references and those constraints are not obvious from UI.
+    logger.info('Deleting category', {
+      categoryId: id,
+      name: existing.name,
+      parentId: existing.parentId ?? null,
+    });
     await prisma.category.delete({ where: { id } });
     return { message: 'Category deleted successfully' };
   }
