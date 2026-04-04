@@ -30,3 +30,16 @@ Use this repository as a full-stack application, not a frontend-only mock app.
 - Prefer additive logging, debugging aids, tests, and docs cleanup over behavioral changes.
 - Preserve current response shapes, redirects, auth rules, and retry behavior unless the task explicitly authorizes functional change.
 - When debugging, verify behavior from route files and service files before relying on older markdown docs.
+
+## Testing Maintenance Rules
+
+- Treat tests as part of the feature surface. If a behavior changes, update or add tests in the same branch.
+- Use the current merged runtime shape in fixtures and assertions:
+  - authentication is `username`-based
+  - users may expose multi-role arrays in `roles`
+  - backend/frontend request correlation may include `requestId`
+- Reuse shared test helpers and canonical fixtures before creating one-off mocks.
+- Prefer behavior-focused assertions over implementation-detail assertions.
+- Add short comments only when they explain a business rule, compatibility shim, or why a non-obvious test setup exists.
+- When fixing a bug or regression, add a test named after the business scenario it protects.
+- Do not reintroduce older email-based auth assumptions into tests except when explicitly covering a backward-compatibility path.

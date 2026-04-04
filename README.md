@@ -141,6 +141,18 @@ npm --prefix web test
 npm --prefix web run build
 ```
 
+### Testing Conventions
+
+- Backend tests live under `backend/src/**/*.test.ts`.
+- Frontend tests live under `web/src/**/*.test.{js,jsx}`.
+- Keep fixtures aligned with current runtime truth:
+  - authentication flows use `username`
+  - authorization uses role arrays where available
+  - request/error assertions preserve `requestId` when the app surfaces it
+- Prefer shared test helpers and fixtures over per-file ad hoc mocks.
+- Add short comments only when they explain business intent or a compatibility rule.
+- If application behavior changes, update the nearest relevant tests in the same branch.
+
 ## Troubleshooting
 
 ### Backend will not start
