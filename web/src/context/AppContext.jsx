@@ -28,7 +28,7 @@ export function AppProvider({ children }) {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
-        // Ensure roles array exists (for backward compatibility)
+        // Ensure roles array exists for backward compatibility with older cached user payloads.
         if (!user.roles && user.role) {
           user.roles = [user.role];
         }
@@ -75,13 +75,13 @@ export function AppProvider({ children }) {
       if (token) {
         try {
           const user = await authApi.getProfile();
-          // Ensure roles array exists
+          // Ensure roles array exists so profile responses stay compatible with current role checks.
           if (!user.roles && user.role) {
             user.roles = [user.role];
           }
           setCurrentUser(user);
           setIsAuthenticated(true);
-          // Load credit balance for authenticated user
+          // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
           try {
             const creditData = await creditApi.getUserCredit(user.id);
             setCreditBalance(creditData.balance ?? 0);
@@ -157,6 +157,7 @@ export function AppProvider({ children }) {
     if (!isAuthenticated) return;
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
+    // Staff polling keeps dashboard badges fresh without forcing a full route reload.
     const interval = setInterval(loadStaffNotificationCounts, 50000);
     return () => clearInterval(interval);
   }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
@@ -165,6 +166,7 @@ export function AppProvider({ children }) {
     try {
       const config = await configApi.getConfig();
       if (config) {
+        // Central config hydration keeps checkout, store info, and admin settings reading one shared source.
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
         if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
         if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
@@ -241,6 +243,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     const handleUnauthorized = () => {
+      // Reset session-owned state before redirecting so stale cart/order UI does not survive an expired token.
       setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setCart([]);
@@ -263,7 +266,7 @@ export function AppProvider({ children }) {
     try {
       const { user } = await authApi.login(username, password);
       
-      // Ensure roles array exists
+      // Ensure roles array exists so login responses work with current role-based navigation.
       if (!user.roles && user.role) {
         user.roles = [user.role];
       }
@@ -322,6 +325,7 @@ export function AppProvider({ children }) {
   };
 
   const resolveAllowedQuantities = (product) => {
+    // Product-level overrides win so category defaults do not mask product-specific selling rules.
     if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
       return product.allowedQuantitiesOverride;
     }
@@ -337,6 +341,7 @@ export function AppProvider({ children }) {
       const existing = prev.find(item => item.id === product.id);
       const allowedQuantities = resolveAllowedQuantities(product);
 
+      // Normalize empty or invalid quantity picks into the closest allowed step for this product.
       let requestedQuantity = quantity;
       if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
         if (allowedQuantities.length > 0) {
@@ -421,7 +426,7 @@ export function AppProvider({ children }) {
       const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
 
       if (paymentMethod !== 'CREDIT') {
-        // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
+        // Persist the latest payment handle so checkout, profile, and later orders show the same value.
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
         localStorage.setItem('userData', JSON.stringify(updatedUserData));
@@ -573,7 +578,7 @@ export function AppProvider({ children }) {
 
   const addItemToOrder = async (orderId, productIdOrItem, quantity) => {
     try {
-      // Handle both old format (object with productId, quantity, price) and new format (productId, quantity)
+      // Accept both legacy and current call shapes so older order-editing UI still reaches the same API.
       let productId, itemQuantity;
       if (typeof productIdOrItem === 'object' && productIdOrItem.productId) {
         // Old format: addItemToOrder(orderId, { productId, quantity, price })
@@ -601,7 +606,7 @@ export function AppProvider({ children }) {
 
   const voidOrderItem = async (orderId, itemIdOrIndex) => {
     try {
-      // Handle both itemId (from API) and itemIndex (array index from old code)
+      // Resolve array indexes back to persisted item IDs while older order-editing code is still supported.
       let itemId = itemIdOrIndex;
       
       // If it's an index, find the actual item ID from the order
@@ -630,7 +635,7 @@ export function AppProvider({ children }) {
 
   const deleteOrderItem = async (orderId, itemIdOrIndex) => {
     try {
-      // Handle both itemId (from API) and itemIndex (array index from old code)
+      // Resolve array indexes back to persisted item IDs while older order-editing code is still supported.
       let itemId = itemIdOrIndex;
       
       // If it's an index, find the actual item ID from the order
@@ -667,13 +672,13 @@ export function AppProvider({ children }) {
     try {
       const updatedUser = await usersApi.updateUser(currentUser.id, updates);
       
-      // Ensure roles array exists
+      // Ensure roles array exists before persisting the updated profile as the app-wide user source.
       if (!updatedUser.roles && updatedUser.role) {
         updatedUser.roles = [updatedUser.role];
       }
       
       setCurrentUser(updatedUser);
-      // Persist to localStorage so checkout/profile/registration all read same source
+      // Persist to localStorage so checkout/profile/registration all read same source.
       localStorage.setItem('userData', JSON.stringify(updatedUser));
       showNotification('Profile updated successfully', 'success');
     } catch (error) {

@@ -6,6 +6,7 @@ import { authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role
 
 const router = Router();
 
+// Order listing uses the authenticated user's roles to decide which records the service returns.
 /**
  * @route   GET /api/orders
  * @desc    Get all orders (filtered by role)
@@ -13,6 +14,7 @@ const router = Router();
  */
 router.get('/', authenticate, orderController.getAllOrders);
 
+// Delivery boards read from dedicated status buckets so staff screens can refresh them independently.
 /**
  * @route   GET /api/orders/ready-for-delivery
  * @desc    Get ready-for-delivery orders
@@ -41,6 +43,7 @@ router.get('/delivered', authenticate, authorizeAdmin, orderController.getDelive
  */
 router.get('/:id', authenticate, orderController.getOrderById);
 
+// Checkout requests land here after cart submission and fan into validation plus order creation.
 /**
  * @route   POST /api/orders
  * @desc    Create order (checkout)
@@ -75,6 +78,7 @@ router.patch(
   orderController.updateOrderStatus
 );
 
+// Staff order edits reuse the same order detail flow after the kanban/detail UI opens an order.
 /**
  * @route   POST /api/orders/:id/items
  * @desc    Add item to order

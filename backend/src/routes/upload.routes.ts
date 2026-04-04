@@ -6,6 +6,7 @@ import { upload } from '../config/multer';
 
 const router = Router();
 
+// Product image uploads enter here before media URLs are attached to products in admin flows.
 /**
  * @route   POST /api/upload
  * @desc    Upload a single image file (for product images, etc.)
@@ -19,6 +20,7 @@ router.post(
   uploadController.uploadImage
 );
 
+// Bulk uploads feed gallery-style product editing where multiple media assets are attached together.
 /**
  * @route   POST /api/upload/multiple
  * @desc    Upload multiple image files at once (max 20)
@@ -44,6 +46,7 @@ router.get(
   uploadController.getImages
 );
 
+// File deletion keeps orphaned uploads from lingering after product/media changes.
 /**
  * @route   DELETE /api/upload/:filename
  * @desc    Delete a specific uploaded image
