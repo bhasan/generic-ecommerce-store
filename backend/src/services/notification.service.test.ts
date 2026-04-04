@@ -87,6 +87,34 @@ describe('notification service logging', () => {
     }));
   });
 
+  it('does not expand direct-recipient auth notifications to management roles by category', async () => {
+    prismaMock.role.findMany.mockResolvedValue([]);
+    prismaMock.userRole.findMany.mockResolvedValue([]);
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.notification.create.mockResolvedValue({ id: 3, recipientUserId: 31 });
+
+    const { NotificationService } = await import('./notification.service');
+    const service = new NotificationService();
+
+    const result = await service.createNotifications({
+      type: 'ACCOUNT_APPROVED',
+      category: 'AUTH',
+      title: 'Account approved',
+      message: 'Your account has been approved.',
+      recipientUserIds: [31],
+    });
+
+    expect(prismaMock.role.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.notification.create).toHaveBeenCalledTimes(1);
+    expect(prismaMock.notification.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        recipientUserId: 31,
+        category: 'AUTH',
+      }),
+    }));
+    expect(result).toHaveLength(1);
+  });
+
   it('lists unread notifications for a user', async () => {
     prismaMock.notification.findMany.mockResolvedValue([{ id: 3 }]);
 

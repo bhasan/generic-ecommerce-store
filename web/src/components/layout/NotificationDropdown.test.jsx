@@ -39,6 +39,12 @@ describe('NotificationDropdown', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    const queueLabel = screen.getByText('Operational Queue');
+    const inboxTitle = screen.getByText('New order submitted');
+    expect(queueLabel).toBeInTheDocument();
+    expect(
+      queueLabel.compareDocumentPosition(inboxTitle) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
     expect(screen.getByText('Pending Registrations')).toBeInTheDocument();
     expect(screen.getByText('Mark all read')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Mark all read'));
@@ -49,5 +55,34 @@ describe('NotificationDropdown', () => {
 
     expect(onMarkRead).toHaveBeenCalledWith(5);
     expect(navigate).toHaveBeenCalledWith('/orders?status=PENDING');
+  });
+
+  it('hides the operational queue for non-staff users even if counts are present', () => {
+    render(
+      <NotificationDropdown
+        counts={{ ordersByStatus: { PENDING: 2 }, pendingRegistrations: 1 }}
+        canAccessDashboard={false}
+        notifications={[
+          {
+            id: 9,
+            title: 'Order #3 updated',
+            message: 'Your order is now approved.',
+            requiresAttention: false,
+            readAt: null,
+            metadata: { path: '/orders' },
+          },
+        ]}
+        unreadCount={1}
+        onMarkRead={vi.fn()}
+        onMarkAllRead={vi.fn()}
+        notificationsMuted={false}
+        onToggleMuted={vi.fn()}
+        canManageOrders={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    expect(screen.queryByText('Operational Queue')).not.toBeInTheDocument();
+    expect(screen.getByText('Order #3 updated')).toBeInTheDocument();
   });
 });

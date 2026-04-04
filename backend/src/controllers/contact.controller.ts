@@ -300,43 +300,19 @@ export class ContactController {
       });
       const repliedByName = adminUser?.username || 'Support Team';
 
-      // Check if email service is ready
-      if (!emailService.isReady()) {
-        throw new AppError('Email service is currently unavailable. Please try again later.', 503, 'EMAIL_SERVICE_UNAVAILABLE');
-      }
-
-      // requestId/messageId are forwarded for debugging only; they must never
-      // affect the webhook payload or the customer-visible reply behavior.
-      // Send reply email via Make.com webhook
-      await emailService.sendReplyEmail({
-        type: 'reply',
-        toEmail: originalMessage.userEmail,
-        toName: originalMessage.userName,
-        subject: originalMessage.subject,
-        originalMessage: originalMessage.message,
-        replyMessage: replyMessage,
-        repliedBy: repliedByName,
-        orderId: originalMessage.orderId,
-      }, {
-        requestId: req.requestId,
-        actorUserId: userId,
-        messageId: parseInt(id, 10),
-      });
-
-      // Update the message with reply details and mark as resolved
+      // Persist only reply metadata so the app can reflect support activity
+      // without storing the sensitive reply body in the database.
       const updatedMessage = await contactMessageService.updateMessage(parseInt(id, 10), {
         status: 'RESOLVED',
-        replyMessage: replyMessage,
         repliedAt: new Date(),
         repliedBy: userId,
         repliedByName: repliedByName,
       });
 
-      logger.info('Reply sent successfully', {
+      logger.info('Reply state recorded', {
         messageId: id,
         repliedBy: userId,
         repliedByName: repliedByName,
-        customerEmail: originalMessage.userEmail,
         requestId: req.requestId,
       });
 
@@ -349,9 +325,62 @@ export class ContactController {
         }
       );
 
+      let emailDelivered = false;
+      let responseMessage = 'Reply sent successfully';
+
+      if (!emailService.isReady()) {
+        logger.warn('Reply recorded but email service is unavailable', {
+          messageId: id,
+          repliedBy: userId,
+          customerEmail: originalMessage.userEmail,
+          requestId: req.requestId,
+        });
+        responseMessage = 'Reply recorded, but email delivery is currently unavailable.';
+      } else {
+        try {
+          // requestId/messageId are forwarded for debugging only; they must never
+          // affect the webhook payload or the customer-visible reply behavior.
+          await emailService.sendReplyEmail({
+            type: 'reply',
+            toEmail: originalMessage.userEmail,
+            toName: originalMessage.userName,
+            subject: originalMessage.subject,
+            originalMessage: originalMessage.message,
+            replyMessage: replyMessage,
+            repliedBy: repliedByName,
+            orderId: originalMessage.orderId,
+          }, {
+            requestId: req.requestId,
+            actorUserId: userId,
+            messageId: parseInt(id, 10),
+          });
+
+          emailDelivered = true;
+        } catch (emailError) {
+          logger.warn('Reply recorded but email delivery failed', {
+            messageId: id,
+            repliedBy: userId,
+            customerEmail: originalMessage.userEmail,
+            requestId: req.requestId,
+            errorMessage: (emailError as Error).message,
+          });
+          responseMessage = 'Reply recorded, but email delivery failed.';
+        }
+      }
+
+      logger.info('Reply sent successfully', {
+        messageId: id,
+        repliedBy: userId,
+        repliedByName: repliedByName,
+        customerEmail: originalMessage.userEmail,
+        emailDelivered,
+        requestId: req.requestId,
+      });
+
       res.status(200).json({
         success: true,
-        message: 'Reply sent successfully',
+        emailDelivered,
+        message: responseMessage,
         data: updatedMessage
       });
     } catch (error) {

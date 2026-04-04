@@ -257,9 +257,15 @@ export function AppProvider({ children }) {
   ]);
 
   const loadStaffNotificationCounts = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setStaffNotificationCounts(null);
+      return;
+    }
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
-    if (!isStaff) return;
+    if (!isStaff) {
+      setStaffNotificationCounts(null);
+      return;
+    }
     try {
       const data = await notificationsApi.getStaffNotificationCounts();
       setStaffNotificationCounts(data);
@@ -294,8 +300,23 @@ export function AppProvider({ children }) {
   }, []);
 
   const markNotificationRead = useCallback(async (notificationId) => {
-    await notificationsApi.markNotificationRead(notificationId);
-    await refreshNotifications();
+    const now = new Date().toISOString();
+
+    setInboxNotifications((prev) => prev.map((item) => (
+      item.id === notificationId && !item.readAt
+        ? { ...item, readAt: now }
+        : item
+    )));
+    setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    knownAttentionNotificationIdsRef.current = new Set(
+      [...knownAttentionNotificationIdsRef.current].filter((id) => id !== notificationId)
+    );
+
+    try {
+      await notificationsApi.markNotificationRead(notificationId);
+    } finally {
+      await refreshNotifications();
+    }
   }, [refreshNotifications]);
 
   const markAllNotificationsRead = useCallback(async () => {
@@ -420,9 +441,20 @@ export function AppProvider({ children }) {
         navigate(returnPath);
         setReturnPath(null);
       } else {
-        // Otherwise, default navigation based on primary role
-        const primaryRole = user.roles?.[0] || ROLES.CUSTOMER;
-        navigate(primaryRole === ROLES.CUSTOMER ? '/products' : '/orders');
+        // Otherwise, default navigation based on current role shape.
+        const roles = user.roles || [];
+        if (roles.includes(ROLES.DELIVERY_DRIVER) && !roles.includes(ROLES.MANAGEMENT) && !roles.includes(ROLES.ADMIN)) {
+          navigate('/delivery-dashboard');
+        } else if (roles.includes(ROLES.CUSTOMER) && !roles.some((role) => (
+          role === ROLES.EMPLOYEE
+          || role === ROLES.MANAGEMENT
+          || role === ROLES.ADMIN
+          || role === ROLES.DELIVERY_DRIVER
+        ))) {
+          navigate('/products');
+        } else {
+          navigate('/orders');
+        }
       }
       
       showNotification('Login successful!', 'success');
@@ -459,6 +491,7 @@ export function AppProvider({ children }) {
       setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setCart([]);
+      setStaffNotificationCounts(null);
       setInboxNotifications([]);
       setUnreadNotificationCount(0);
       setReturnPath(null);

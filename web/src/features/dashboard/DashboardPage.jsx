@@ -36,6 +36,7 @@ const DASHBOARD_SECTIONS = {
 };
 
 function DashboardPage() {
+  const MESSAGES_REFRESH_INTERVAL_MS = 50000;
   const { showNotification, currentUser, loadConfig } = useApp();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState(() => {
@@ -278,6 +279,16 @@ function DashboardPage() {
     }
   }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints]);
 
+  useEffect(() => {
+    if (activeSection !== DASHBOARD_SECTIONS.MESSAGES) return undefined;
+
+    const interval = setInterval(() => {
+      loadContactMessages(messagesStatusFilter);
+    }, MESSAGES_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [activeSection, loadContactMessages, messagesStatusFilter]);
+
   // Announcement handlers
   const handleCreateAnnouncement = () => {
     setEditingAnnouncement(null);
@@ -519,8 +530,15 @@ function DashboardPage() {
   const handleReplyToMessage = async (messageId, replyText) => {
     try {
       setIsReplyingToMessage(true);
-      await contactMessagesApi.replyToMessage(messageId, replyText);
-      showNotification('Reply sent successfully via email', 'success');
+      const result = await contactMessagesApi.replyToMessage(messageId, replyText);
+      if (result?.emailDelivered === false) {
+        showNotification(
+          result.message || 'Reply recorded, but email delivery failed.',
+          'warning'
+        );
+      } else {
+        showNotification('Reply sent successfully via email', 'success');
+      }
       loadContactMessages(messagesStatusFilter);
       return true;
     } catch (error) {

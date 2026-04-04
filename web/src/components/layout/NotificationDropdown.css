@@ -47,6 +47,15 @@
   animation: slideDown var(--transition-fast) ease-out;
 }
 
+.notification-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  max-height: min(28rem, calc(100vh - 10rem));
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
 .notification-panel-header-row {
   display: flex;
   justify-content: space-between;
@@ -65,6 +74,31 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-xs);
+}
+
+.notification-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.notification-section-queue {
+  margin-top: var(--spacing-xs);
+}
+
+.notification-divider {
+  height: 1px;
+  margin: var(--spacing-xs) var(--spacing-sm);
+  background: color-mix(in srgb, var(--color-primary-dark) 45%, transparent);
+}
+
+.notification-section-label {
+  padding: 0.35rem var(--spacing-sm) 0.2rem;
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 .notification-utility,
@@ -118,6 +152,17 @@
   align-items: flex-start;
 }
 
+.notification-item-queue {
+  background: color-mix(in srgb, var(--bg-hover) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+  color: var(--text-secondary);
+}
+
+.notification-item-queue:hover {
+  background: color-mix(in srgb, var(--bg-active) 50%, transparent);
+  color: var(--text-primary);
+}
+
 .notification-item-main {
   display: flex;
   gap: var(--spacing-xs);
@@ -160,6 +205,8 @@
 .notification-item-count {
   font-weight: var(--font-weight-bold);
   color: var(--color-primary-dark);
+  min-width: 1.5rem;
+  text-align: right;
 }
 
 .notification-empty {

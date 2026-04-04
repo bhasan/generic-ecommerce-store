@@ -43,13 +43,26 @@ function NotificationDropdown({
   const pendingRegsCount = canAccessDashboard ? pendingRegistrations : 0;
   const staffTotalCount = canManageOrders ? totalOrders + pendingRegsCount : 0;
   const totalCount = unreadCount + staffTotalCount;
+  const hasInboxNotifications = notifications.length > 0;
+  const hasOperationalQueue = canManageOrders && (
+    orderEntries.length > 0 || (pendingRegistrations > 0 && canAccessDashboard)
+  );
 
-  const handleNavigate = async (path, notificationId) => {
+  const handleNavigate = (path) => {
     setOpen(false);
-    if (notificationId && onMarkRead) {
-      await onMarkRead(notificationId);
-    }
     navigate(path);
+  };
+
+  const handleNotificationClick = (event, item) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setOpen(false);
+
+    if (!item.readAt && item.id && onMarkRead) {
+      void onMarkRead(item.id);
+    }
+
+    navigate(resolveNotificationPath(item));
   };
 
   const resolveNotificationPath = (item) => {
@@ -102,49 +115,60 @@ function NotificationDropdown({
           {notifications.length === 0 && staffTotalCount === 0 ? (
             <div className="notification-empty">No notifications</div>
           ) : (
-            <>
-              {notifications.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`notification-item notification-item-inbox ${!item.readAt ? 'notification-item-unread' : ''}`}
-                  onClick={() => handleNavigate(resolveNotificationPath(item), item.id)}
-                >
-                  <span className="notification-item-main">
-                    {item.requiresAttention && !item.readAt && <span className="notification-item-dot" />}
-                    <span className="notification-item-copy">
-                      <span className="notification-item-title">{item.title}</span>
-                      <span className="notification-item-message">{item.message}</span>
-                    </span>
-                  </span>
-                </button>
-              ))}
+            <div className="notification-panel-body">
+              {hasOperationalQueue && (
+                <div className="notification-section notification-section-queue">
+                  <div className="notification-section-label">Operational Queue</div>
 
-              {orderEntries.map(([status, count]) => (
-                <button
-                  key={status}
-                  type="button"
-                  className="notification-item"
-                  onClick={() => handleNavigate(`/orders?status=${status}`)}
-                >
-                  <span className="notification-item-label">
-                    {ORDER_STATUS_LABELS[status] ?? status.replace(/_/g, ' ')}
-                  </span>
-                  <span className="notification-item-count">{count}</span>
-                </button>
-              ))}
+                  {orderEntries.map(([status, count]) => (
+                    <button
+                      key={status}
+                      type="button"
+                      className="notification-item notification-item-queue"
+                      onClick={() => handleNavigate(`/orders?status=${status}`)}
+                    >
+                      <span className="notification-item-label">
+                        {ORDER_STATUS_LABELS[status] ?? status.replace(/_/g, ' ')}
+                      </span>
+                      <span className="notification-item-count">{count}</span>
+                    </button>
+                  ))}
 
-              {pendingRegistrations > 0 && canAccessDashboard && (
-                <button
-                  type="button"
-                  className="notification-item"
-                  onClick={() => handleNavigate('/dashboard?section=pending-registrations')}
-                >
-                  <span className="notification-item-label">Pending Registrations</span>
-                  <span className="notification-item-count">{pendingRegistrations}</span>
-                </button>
+                  {pendingRegistrations > 0 && canAccessDashboard && (
+                    <button
+                      type="button"
+                      className="notification-item notification-item-queue"
+                      onClick={() => handleNavigate('/dashboard?section=pending-registrations')}
+                    >
+                      <span className="notification-item-label">Pending Registrations</span>
+                      <span className="notification-item-count">{pendingRegistrations}</span>
+                    </button>
+                  )}
+                </div>
               )}
-            </>
+
+              {hasInboxNotifications && (
+                <div className="notification-section">
+                  {hasOperationalQueue && <div className="notification-divider" />}
+                  {notifications.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`notification-item notification-item-inbox ${!item.readAt ? 'notification-item-unread' : ''}`}
+                      onClick={(event) => handleNotificationClick(event, item)}
+                    >
+                      <span className="notification-item-main">
+                        {item.requiresAttention && !item.readAt && <span className="notification-item-dot" />}
+                        <span className="notification-item-copy">
+                          <span className="notification-item-title">{item.title}</span>
+                          <span className="notification-item-message">{item.message}</span>
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -17,27 +17,45 @@ Some older markdown files and examples in the repo were written before the backe
 
 ## Prerequisites
 
-- Node.js v18+
+- Node.js v20+
 - Docker v28+
 - npm or yarn
 
-## Quick Start (Docker)
+## Docker Compose Structure
+
+The repo uses a layered Docker Compose setup:
+
+- `docker-compose.yml`
+  - neutral shared base
+- `docker-compose.dev.yml`
+  - local development override
+- `docker-compose.prod.yml`
+  - production override
+
+Always combine the base file with either the dev or prod override.
+
+## Quick Start (Docker Dev)
 
 ```bash
-cd web
-npm install
-npm run build
-cd ..
-
-docker compose up --build -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
 ```
 
-Access the application at `http://localhost:80`.
+Access the local development app at `http://localhost:5173`.
 
-Command to update only the backend container:
+Useful dev commands:
 
 ```bash
-docker compose up --build --force-recreate -d backend
+# Start or rebuild the full local dev stack
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
+
+# Rebuild only the backend dev container
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build backend
+
+# Rebuild only the frontend dev container
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build web-dev
+
+# Stop the local dev stack
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 ```
 
 ### Docker Services
@@ -45,12 +63,12 @@ docker compose up --build --force-recreate -d backend
 | Service | Port | Description |
 | --- | --- | --- |
 | Database | 5432 | PostgreSQL database |
-| Backend | 3000 (internal) | Express API server |
-| Web | 80 | Nginx reverse proxy + React app |
+| Backend | 3000 | Express API server in dev override |
+| Web Dev | 5173 | Vite development server |
 
 ## First Time Setup
 
-After starting the containers:
+After starting the dev containers:
 
 ### 1. Run database migrations
 
@@ -93,6 +111,36 @@ npm run dev
 ```
 
 The frontend proxies `/api` to the backend in local development via `vite.config.js`.
+
+### Docker Dev Override
+
+Use the dev override when you want Docker-based development with backend dev dependencies available inside the container, including `ts-node` for `npm run prisma:seed`.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
+docker exec smoke-station-delivery-backend npm run prisma:migrate
+docker exec smoke-station-delivery-backend npm run prisma:seed
+```
+
+See [LOCAL_DOCKER_DEV_WORKFLOW.md](./LOCAL_DOCKER_DEV_WORKFLOW.md) for the full local Docker workflow, rebuild commands, and fresh-reset steps.
+
+## Production Compose Commands
+
+Use the neutral base file plus the production override:
+
+```bash
+# Build production images
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod build
+
+# Start production
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
+
+# Check production status
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod ps
+
+# Tail production logs
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod logs -f
+```
 
 ## Environment Variables
 

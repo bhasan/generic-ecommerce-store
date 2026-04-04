@@ -17,14 +17,6 @@ const UNFULFILLED_STATUSES: OrderStatus[] = [
   'OUT_FOR_DELIVERY'
 ];
 
-const ROLE_DOMAIN_MAP: Partial<Record<NotificationCategory, RoleName[]>> = {
-  ORDERS: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
-  AUTH: ['MANAGEMENT', 'ADMIN'],
-  CONTACT: ['MANAGEMENT', 'ADMIN'],
-  DRIVER: ['DELIVERY_DRIVER', 'MANAGEMENT', 'ADMIN'],
-  ADMIN: ['MANAGEMENT', 'ADMIN'],
-};
-
 export interface NotificationMetadata {
   orderId?: number;
   status?: string;
@@ -154,7 +146,7 @@ export class NotificationService {
   async createNotifications(input: NotificationInput) {
     const recipientUserIds = await this.resolveRecipientUserIds(
       input.recipientUserIds ?? [],
-      input.recipientRoles ?? ROLE_DOMAIN_MAP[input.category] ?? [],
+      input.recipientRoles ?? [],
     );
 
     if (recipientUserIds.length === 0) {

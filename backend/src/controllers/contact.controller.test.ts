@@ -166,5 +166,75 @@ describe('contact controller logging', () => {
       userId: 9,
       username: 'Manager',
     });
+    expect(contactMessageServiceMock.updateMessage).toHaveBeenCalledWith(6, expect.objectContaining({
+      status: 'RESOLVED',
+      repliedBy: 9,
+      repliedByName: 'Manager',
+    }));
+    expect(contactMessageServiceMock.updateMessage).not.toHaveBeenCalledWith(6, expect.objectContaining({
+      replyMessage: 'Reply body',
+    }));
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      emailDelivered: true,
+      message: 'Reply sent successfully',
+    }));
+  });
+
+  it('records the reply and emits customer notification even when email delivery fails', async () => {
+    validationResultMock.mockReturnValue({
+      isEmpty: () => true,
+      array: () => [],
+    });
+    contactMessageServiceMock.getMessageById.mockResolvedValue({
+      id: 8,
+      userId: 14,
+      userEmail: 'customer2@test.com',
+      userName: 'Customer Two',
+      subject: 'Support needed',
+      message: 'Original support message',
+      repliedAt: null,
+      orderId: null,
+    });
+    prismaMock.user.findUnique.mockResolvedValue({ username: 'Admin User' });
+    emailServiceMock.isReady.mockReturnValue(true);
+    emailServiceMock.sendReplyEmail.mockRejectedValue(new Error('Make failed'));
+    contactMessageServiceMock.updateMessage.mockResolvedValue({ id: 8, status: 'RESOLVED' });
+
+    const controller = new ContactController();
+    const req: any = {
+      requestId: 'req-4',
+      params: { id: '8' },
+      body: { replyMessage: 'Sensitive reply body' },
+      user: { userId: 3 },
+    };
+    const res = createResponse();
+
+    await controller.replyToMessage(req, res as any, vi.fn());
+
+    expect(contactMessageServiceMock.updateMessage).toHaveBeenCalledWith(8, expect.objectContaining({
+      status: 'RESOLVED',
+      repliedBy: 3,
+      repliedByName: 'Admin User',
+    }));
+    expect(contactMessageServiceMock.updateMessage).not.toHaveBeenCalledWith(8, expect.objectContaining({
+      replyMessage: 'Sensitive reply body',
+    }));
+    expect(notificationEventsServiceMock.notifyContactReplySent).toHaveBeenCalledWith(8, 14, {
+      userId: 3,
+      username: 'Admin User',
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      emailDelivered: false,
+      message: 'Reply recorded, but email delivery failed.',
+    }));
+    expect(logger.warn).toHaveBeenCalledWith('Reply recorded but email delivery failed', expect.objectContaining({
+      messageId: '8',
+      repliedBy: 3,
+      requestId: 'req-4',
+    }));
   });
 });
