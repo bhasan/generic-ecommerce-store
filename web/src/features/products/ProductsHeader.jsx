@@ -20,10 +20,10 @@ function ProductsHeader({
             <div className="products-view-toggle" role="group" aria-label="Products view">
               <button
                 type="button"
-                className={`view-toggle-btn ${viewMode === 'compact' ? 'active' : ''}`}
-                onClick={() => onViewModeChange('compact')}
+                className={`view-toggle-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                onClick={() => onViewModeChange('grid')}
               >
-                Compact
+                Grid
               </button>
               <button
                 type="button"

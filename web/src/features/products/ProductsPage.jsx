@@ -27,9 +27,9 @@ function ProductsPage({ mode = 'browse' }) {
   } = useApp();
 
   const [viewMode, setViewMode] = useState(() => {
-    if (typeof window === 'undefined') return 'compact';
+    if (typeof window === 'undefined') return 'list';
     const savedView = localStorage.getItem('productsViewMode');
-    return savedView === 'compact' || savedView === 'list' ? savedView : 'compact';
+    return savedView === 'grid' || savedView === 'list' ? savedView : 'list';
   });
   const [selectedProductId, setSelectedProductId] = useState(null);
 
@@ -47,10 +47,10 @@ function ProductsPage({ mode = 'browse' }) {
     const targetId = sessionStorage.getItem('productsScrollProductId');
     if (!targetId) return;
     sessionStorage.removeItem('productsScrollProductId');
-    requestAnimationFrame(() => {
+    setTimeout(() => {
       const el = document.querySelector(`[data-product-id="${targetId}"]`);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    }, 50);
   }, [isLoadingProducts, isLoadingCategories]);
 
   const handleProductClick = (id) => {

@@ -43,47 +43,72 @@
   margin: 0;
 }
 
-.products-grid-compact {
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--spacing-md);
-}
-
-.products-grid-compact .product-image-container {
-  aspect-ratio: 1 / 1;
-}
-
-.products-grid-compact .product-content {
-  padding: var(--spacing-md);
+.products-grid.products-grid-compact {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 240px));
   gap: var(--spacing-sm);
 }
 
-.products-grid-compact .product-name {
-  font-size: var(--font-size-lg);
+.products-grid.products-grid-compact .product-image-container {
+  aspect-ratio: 1 / 1;
 }
 
-.products-grid-compact .product-description {
-  font-size: var(--font-size-sm);
+.products-grid.products-grid-compact .product-content {
+  padding: var(--spacing-sm);
+  gap: var(--spacing-xs);
 }
 
-.products-grid-compact .product-footer {
-  padding-top: var(--spacing-sm);
+.products-grid.products-grid-compact .product-name {
+  font-size: var(--font-size-md);
+}
+
+/* Hide description — too cramped at small card size */
+.products-grid.products-grid-compact .product-description {
+  display: none;
+}
+
+/* Stack name above badge instead of side-by-side */
+.products-grid.products-grid-compact .product-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-xs);
+}
+
+/* Stack price above actions */
+.products-grid.products-grid-compact .product-footer {
+  flex-direction: column;
+  align-items: stretch;
+  padding-top: var(--spacing-xs);
+  gap: var(--spacing-xs);
+}
+
+/* Actions row fills full width */
+.products-grid.products-grid-compact .product-footer-actions {
+  width: 100%;
+}
+
+/* Compact add-to-cart button */
+.products-grid.products-grid-compact .btn-add-to-cart {
+  min-width: unset;
+  min-height: 36px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  flex: 1;
 }
 
 @media (max-width: 600px) {
-  .products-grid-compact {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: var(--spacing-sm);
+  .products-grid.products-grid-compact {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: var(--spacing-xs);
   }
 }
 
 @media (max-width: 400px) {
-  .products-grid-compact {
+  .products-grid.products-grid-compact {
     grid-template-columns: repeat(2, 1fr);
     gap: var(--spacing-xs);
   }
 
   .products-grid-compact .product-content {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
   }
 
   .products-grid-compact .product-name {
