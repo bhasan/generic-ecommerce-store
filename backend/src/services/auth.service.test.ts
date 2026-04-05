@@ -5,6 +5,7 @@ const {
   hashPassword,
   comparePassword,
   generateToken,
+  notificationEventsService,
   logger,
 } = vi.hoisted(() => ({
   prismaMock: {
@@ -23,6 +24,9 @@ const {
   hashPassword: vi.fn(),
   comparePassword: vi.fn(),
   generateToken: vi.fn(),
+  notificationEventsService: {
+    notifyRegistrationSubmitted: vi.fn(),
+  },
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -46,6 +50,10 @@ vi.mock('../utils/jwt.util', () => ({
 
 vi.mock('../utils/logger', () => ({
   logger,
+}));
+
+vi.mock('./notificationEvents.service', () => ({
+  notificationEventsService,
 }));
 
 describe('auth service', () => {
@@ -108,6 +116,33 @@ describe('auth service', () => {
       id: 7,
       roles: ['ADMIN'],
     }));
+  });
+
+  it('emits a registration notification after successful registration', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    hashPassword.mockResolvedValue('hashed-password');
+    prismaMock.role.findMany.mockResolvedValue([{ id: 1, name: 'CUSTOMER' }]);
+    prismaMock.user.create.mockResolvedValue({
+      id: 21,
+      username: 'new-user',
+      approved: false,
+      createdAt: new Date('2024-01-01'),
+    });
+    prismaMock.userRole.createMany.mockResolvedValue({});
+    prismaMock.userRole.findMany.mockResolvedValue([{ roleId: 1 }]);
+    prismaMock.role.findMany
+      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }])
+      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }]);
+
+    const { AuthService } = await import('./auth.service');
+    const service = new AuthService();
+
+    await service.register({
+      username: 'new-user',
+      password: 'secret123',
+    });
+
+    expect(notificationEventsService.notifyRegistrationSubmitted).toHaveBeenCalledWith(21, 'new-user');
   });
 
   it('logs and rejects unapproved login attempts', async () => {

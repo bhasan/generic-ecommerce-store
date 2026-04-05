@@ -4,6 +4,7 @@ import { generateToken } from '../utils/jwt.util';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
+import { notificationEventsService } from './notificationEvents.service';
 
 interface RegisterData {
   username: string;
@@ -87,6 +88,8 @@ export class AuthService {
       username: user.username,
       roles: requestedRoles,
     });
+
+    await notificationEventsService.notifyRegistrationSubmitted(user.id, user.username);
 
     const userRoles = await prisma.userRole.findMany({
       where: { userId: user.id }

@@ -3,6 +3,7 @@ import { AppError } from '../middleware/error.middleware';
 import { hashPassword, comparePassword } from '../utils/password.util';
 import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
+import { notificationEventsService } from './notificationEvents.service';
 
 interface UpdateUserData {
   username?: string;
@@ -348,6 +349,8 @@ export class UserService {
       roles: formattedUser.roles,
     });
 
+    await notificationEventsService.notifyAccountApproved(userId);
+
     return formattedUser;
   }
 
@@ -409,6 +412,8 @@ export class UserService {
       hasRejectionNote: Boolean(rejectionNote),
       roles: result.user.roles,
     });
+
+    await notificationEventsService.notifyAccountRejected(userId);
 
     return result;
   }
