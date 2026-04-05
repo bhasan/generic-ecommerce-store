@@ -36,6 +36,7 @@ const DASHBOARD_SECTIONS = {
 };
 
 function DashboardPage() {
+  const MESSAGES_REFRESH_INTERVAL_MS = 50000;
   const { showNotification, currentUser, loadConfig } = useApp();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState(() => {
@@ -47,6 +48,7 @@ function DashboardPage() {
   useEffect(() => {
     const section = new URLSearchParams(location.search).get('section');
     if (Object.values(DASHBOARD_SECTIONS).includes(section)) {
+      // Keep deep-linked admin tabs and in-app tab clicks on the same section state.
       setActiveSection(section);
     }
   }, [location.search]);
@@ -199,6 +201,7 @@ function DashboardPage() {
     try {
       await paymentSettingsApi.updatePaymentSettings(data);
       showNotification('Payment settings updated successfully', 'success');
+      // Refresh shared config so checkout and header surfaces pick up new payment options immediately.
       loadConfig();
     } catch (error) {
       showNotification(error.message || 'Failed to save payment settings', 'error');
@@ -222,6 +225,7 @@ function DashboardPage() {
     try {
       await storeSettingsApi.updateStoreSettings(data);
       showNotification('Store settings updated successfully', 'success');
+      // Refresh shared config so pickup/store details stay aligned outside the dashboard.
       loadConfig();
     } catch (error) {
       showNotification(error.message || 'Failed to save store settings', 'error');
@@ -245,6 +249,7 @@ function DashboardPage() {
     try {
       await orderingConstraintsApi.updateOrderingConstraints(data);
       showNotification('Ordering constraints updated successfully', 'success');
+      // Refresh shared config so cart and checkout rules see the latest limits right away.
       loadConfig();
     } catch (error) {
       showNotification(error.message || 'Failed to save ordering constraints', 'error');
@@ -253,6 +258,7 @@ function DashboardPage() {
 
   // Load data based on active section
   useEffect(() => {
+    // Section-scoped loading keeps admin requests targeted instead of refetching every dashboard dataset at once.
     if (activeSection === DASHBOARD_SECTIONS.PENDING_REGISTRATIONS) {
       loadPendingRegistrations();
     } else if (activeSection === DASHBOARD_SECTIONS.ANNOUNCEMENTS) {
@@ -272,6 +278,16 @@ function DashboardPage() {
       loadOrderingConstraints();
     }
   }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints]);
+
+  useEffect(() => {
+    if (activeSection !== DASHBOARD_SECTIONS.MESSAGES) return undefined;
+
+    const interval = setInterval(() => {
+      loadContactMessages(messagesStatusFilter);
+    }, MESSAGES_REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [activeSection, loadContactMessages, messagesStatusFilter]);
 
   // Announcement handlers
   const handleCreateAnnouncement = () => {
@@ -443,7 +459,7 @@ function DashboardPage() {
       setEditingUserId(null);
       setEditingRoles([]);
       loadUsers();
-      // Also reload pending registrations in case user now appears there
+      // Refill pending registrations when roles are cleared because that moves the user back into approval flow.
       if (editingRoles.length === 0) {
         loadPendingRegistrations();
       }
@@ -514,8 +530,15 @@ function DashboardPage() {
   const handleReplyToMessage = async (messageId, replyText) => {
     try {
       setIsReplyingToMessage(true);
-      await contactMessagesApi.replyToMessage(messageId, replyText);
-      showNotification('Reply sent successfully via email', 'success');
+      const result = await contactMessagesApi.replyToMessage(messageId, replyText);
+      if (result?.emailDelivered === false) {
+        showNotification(
+          result.message || 'Reply recorded, but email delivery failed.',
+          'warning'
+        );
+      } else {
+        showNotification('Reply sent successfully via email', 'success');
+      }
       loadContactMessages(messagesStatusFilter);
       return true;
     } catch (error) {
@@ -621,6 +644,7 @@ function DashboardPage() {
 
   // Render active content
   const renderContent = () => {
+    // The active section decides which API set and management workflow the dashboard exposes.
     switch (activeSection) {
       case DASHBOARD_SECTIONS.PENDING_REGISTRATIONS:
         return (

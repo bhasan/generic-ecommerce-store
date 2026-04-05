@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useCallback, createContext, useContext, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as authApi from '../services/authApi';
 import * as usersApi from '../services/usersApi';
@@ -28,7 +28,7 @@ export function AppProvider({ children }) {
     if (storedUser) {
       try {
         const user = JSON.parse(storedUser);
-        // Ensure roles array exists (for backward compatibility)
+        // Ensure roles array exists for backward compatibility with older cached user payloads.
         if (!user.roles && user.role) {
           user.roles = [user.role];
         }
@@ -53,6 +53,11 @@ export function AppProvider({ children }) {
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
+  const [inboxNotifications, setInboxNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [notificationsMuted, setNotificationsMuted] = useState(
+    () => sessionStorage.getItem('notificationsMuted') === 'true'
+  );
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
   const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
   const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
@@ -65,6 +70,9 @@ export function AppProvider({ children }) {
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
   const [creditBalance, setCreditBalance] = useState(0);
+  const hasInteractedRef = useRef(false);
+  const hasLoadedNotificationsRef = useRef(false);
+  const knownAttentionNotificationIdsRef = useRef(new Set());
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -75,13 +83,13 @@ export function AppProvider({ children }) {
       if (token) {
         try {
           const user = await authApi.getProfile();
-          // Ensure roles array exists
+          // Ensure roles array exists so profile responses stay compatible with current role checks.
           if (!user.roles && user.role) {
             user.roles = [user.role];
           }
           setCurrentUser(user);
           setIsAuthenticated(true);
-          // Load credit balance for authenticated user
+          // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
           try {
             const creditData = await creditApi.getUserCredit(user.id);
             setCreditBalance(creditData.balance ?? 0);
@@ -140,10 +148,124 @@ export function AppProvider({ children }) {
     loadCategories();
   }, [loadCategories]);
 
+  useEffect(() => {
+    const markInteracted = () => {
+      hasInteractedRef.current = true;
+    };
+
+    window.addEventListener('pointerdown', markInteracted, { once: true });
+    window.addEventListener('keydown', markInteracted, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', markInteracted);
+      window.removeEventListener('keydown', markInteracted);
+    };
+  }, []);
+
+  const playStaffAttentionSound = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const audioContext = new AudioContextClass();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.08, audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.3);
+    oscillator.onended = () => {
+      audioContext.close().catch(() => {});
+    };
+  }, []);
+
+  const loadNotifications = useCallback(async () => {
+    if (!isAuthenticated) return [];
+    try {
+      const data = await notificationsApi.getNotifications();
+      setInboxNotifications(data);
+      return data;
+    } catch {
+      return [];
+    }
+  }, [isAuthenticated]);
+
+  const loadUnreadNotificationCount = useCallback(async () => {
+    if (!isAuthenticated) return { count: 0 };
+    try {
+      const data = await notificationsApi.getUnreadNotificationCount();
+      setUnreadNotificationCount(data.count ?? 0);
+      return data;
+    } catch {
+      return { count: 0 };
+    }
+  }, [isAuthenticated]);
+
+  const refreshNotifications = useCallback(async () => {
+    if (!isAuthenticated) {
+      setInboxNotifications([]);
+      setUnreadNotificationCount(0);
+      hasLoadedNotificationsRef.current = false;
+      knownAttentionNotificationIdsRef.current = new Set();
+      return { notifications: [], unreadCount: 0 };
+    }
+
+    const [notifications, unread] = await Promise.all([
+      loadNotifications(),
+      loadUnreadNotificationCount(),
+    ]);
+
+    const isStaffUser = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
+    const attentionIds = new Set(
+      notifications
+        .filter((item) => item.requiresAttention && !item.readAt)
+        .map((item) => item.id)
+    );
+
+    if (!hasLoadedNotificationsRef.current) {
+      hasLoadedNotificationsRef.current = true;
+      knownAttentionNotificationIdsRef.current = attentionIds;
+      return { notifications, unreadCount: unread.count ?? 0 };
+    }
+
+    const newAttentionIds = [...attentionIds].filter(
+      (id) => !knownAttentionNotificationIdsRef.current.has(id)
+    );
+    knownAttentionNotificationIdsRef.current = attentionIds;
+
+    if (
+      isStaffUser
+      && newAttentionIds.length > 0
+      && !notificationsMuted
+      && hasInteractedRef.current
+    ) {
+      playStaffAttentionSound();
+    }
+
+    return { notifications, unreadCount: unread.count ?? 0 };
+  }, [
+    currentUser,
+    isAuthenticated,
+    loadNotifications,
+    loadUnreadNotificationCount,
+    notificationsMuted,
+    playStaffAttentionSound,
+  ]);
+
   const loadStaffNotificationCounts = useCallback(async () => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      setStaffNotificationCounts(null);
+      return;
+    }
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
-    if (!isStaff) return;
+    if (!isStaff) {
+      setStaffNotificationCounts(null);
+      return;
+    }
     try {
       const data = await notificationsApi.getStaffNotificationCounts();
       setStaffNotificationCounts(data);
@@ -157,14 +279,56 @@ export function AppProvider({ children }) {
     if (!isAuthenticated) return;
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
+    // Staff polling keeps dashboard badges fresh without forcing a full route reload.
     const interval = setInterval(loadStaffNotificationCounts, 50000);
     return () => clearInterval(interval);
   }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
+
+  useEffect(() => {
+    refreshNotifications();
+    if (!isAuthenticated) return;
+    const interval = setInterval(refreshNotifications, 50000);
+    return () => clearInterval(interval);
+  }, [refreshNotifications, isAuthenticated]);
+
+  const toggleNotificationsMuted = useCallback(() => {
+    setNotificationsMuted((prev) => {
+      const next = !prev;
+      sessionStorage.setItem('notificationsMuted', String(next));
+      return next;
+    });
+  }, []);
+
+  const markNotificationRead = useCallback(async (notificationId) => {
+    const now = new Date().toISOString();
+
+    setInboxNotifications((prev) => prev.map((item) => (
+      item.id === notificationId && !item.readAt
+        ? { ...item, readAt: now }
+        : item
+    )));
+    setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    knownAttentionNotificationIdsRef.current = new Set(
+      [...knownAttentionNotificationIdsRef.current].filter((id) => id !== notificationId)
+    );
+
+    try {
+      await notificationsApi.markNotificationRead(notificationId);
+    } finally {
+      await refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    await notificationsApi.markAllNotificationsRead();
+    await refreshNotifications();
+  }, [refreshNotifications]);
 
   const loadConfig = useCallback(async () => {
     try {
       const config = await configApi.getConfig();
       if (config) {
+        // Central config hydration keeps checkout, store info, and admin settings reading one shared source.
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
         if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
         if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
@@ -241,6 +405,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     const handleUnauthorized = () => {
+      // Reset session-owned state before redirecting so stale cart/order UI does not survive an expired token.
       setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setCart([]);
@@ -263,7 +428,7 @@ export function AppProvider({ children }) {
     try {
       const { user } = await authApi.login(username, password);
       
-      // Ensure roles array exists
+      // Ensure roles array exists so login responses work with current role-based navigation.
       if (!user.roles && user.role) {
         user.roles = [user.role];
       }
@@ -276,9 +441,20 @@ export function AppProvider({ children }) {
         navigate(returnPath);
         setReturnPath(null);
       } else {
-        // Otherwise, default navigation based on primary role
-        const primaryRole = user.roles?.[0] || ROLES.CUSTOMER;
-        navigate(primaryRole === ROLES.CUSTOMER ? '/products' : '/orders');
+        // Otherwise, default navigation based on current role shape.
+        const roles = user.roles || [];
+        if (roles.includes(ROLES.DELIVERY_DRIVER) && !roles.includes(ROLES.MANAGEMENT) && !roles.includes(ROLES.ADMIN)) {
+          navigate('/delivery-dashboard');
+        } else if (roles.includes(ROLES.CUSTOMER) && !roles.some((role) => (
+          role === ROLES.EMPLOYEE
+          || role === ROLES.MANAGEMENT
+          || role === ROLES.ADMIN
+          || role === ROLES.DELIVERY_DRIVER
+        ))) {
+          navigate('/products');
+        } else {
+          navigate('/orders');
+        }
       }
       
       showNotification('Login successful!', 'success');
@@ -315,6 +491,9 @@ export function AppProvider({ children }) {
       setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setCart([]);
+      setStaffNotificationCounts(null);
+      setInboxNotifications([]);
+      setUnreadNotificationCount(0);
       setReturnPath(null);
       navigate('/products');
       showNotification('You have been logged out', 'info');
@@ -322,6 +501,7 @@ export function AppProvider({ children }) {
   };
 
   const resolveAllowedQuantities = (product) => {
+    // Product-level overrides win so category defaults do not mask product-specific selling rules.
     if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
       return product.allowedQuantitiesOverride;
     }
@@ -337,6 +517,7 @@ export function AppProvider({ children }) {
       const existing = prev.find(item => item.id === product.id);
       const allowedQuantities = resolveAllowedQuantities(product);
 
+      // Normalize empty or invalid quantity picks into the closest allowed step for this product.
       let requestedQuantity = quantity;
       if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
         if (allowedQuantities.length > 0) {
@@ -421,7 +602,7 @@ export function AppProvider({ children }) {
       const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
 
       if (paymentMethod !== 'CREDIT') {
-        // Sync currentUser and localStorage with updated CashApp (single source: User.cashapp)
+        // Persist the latest payment handle so checkout, profile, and later orders show the same value.
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
         localStorage.setItem('userData', JSON.stringify(updatedUserData));
@@ -438,6 +619,7 @@ export function AppProvider({ children }) {
       setCart([]);
 
       showNotification('Order placed successfully!', 'success');
+      await Promise.all([refreshNotifications(), loadStaffNotificationCounts()]);
 
       // Return order for caller to handle navigation with additional data
       return newOrder;
@@ -544,6 +726,7 @@ export function AppProvider({ children }) {
       setOrders(ordersData);
       
       showNotification('Order status updated', 'success');
+      await Promise.all([refreshNotifications(), loadStaffNotificationCounts()]);
     } catch (error) {
       const errorMessage = error.message || 'Failed to update order status. Please try again.';
       showNotification(errorMessage, 'error');
@@ -573,7 +756,7 @@ export function AppProvider({ children }) {
 
   const addItemToOrder = async (orderId, productIdOrItem, quantity) => {
     try {
-      // Handle both old format (object with productId, quantity, price) and new format (productId, quantity)
+      // Accept both legacy and current call shapes so older order-editing UI still reaches the same API.
       let productId, itemQuantity;
       if (typeof productIdOrItem === 'object' && productIdOrItem.productId) {
         // Old format: addItemToOrder(orderId, { productId, quantity, price })
@@ -601,7 +784,7 @@ export function AppProvider({ children }) {
 
   const voidOrderItem = async (orderId, itemIdOrIndex) => {
     try {
-      // Handle both itemId (from API) and itemIndex (array index from old code)
+      // Resolve array indexes back to persisted item IDs while older order-editing code is still supported.
       let itemId = itemIdOrIndex;
       
       // If it's an index, find the actual item ID from the order
@@ -630,7 +813,7 @@ export function AppProvider({ children }) {
 
   const deleteOrderItem = async (orderId, itemIdOrIndex) => {
     try {
-      // Handle both itemId (from API) and itemIndex (array index from old code)
+      // Resolve array indexes back to persisted item IDs while older order-editing code is still supported.
       let itemId = itemIdOrIndex;
       
       // If it's an index, find the actual item ID from the order
@@ -667,13 +850,13 @@ export function AppProvider({ children }) {
     try {
       const updatedUser = await usersApi.updateUser(currentUser.id, updates);
       
-      // Ensure roles array exists
+      // Ensure roles array exists before persisting the updated profile as the app-wide user source.
       if (!updatedUser.roles && updatedUser.role) {
         updatedUser.roles = [updatedUser.role];
       }
       
       setCurrentUser(updatedUser);
-      // Persist to localStorage so checkout/profile/registration all read same source
+      // Persist to localStorage so checkout/profile/registration all read same source.
       localStorage.setItem('userData', JSON.stringify(updatedUser));
       showNotification('Profile updated successfully', 'success');
     } catch (error) {
@@ -832,6 +1015,13 @@ export function AppProvider({ children }) {
     closeNotification,
     returnPath,
     setReturnPath,
+    inboxNotifications,
+    unreadNotificationCount,
+    refreshNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    notificationsMuted,
+    toggleNotificationsMuted,
     staffNotificationCounts,
     loadStaffNotificationCounts,
     addReview,

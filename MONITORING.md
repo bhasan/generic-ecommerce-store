@@ -1,8 +1,24 @@
 # Monitoring Guide
 
-This document outlines practical monitoring steps for the Smoke Station stack (React + Express + PostgreSQL + Nginx), from basic local checks to production-grade observability.
+This document outlines practical monitoring and debugging steps for the Smoke Station stack (React + Express + PostgreSQL + Nginx), from local checks to production observability.
 
-## 1) Basic Local Monitoring (No Setup)
+## 0) Current Debugging Baseline
+
+The application currently has:
+
+- backend request IDs generated in `backend/src/middleware/logger.middleware.ts`
+- structured backend logs in `backend/src/utils/logger.ts`
+- additive auth and admin audit logs in backend middleware, controllers, and services
+- frontend API error objects that preserve backend `requestId`
+- workspace test commands:
+  - `npm test`
+  - `npm run test:backend`
+  - `npm run test:web`
+  - `npm run test:hardening`
+
+Use the backend `requestId` as the primary correlation key between UI failures and server logs.
+
+## 1) Basic Local Monitoring
 
 ### View logs
 ```bash
@@ -24,26 +40,26 @@ curl http://localhost/api/health
 # Direct backend (non-Docker)
 curl http://localhost:3000/api/health
 ```
+
 Expected:
+
 - `status: "ok"`
 - `checks.database: "ok"`
 
 If the DB is down:
+
 - `status: "degraded"`
 - `checks.database: "error"`
 
 ### Resource usage
 ```bash
-# Live container CPU, memory, and network stats
 docker stats
-
-# Docker disk usage (images, containers, volumes)
 docker system df
 ```
 
-## 2) Log Rotation Configuration
+## 2) Log Rotation
 
-By default Docker writes container logs as JSON files without size limits. Add log rotation to `docker-compose.prod.yml` to prevent unbounded disk growth:
+Docker defaults to unbounded JSON logs. Add rotation to `docker-compose.prod.yml` to prevent disk growth:
 
 ```yaml
 services:
@@ -53,67 +69,63 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-  web:
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-  db:
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
 ```
 
-This keeps at most 3 × 10 MB = 30 MB of logs per service. Adjust `max-size` and `max-file` as needed.
+Repeat the same pattern for `web` and `db`.
 
-## 3) Uptime Monitoring (Production)
+## 3) Uptime Monitoring
 
-Use a managed uptime service (UptimeRobot, Better Uptime, Pingdom) to ping:
+Use a managed uptime service such as UptimeRobot, Better Uptime, or Pingdom to ping:
 
 - `https://yourdomain.com/api/health`
 
 Alert on:
+
 - non-200 responses
-- response time > N seconds
+- response time above your threshold
 
-## 4) Metrics & Dashboards (Recommended)
+## 4) Metrics and Dashboards
 
-Add metrics collection + dashboards using one of:
+Recommended minimum metrics:
 
-- Prometheus + Grafana (self-hosted)
-- Datadog / New Relic / Grafana Cloud (managed)
+- API latency at p50, p95, and p99
+- error rate by endpoint
+- database connection pool usage
+- backend container CPU and memory
+- Nginx 4xx and 5xx rate
 
-Track at minimum:
-- API latency (p50/p95/p99)
-- Error rate (4xx/5xx)
-- DB connection pool usage
-- Backend container CPU/memory
-- Nginx 4xx/5xx rate
-
-## 5) Error Tracking (Frontend + Backend)
+## 5) Error Tracking
 
 Use Sentry or LogRocket to capture:
 
-- Frontend React errors and network failures
-- Backend exceptions with request IDs
+- frontend React errors and network failures
+- backend exceptions with request IDs
 
-## 6) Alerting Rules (Minimum Set)
+If you are debugging locally without a third-party tool:
+
+- reproduce the issue in the browser
+- inspect the frontend error object for `requestId`, `status`, and `code`
+- search backend logs for the same `requestId`
+- follow matching auth, user, product, category, announcement, contact, or notification logs
+
+## 6) Alerting Rules
 
 Recommended alerts:
 
-- Health check down > 1 minute
-- API error rate > 2% for 5 minutes
-- p95 latency > 1s for 5 minutes
-- DB connections > 80% max
+- health check down for more than 1 minute
+- API error rate above 2 percent for 5 minutes
+- p95 latency above 1 second for 5 minutes
+- database connections above 80 percent of max
 
-## 7) Docker Test Flow (Local)
+## 7) Docker Test Flow
 
-### Build & start
+### Build and start
 ```bash
-cd web && npm install && npm run build && cd ..
+cd web
+npm install
+npm run build
+cd ..
+
 docker compose up --build -d
 ```
 
@@ -123,28 +135,29 @@ docker compose ps
 docker compose logs -f backend
 ```
 
-### Health check (DB up)
+### Health checks
 ```bash
 curl http://localhost/api/health
-```
-
-### Health check (DB down)
-```bash
 docker compose stop db
 curl http://localhost/api/health
 docker compose start db
 ```
 
-### Timeout behavior (optional)
-Set `REQUEST_TIMEOUT_MS=1` in `backend/.env`, then restart the backend:
-```bash
-docker compose restart backend
-```
-Hit a non-trivial endpoint; it should return a `REQUEST_TIMEOUT` error.
-
-### Frontend retry behavior
+### Retry behavior
 ```bash
 docker compose stop backend
 # Open the app and trigger an API call to observe retry + error handling
 docker compose start backend
 ```
+
+## 8) Workspace Verification Flow
+
+Use these after logging or debugging changes:
+
+```bash
+npm test
+npm --prefix backend test
+npm --prefix web test
+```
+
+These are the fastest current guardrails for the hardening work. They do not replace end-to-end runtime checks, but they do verify that the logging and debugging surfaces we changed still behave as expected.

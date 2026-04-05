@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, hasAnyRole } from '../constants/roles';
+import { logger } from '../utils/logger';
 import { deleteUploadedFile, collectProductImageUrls } from '../utils/fileUtils';
 
 interface CreateProductData {
@@ -99,7 +100,6 @@ export class ProductService {
       ]
     });
 
-    // Fetch reviews with users for each product
     const productIds = products.map(p => p.id);
     const reviews = await prisma.review.findMany({
       where: { productId: { in: productIds } },
@@ -112,10 +112,9 @@ export class ProductService {
       select: { id: true, username: true }
     });
 
-    // Join reviews with users and attach to products
     const userMap = new Map(users.map(u => [u.id, u]));
     const reviewsByProduct = new Map<number, any[]>();
-    
+
     for (const review of reviews) {
       if (!reviewsByProduct.has(review.productId)) {
         reviewsByProduct.set(review.productId, []);
@@ -149,12 +148,10 @@ export class ProductService {
       throw new AppError('Product not found', 404);
     }
 
-    // Check if product is hidden and user is not admin/management
     if (product.hidden && !hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) {
       throw new AppError('Product not found', 404);
     }
 
-    // Fetch reviews with users
     const reviews = await prisma.review.findMany({
       where: { productId: id },
       orderBy: { createdAt: 'desc' }
@@ -182,6 +179,14 @@ export class ProductService {
    * Create a new product (Management/Admin only)
    */
   async createProduct(data: CreateProductData) {
+    // Product mutation logs are additive-only and are primarily used to explain
+    // admin/dashboard discrepancies without changing mutation semantics.
+    logger.info('Creating product', {
+      name: data.name,
+      categoryId: data.categoryId,
+      hasImages: Boolean(data.images?.length),
+      hidden: data.hidden ?? false,
+    });
     const categoryId = this.normalizeCategoryId(data.categoryId);
     if (!categoryId) {
       throw new AppError('Category is required', 400);
@@ -195,7 +200,9 @@ export class ProductService {
     const normalizedAllowedQuantities = this.normalizeAllowedQuantities(data.allowedQuantitiesOverride);
     const normalizedQuantityDiscounts = this.normalizeQuantityDiscounts(data.quantityDiscountsOverride);
 
-    return await prisma.productItem.create({
+    // Normalization stays in the service so the API surface can accept legacy
+    // admin payload shapes while persisting a stable DB representation.
+    const product = await prisma.productItem.create({
       data: {
         ...data,
         categoryId,
@@ -208,6 +215,12 @@ export class ProductService {
           : {})
       }
     });
+    logger.info('Product created', {
+      productId: product.id,
+      categoryId: product.categoryId,
+      hidden: product.hidden,
+    });
+    return product;
   }
 
   /**
@@ -220,7 +233,17 @@ export class ProductService {
       throw new AppError('Product not found', 404);
     }
 
-    // Filter out non-updatable fields (reviews, id, createdAt, updatedAt, etc.)
+    // We log the pre-update snapshot here instead of full before/after payloads
+    // so later diffs are possible without bloating logs or leaking large arrays.
+    logger.info('Updating product', {
+      productId: id,
+      fields: Object.keys(data),
+      previousCategoryId: product.categoryId,
+      previousHidden: product.hidden,
+      previousPrice: product.price,
+      previousStock: product.stock,
+    });
+
     const allowedFields: (keyof UpdateProductData)[] = [
       'name', 'categoryId', 'price', 'description',
       'thumbnail', 'image', 'images', 'stock', 'stockEnabled', 'hidden',
@@ -253,21 +276,30 @@ export class ProductService {
       }
     }
 
-    const updated = await prisma.productItem.update({
+    const updatedProduct = await prisma.productItem.update({
       where: { id },
       data: filteredData
     });
 
-    // Clean up any upload URLs that were removed from this product
+    // Uploaded media cleanup is existing product behavior from develop. Keep the
+    // log/audit additions around it, but do not change the cleanup contract.
     const oldUrls = collectProductImageUrls(product);
-    const newUrls = collectProductImageUrls(updated);
+    const newUrls = collectProductImageUrls(updatedProduct);
     const removedUrls = oldUrls.filter((u) => !newUrls.includes(u));
     if (removedUrls.length > 0) {
       const orphaned = await this.getOrphanedUrls(id, removedUrls);
       await Promise.all(orphaned.map((url) => deleteUploadedFile(url)));
     }
 
-    return updated;
+    logger.info('Product updated', {
+      productId: id,
+      categoryId: updatedProduct.categoryId,
+      hidden: updatedProduct.hidden,
+      price: updatedProduct.price,
+      stock: updatedProduct.stock,
+      sortOrder: updatedProduct.sortOrder,
+    });
+    return updatedProduct;
   }
 
   /**
@@ -300,6 +332,14 @@ export class ProductService {
     if (!product) {
       throw new AppError('Product not found', 404);
     }
+
+    // Keep delete logging minimal but identifiable; product removal is one of the
+    // harder admin actions to reconstruct later without this breadcrumb.
+    logger.info('Deleting product', {
+      productId: id,
+      name: product.name,
+      categoryId: product.categoryId,
+    });
 
     const urlsToCheck = collectProductImageUrls(product);
     await prisma.productItem.delete({ where: { id } });

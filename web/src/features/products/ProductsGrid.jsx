@@ -109,7 +109,7 @@ function ProductsGrid({
   }
 
   return (
-    <div className={`products-grid ${viewMode === 'compact' ? 'products-grid-compact' : ''}`}>
+    <div className={`products-grid ${viewMode === 'grid' ? 'products-grid-compact' : ''}`}>
       {products.map(renderProductCard)}
     </div>
   );

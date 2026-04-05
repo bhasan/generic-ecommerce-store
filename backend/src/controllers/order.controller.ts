@@ -110,6 +110,7 @@ export class OrderController {
         return;
       }
 
+      // Log the incoming checkout shape before the service calculates totals and payment side effects.
       logger.info('Order creation request received', {
         userId: req.user.userId,
         itemCount: req.body.items?.length || 0,
@@ -168,6 +169,7 @@ export class OrderController {
       const canManageOrders = isEmployee || isManagementOrAdmin;
       const isDeliveryDriver = userRoles.includes('DELIVERY_DRIVER') && !canManageOrders;
 
+      // Delivery drivers only complete the final handoff step; broader order edits stay with staff roles.
       if (isDeliveryDriver && req.body.status !== 'DELIVERED') {
         res.status(403).json({ error: 'Delivery drivers can only mark orders as DELIVERED' });
         return;
@@ -200,6 +202,7 @@ export class OrderController {
         return;
       }
 
+      // Validation keeps manual staff edits aligned with checkout quantity rules before the service mutates totals.
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         res.status(400).json({ errors: errors.array() });

@@ -18,7 +18,7 @@ function ProductListItem({
   const discountedTotal = discountedPrice * quantity;
 
   return (
-    <div className="product-list-item" onClick={onClick} style={{ cursor: 'pointer' }}>
+    <div className="product-list-item" data-product-id={product.id} onClick={onClick} style={{ cursor: 'pointer' }}>
       <div
         className="product-list-image"
         onClick={onImageClick ? (e) => { e.stopPropagation(); onImageClick(); } : undefined}

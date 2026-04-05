@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
-import { isGuest, ROLES } from '../../utils/roles';
+import { isGuest } from '../../utils/roles';
 import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
 import ProductReviews from '../../components/product/ProductReviews';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
 import ProductMediaModal from './ProductMediaModal';
+import './ProductItemPage.css';
+import { hasRole } from '../../utils/roles';
 
-// Helper to check if a url is a video
 const isVideo = (url) => {
   if (!url) return false;
   return url.match(/\.(mp4|webm)$/i);
 };
-import './ProductItemPage.css';
 
-// Component to display available quantity discounts
 function QuantityDiscountsTable({ product, discounts }) {
   if (!discounts || discounts.length === 0) return null;
 
-  // Sort discounts by quantity
   const sortedDiscounts = [...discounts].sort((a, b) => a.quantity - b.quantity);
 
   return (
@@ -32,7 +30,7 @@ function QuantityDiscountsTable({ product, discounts }) {
           const discountLabel = discount.type === 'percent'
             ? `${discount.value}% off`
             : `$${discount.value.toFixed(2)} off`;
-          
+
           return (
             <div key={index} className="discount-tier">
               <span className="discount-qty">Buy {discount.quantity}:</span>
@@ -45,25 +43,21 @@ function QuantityDiscountsTable({ product, discounts }) {
   );
 }
 
-// Component to display dynamic price based on selected quantity
 function DynamicPriceDisplay({ product, quantity, discounts }) {
   const basePrice = product.price;
   const originalTotal = basePrice * quantity;
-  
-  // Find matching discount rule
+
   const matchingDiscount = discounts.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
-  
-  // Calculate discount on total amount
+
   let totalSavings = 0;
   if (matchingDiscount) {
     if (matchingDiscount.type === 'percent') {
       totalSavings = originalTotal * (matchingDiscount.value / 100);
     } else {
-      // Fixed discount applies to the total, not per unit
       totalSavings = matchingDiscount.value;
     }
   }
-  
+
   const totalPrice = Math.max(0, originalTotal - totalSavings);
   const hasDiscount = totalSavings > 0;
 
@@ -74,7 +68,7 @@ function DynamicPriceDisplay({ product, quantity, discounts }) {
           <div className="price-row price-total-row">
             <span className="price-label">Total ({quantity} items):</span>
             <span className="price-original">${originalTotal.toFixed(2)}</span>
-            <span className="price-arrow">→</span>
+            <span className="price-arrow">â†’</span>
             <span className="price-total">${totalPrice.toFixed(2)}</span>
           </div>
           <div className="price-row">
@@ -100,13 +94,17 @@ function ProductItemPage() {
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const fallbackImage = PRODUCT_FALLBACK_IMAGE;
 
-  // Find the product by ID
   const product = products.find(p => p.id === parseInt(id));
 
   const allowedQuantities =
     product?.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
       ? product.allowedQuantitiesOverride
       : product?.category?.allowedQuantities || [];
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    sessionStorage.setItem('productsScrollProductId', String(id));
+  }, [id]);
 
   useEffect(() => {
     if (allowedQuantities.length > 0) {
@@ -116,7 +114,6 @@ function ProductItemPage() {
     }
   }, [product?.id, allowedQuantities.length]);
 
-  // Show loading state
   if (isLoadingProducts) {
     return (
       <div className="product-item-container">
@@ -126,8 +123,7 @@ function ProductItemPage() {
       </div>
     );
   }
-  
-  // If product not found, show error
+
   if (!product) {
     return (
       <div className="product-item-container">
@@ -143,9 +139,10 @@ function ProductItemPage() {
       </div>
     );
   }
-  
-  // Check if product is hidden and user is customer/guest
-  if (product.hidden && (currentUser.role === ROLES.CUSTOMER || isGuest(currentUser))) {
+
+  // Use the shared helper here so hidden-product gating stays aligned with the
+  // repo's mixed legacy/new role representations.
+  if (product.hidden && (hasRole(currentUser, 'CUSTOMER') || isGuest(currentUser))) {
     return (
       <div className="product-item-container">
         <div className="product-not-found">
@@ -160,7 +157,7 @@ function ProductItemPage() {
       </div>
     );
   }
-  
+
   const baseImages =
     product.images && product.images.length > 0
       ? product.images
@@ -174,48 +171,24 @@ function ProductItemPage() {
   const showStock = product.stockEnabled !== false;
   const isOutOfStock = showStock && product.stock === 0;
 
-  // Get quantity discounts for this product
   const quantityDiscounts = resolveQuantityDiscounts(product);
-  
-  // Debug: Log discount data (remove after debugging)
-  console.log('Product discount debug:', {
-    productName: product.name,
-    productQuantityDiscountsOverride: product.quantityDiscountsOverride,
-    categoryName: product.category?.name,
-    categoryQuantityDiscounts: product.category?.quantityDiscounts,
-    resolvedDiscounts: quantityDiscounts
-  });
-  
-  // Calculate average rating
-  const getAverageRating = () => {
-    if (!product.reviews || product.reviews.length === 0) return 0;
-    const sum = product.reviews.reduce((acc, review) => acc + review.rating, 0);
-    return (sum / product.reviews.length).toFixed(1);
-  };
-  
-  const averageRating = getAverageRating();
-  const reviewCount = product.reviews?.length || 0;
-
 
   const handleAddToCart = () => {
     addToCart(product, selectedQuantity);
   };
-  
+
   return (
     <div className="product-item-container">
-      {/* Back Button */}
       <button onClick={() => navigate('/products')} className="btn-back">
         <ArrowLeft size={18} />
         Back to Products
       </button>
-      
-      {/* Product Detail Section */}
+
       <div className="product-detail-grid surface-card">
-        {/* Image Gallery */}
         <div className="product-gallery">
           <div className="main-image-container">
             {images.length > 1 && (
-              <button 
+              <button
                 className="btn-gallery-nav btn-gallery-prev"
                 onClick={() => setSelectedImageIndex(prev => prev === 0 ? images.length - 1 : prev - 1)}
                 aria-label="Previous image"
@@ -223,7 +196,7 @@ function ProductItemPage() {
                 <ChevronLeft size={24} />
               </button>
             )}
-            
+
             {isVideo(images[selectedImageIndex]) ? (
               <video
                 src={images[selectedImageIndex]}
@@ -250,7 +223,7 @@ function ProductItemPage() {
             )}
 
             {images.length > 1 && (
-              <button 
+              <button
                 className="btn-gallery-nav btn-gallery-next"
                 onClick={() => setSelectedImageIndex(prev => prev === images.length - 1 ? 0 : prev + 1)}
                 aria-label="Next image"
@@ -266,11 +239,11 @@ function ProductItemPage() {
               </div>
             )} */}
           </div>
-          
+
           {images.length > 1 && (
             <div className="thumbnail-container">
               {images.map((img, index) => (
-                <div 
+                <div
                   key={index}
                   className={`thumbnail-wrapper ${selectedImageIndex === index ? 'thumbnail-active' : ''}`}
                   onClick={() => setSelectedImageIndex(index)}
@@ -304,40 +277,20 @@ function ProductItemPage() {
             </div>
           )}
         </div>
-        
-        {/* Product Info */}
+
         <div className="product-info">
           <div className="product-category-badge">{getProductCategoryLabel(product)}</div>
           <h1 className="product-title">{product.name}</h1>
-          
-          {/* HIDDEN: Rating Summary - may re-enable later */}
-          {/* {reviewCount > 0 && (
-            <div className="rating-summary">
-              <div className="stars-display">
-                {[1, 2, 3, 4, 5].map(i => (
-                  <Star
-                    key={i}
-                    size={20}
-                    fill={i <= Math.round(averageRating) ? '#fbbf24' : 'none'}
-                    color={i <= Math.round(averageRating) ? '#fbbf24' : '#9ca3af'}
-                  />
-                ))}
-              </div>
-              <span className="rating-value">{averageRating}</span>
-              <span className="review-count">({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})</span>
-            </div>
-          )} */}
-          
+
           <div className="product-price-display">
             ${product.price.toFixed(2)}
             {quantityDiscounts.length > 0 && <span className="price-per-unit">/ each</span>}
           </div>
 
-          {/* Quantity Discounts Table */}
           <QuantityDiscountsTable product={product} discounts={quantityDiscounts} />
-          
+
           <p className="product-description-full">{product.description}</p>
-          
+
           {/* HIDDEN: Stock Information - may re-enable later */}
           {/* {showStock && (
             <div className="stock-info">
@@ -347,7 +300,7 @@ function ProductItemPage() {
               </span>
             </div>
           )} */}
-          
+
           <div className="quantity-selector">
             <label className="quantity-label">Quantity</label>
             {allowedQuantities.length > 0 ? (
@@ -374,14 +327,12 @@ function ProductItemPage() {
             )}
           </div>
 
-          {/* Dynamic Price Display */}
-          <DynamicPriceDisplay 
-            product={product} 
-            quantity={selectedQuantity} 
-            discounts={quantityDiscounts} 
+          <DynamicPriceDisplay
+            product={product}
+            quantity={selectedQuantity}
+            discounts={quantityDiscounts}
           />
 
-          {/* Add to Cart Button */}
           <button
             onClick={handleAddToCart}
             disabled={isOutOfStock || selectedQuantity <= 0}
@@ -390,7 +341,7 @@ function ProductItemPage() {
             <ShoppingCart size={20} />
             {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
           </button>
-          
+
           {product.hidden && (
             <div className="admin-notice">
               <AlertCircle size={16} />
@@ -399,7 +350,7 @@ function ProductItemPage() {
           )}
         </div>
       </div>
-      
+
       {/* HIDDEN: Reviews Section - may re-enable later */}
       {/* <div className="reviews-section">
         <h2 className="reviews-section-title">Customer Reviews</h2>

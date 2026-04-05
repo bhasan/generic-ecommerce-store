@@ -1,61 +1,61 @@
 services:
-  # 1. The PostgreSQL Database Service
+  # Shared base service definitions. Always layer this file with either
+  # docker-compose.dev.yml for local development or docker-compose.prod.yml for production.
   db:
-    image: postgres:16-alpine # Use a specific, lightweight version
-    container_name: smoke-station-delivery-db
-    restart: always
+    image: postgres:16-alpine
+    restart: unless-stopped
     environment:
-      # These variables are used by Postgres to create the DB
-      POSTGRES_USER: backend_user
-      POSTGRES_PASSWORD: bfe4af37d97cd02d
-      POSTGRES_DB: smoke-station-delivery-db
-    ports:
-      - "5432:5432"  # Add this to expose PostgreSQL to your host
+      POSTGRES_USER: ${DB_USER:-backend_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
+      POSTGRES_DB: ${DB_NAME:-smoke-station-delivery-db}
     volumes:
-      - postgres_data:/var/lib/postgresql/data # This persists your data!
+      - postgres_data:/var/lib/postgresql/data
     networks:
       - sshtx_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-backend_user} -d ${DB_NAME:-smoke-station-delivery-db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # 2. The Express.js Backend Service
   backend:
-    container_name: smoke-station-delivery-backend
-    build: ./backend # Tells Docker to build from the 'backend' folder
-    restart: always
-    env_file:
-      - ./backend/.env
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
-      # This MUST match the 'db' service's credentials
-      # Note the hostname is 'db' (the service name), NOT 'localhost'
-      DATABASE_URL: "postgresql://backend_user:bfe4af37d97cd02d@db:5432/smoke-station-delivery-db"
-      PORT: 3000 # The port your Express app listens on *inside* the container
-      NODE_ENV: "development" # Set to development to skip rate limiting
-    ports:
-      - "3000:3000"  # Expose backend port for local development
+      DATABASE_URL: "postgresql://${DB_USER:-backend_user}:${DB_PASSWORD:-change-me}@db:5432/${DB_NAME:-smoke-station-delivery-db}"
+      PORT: 3000
     depends_on:
-      - db # Waits for the 'db' service to be healthy before starting
+      db:
+        condition: service_healthy
     networks:
       - sshtx_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-  # 3. The Nginx/React Frontend Service
   web:
-    container_name: smoke-station-delivery-web-proxy
-    build: 
+    build:
       context: .
-      dockerfile: nginx/Dockerfile # Tells Docker to build from the 'nginx' folder
-    restart: always
-    ports:
-      - "80:80" # This is the ONLY port exposed to the outside world
+      dockerfile: nginx/Dockerfile
+    restart: unless-stopped
     depends_on:
-      - backend # Waits for the backend to be ready
+      - backend
     networks:
       - sshtx_network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
-# Define the shared network
 networks:
   sshtx_network:
     driver: bridge
 
-# Define the named volume for data persistence
 volumes:
   postgres_data:
     driver: local

@@ -2,424 +2,230 @@
 
 E-commerce platform with React frontend, Express backend, PostgreSQL database, and Nginx reverse proxy.
 
+## Current Status
+
+This repository is a full-stack application.
+
+- Frontend runtime code lives in `web/`
+- Backend API code lives in `backend/`
+- Nginx config lives in `nginx/`
+- The most up-to-date inspected inventory is in `CODEBASE_WORKING_DOCUMENT.md`
+
+Some older markdown files and examples in the repo were written before the backend and role model evolved. When in doubt, use the route files, service files, Prisma schema, and `CODEBASE_WORKING_DOCUMENT.md` as the current source of truth.
+
+> Production deployment: see [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
+
 ## Prerequisites
 
-- **Node.js** v18+ (v24.11.1 recommended)
-- **Docker** v28.5.2+ (for containerized deployment)
-- **npm** or **yarn**
+- Node.js v20+
+- Docker v28+
+- npm or yarn
 
----
+## Docker Compose Structure
 
-## Quick Start (Docker)
+The repo uses a layered Docker Compose setup:
 
-Deploy all components with Docker Compose in 2 commands:
+- `docker-compose.yml`
+  - neutral shared base
+- `docker-compose.dev.yml`
+  - local development override
+- `docker-compose.prod.yml`
+  - production override
+
+Always combine the base file with either the dev or prod override.
+
+## Quick Start (Docker Dev)
 
 ```bash
-# 1. Build the frontend
-cd web
-npm install
-npm run build
-cd ..
-
-# 2. Start all services (database, backend, nginx)
-docker compose up --build -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
 ```
 
-Access the application at: **http://localhost:80**
+Access the local development app at `http://localhost:5173`.
 
-Command to update only backend Docker container:
+Useful dev commands:
 
-`docker compose up --build --force-recreate -d backend`
+```bash
+# Start or rebuild the full local dev stack
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
 
-### What Gets Started
+# Rebuild only the backend dev container
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build backend
 
-- PostgreSQL database (port 5432)
-- Express backend API (internal, port 3000)
-- Nginx web server (port 80) serving React app
+# Rebuild only the frontend dev container
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build web-dev
+
+# Stop the local dev stack
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
 
 ### Docker Services
 
-| Service | Container Name | Port | Description |
-|---------|---------------|------|-------------|
-| Database | `smoke-station-delivery-db` | 5432 | PostgreSQL database |
-| Backend | `smoke-station-delivery-backend` | 3000 (internal) | Express API server |
-| Web | `smoke-station-delivery-web-proxy` | 80 | Nginx reverse proxy + React app |
-
-### Docker Commands
-
-```bash
-# Start services
-docker compose up
-
-# Start in background
-docker compose up -d
-
-# Rebuild and start
-docker compose up --build
-
-# Stop services
-docker compose down
-
-# View logs
-docker compose logs -f
-
-# Stop and remove volumes (clears database)
-docker compose down -v
-```
-
----
+| Service | Port | Description |
+| --- | --- | --- |
+| Database | 5432 | PostgreSQL database |
+| Backend | 3000 | Express API server in dev override |
+| Web Dev | 5173 | Vite development server |
 
 ## First Time Setup
 
-After starting Docker containers, set up the database:
+After starting the dev containers:
 
-### 1. Run Database Migrations
+### 1. Run database migrations
 
 ```bash
-# Run migrations inside the backend container
 docker exec smoke-station-delivery-backend npm run prisma:migrate
 ```
 
-When prompted for a migration name, enter: `init`
-
-### 2. (Optional) Seed Database
-
-Add test users and products:
+### 2. Optional seed
 
 ```bash
-# Seed the database
 docker exec smoke-station-delivery-backend npm run prisma:seed
 ```
 
-This creates:
-- **Admin**: `admin@test.com` / `admin123`
-- **Manager**: `manager@test.com` / `manager123`
-- **Customer**: `customer@test.com` / `customer123`
-- 5 sample products
-- 2 sample orders
-
-### 3. Access Database with Prisma Studio
-
-View and edit database records through Prisma Studio:
+### 3. Prisma Studio
 
 ```bash
-# Navigate to backend directory (on your host machine)
 cd backend
-
-# Install dependencies if not already installed
 npm install
-
-# Set DATABASE_URL to point to Docker database
-export DATABASE_URL="postgresql://backend_user:bfe4af37d97cd02d@localhost:5432/smoke-station-delivery-db?schema=public"
-
-# Start Prisma Studio
 npm run prisma:studio
 ```
 
-Access Prisma Studio at: **http://localhost:5555**
+## Local Development
 
-**Note**: The backend container already generates Prisma client during build, so `prisma:generate` is not needed when running commands inside the container.
-
----
-
-## Database Migrations
-
-Database migrations manage schema changes (adding tables, columns, modifying structure) in a version-controlled way.
-
-### Local Development Workflow
-
-When you modify the Prisma schema (`backend/prisma/schema.prisma`), create a migration:
+### Backend
 
 ```bash
 cd backend
-
-# 1. Create and apply migration
-npm run prisma:migrate
-# Or: npx prisma migrate dev --name your_migration_name
-
-# When prompted, enter a descriptive migration name:
-# Example: "add_user_roles_table" or "remove_product_relations"
-```
-
-This command:
-- Creates a migration file in `prisma/migrations/`
-- Applies the migration to your local database
-- Regenerates the Prisma client automatically
-
-**Example:**
-```bash
-cd backend
-npx prisma migrate dev --name remove_relations_and_rename_product
-```
-
-### Reviewing Migrations
-
-Before committing, review the generated SQL:
-
-```bash
-# View the latest migration SQL
-cat backend/prisma/migrations/*/migration.sql
-
-# Or list all migrations
-ls -la backend/prisma/migrations/
-```
-
-### Migration Commands Reference
-
-| Command | Use Case | Description |
-|---------|----------|-------------|
-| `prisma migrate dev` | Development | Creates migration + applies it + regenerates client |
-| `prisma migrate deploy` | Production | Only applies existing migrations (doesn't create new ones) |
-| `prisma migrate status` | Any | Shows which migrations are applied/pending |
-| `prisma generate` | After schema changes | Regenerates Prisma client (auto-run in Docker build) |
-
-### Migration Best Practices
-
-1. **Always test migrations locally first**
-   - Create and test migrations in development
-   - Verify the migration SQL is correct
-   - Test with sample data
-
-2. **Use descriptive migration names**
-   ```bash
-   # Good
-   npx prisma migrate dev --name add_user_roles_table
-   npx prisma migrate dev --name remove_product_relations
-
-   # Avoid
-   npx prisma migrate dev --name migration1
-   ```
-
-3. **Review migration SQL before deploying**
-   - Check `prisma/migrations/XXXXX_name/migration.sql`
-   - Ensure it's safe for production data
-   - Verify no data loss will occur
-
-4. **Commit migration files to version control**
-   - Migration files in `prisma/migrations/` should be committed
-   - Never edit migration files after they've been applied
-   - Create new migrations for schema changes
-
-> **Production migrations** are applied automatically when the Docker container starts via `npx prisma migrate deploy`. See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) for the full production workflow.
-
-### Troubleshooting Migrations
-
-**Migration fails in production:**
-```bash
-# Check migration status
-docker exec smoke-station-delivery-backend npx prisma migrate status
-
-# View backend logs
-docker compose logs backend
-
-# If needed, manually resolve and re-run
-docker exec smoke-station-delivery-backend npx prisma migrate deploy
-```
-
-**Prisma client out of sync:**
-```bash
-# Regenerate Prisma client
-cd backend
-npm run prisma:generate
-
-# Or in Docker
-docker exec smoke-station-delivery-backend npx prisma generate
-```
-
-**Reset database (development only):**
-```bash
-# WARNING: This deletes all data!
-cd backend
-npx prisma migrate reset
-```
-
----
-
-## Deploying Changes to Docker
-
-After making code changes, rebuild and redeploy the Docker containers:
-
-### Deploy All Changes
-
-```bash
-# Stop running containers
-docker compose down
-
-# Rebuild and start all services
-docker compose up --build
-```
-
-### Deploy Backend Changes Only
-
-From project root directory:
-
-```bash
-# Rebuild only the backend service
-docker compose build backend
-
-# Restart the backend container
-docker compose up -d backend
-```
-
-### Deploy Frontend Changes Only
-
-```bash
-# 1. Rebuild the frontend
-cd web
 npm install
-npm run build
-cd ..
-
-# 2. Rebuild the web container
-docker compose build web
-
-# 3. Restart the web container
-docker compose up -d web
-```
-
-### Quick Restart (No Rebuild)
-
-If you only changed environment variables or config files:
-
-```bash
-# Restart specific service
-docker compose restart backend
-
-# Or restart all services
-docker compose restart
-```
-
-### View Deployment Logs
-
-```bash
-# View all logs
-docker compose logs -f
-
-# View specific service logs
-docker compose logs -f backend
-docker compose logs -f web
-```
-
-> **Production deployments:** See [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md).
-
----
-
-## Local Development Setup
-
-For local development without Docker, set up each component separately.
-
-### Prerequisites
-
-- **PostgreSQL** 14+ (running locally or via Docker)
-- **Node.js** v18+
-
-### 1. Backend Setup
-
-```bash
-cd backend
-
-# Install dependencies
-npm install
-
-# Create .env file
-cat > .env << EOF
-DATABASE_URL="postgresql://backend_user:bfe4af37d97cd02d@localhost:5432/smoke-station-delivery-db?schema=public"
-JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"
-JWT_EXPIRES_IN="24h"
-PORT=3000
-NODE_ENV="development"
-CORS_ORIGIN="*"
-EOF
-
-# Generate Prisma client
 npm run prisma:generate
-
-# Run database migrations
 npm run prisma:migrate
-
-# (Optional) Seed database with test data
-npm run prisma:seed
-
-# Start development server
 npm run dev
 ```
 
-Backend runs on: **http://localhost:3000**
-
-### 2. Frontend Setup
+### Frontend
 
 ```bash
 cd web
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
-Frontend runs on: **http://localhost:5173** (Vite default)
+The frontend proxies `/api` to the backend in local development via `vite.config.js`.
 
-The frontend is configured to proxy `/api` requests to `http://localhost:3000` (see `vite.config.js`).
+### Docker Dev Override
 
-### 3. Database Setup (Local PostgreSQL)
-
-If running PostgreSQL locally instead of Docker:
+Use the dev override when you want Docker-based development with backend dev dependencies available inside the container, including `ts-node` for `npm run prisma:seed`.
 
 ```bash
-# Create database
-createdb smoke-station-delivery-db
-
-# Or using psql
-psql -U postgres -c "CREATE DATABASE \"smoke-station-delivery-db\";"
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
+docker exec smoke-station-delivery-backend npm run prisma:migrate
+docker exec smoke-station-delivery-backend npm run prisma:seed
 ```
 
-Update `DATABASE_URL` in `backend/.env` accordingly.
+See [LOCAL_DOCKER_DEV_WORKFLOW.md](./LOCAL_DOCKER_DEV_WORKFLOW.md) for the full local Docker workflow, rebuild commands, and fresh-reset steps.
 
-### 4. Standalone Nginx Setup
+## Production Compose Commands
 
-To run Nginx separately (without Docker):
+Use the neutral base file plus the production override:
 
 ```bash
-# 1. Build the frontend
-cd web
-npm install
-npm run build
-cd ..
+# Build production images
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod build
 
-# 2. Configure Nginx
-# Copy nginx/nginx.conf to your Nginx config directory and update paths:
-# - /usr/share/nginx/html → /path/to/web/dist
-# - backend:3000 → localhost:3000 (if backend runs locally)
+# Start production
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
 
-# 3. Start Nginx
-nginx -t        # Test configuration
-nginx           # Start Nginx
-# Or: nginx -s reload  # If already running
+# Check production status
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod ps
+
+# Tail production logs
+docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod logs -f
 ```
-
----
 
 ## Environment Variables
 
-### Backend (.env)
+### Backend
 
-```env
-DATABASE_URL="postgresql://user:password@host:5432/database"
-JWT_SECRET="your-secret-key"
-JWT_EXPIRES_IN="24h"
-PORT=3000
-NODE_ENV="development"
-CORS_ORIGIN="*"
-# Rate limiting (optional)
-AUTH_RATE_LIMIT_MAX=20  # Max auth requests per 15 minutes (default: 20)
-DISABLE_RATE_LIMIT=false  # Set to "true" to disable rate limiting in development
-REQUEST_TIMEOUT_MS=30000  # Request timeout in ms
+Use `backend/.env.example` as the source for backend env names.
+
+Common values include:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_EXPIRES_IN`
+- `PORT`
+- `NODE_ENV`
+- `CORS_ORIGIN`
+- `REQUEST_TIMEOUT_MS`
+- `MAKE_API_KEY`
+- `MAKE_WEBHOOK_URL` for the existing contact email flow
+- `MAKE_NOTIFICATION_WEBHOOK_URL` as the default notification webhook
+- Optional notification overrides such as `MAKE_NOTIFICATION_WEBHOOK_URL_ORDERS`, `MAKE_NOTIFICATION_WEBHOOK_URL_AUTH`, `MAKE_NOTIFICATION_WEBHOOK_URL_CONTACT`, `MAKE_NOTIFICATION_WEBHOOK_URL_DRIVER`, and `MAKE_NOTIFICATION_WEBHOOK_URL_ADMIN`
+
+Notification delivery can share the same Make scenario as the contact email flow. If notification-specific webhook vars are not set, notification delivery falls back to `MAKE_WEBHOOK_URL`. Branch the shared Make scenario using payload fields such as `eventType`, `category`, `channelIntent`, `status`, `path`, and `requiresAttention`.
+
+### Make Webhook Payload
+
+Notification and email-style automation events sent to Make use one JSON payload per notification event.
+
+```json
+{
+  "eventType": "ORDER_CREATED",
+  "category": "ORDERS",
+  "channelIntent": "ops_alert",
+  "notificationId": 123,
+  "occurredAt": "2026-04-02T21:30:00.000Z",
+  "recipient": {
+    "userId": 45
+  },
+  "targetRoles": ["EMPLOYEE", "MANAGEMENT", "ADMIN"],
+  "actor": {
+    "userId": 12,
+    "username": "customer1"
+  },
+  "entity": {
+    "type": "ORDER",
+    "id": 987
+  },
+  "message": {
+    "title": "New order submitted",
+    "body": "Order #987 is waiting for review."
+  },
+  "status": "PENDING",
+  "path": "/orders?status=PENDING",
+  "requiresAttention": true,
+  "metadata": {
+    "orderId": 987,
+    "path": "/orders?status=PENDING",
+    "label": "Review order"
+  }
+}
 ```
 
-### Frontend (optional)
+Payload fields:
 
-Create `web/.env` for custom API URL:
+- `eventType`: event name such as `ORDER_CREATED`, `ORDER_STATUS_UPDATED`, `REGISTRATION_SUBMITTED`, or `CONTACT_REPLY_SENT`
+- `category`: high-level domain such as `ORDERS`, `AUTH`, `CONTACT`, `DRIVER`, or `ADMIN`
+- `channelIntent`: Make routing hint such as `ops_alert`, `email`, or `in_app_sync`
+- `notificationId`: internal notification row id
+- `occurredAt`: ISO timestamp
+- `recipient.userId`: target user id
+- `targetRoles`: role audience for role-targeted notifications when present
+- `actor`: user who triggered the event when known
+- `entity`: source record reference such as order, user, or contact message
+- `message`: sanitized title/body for display or automation
+- `status`: status value when relevant, mainly for order notifications
+- `path`: frontend route to open when the notification is clicked
+- `requiresAttention`: urgent flag used for Make branching and staff alert UX
+- `metadata`: additional safe routing/display fields
+
+Privacy note:
+
+- Keep payloads sanitized. Do not add addresses, phone numbers, payment handles, rejection notes, or raw contact/support message bodies to this webhook contract.
+
+### Frontend
+
+Optional frontend overrides can go in `web/.env`:
 
 ```env
 VITE_API_BASE_URL=http://localhost:3000
@@ -428,82 +234,126 @@ VITE_API_RETRY_MAX=2
 VITE_API_RETRY_BASE_DELAY_MS=300
 ```
 
----
+## Tests
 
-## Test Accounts
+Workspace-level test commands:
 
-After seeding the database (`npm run prisma:seed` in backend):
-
-- **Admin**: `admin@test.com` / `admin123`
-- **Manager**: `manager@test.com` / `manager123`
-- **Customer**: `customer@test.com` / `customer123`
-
----
-
-## Development Workflow
-
-1. **Start database** (Docker or local PostgreSQL)
-2. **Start backend**: `cd backend && npm run dev`
-3. **Start frontend**: `cd web && npm run dev`
-4. **Access**: http://localhost:5173
-
-For production deployment, use Docker Compose as shown in Quick Start.
-
----
-
-## Project Structure
-
-```
-smoke-station-delivery/
-├── backend/          # Express API (TypeScript)
-├── web/              # React frontend (Vite)
-├── nginx/            # Nginx configuration
-└── docker-compose.yml # Docker services configuration
+```bash
+npm test
+npm run test:backend
+npm run test:web
+npm run test:hardening
 ```
 
----
+Package-level commands:
+
+```bash
+npm --prefix backend test
+npm --prefix backend run build
+npm --prefix web test
+npm --prefix web run build
+```
+
+### Testing Conventions
+
+- Backend tests live under `backend/src/**/*.test.ts`.
+- Frontend tests live under `web/src/**/*.test.{js,jsx}`.
+- Keep fixtures aligned with current runtime truth:
+  - authentication flows use `username`
+  - authorization uses role arrays where available
+  - request/error assertions preserve `requestId` when the app surfaces it
+- Prefer shared test helpers and fixtures over per-file ad hoc mocks.
+- Add short comments only when they explain business intent or a compatibility rule.
+- If application behavior changes, update the nearest relevant tests in the same branch.
+
+## Notification Release QA
+
+Run this checklist before treating the notification feature as release-ready.
+
+### Customer
+
+- Place an order and confirm staff receives a new-order notification.
+- Move the order through `APPROVED`, `READY_FOR_DELIVERY`, `OUT_FOR_DELIVERY`, and `DELIVERED` and confirm customer inbox updates appear with the expected route targets.
+- Mark notifications read and confirm the bell count decreases.
+- Confirm no browser sound plays for customer notifications.
+- Submit a support message, then send a reply from staff and confirm the customer sees the `Support replied` notification linking to `/help`.
+- Verify notification rows do not expose address, phone number, payment handles, rejection notes, or raw support-message bodies.
+
+### Employee
+
+- Confirm a new order creates an urgent notification with unread badge, red-dot treatment, and a one-time sound alert.
+- Open the notification and confirm it routes to `/orders?status=PENDING`.
+- Confirm unchanged polling does not replay the same sound.
+
+### Management/Admin
+
+- Confirm `REGISTRATION_SUBMITTED` creates an urgent notification that links to `/dashboard?section=pending-registrations`.
+- Confirm `CONTACT_MESSAGE_RECEIVED` creates an urgent notification that links to `/dashboard?section=messages`.
+- Confirm `READY_FOR_DELIVERY` appears as an operational notification and links to `/delivery-dashboard`.
+- Confirm delivered-order visibility appears for management/admin without requiring Make delivery to succeed.
+
+### Delivery Driver
+
+- Confirm `READY_FOR_DELIVERY` and `OUT_FOR_DELIVERY` notifications appear in-app with `/delivery-dashboard` as the click target.
+- Confirm `READY_FOR_DELIVERY` plays the one-time staff alert sound and `OUT_FOR_DELIVERY` does not.
+
+### Make And Delivery Status
+
+- Confirm important events reach the shared Make endpoint with routing fields such as `eventType`, `category`, `channelIntent`, `status`, `path`, and `requiresAttention`.
+- Confirm webhook failures do not block the business action and that failed deliveries are logged with failed delivery status.
+
+## Migration Validation
+
+The repository includes the notification migration SQL at `backend/prisma/migrations/20260402152919_add_notifications/migration.sql`.
+
+- Local database validation: the SQL migration has been applied successfully to the local Docker Postgres instance and the `notifications` table exists.
+- Official Prisma runner status in this environment: `prisma migrate deploy` still fails with an opaque schema-engine error even when the local Windows schema engine binary is provided directly.
+- Release recommendation: run the official Prisma migration command in the target deployment or CI environment before release and confirm the full migration chain completes there.
 
 ## Troubleshooting
 
-### Backend won't start
+### Backend will not start
+
 - Check PostgreSQL is running
-- Verify `DATABASE_URL` in `.env`
+- Verify `DATABASE_URL`
 - Run `npm run prisma:generate`
 
-### Frontend can't connect to backend
+### Frontend cannot reach backend
+
 - Ensure backend is running on port 3000
-- Check Vite proxy configuration in `vite.config.js`
-- Verify CORS settings in backend
+- Check Vite proxy configuration
+- Verify backend CORS settings
 
 ### Docker issues
+
 - Ensure Docker is running
-- Check ports 80 and 5432 are not in use
-- Try `docker compose down -v` to reset volumes
+- Check ports 80 and 5432 are available
+- Use `docker compose down -v` only if you intend to reset volumes
 
----
-
-## Failure Modes & Recovery
+## Failure Modes and Recovery
 
 ### Database unavailable
-- Symptom: `/api/health` reports `status: degraded`
-- Action: Ensure PostgreSQL is healthy, verify `DATABASE_URL`, and re-run migrations if needed
+
+- Symptom: `/api/health` reports degraded
+- Action: verify PostgreSQL health and `DATABASE_URL`
 
 ### API timeouts
-- Symptom: Clients see `REQUEST_TIMEOUT` errors
-- Action: Check backend logs for slow endpoints and tune `REQUEST_TIMEOUT_MS`
+
+- Symptom: clients see timeout errors
+- Action: inspect backend logs and `REQUEST_TIMEOUT_MS`
 
 ### Frontend network errors
-- Symptom: Users see "Network error" or repeated retries
-- Action: Verify API availability and confirm `VITE_API_BASE_URL` is correct
+
+- Symptom: repeated retries or backend unavailable notices
+- Action: verify API availability and `VITE_API_BASE_URL`
 
 ### Post-deploy instability
-- Symptom: Spike in 4xx/5xx after deploy
-- Action: Roll back the deploy and review recent migrations/config changes
 
----
+- Symptom: spike in 4xx/5xx after deploy
+- Action: compare recent migrations, config, and backend logs
 
 ## Related Docs
 
-- [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md) — Full production server setup, SSL, backups, and security
-- [OPERATIONS_PIPELINE.md](./OPERATIONS_PIPELINE.md) — Cross-machine build → export → deploy pipeline
-- [MONITORING.md](./MONITORING.md) — Health checks, uptime monitoring, metrics, and alerting
+- [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
+- [OPERATIONS_PIPELINE.md](./OPERATIONS_PIPELINE.md)
+- [MONITORING.md](./MONITORING.md)
