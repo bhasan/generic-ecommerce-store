@@ -26,7 +26,8 @@ export class AuthService {
    * Register a new user (requires admin approval)
    */
   async register(data: RegisterData) {
-    const { username, password, address, cashapp, phoneNumber } = data;
+    const { password, address, cashapp, phoneNumber } = data;
+    const username = data.username.trim().toLowerCase();
     // Registration logs intentionally describe the business decision path without
     // changing the approval/token semantics for new accounts.
     logger.info('Registration attempt received', {
@@ -118,7 +119,8 @@ export class AuthService {
    * Login user
    */
   async login(data: LoginData) {
-    const { username, password } = data;
+    const { password } = data;
+    const username = data.username.trim().toLowerCase();
     // Login decision logs are used by tests and support flows to distinguish
     // bad credentials, approval gating, and successful token issuance.
     logger.info('Login attempt received', { username });
