@@ -198,6 +198,28 @@ model ContactMessage {
   @@map("contact_messages")
 }
 
+model Notification {
+  id               Int                        @id @default(autoincrement())
+  recipientUserId  Int
+  type             NotificationType
+  category         NotificationCategory
+  title            String
+  message          String
+  metadata         Json?
+  sourceEntityType NotificationEntityType?
+  sourceEntityId   Int?
+  requiresAttention Boolean                  @default(false)
+  readAt           DateTime?
+  deliveredAt      DateTime?
+  deliveryStatus   NotificationDeliveryStatus @default(PENDING)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+
+  @@index([recipientUserId, createdAt])
+  @@index([recipientUserId, readAt])
+  @@map("notifications")
+}
+
 enum OrderStatus {
   PENDING
   APPROVED
@@ -217,6 +239,37 @@ enum ContactMessageStatus {
   NEW
   READ
   RESOLVED
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_STATUS_UPDATED
+  REGISTRATION_SUBMITTED
+  ACCOUNT_APPROVED
+  ACCOUNT_REJECTED
+  CONTACT_MESSAGE_RECEIVED
+  CONTACT_REPLY_SENT
+}
+
+enum NotificationCategory {
+  ORDERS
+  AUTH
+  CONTACT
+  DRIVER
+  ADMIN
+}
+
+enum NotificationEntityType {
+  ORDER
+  USER
+  CONTACT_MESSAGE
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  DELIVERED
+  DISABLED
+  FAILED
 }
 
 enum CreditTransactionType {

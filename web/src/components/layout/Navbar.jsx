@@ -10,7 +10,19 @@ import { hasRole, ROLES } from '../../utils/roles';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
-  const { currentUser, cart, logout, staffNotificationCounts, creditBalance } = useApp();
+  const {
+    currentUser,
+    cart,
+    logout,
+    staffNotificationCounts,
+    creditBalance,
+    inboxNotifications,
+    unreadNotificationCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+    notificationsMuted,
+    toggleNotificationsMuted,
+  } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -232,8 +244,18 @@ function Navbar() {
               <span className="hamburger-line"></span>
             </button>
 
-            {canManageOrders && (
-              <NotificationDropdown counts={staffNotificationCounts} canAccessDashboard={isManagement} />
+            {!isGuest && (
+              <NotificationDropdown
+                counts={staffNotificationCounts}
+                canAccessDashboard={isManagement}
+                notifications={inboxNotifications}
+                unreadCount={unreadNotificationCount}
+                onMarkRead={markNotificationRead}
+                onMarkAllRead={markAllNotificationsRead}
+                notificationsMuted={notificationsMuted}
+                onToggleMuted={toggleNotificationsMuted}
+                canManageOrders={canManageOrders}
+              />
             )}
             {!isGuest && <CartPreview cart={cart} cartCount={cartCount} />}
 

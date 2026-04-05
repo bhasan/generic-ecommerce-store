@@ -23,10 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment files (secrets; use .env.example as template)
-.env
-.env.local
-.env.prod
+# Environment files and local snapshots (secrets; use .env.example as template)
+.env*
+!**/.env.example
 
 # Cloudflare DDNS config (contains zone_id; use config-example.json as template)
 cloudflare-ddns/config.json

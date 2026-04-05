@@ -6,6 +6,7 @@ import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { logger } from '../utils/logger';
 import creditService from './credit.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
+import { notificationEventsService } from './notificationEvents.service';
 
 const orderingConstraintsService = new OrderingConstraintsService();
 
@@ -678,6 +679,8 @@ export class OrderService {
         stockUpdatesCount: stockUpdates.length,
       });
 
+      await notificationEventsService.notifyOrderCreated(order.id, userId);
+
       return {
         ...order,
         items: itemsWithProducts
@@ -779,6 +782,13 @@ export class OrderService {
         newStatus: updatedOrder.status,
         itemCount: itemsWithProducts.length,
       });
+
+      await notificationEventsService.notifyOrderStatusUpdated(
+        orderId,
+        order.userId,
+        updatedOrder.status,
+        order.status,
+      );
 
       return {
         ...updatedOrder,

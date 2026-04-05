@@ -1,0 +1,23 @@
+# Development Dockerfile - includes dev dependencies for ts-node-dev, prisma cli, and TypeScript seeds.
+FROM node:20-alpine
+
+WORKDIR /app
+
+ENV NODE_ENV=development
+
+# Install dependencies including dev dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Copy Prisma schema and generate the client for local dev commands.
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# Copy source files needed for the dev server.
+COPY src ./src
+COPY tsconfig.json ./
+
+EXPOSE 3000
+
+# Start with ts-node-dev for hot reload
+CMD ["npm", "run", "dev"]
