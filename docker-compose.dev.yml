@@ -24,6 +24,10 @@ services:
       - ./backend/package-lock.json:/app/package-lock.json:ro
       - /app/node_modules
 
+  web:
+    ports:
+      - "80:80"
+
   web-dev:
     image: node:20-alpine
     container_name: smoke-station-delivery-web-dev
