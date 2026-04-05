@@ -12,8 +12,10 @@ function PendingRegistrationsSection({
 }) {
   const [approveModalOpen, setApproveModalOpen] = useState(false);
   const [userToApprove, setUserToApprove] = useState(null);
+  const [isApprovingUser, setIsApprovingUser] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [userToReject, setUserToReject] = useState(null);
+  const [isRejectingUser, setIsRejectingUser] = useState(false);
 
   const handleApproveClick = (userId, userName) => {
     setUserToApprove({ id: userId, name: userName });
@@ -22,6 +24,7 @@ function PendingRegistrationsSection({
 
   const handleApproveConfirm = async () => {
     if (!userToApprove) return;
+    setIsApprovingUser(true);
     try {
       await onApprove(userToApprove.id);
       setApproveModalOpen(false);
@@ -29,6 +32,8 @@ function PendingRegistrationsSection({
     } catch {
       setApproveModalOpen(false);
       setUserToApprove(null);
+    } finally {
+      setIsApprovingUser(false);
     }
   };
 
@@ -44,6 +49,7 @@ function PendingRegistrationsSection({
 
   const handleRejectConfirm = async (rejectionNote) => {
     if (!userToReject) return;
+    setIsRejectingUser(true);
     try {
       await onReject(userToReject.id, rejectionNote);
       setRejectModalOpen(false);
@@ -51,6 +57,8 @@ function PendingRegistrationsSection({
     } catch {
       setRejectModalOpen(false);
       setUserToReject(null);
+    } finally {
+      setIsRejectingUser(false);
     }
   };
 
@@ -157,9 +165,10 @@ function PendingRegistrationsSection({
             This will grant them access to the system.
           </>
         }
-        confirmText="Approve"
+        confirmText="Approve User"
         cancelText="Cancel"
         type="success"
+        isSubmitting={isApprovingUser}
       />
 
       <RejectUserModal
@@ -167,6 +176,7 @@ function PendingRegistrationsSection({
         onClose={handleRejectCancel}
         onConfirm={handleRejectConfirm}
         userName={userToReject?.username || ''}
+        isSubmitting={isRejectingUser}
       />
     </div>
   );
