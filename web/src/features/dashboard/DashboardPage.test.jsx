@@ -162,6 +162,72 @@ const renderDashboard = (route = '/dashboard?section=payment-settings') =>
     </MemoryRouter>
   );
 
+describe('DashboardPage layout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAppMock.mockReturnValue(baseAppState);
+    usersApi.getPendingRegistrations.mockResolvedValue([]);
+    usersApi.getAllUsers.mockResolvedValue([]);
+    usersApi.getAllRoles.mockResolvedValue([]);
+    usersApi.getRejectedUsers.mockResolvedValue([]);
+    announcementsApi.getAllAnnouncements.mockResolvedValue([]);
+    contactMessagesApi.getAllMessages.mockResolvedValue([]);
+    paymentSettingsApi.getPaymentSettings.mockResolvedValue({});
+    storeSettingsApi.getStoreSettings.mockResolvedValue({});
+    orderingConstraintsApi.getOrderingConstraints.mockResolvedValue({});
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [] });
+  });
+
+  it('renders a dashboard-layout wrapper containing the sidebar and main content', async () => {
+    const { container } = renderDashboard('/dashboard?section=payment-settings');
+    await waitFor(() => expect(paymentSettingsApi.getPaymentSettings).toHaveBeenCalled());
+
+    const layout = container.querySelector('.dashboard-layout');
+    expect(layout).toBeInTheDocument();
+
+    const sidebar = layout?.querySelector('aside.dashboard-sidebar');
+    expect(sidebar).toBeInTheDocument();
+
+    const main = layout?.querySelector('.dashboard-main-content');
+    expect(main).toBeInTheDocument();
+  });
+
+  it('renders all 9 sidebar nav items', async () => {
+    renderDashboard('/dashboard');
+    await waitFor(() => expect(usersApi.getPendingRegistrations).toHaveBeenCalled());
+
+    const expectedLabels = [
+      /messages/i,
+      /pending registrations/i,
+      /announcements/i,
+      /^users$/i,
+      /rejected users/i,
+      /payment settings/i,
+      /store settings/i,
+      /ordering constraints/i,
+      /landing page/i,
+    ];
+    for (const label of expectedLabels) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it('defaults to the pending-registrations section when no query param is present', async () => {
+    renderDashboard('/dashboard');
+    await waitFor(() => expect(usersApi.getPendingRegistrations).toHaveBeenCalled());
+    expect(screen.getByText(/^Pending:/)).toBeInTheDocument();
+  });
+
+  it('marks the active sidebar item based on the current section', async () => {
+    const { container } = renderDashboard('/dashboard?section=store-settings');
+    await waitFor(() => expect(storeSettingsApi.getStoreSettings).toHaveBeenCalled());
+
+    const activeButtons = container.querySelectorAll('button.sidebar-nav-item.active');
+    expect(activeButtons).toHaveLength(1);
+    expect(activeButtons[0]).toHaveAccessibleName(/store settings/i);
+  });
+});
+
 describe('DashboardPage orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();

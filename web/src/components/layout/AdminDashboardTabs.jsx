@@ -26,92 +26,77 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
     }
   };
 
+  const isActive = (section) =>
+    currentTab === 'dashboard' && activeSection === section ? 'active' : '';
+
   return (
-    <div className="dashboard-section-tabs">
-      <div className="dashboard-tabs">
+    <aside className="dashboard-sidebar">
+      <nav className="sidebar-nav">
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.MESSAGES ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.MESSAGES)}`}
           onClick={() => handleSelect(SECTIONS.MESSAGES)}
         >
           <MessageSquare size={20} />
           <span>Messages</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.PENDING_REGISTRATIONS ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.PENDING_REGISTRATIONS)}`}
           onClick={() => handleSelect(SECTIONS.PENDING_REGISTRATIONS)}
         >
           <UserPlus size={20} />
           <span>Pending Registrations</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.ANNOUNCEMENTS ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.ANNOUNCEMENTS)}`}
           onClick={() => handleSelect(SECTIONS.ANNOUNCEMENTS)}
         >
           <Megaphone size={20} />
           <span>Announcements</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.USERS ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.USERS)}`}
           onClick={() => handleSelect(SECTIONS.USERS)}
         >
           <Users size={20} />
           <span>Users</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.REJECTED_USERS ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.REJECTED_USERS)}`}
           onClick={() => handleSelect(SECTIONS.REJECTED_USERS)}
         >
           <UserX size={20} />
           <span>Rejected Users</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.PAYMENT_SETTINGS ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.PAYMENT_SETTINGS)}`}
           onClick={() => handleSelect(SECTIONS.PAYMENT_SETTINGS)}
         >
           <CreditCard size={20} />
           <span>Payment Settings</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.STORE_SETTINGS ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.STORE_SETTINGS)}`}
           onClick={() => handleSelect(SECTIONS.STORE_SETTINGS)}
         >
           <Store size={20} />
           <span>Store Settings</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.ORDERING_CONSTRAINTS ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.ORDERING_CONSTRAINTS)}`}
           onClick={() => handleSelect(SECTIONS.ORDERING_CONSTRAINTS)}
         >
           <ShoppingCart size={20} />
           <span>Ordering Constraints</span>
         </button>
         <button
-          className={`dashboard-tab ${
-            currentTab === 'dashboard' && activeSection === SECTIONS.LANDING_PAGE ? 'active' : ''
-          }`}
+          className={`sidebar-nav-item ${isActive(SECTIONS.LANDING_PAGE)}`}
           onClick={() => handleSelect(SECTIONS.LANDING_PAGE)}
         >
           <LayoutDashboard size={20} />
           <span>Landing Page</span>
         </button>
-      </div>
-    </div>
+      </nav>
+    </aside>
   );
 }
 
