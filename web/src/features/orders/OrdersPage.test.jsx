@@ -25,7 +25,7 @@ vi.mock('./OrderDetailPanel', () => ({
   ),
 }));
 
-const baseAppState = {
+const makeAppState = (overrides = {}) => ({
   currentUser: { id: 1, username: 'manager-one', roles: [ROLES.MANAGEMENT] },
   orders: [
     {
@@ -61,7 +61,10 @@ const baseAppState = {
   voidOrderItem: vi.fn(),
   deleteOrderItem: vi.fn(),
   restoreOrder: vi.fn(),
-};
+  ...overrides,
+});
+
+const baseAppState = makeAppState();
 
 const renderOrdersPage = () =>
   render(
@@ -103,5 +106,96 @@ describe('OrdersPage integration', () => {
     fireEvent.click(screen.getByText('Approve from Panel'));
 
     await waitFor(() => expect(baseAppState.updateOrderStatus).toHaveBeenCalledWith(701, 'APPROVED'));
+  });
+});
+
+describe('OrdersPage — DOM structure (CSS mobile targets)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAppMock.mockReturnValue(baseAppState);
+  });
+
+  it('page root has .orders-page-container class', () => {
+    const { container } = renderOrdersPage();
+    expect(container.querySelector('.orders-page-container')).toBeTruthy();
+  });
+
+  it('header has .orders-header class with a title and an actions section', () => {
+    const { container } = renderOrdersPage();
+    const header = container.querySelector('.orders-header');
+    expect(header).toBeTruthy();
+    expect(header.querySelector('.orders-header-actions')).toBeTruthy();
+  });
+
+  it('refresh button has .btn-refresh-orders class', () => {
+    const { container } = renderOrdersPage();
+    expect(container.querySelector('.btn-refresh-orders')).toBeTruthy();
+  });
+
+  it('kanban columns container has .kanban-columns class', () => {
+    const { container } = renderOrdersPage();
+    expect(container.querySelector('.kanban-columns')).toBeTruthy();
+  });
+
+  it('status filter bar has .orders-status-filters class', () => {
+    const { container } = renderOrdersPage();
+    expect(container.querySelector('.orders-status-filters')).toBeTruthy();
+  });
+});
+
+describe('OrdersPage — customer role', () => {
+  const customerId = 9;
+  const customerAppState = makeAppState({
+    currentUser: { id: customerId, username: 'customer-one', roles: [ROLES.CUSTOMER] },
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAppMock.mockReturnValue(customerAppState);
+  });
+
+  it('shows "My Orders" title instead of "Orders"', () => {
+    renderOrdersPage();
+
+    expect(screen.getByText('My Orders')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Orders' })).not.toBeInTheDocument();
+  });
+
+  it('only shows the kanban card belonging to the logged-in customer', () => {
+    renderOrdersPage();
+
+    // Order 701 belongs to userId 9 (this customer) — should appear
+    expect(screen.getByText('#701')).toBeInTheDocument();
+    // Order 702 belongs to userId 11 (different customer) — should not appear
+    expect(screen.queryByText('#702')).not.toBeInTheDocument();
+  });
+
+  it('does not render any quick-action buttons for customers', () => {
+    // Quick-action buttons are only shown when canModifyOrders is true (staff/management).
+    // Customers have read-only access to their own orders.
+    const { container } = renderOrdersPage();
+    expect(container.querySelectorAll('.btn-quick-action-compact')).toHaveLength(0);
+  });
+
+  it('renders the "View details" button on the customer order card', () => {
+    renderOrdersPage();
+    expect(screen.getAllByRole('button', { name: /view details/i }).length).toBeGreaterThan(0);
+  });
+
+  it('opens the detail panel when the customer clicks "View details"', () => {
+    renderOrdersPage();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /view details/i })[0]);
+
+    expect(screen.getByText('Order Detail Panel #701')).toBeInTheDocument();
+  });
+
+  it('closes the detail panel', () => {
+    renderOrdersPage();
+
+    fireEvent.click(screen.getAllByRole('button', { name: /view details/i })[0]);
+    fireEvent.click(screen.getByText('Close Panel'));
+
+    expect(screen.queryByText('Order Detail Panel #701')).not.toBeInTheDocument();
   });
 });
