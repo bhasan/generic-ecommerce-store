@@ -61,6 +61,8 @@ export function AppProvider({ children }) {
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
   const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
   const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
+  const [deliveryDisabled, setDeliveryDisabled] = useState(false);
+  const [deliveryDisabledMessage, setDeliveryDisabledMessage] = useState('');
   const [pickupLocation, setPickupLocation] = useState('');
   const [storeCashappUsername, setStoreCashappUsername] = useState('');
   const [paymentSettings, setPaymentSettings] = useState({
@@ -334,6 +336,8 @@ export function AppProvider({ children }) {
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
         if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
         if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
+        if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
+        if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
         if (config.storeSettings) {
           setStoreSettings(config.storeSettings);
           if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
@@ -1041,6 +1045,8 @@ export function AppProvider({ children }) {
     taxRate,
     minimumDeliveryOrder,
     minimumDeliveryOrderEnabled,
+    deliveryDisabled,
+    deliveryDisabledMessage,
     pickupLocation,
     storeCashappUsername,
     paymentSettings,

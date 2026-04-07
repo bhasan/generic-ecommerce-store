@@ -798,13 +798,17 @@ function DashboardPage() {
       <div className="dashboard-page-container">
         <DashboardHeader />
 
-        <AdminDashboardTabs
-          currentTab="dashboard"
-          activeSection={activeSection}
-          onSectionChange={setActiveSection}
-        />
+        <div className="dashboard-layout">
+          <AdminDashboardTabs
+            currentTab="dashboard"
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+          />
 
-        {renderContent()}
+          <div className="dashboard-main-content">
+            {renderContent()}
+          </div>
+        </div>
       </div>
 
       {/* Modals */}
