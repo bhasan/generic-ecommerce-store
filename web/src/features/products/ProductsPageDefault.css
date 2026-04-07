@@ -403,6 +403,11 @@
 }
 
 @media (max-width: 900px) {
+  /* Add bottom clearance so the fixed category-nav doesn't overlap the last section */
+  .products-page-container {
+    padding-bottom: 5rem;
+  }
+
   .products-header {
     flex-direction: column;
     align-items: flex-start;
@@ -430,5 +435,11 @@
 
   .product-list-actions .btn-add-to-cart {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .products-page-container {
+    padding: 1.25rem 1rem 5rem;
   }
 }
