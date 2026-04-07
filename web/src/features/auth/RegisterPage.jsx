@@ -30,7 +30,7 @@ function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const usernameTrimmed = (formData.username || '').trim();
+    const usernameTrimmed = (formData.username || '').trim().toLowerCase();
     const passwordTrimmed = (formData.password || '').trim();
     const cashappTrimmed = (formData.cashapp || '').trim();
     const phoneTrimmed = (formData.phoneNumber || '').trim();

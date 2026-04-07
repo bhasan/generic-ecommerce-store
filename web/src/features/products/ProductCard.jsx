@@ -38,7 +38,7 @@ function ProductCard({ product, imageSrc, images, categoryLabel, onClick, onImag
   };
 
   return (
-    <div className="product-card" onClick={onClick} style={{ cursor: 'pointer' }}>
+    <div className="product-card" data-product-id={product.id} onClick={onClick} style={{ cursor: 'pointer' }}>
       <div
         className="product-image-container"
         onClick={onImageClick ? (e) => { e.stopPropagation(); onImageClick(); } : undefined}

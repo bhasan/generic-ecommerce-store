@@ -1,17 +1,43 @@
-# 1. Use a lightweight Nginx image
+# Stage 1: Build - Compile React app
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy dependency files
+COPY web/package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY web ./
+
+# Build React app for production
+RUN npm run build
+
+# Stage 2: Runtime - Serve with Nginx
 FROM nginx:1.25-alpine
 
-# 2. Copy your custom Nginx configuration
-# This will replace the default Nginx config
-COPY ./nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom Nginx configuration
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
-# 3. Copy your React app's PRODUCTION BUILD
-# IMPORTANT: You must run 'npm run build' in your 'web'
-# directory *before* building this image.
-COPY ./web/dist /usr/share/nginx/html
+# Copy compiled React app from builder
+COPY --from=builder /app/dist /usr/share/nginx/html
 
-# 4. Expose port 80
+# Fix permissions for nginx user (already exists in nginx image)
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    chown -R nginx:nginx /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid
+
+# Expose port
 EXPOSE 80
 
-# 5. The default command to start Nginx
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://localhost:80 || exit 1
+
+# Start Nginx
 CMD ["nginx", "-g", "daemon off;"]

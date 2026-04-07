@@ -214,14 +214,19 @@ function CheckoutPage() {
 
   const handleSendPaymentCancel = async () => {
     setOrderCancelled(true);
-    if (pendingOrderState?.order?.id) {
-      await deleteOrder(pendingOrderState.order.id, { silent: true });
+    try {
+      if (pendingOrderState?.order?.id) {
+        await deleteOrder(pendingOrderState.order.id, { silent: true });
+      }
+      if (pendingOrderState?.items?.length) {
+        restoreCart(pendingOrderState.items);
+      }
+    } catch {
+      // If deletion fails, still close the modal so the user isn't stuck
+    } finally {
+      setShowSendPaymentModal(false);
+      setPendingOrderState(null);
     }
-    if (pendingOrderState?.items?.length) {
-      restoreCart(pendingOrderState.items);
-    }
-    setShowSendPaymentModal(false);
-    setPendingOrderState(null);
   };
 
   return (

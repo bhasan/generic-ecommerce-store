@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DashboardPage from './DashboardPage';
@@ -86,7 +86,12 @@ vi.mock('./components/RejectedUsersSection', () => ({
 }));
 
 vi.mock('./components/MessagesSection', () => ({
-  default: ({ messages }) => <div>Messages: {messages.length}</div>,
+  default: ({ messages, onReply }) => (
+    <div>
+      <div>Messages: {messages.length}</div>
+      <button onClick={() => onReply?.(42, 'Reply body')}>Reply to Message</button>
+    </div>
+  ),
 }));
 
 vi.mock('./components/PaymentSettingsSection', () => ({
@@ -143,6 +148,7 @@ const renderDashboard = (route = '/dashboard?section=payment-settings') =>
 describe('DashboardPage orchestration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     useAppMock.mockReturnValue(baseAppState);
     usersApi.getPendingRegistrations.mockResolvedValue([]);
     usersApi.getAllUsers.mockResolvedValue([]);
@@ -200,5 +206,48 @@ describe('DashboardPage orchestration', () => {
     }));
     expect(baseAppState.showNotification).toHaveBeenCalledWith('Ordering constraints updated successfully', 'success');
     expect(baseAppState.loadConfig).toHaveBeenCalled();
+  });
+
+  it('registers a polling refresh while the messages section is active', async () => {
+    const intervalSpy = vi.spyOn(global, 'setInterval');
+
+    renderDashboard('/dashboard?section=messages');
+
+    await waitFor(() => expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(1));
+    expect(intervalSpy).toHaveBeenCalled();
+
+    const refreshCall = intervalSpy.mock.calls.find(([, delay]) => delay === 50000);
+    expect(refreshCall).toBeTruthy();
+
+    const refreshFn = refreshCall?.[0];
+    expect(typeof refreshFn).toBe('function');
+
+    await act(async () => {
+      await refreshFn?.();
+    });
+
+    expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(2);
+
+    intervalSpy.mockRestore();
+  });
+
+  it('shows a warning when reply persistence succeeds but email delivery fails', async () => {
+    contactMessagesApi.replyToMessage.mockResolvedValue({
+      success: true,
+      emailDelivered: false,
+      message: 'Reply recorded, but email delivery failed.',
+    });
+
+    renderDashboard('/dashboard?section=messages');
+
+    await waitFor(() => expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole('button', { name: /reply to message/i }));
+
+    await waitFor(() => expect(contactMessagesApi.replyToMessage).toHaveBeenCalledWith(42, 'Reply body'));
+    expect(baseAppState.showNotification).toHaveBeenCalledWith(
+      'Reply recorded, but email delivery failed.',
+      'warning'
+    );
   });
 });

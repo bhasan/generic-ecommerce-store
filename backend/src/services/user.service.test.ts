@@ -1,6 +1,7 @@
 const {
   prismaMock,
   hashPassword,
+  notificationEventsService,
   logger,
 } = vi.hoisted(() => ({
   prismaMock: {
@@ -22,6 +23,10 @@ const {
     },
   },
   hashPassword: vi.fn(),
+  notificationEventsService: {
+    notifyAccountApproved: vi.fn(),
+    notifyAccountRejected: vi.fn(),
+  },
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -40,6 +45,10 @@ vi.mock('../utils/password.util', () => ({
 
 vi.mock('../utils/logger', () => ({
   logger,
+}));
+
+vi.mock('./notificationEvents.service', () => ({
+  notificationEventsService,
 }));
 
 describe('user service logging', () => {
@@ -146,5 +155,54 @@ describe('user service logging', () => {
       rejected: false,
     });
     expect(result).toEqual({ message: 'User deleted successfully' });
+  });
+
+  it('emits an approval notification when approving a user', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 14,
+      approved: false,
+    });
+    prismaMock.userRole.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ userId: 14, roleId: 1 }]);
+    prismaMock.role.findUnique.mockResolvedValue({ id: 1, name: 'CUSTOMER' });
+    prismaMock.userRole.create.mockResolvedValue({});
+    prismaMock.user.update.mockResolvedValue({
+      id: 14,
+      username: 'approved-user',
+      approved: true,
+      createdAt: new Date('2024-01-01'),
+    });
+    prismaMock.role.findMany.mockResolvedValue([{ id: 1, name: 'CUSTOMER' }]);
+
+    const { UserService } = await import('./user.service');
+    const service = new UserService();
+
+    await service.approveUser(14);
+
+    expect(notificationEventsService.notifyAccountApproved).toHaveBeenCalledWith(14);
+  });
+
+  it('emits a rejection notification when rejecting a user', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 15,
+      approved: false,
+      rejected: false,
+    });
+    prismaMock.user.update.mockResolvedValue({
+      id: 15,
+      username: 'rejected-user',
+      rejected: true,
+      createdAt: new Date('2024-01-01'),
+    });
+    prismaMock.userRole.findMany.mockResolvedValue([]);
+    prismaMock.role.findMany.mockResolvedValue([]);
+
+    const { UserService } = await import('./user.service');
+    const service = new UserService();
+
+    await service.rejectUser(15, 'note');
+
+    expect(notificationEventsService.notifyAccountRejected).toHaveBeenCalledWith(15);
   });
 });

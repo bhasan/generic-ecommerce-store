@@ -42,6 +42,10 @@ const categoriesApi = vi.hoisted(() => ({
 }));
 
 const notificationsApi = vi.hoisted(() => ({
+  getNotifications: vi.fn(),
+  getUnreadNotificationCount: vi.fn(),
+  markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
   getStaffNotificationCounts: vi.fn(),
 }));
 
@@ -92,10 +96,14 @@ function ContextHarness() {
       <div data-testid="credit-balance">{app.creditBalance}</div>
       <div data-testid="minimum-delivery-order">{app.minimumDeliveryOrder}</div>
       <div data-testid="staff-notifications">{JSON.stringify(app.staffNotificationCounts)}</div>
+      <div data-testid="unread-notification-count">{app.unreadNotificationCount}</div>
+      <div data-testid="inbox-notifications">{JSON.stringify(app.inboxNotifications)}</div>
       <div data-testid="notification">{app.notification?.message || ''}</div>
       <div data-testid="cart-count">{app.cart.length}</div>
       <button onClick={() => app.addToCart(sampleProducts[0], 1)}>Add To Cart</button>
       <button onClick={() => app.checkout('', 'PICKUP', 'CREDIT')}>Checkout With Credit</button>
+      <button onClick={() => app.markNotificationRead(11)}>Mark Notification Read</button>
+      <button onClick={() => app.login('driver', 'driver123')}>Trigger Login</button>
     </div>
   );
 }
@@ -110,6 +118,12 @@ describe('AppContext', () => {
     ordersApi.getAllOrders.mockResolvedValue(sampleOrders);
     categoriesApi.getAllCategories.mockResolvedValue(sampleCategories);
     notificationsApi.getStaffNotificationCounts.mockResolvedValue({ pendingRegistrations: 2, ordersByStatus: { READY: 1 } });
+    notificationsApi.getNotifications.mockResolvedValue([
+      { id: 11, title: 'New order', message: 'Order #11 is waiting.', requiresAttention: true, readAt: null, metadata: { path: '/orders' } }
+    ]);
+    notificationsApi.getUnreadNotificationCount.mockResolvedValue({ count: 1 });
+    notificationsApi.markNotificationRead.mockResolvedValue({ updated: true });
+    notificationsApi.markAllNotificationsRead.mockResolvedValue({ updated: 1 });
     configApi.getConfig.mockResolvedValue(sampleConfig);
     creditApi.getUserCredit.mockResolvedValue({ balance: 20 });
   });
@@ -136,6 +150,7 @@ describe('AppContext', () => {
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('20');
     expect(screen.getByTestId('minimum-delivery-order')).toHaveTextContent('35');
     expect(screen.getByTestId('staff-notifications')).toHaveTextContent('pendingRegistrations');
+    expect(screen.getByTestId('unread-notification-count')).toHaveTextContent('1');
   });
 
   it('redirects to login and clears auth state after an unauthorized event', async () => {
@@ -192,5 +207,57 @@ describe('AppContext', () => {
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('5');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
     expect(ordersApi.createOrder).toHaveBeenCalledWith([{ productId: 101, quantity: 1 }], '', 'PICKUP', 'CREDIT');
+  });
+
+  it('marks notifications read optimistically and refreshes the inbox state', async () => {
+    apiModule.getAuthToken.mockReturnValue('token-123');
+    authApi.getProfile.mockResolvedValue(users.admin);
+    notificationsApi.getNotifications
+      .mockResolvedValueOnce([
+        { id: 11, title: 'New order', message: 'Order #11 is waiting.', requiresAttention: true, readAt: null, metadata: { path: '/orders' } }
+      ])
+      .mockResolvedValueOnce([
+        { id: 11, title: 'New order', message: 'Order #11 is waiting.', requiresAttention: true, readAt: '2026-04-03T22:00:00.000Z', metadata: { path: '/orders' } }
+      ]);
+    notificationsApi.getUnreadNotificationCount
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/orders' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('unread-notification-count')).toHaveTextContent('1'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Mark Notification Read'));
+    });
+
+    await waitFor(() => expect(notificationsApi.markNotificationRead).toHaveBeenCalledWith(11));
+    await waitFor(() => expect(screen.getByTestId('unread-notification-count')).toHaveTextContent('0'));
+    expect(screen.getByTestId('inbox-notifications')).toHaveTextContent('2026-04-03T22:00:00.000Z');
+  });
+
+  it('routes delivery drivers to the delivery dashboard after login', async () => {
+    authApi.login.mockResolvedValue({
+      user: { id: 8, username: 'driver', roles: ['DELIVERY_DRIVER'] },
+    });
+
+    renderWithProviders(
+      <AppProvider>
+        <LocationProbe />
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/login' }
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Trigger Login'));
+    });
+
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/delivery-dashboard'));
   });
 });

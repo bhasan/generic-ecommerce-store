@@ -317,9 +317,9 @@ function ManageProductsPanel() {
     quantityDiscountsOverride: ''
   });
   const [viewMode, setViewMode] = useState(() => {
-    if (typeof window === 'undefined') return 'compact';
+    if (typeof window === 'undefined') return 'list';
     const savedView = localStorage.getItem('manageProductsViewMode');
-    return savedView === 'compact' || savedView === 'list' ? savedView : 'compact';
+    return savedView === 'grid' || savedView === 'list' ? savedView : 'list';
   });
   const [manageTab, setManageTab] = useState('products'); // 'products' | 'categories'
   const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', price: '', stock: '' });
@@ -636,7 +636,7 @@ function ManageProductsPanel() {
     if (list.length === 0) return null;
 
     return (
-      <div className={viewMode === 'list' ? 'products-list' : `products-grid ${viewMode === 'compact' ? 'products-grid-compact' : ''}`}>
+      <div className={viewMode === 'list' ? 'products-list' : `products-grid ${viewMode === 'grid' ? 'products-grid-compact' : ''}`}>
         {list.map(product =>
           viewMode === 'list' ? (
             <SortableProductListItem

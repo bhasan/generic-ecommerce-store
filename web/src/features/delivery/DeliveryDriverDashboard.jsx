@@ -6,6 +6,7 @@ import { Truck, Package, MapPin, CheckCircle, Edit, X, Plus } from 'lucide-react
 import HeaderDivider from '../../components/common/HeaderDivider';
 
 const MAX_ROUTE_ORDERS = 5;
+const DELIVERY_REFRESH_INTERVAL_MS = 50000;
 
 function DeliveryDriverDashboard() {
   const { showNotification } = useApp();
@@ -15,27 +16,44 @@ function DeliveryDriverDashboard() {
   const [isEditingRoute, setIsEditingRoute] = useState(false);
   const [selectedOrderIds, setSelectedOrderIds] = useState(new Set());
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async ({ preserveSelection = false, quiet = false } = {}) => {
     try {
-      setIsLoading(true);
+      if (!quiet) {
+        setIsLoading(true);
+      }
       const [ready, outForDelivery] = await Promise.all([
         ordersApi.getReadyForDeliveryOrders(),
         ordersApi.getOutForDeliveryOrders()
       ]);
       setReadyOrders(ready);
       setRouteOrders(outForDelivery);
-      // Initialize selected orders from current route
-      setSelectedOrderIds(new Set(outForDelivery.map(o => o.id)));
+      if (!preserveSelection) {
+        // Keep server state as the source of truth unless the driver is actively editing a route.
+        setSelectedOrderIds(new Set(outForDelivery.map(o => o.id)));
+      }
     } catch (error) {
       showNotification(error.message || 'Failed to load orders', 'error');
     } finally {
-      setIsLoading(false);
+      if (!quiet) {
+        setIsLoading(false);
+      }
     }
-  }, []);
+  }, [showNotification]);
 
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => {
+    if (isEditingRoute) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      loadOrders({ quiet: true });
+    }, DELIVERY_REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isEditingRoute, loadOrders]);
 
   const handleToggleOrderSelection = (orderId) => {
     const newSelected = new Set(selectedOrderIds);

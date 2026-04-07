@@ -102,6 +102,11 @@ function ProductItemPage() {
       : product?.category?.allowedQuantities || [];
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+    sessionStorage.setItem('productsScrollProductId', String(id));
+  }, [id]);
+
+  useEffect(() => {
     if (allowedQuantities.length > 0) {
       setSelectedQuantity(allowedQuantities[0]);
     } else {
