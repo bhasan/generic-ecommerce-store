@@ -69,6 +69,8 @@ export function AppProvider({ children }) {
     venmo: { enabled: false, handle: '' },
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [featuredProductIds, setFeaturedProductIds] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const hasInteractedRef = useRef(false);
   const hasLoadedNotificationsRef = useRef(false);
@@ -344,6 +346,12 @@ export function AppProvider({ children }) {
         } else if (typeof config.storeCashappUsername === 'string') {
           setStoreCashappUsername(config.storeCashappUsername);
         }
+        if (Array.isArray(config.featuredProductIds)) {
+          setFeaturedProductIds(config.featuredProductIds);
+        }
+        if (Array.isArray(config.promotions)) {
+          setPromotions(config.promotions);
+        }
       }
     } catch (e) {
       console.warn('Failed to load remote config, using default tax rate.', e);
@@ -495,7 +503,7 @@ export function AppProvider({ children }) {
       setInboxNotifications([]);
       setUnreadNotificationCount(0);
       setReturnPath(null);
-      navigate('/products');
+      navigate('/login');
       showNotification('You have been logged out', 'info');
     }
   };
@@ -1037,6 +1045,8 @@ export function AppProvider({ children }) {
     storeCashappUsername,
     paymentSettings,
     storeSettings,
+    featuredProductIds,
+    promotions,
     loadConfig,
     restoreCart,
     creditBalance,
