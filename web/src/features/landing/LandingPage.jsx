@@ -5,6 +5,7 @@ import { Search, X, ArrowRight } from 'lucide-react';
 import './LandingPage.css';
 import '../products/ProductCard.css';
 import '../products/ProductsShared.css';
+import PromotionsCarousel from './PromotionsCarousel';
 import { useApp } from '../../context/AppContext';
 import { isGuest, ROLES } from '../../utils/roles';
 import { getProductCategoryLabel, sortProducts } from '../products/productsHelpers';
@@ -24,7 +25,7 @@ const FUSE_OPTIONS = {
 
 function LandingPage() {
   const navigate = useNavigate();
-  const { products, categories, isLoadingProducts, addToCart, currentUser, featuredProductIds } = useApp();
+  const { products, categories, isLoadingProducts, addToCart, currentUser, featuredProductIds, promotions } = useApp();
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -121,6 +122,13 @@ function LandingPage() {
           </Link>
         </div>
       </section>
+
+      {/* Promotions */}
+      {promotions.length > 0 && (
+        <section className="landing-promotions">
+          <PromotionsCarousel slides={promotions} />
+        </section>
+      )}
 
       {/* Results */}
       <section className="landing-results">

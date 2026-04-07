@@ -1,12 +1,19 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 
+export interface Promotion {
+  url: string;
+  description: string;
+}
+
 export interface LandingPageSettings {
   featuredProductIds: number[];
+  promotions: Promotion[];
 }
 
 const DEFAULT_LANDING_PAGE_SETTINGS: LandingPageSettings = {
   featuredProductIds: [],
+  promotions: [],
 };
 
 export class LandingPageSettingsService {
@@ -19,7 +26,11 @@ export class LandingPageSettingsService {
       return DEFAULT_LANDING_PAGE_SETTINGS;
     }
 
-    return row.value as unknown as LandingPageSettings;
+    const saved = row.value as unknown as Partial<LandingPageSettings>;
+    return {
+      featuredProductIds: saved.featuredProductIds ?? [],
+      promotions: saved.promotions ?? [],
+    };
   }
 
   async updateLandingPageSettings(data: LandingPageSettings): Promise<LandingPageSettings> {
@@ -43,6 +54,20 @@ export class LandingPageSettingsService {
     }
     if (!data.featuredProductIds.every(id => Number.isInteger(id) && id > 0)) {
       throw new AppError('Invalid landing page settings: featuredProductIds must be positive integers', 400);
+    }
+    if (!Array.isArray(data.promotions)) {
+      throw new AppError('Invalid landing page settings: promotions must be an array', 400);
+    }
+    if (data.promotions.length > 20) {
+      throw new AppError('Invalid landing page settings: cannot have more than 20 promotion slides', 400);
+    }
+    for (const promo of data.promotions) {
+      if (!promo || typeof promo.url !== 'string' || !promo.url.trim()) {
+        throw new AppError('Invalid landing page settings: each promotion must have a non-empty url', 400);
+      }
+      if (typeof promo.description !== 'string') {
+        throw new AppError('Invalid landing page settings: each promotion description must be a string', 400);
+      }
     }
   }
 }

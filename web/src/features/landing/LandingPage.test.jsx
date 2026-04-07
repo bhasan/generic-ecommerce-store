@@ -16,6 +16,10 @@ vi.mock('../products/ProductsGrid', () => ({
   default: (props) => ProductsGridMock(props),
 }));
 
+vi.mock('./PromotionsCarousel', () => ({
+  default: ({ slides }) => <div data-testid="promotions-carousel">{slides.length} slides</div>,
+}));
+
 const sampleProducts = [
   { id: 1, name: 'Blue Dream',   price: 10, sortOrder: 2, hidden: false, category: { name: 'Flower' } },
   { id: 2, name: 'OG Kush',     price: 12, sortOrder: 1, hidden: false, category: { name: 'Flower' } },
@@ -34,6 +38,7 @@ const baseAppState = {
   addToCart: vi.fn(),
   currentUser: { roles: ['CUSTOMER'] },
   featuredProductIds: [],
+  promotions: [],
 };
 
 const renderPage = (appState = {}) =>
@@ -180,6 +185,24 @@ describe('LandingPage', () => {
     await waitFor(() => expect(screen.queryByText('Featured Products')).not.toBeInTheDocument());
     const calls = ProductsGridMock.mock.calls.map(([props]) => props);
     expect(calls.every(p => p.viewMode === 'grid')).toBe(true);
+  });
+
+  it('renders the promotions carousel when slides are configured', () => {
+    useAppMock.mockReturnValue({
+      ...baseAppState,
+      promotions: [
+        { url: '/api/uploads/a.webp', description: 'Sale' },
+        { url: '/api/uploads/b.webp', description: 'New arrivals' },
+      ],
+    });
+    renderPage();
+    expect(screen.getByTestId('promotions-carousel')).toBeInTheDocument();
+    expect(screen.getByTestId('promotions-carousel')).toHaveTextContent('2 slides');
+  });
+
+  it('hides the promotions carousel when no slides are configured', () => {
+    renderPage();
+    expect(screen.queryByTestId('promotions-carousel')).not.toBeInTheDocument();
   });
 
   it('hides hidden products from customer users', () => {

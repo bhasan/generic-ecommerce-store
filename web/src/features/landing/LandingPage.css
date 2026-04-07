@@ -146,6 +146,11 @@
   background: var(--bg-hover);
 }
 
+/* ── Promotions section ───────────────────── */
+.landing-promotions {
+  margin: 0 0 1.5rem;
+}
+
 /* ── Results section ──────────────────────── */
 .landing-results {
   margin-top: 1rem;

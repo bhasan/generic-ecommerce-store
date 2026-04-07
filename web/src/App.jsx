@@ -1,5 +1,11 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
 import { AppProvider } from './context/AppContext';
 import AnnouncementBanner from './components/common/AnnouncementBanner';
 import Navbar from './components/layout/Navbar';
@@ -29,6 +35,7 @@ function App() {
     <ErrorBoundary>
       <AppProvider>
         <TawkToWidget />
+        <ScrollToTop />
         <div className="app-wrapper">
           <AnnouncementBanner />
           <Navbar />

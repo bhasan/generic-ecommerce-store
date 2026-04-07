@@ -180,6 +180,7 @@ app.get('/api/config', async (_req, res) => {
     paymentSettings,
     storeSettings,
     featuredProductIds: landingPageSettings.featuredProductIds,
+    promotions: landingPageSettings.promotions,
   });
 });
 

@@ -70,6 +70,7 @@ export function AppProvider({ children }) {
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
   const [featuredProductIds, setFeaturedProductIds] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const hasInteractedRef = useRef(false);
   const hasLoadedNotificationsRef = useRef(false);
@@ -347,6 +348,9 @@ export function AppProvider({ children }) {
         }
         if (Array.isArray(config.featuredProductIds)) {
           setFeaturedProductIds(config.featuredProductIds);
+        }
+        if (Array.isArray(config.promotions)) {
+          setPromotions(config.promotions);
         }
       }
     } catch (e) {
@@ -1042,6 +1046,7 @@ export function AppProvider({ children }) {
     paymentSettings,
     storeSettings,
     featuredProductIds,
+    promotions,
     loadConfig,
     restoreCart,
     creditBalance,

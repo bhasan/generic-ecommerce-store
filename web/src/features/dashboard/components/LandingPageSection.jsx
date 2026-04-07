@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, Save, ChevronUp, ChevronDown, X, Search } from 'lucide-react';
+import { LayoutDashboard, Save, ChevronUp, ChevronDown, X, Search, ImagePlus } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
+import MediaLibraryModal from '../../../components/common/MediaLibraryModal';
 import './LandingPageSection.css';
 
 const MAX_FEATURED = 12;
@@ -9,14 +10,18 @@ function LandingPageSection({ isLoading, landingPageSettings, onSave }) {
   const { products } = useApp();
   const [featuredIds, setFeaturedIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [promotionDraft, setPromotionDraft] = useState([]);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (landingPageSettings) {
       setFeaturedIds(landingPageSettings.featuredProductIds || []);
+      setPromotionDraft(landingPageSettings.promotions || []);
     }
   }, [landingPageSettings]);
 
+  // ── Featured products ──────────────────────
   const featuredProducts = featuredIds
     .map(id => products.find(p => p.id === id))
     .filter(Boolean);
@@ -54,10 +59,51 @@ function LandingPageSection({ isLoading, landingPageSettings, onSave }) {
     });
   };
 
+  // ── Promotions ─────────────────────────────
+  const handleMediaSelect = (urls) => {
+    const urlArray = Array.isArray(urls) ? urls : [urls];
+    setPromotionDraft(prev => [
+      ...prev,
+      ...urlArray.map(url => ({ url, description: '' })),
+    ]);
+    setMediaLibraryOpen(false);
+  };
+
+  const handlePromoDescChange = (index, value) => {
+    setPromotionDraft(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], description: value };
+      return next;
+    });
+  };
+
+  const handlePromoMoveUp = (index) => {
+    if (index === 0) return;
+    setPromotionDraft(prev => {
+      const next = [...prev];
+      [next[index - 1], next[index]] = [next[index], next[index - 1]];
+      return next;
+    });
+  };
+
+  const handlePromoMoveDown = (index) => {
+    if (index === promotionDraft.length - 1) return;
+    setPromotionDraft(prev => {
+      const next = [...prev];
+      [next[index], next[index + 1]] = [next[index + 1], next[index]];
+      return next;
+    });
+  };
+
+  const handlePromoRemove = (index) => {
+    setPromotionDraft(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // ── Save ───────────────────────────────────
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave({ featuredProductIds: featuredIds });
+      await onSave({ featuredProductIds: featuredIds, promotions: promotionDraft });
     } finally {
       setIsSaving(false);
     }
@@ -83,9 +129,57 @@ function LandingPageSection({ isLoading, landingPageSettings, onSave }) {
         </h3>
       </div>
 
+      {/* ── Promotion Slides ── */}
+      <div className="lps-promos">
+        <div className="lps-promos-header">
+          <div className="lps-promos-title-row">
+            <span className="lps-promos-title">Promotion Slides</span>
+            <span className="lps-panel-count">{promotionDraft.length}</span>
+          </div>
+          <button
+            className="btn-action btn-secondary lps-add-slide-btn"
+            onClick={() => setMediaLibraryOpen(true)}
+          >
+            <ImagePlus size={15} />
+            Add Slide
+          </button>
+        </div>
+
+        {promotionDraft.length === 0 ? (
+          <p className="lps-promos-empty">No promotion slides yet. Click "Add Slide" to get started.</p>
+        ) : (
+          <ul className="lps-promo-list">
+            {promotionDraft.map((slide, index) => (
+              <li key={index} className="lps-promo-item">
+                <img src={slide.url} alt="" className="lps-promo-thumb" />
+                <input
+                  type="text"
+                  className="lps-promo-desc-input form-input"
+                  placeholder="Description (optional)"
+                  value={slide.description}
+                  onChange={e => handlePromoDescChange(index, e.target.value)}
+                />
+                <div className="lps-order-btns">
+                  <button className="lps-order-btn" onClick={() => handlePromoMoveUp(index)} disabled={index === 0} title="Move up">
+                    <ChevronUp size={14} />
+                  </button>
+                  <button className="lps-order-btn" onClick={() => handlePromoMoveDown(index)} disabled={index === promotionDraft.length - 1} title="Move down">
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+                <button className="lps-remove-btn" onClick={() => handlePromoRemove(index)} title="Remove slide">
+                  <X size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* ── Featured Products ── */}
       <p className="lps-description">
-        Select up to {MAX_FEATURED} products to feature on the landing page. Drag them into order using
-        the arrow buttons. If none are selected, the landing page falls back to showing the top-sorted products.
+        Select up to {MAX_FEATURED} products to feature on the landing page. Use the arrow buttons to
+        set their order. If none are selected, the page falls back to the top-sorted products.
       </p>
 
       <div className="lps-panels">
@@ -114,11 +208,7 @@ function LandingPageSection({ isLoading, landingPageSettings, onSave }) {
             {availableProducts.map(product => (
               <li key={product.id} className="lps-product-item">
                 {product.thumbnail && (
-                  <img
-                    src={product.thumbnail}
-                    alt=""
-                    className="lps-product-thumb"
-                  />
+                  <img src={product.thumbnail} alt="" className="lps-product-thumb" />
                 )}
                 <span className="lps-product-name">{product.name}</span>
                 <button
@@ -151,36 +241,18 @@ function LandingPageSection({ isLoading, landingPageSettings, onSave }) {
               <li key={product.id} className="lps-product-item lps-featured-item">
                 <span className="lps-featured-rank">{index + 1}</span>
                 {product.thumbnail && (
-                  <img
-                    src={product.thumbnail}
-                    alt=""
-                    className="lps-product-thumb"
-                  />
+                  <img src={product.thumbnail} alt="" className="lps-product-thumb" />
                 )}
                 <span className="lps-product-name">{product.name}</span>
                 <div className="lps-order-btns">
-                  <button
-                    className="lps-order-btn"
-                    onClick={() => handleMoveUp(index)}
-                    disabled={index === 0}
-                    title="Move up"
-                  >
+                  <button className="lps-order-btn" onClick={() => handleMoveUp(index)} disabled={index === 0} title="Move up">
                     <ChevronUp size={14} />
                   </button>
-                  <button
-                    className="lps-order-btn"
-                    onClick={() => handleMoveDown(index)}
-                    disabled={index === featuredProducts.length - 1}
-                    title="Move down"
-                  >
+                  <button className="lps-order-btn" onClick={() => handleMoveDown(index)} disabled={index === featuredProducts.length - 1} title="Move down">
                     <ChevronDown size={14} />
                   </button>
                 </div>
-                <button
-                  className="lps-remove-btn"
-                  onClick={() => handleRemove(product.id)}
-                  title="Remove"
-                >
+                <button className="lps-remove-btn" onClick={() => handleRemove(product.id)} title="Remove">
                   <X size={14} />
                 </button>
               </li>
@@ -197,6 +269,13 @@ function LandingPageSection({ isLoading, landingPageSettings, onSave }) {
         <Save size={16} />
         {isSaving ? 'Saving...' : 'Save Changes'}
       </button>
+
+      <MediaLibraryModal
+        isOpen={mediaLibraryOpen}
+        onClose={() => setMediaLibraryOpen(false)}
+        onSelect={handleMediaSelect}
+        multiSelect={false}
+      />
     </div>
   );
 }
