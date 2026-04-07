@@ -4,11 +4,15 @@ import { AppError } from '../middleware/error.middleware';
 export interface OrderingConstraints {
   minimumDeliveryOrder: number;
   minimumDeliveryOrderEnabled: boolean;
+  deliveryDisabled: boolean;
+  deliveryDisabledMessage: string;
 }
 
 const DEFAULT_ORDERING_CONSTRAINTS: OrderingConstraints = {
   minimumDeliveryOrder: 35,
   minimumDeliveryOrderEnabled: true,
+  deliveryDisabled: false,
+  deliveryDisabledMessage: '',
 };
 
 export class OrderingConstraintsService {
@@ -21,7 +25,13 @@ export class OrderingConstraintsService {
       return DEFAULT_ORDERING_CONSTRAINTS;
     }
 
-    return row.value as unknown as OrderingConstraints;
+    const saved = row.value as unknown as Partial<OrderingConstraints>;
+    return {
+      minimumDeliveryOrder: saved.minimumDeliveryOrder ?? DEFAULT_ORDERING_CONSTRAINTS.minimumDeliveryOrder,
+      minimumDeliveryOrderEnabled: saved.minimumDeliveryOrderEnabled ?? DEFAULT_ORDERING_CONSTRAINTS.minimumDeliveryOrderEnabled,
+      deliveryDisabled: saved.deliveryDisabled ?? false,
+      deliveryDisabledMessage: saved.deliveryDisabledMessage ?? '',
+    };
   }
 
   async updateOrderingConstraints(data: OrderingConstraints): Promise<OrderingConstraints> {
@@ -45,6 +55,15 @@ export class OrderingConstraintsService {
     }
     if (typeof data.minimumDeliveryOrderEnabled !== 'boolean') {
       throw new AppError('Invalid ordering constraints: minimumDeliveryOrderEnabled must be a boolean', 400);
+    }
+    if (typeof data.deliveryDisabled !== 'boolean') {
+      throw new AppError('Invalid ordering constraints: deliveryDisabled must be a boolean', 400);
+    }
+    if (typeof data.deliveryDisabledMessage !== 'string') {
+      throw new AppError('Invalid ordering constraints: deliveryDisabledMessage must be a string', 400);
+    }
+    if (data.deliveryDisabledMessage.length > 300) {
+      throw new AppError('Invalid ordering constraints: deliveryDisabledMessage cannot exceed 300 characters', 400);
     }
   }
 }

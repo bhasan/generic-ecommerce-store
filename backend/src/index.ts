@@ -175,6 +175,8 @@ app.get('/api/config', async (_req, res) => {
     taxRate: DEFAULT_TAX_RATE,
     minimumDeliveryOrder: orderingConstraints.minimumDeliveryOrder,
     minimumDeliveryOrderEnabled: orderingConstraints.minimumDeliveryOrderEnabled,
+    deliveryDisabled: orderingConstraints.deliveryDisabled,
+    deliveryDisabledMessage: orderingConstraints.deliveryDisabledMessage,
     pickupLocation: storeSettings.address,
     storeCashappUsername: paymentSettings.cashapp?.handle || '',
     paymentSettings,
