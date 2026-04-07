@@ -50,8 +50,8 @@ describe('PromotionsCarousel', () => {
 
     fireEvent.click(screen.getByLabelText(/previous slide/i));
 
-    // wraps from index 0 to last slide
-    expect(screen.getByAltText('')).toBeInTheDocument(); // slide 3 has empty description
+    // wraps from index 0 to last slide — empty description falls back to alt="Promotion"
+    expect(screen.getByAltText('Promotion')).toBeInTheDocument();
   });
 
   it('jumps to the correct slide when a dot is clicked', () => {

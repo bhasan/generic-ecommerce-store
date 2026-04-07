@@ -20,6 +20,10 @@ vi.mock('./PromotionsCarousel', () => ({
   default: ({ slides }) => <div data-testid="promotions-carousel">{slides.length} slides</div>,
 }));
 
+vi.mock('./StorefrontGraphic', () => ({
+  default: () => <div data-testid="storefront-graphic" />,
+}));
+
 const sampleProducts = [
   { id: 1, name: 'Blue Dream',   price: 10, sortOrder: 2, hidden: false, category: { name: 'Flower' } },
   { id: 2, name: 'OG Kush',     price: 12, sortOrder: 1, hidden: false, category: { name: 'Flower' } },
@@ -203,6 +207,11 @@ describe('LandingPage', () => {
   it('hides the promotions carousel when no slides are configured', () => {
     renderPage();
     expect(screen.queryByTestId('promotions-carousel')).not.toBeInTheDocument();
+  });
+
+  it('renders the storefront graphic', () => {
+    renderPage();
+    expect(screen.getByTestId('storefront-graphic')).toBeInTheDocument();
   });
 
   it('hides hidden products from customer users', () => {

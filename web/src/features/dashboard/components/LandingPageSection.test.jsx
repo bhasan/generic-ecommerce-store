@@ -149,7 +149,7 @@ describe('LandingPageSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /select image/i }));
 
     expect(screen.queryByTestId('media-library')).not.toBeInTheDocument();
-    expect(screen.getByDisplayValue('')).toBeInTheDocument(); // description input
+    expect(screen.getByPlaceholderText(/description/i)).toBeInTheDocument();
     expect(screen.queryByText(/no promotion slides yet/i)).not.toBeInTheDocument();
   });
 
@@ -194,7 +194,8 @@ describe('LandingPageSection', () => {
     expect(inputs[0]).toHaveValue('First');
     expect(inputs[1]).toHaveValue('Second');
 
-    fireEvent.click(screen.getAllByTitle('Move up')[0]);
+    // Click move-up on the second slide (index 1) to bring it above the first
+    fireEvent.click(screen.getAllByTitle('Move up')[1]);
 
     const reordered = screen.getAllByPlaceholderText(/description/i);
     expect(reordered[0]).toHaveValue('Second');

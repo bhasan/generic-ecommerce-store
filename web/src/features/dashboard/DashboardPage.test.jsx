@@ -253,9 +253,9 @@ describe('DashboardPage orchestration', () => {
   it('loads landing page settings when the landing-page section is selected', async () => {
     renderDashboard('/dashboard?section=landing-page');
 
-    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByTestId('featured-ids')).toHaveTextContent('[5,7]'));
+    expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled();
     expect(screen.getByText('Landing Page Section')).toBeInTheDocument();
-    expect(screen.getByTestId('featured-ids')).toHaveTextContent('[5,7]');
   });
 
   it('saves landing page settings, shows a success notification, and refreshes shared config', async () => {

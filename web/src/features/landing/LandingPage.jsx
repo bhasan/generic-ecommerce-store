@@ -6,6 +6,7 @@ import './LandingPage.css';
 import '../products/ProductCard.css';
 import '../products/ProductsShared.css';
 import PromotionsCarousel from './PromotionsCarousel';
+import StorefrontGraphic from './StorefrontGraphic';
 import { useApp } from '../../context/AppContext';
 import { isGuest, ROLES } from '../../utils/roles';
 import { getProductCategoryLabel, sortProducts } from '../products/productsHelpers';
@@ -77,6 +78,7 @@ function LandingPage() {
 
       {/* Hero */}
       <section className="landing-hero">
+        <StorefrontGraphic />
         <h1 className="landing-headline">What are you looking for today?</h1>
 
         <div className="landing-search-wrapper">
