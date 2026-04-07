@@ -7,6 +7,7 @@ import * as contactMessagesApi from '../../services/contactMessagesApi';
 import * as paymentSettingsApi from '../../services/paymentSettingsApi';
 import * as storeSettingsApi from '../../services/storeSettingsApi';
 import * as orderingConstraintsApi from '../../services/orderingConstraintsApi';
+import * as landingPageSettingsApi from '../../services/landingPageSettingsApi';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
@@ -22,6 +23,7 @@ import MessagesSection from './components/MessagesSection';
 import PaymentSettingsSection from './components/PaymentSettingsSection';
 import StoreSettingsSection from './components/StoreSettingsSection';
 import OrderingConstraintsSection from './components/OrderingConstraintsSection';
+import LandingPageSection from './components/LandingPageSection';
 import { hasRole, ROLES } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
@@ -33,6 +35,7 @@ const DASHBOARD_SECTIONS = {
   PAYMENT_SETTINGS: 'payment-settings',
   STORE_SETTINGS: 'store-settings',
   ORDERING_CONSTRAINTS: 'ordering-constraints',
+  LANDING_PAGE: 'landing-page',
 };
 
 function DashboardPage() {
@@ -95,6 +98,10 @@ function DashboardPage() {
   // Ordering Constraints State
   const [localOrderingConstraints, setLocalOrderingConstraints] = useState(null);
   const [isLoadingOrderingConstraints, setIsLoadingOrderingConstraints] = useState(false);
+
+  // Landing Page Settings State
+  const [localLandingPageSettings, setLocalLandingPageSettings] = useState(null);
+  const [isLoadingLandingPageSettings, setIsLoadingLandingPageSettings] = useState(false);
 
   // Contact Messages State
   const [contactMessages, setContactMessages] = useState([]);
@@ -256,6 +263,29 @@ function DashboardPage() {
     }
   };
 
+  // Load landing page settings
+  const loadLandingPageSettings = useCallback(async () => {
+    try {
+      setIsLoadingLandingPageSettings(true);
+      const settings = await landingPageSettingsApi.getLandingPageSettings();
+      setLocalLandingPageSettings(settings);
+    } catch (error) {
+      showNotification(error.message || 'Failed to load landing page settings', 'error');
+    } finally {
+      setIsLoadingLandingPageSettings(false);
+    }
+  }, [showNotification]);
+
+  const handleSaveLandingPageSettings = async (data) => {
+    try {
+      await landingPageSettingsApi.updateLandingPageSettings(data);
+      showNotification('Landing page settings updated successfully', 'success');
+      loadConfig();
+    } catch (error) {
+      showNotification(error.message || 'Failed to save landing page settings', 'error');
+    }
+  };
+
   // Load data based on active section
   useEffect(() => {
     // Section-scoped loading keeps admin requests targeted instead of refetching every dashboard dataset at once.
@@ -276,8 +306,10 @@ function DashboardPage() {
       loadStoreSettings();
     } else if (activeSection === DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS) {
       loadOrderingConstraints();
+    } else if (activeSection === DASHBOARD_SECTIONS.LANDING_PAGE) {
+      loadLandingPageSettings();
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints, loadLandingPageSettings]);
 
   useEffect(() => {
     if (activeSection !== DASHBOARD_SECTIONS.MESSAGES) return undefined;
@@ -738,6 +770,14 @@ function DashboardPage() {
             isLoading={isLoadingOrderingConstraints}
             orderingConstraints={localOrderingConstraints}
             onSave={handleSaveOrderingConstraints}
+          />
+        );
+      case DASHBOARD_SECTIONS.LANDING_PAGE:
+        return (
+          <LandingPageSection
+            isLoading={isLoadingLandingPageSettings}
+            landingPageSettings={localLandingPageSettings}
+            onSave={handleSaveLandingPageSettings}
           />
         );
       default:

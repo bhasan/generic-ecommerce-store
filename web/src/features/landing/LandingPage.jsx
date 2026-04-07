@@ -24,7 +24,7 @@ const FUSE_OPTIONS = {
 
 function LandingPage() {
   const navigate = useNavigate();
-  const { products, categories, isLoadingProducts, addToCart, currentUser } = useApp();
+  const { products, categories, isLoadingProducts, addToCart, currentUser, featuredProductIds } = useApp();
 
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -38,10 +38,14 @@ function LandingPage() {
 
   const fuse = useMemo(() => new Fuse(visibleProducts, FUSE_OPTIONS), [visibleProducts]);
 
-  const featuredProducts = useMemo(
-    () => sortProducts(visibleProducts).slice(0, 12),
-    [visibleProducts]
-  );
+  const featuredProducts = useMemo(() => {
+    if (featuredProductIds.length > 0) {
+      return featuredProductIds
+        .map(id => visibleProducts.find(p => p.id === id))
+        .filter(Boolean);
+    }
+    return sortProducts(visibleProducts).slice(0, 12);
+  }, [visibleProducts, featuredProductIds]);
 
   const topLevelCategories = useMemo(
     () => categories
@@ -133,7 +137,7 @@ function LandingPage() {
             </div>
             <ProductsGrid
               products={featuredProducts}
-              viewMode="compact"
+              viewMode="grid"
               getCategoryLabel={getProductCategoryLabel}
               onAddToCart={addToCart}
               onProductClick={handleProductClick}
@@ -162,7 +166,7 @@ function LandingPage() {
             </div>
             <ProductsGrid
               products={searchResults}
-              viewMode="compact"
+              viewMode="grid"
               getCategoryLabel={getProductCategoryLabel}
               onAddToCart={addToCart}
               onProductClick={handleProductClick}

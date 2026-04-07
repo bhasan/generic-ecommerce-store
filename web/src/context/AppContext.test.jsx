@@ -95,6 +95,7 @@ function ContextHarness() {
       <div data-testid="categories-count">{app.categories.length}</div>
       <div data-testid="credit-balance">{app.creditBalance}</div>
       <div data-testid="minimum-delivery-order">{app.minimumDeliveryOrder}</div>
+      <div data-testid="featured-product-ids">{JSON.stringify(app.featuredProductIds)}</div>
       <div data-testid="staff-notifications">{JSON.stringify(app.staffNotificationCounts)}</div>
       <div data-testid="unread-notification-count">{app.unreadNotificationCount}</div>
       <div data-testid="inbox-notifications">{JSON.stringify(app.inboxNotifications)}</div>
@@ -151,6 +152,20 @@ describe('AppContext', () => {
     expect(screen.getByTestId('minimum-delivery-order')).toHaveTextContent('35');
     expect(screen.getByTestId('staff-notifications')).toHaveTextContent('pendingRegistrations');
     expect(screen.getByTestId('unread-notification-count')).toHaveTextContent('1');
+  });
+
+  it('hydrates featuredProductIds from the config response', async () => {
+    configApi.getConfig.mockResolvedValue({ ...sampleConfig, featuredProductIds: [101] });
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('featured-product-ids')).toHaveTextContent('[101]')
+    );
   });
 
   it('redirects to login and clears auth state after an unauthorized event', async () => {

@@ -37,4 +37,5 @@ export const sampleConfig = {
     address: '101 Example Ave',
     phoneNumber: '555-0100',
   },
+  featuredProductIds: [101],
 };

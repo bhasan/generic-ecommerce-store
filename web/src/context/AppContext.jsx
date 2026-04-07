@@ -69,6 +69,7 @@ export function AppProvider({ children }) {
     venmo: { enabled: false, handle: '' },
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [featuredProductIds, setFeaturedProductIds] = useState([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const hasInteractedRef = useRef(false);
   const hasLoadedNotificationsRef = useRef(false);
@@ -343,6 +344,9 @@ export function AppProvider({ children }) {
           setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
         } else if (typeof config.storeCashappUsername === 'string') {
           setStoreCashappUsername(config.storeCashappUsername);
+        }
+        if (Array.isArray(config.featuredProductIds)) {
+          setFeaturedProductIds(config.featuredProductIds);
         }
       }
     } catch (e) {
@@ -1037,6 +1041,7 @@ export function AppProvider({ children }) {
     storeCashappUsername,
     paymentSettings,
     storeSettings,
+    featuredProductIds,
     loadConfig,
     restoreCart,
     creditBalance,

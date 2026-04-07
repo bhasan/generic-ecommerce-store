@@ -41,6 +41,10 @@ const orderingConstraintsApi = vi.hoisted(() => ({
   getOrderingConstraints: vi.fn(),
   updateOrderingConstraints: vi.fn(),
 }));
+const landingPageSettingsApi = vi.hoisted(() => ({
+  getLandingPageSettings: vi.fn(),
+  updateLandingPageSettings: vi.fn(),
+}));
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
@@ -52,6 +56,7 @@ vi.mock('../../services/contactMessagesApi', () => contactMessagesApi);
 vi.mock('../../services/paymentSettingsApi', () => paymentSettingsApi);
 vi.mock('../../services/storeSettingsApi', () => storeSettingsApi);
 vi.mock('../../services/orderingConstraintsApi', () => orderingConstraintsApi);
+vi.mock('../../services/landingPageSettingsApi', () => landingPageSettingsApi);
 
 vi.mock('../../components/layout/AdminLayout', () => ({
   default: ({ children }) => <div>{children}</div>,
@@ -130,6 +135,18 @@ vi.mock('./components/OrderingConstraintsSection', () => ({
   ),
 }));
 
+vi.mock('./components/LandingPageSection', () => ({
+  default: ({ landingPageSettings, onSave }) => (
+    <div>
+      <div>Landing Page Section</div>
+      <div data-testid="featured-ids">{JSON.stringify(landingPageSettings?.featuredProductIds || [])}</div>
+      <button onClick={() => onSave({ featuredProductIds: [1, 2, 3] })}>
+        Save Landing Page
+      </button>
+    </div>
+  ),
+}));
+
 const baseAppState = {
   showNotification: vi.fn(),
   currentUser: { id: 1, username: 'admin-one', roles: ['ADMIN'] },
@@ -173,6 +190,8 @@ describe('DashboardPage orchestration', () => {
     paymentSettingsApi.updatePaymentSettings.mockResolvedValue({});
     storeSettingsApi.updateStoreSettings.mockResolvedValue({});
     orderingConstraintsApi.updateOrderingConstraints.mockResolvedValue({});
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [5, 7] });
+    landingPageSettingsApi.updateLandingPageSettings.mockResolvedValue({});
   });
 
   it('loads the section selected from the query string', async () => {
@@ -229,6 +248,27 @@ describe('DashboardPage orchestration', () => {
     expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(2);
 
     intervalSpy.mockRestore();
+  });
+
+  it('loads landing page settings when the landing-page section is selected', async () => {
+    renderDashboard('/dashboard?section=landing-page');
+
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
+    expect(screen.getByText('Landing Page Section')).toBeInTheDocument();
+    expect(screen.getByTestId('featured-ids')).toHaveTextContent('[5,7]');
+  });
+
+  it('saves landing page settings, shows a success notification, and refreshes shared config', async () => {
+    renderDashboard('/dashboard?section=landing-page');
+
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /save landing page/i }));
+
+    await waitFor(() => expect(landingPageSettingsApi.updateLandingPageSettings).toHaveBeenCalledWith({
+      featuredProductIds: [1, 2, 3],
+    }));
+    expect(baseAppState.showNotification).toHaveBeenCalledWith('Landing page settings updated successfully', 'success');
+    expect(baseAppState.loadConfig).toHaveBeenCalled();
   });
 
   it('shows a warning when reply persistence succeeds but email delivery fails', async () => {

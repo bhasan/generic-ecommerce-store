@@ -27,6 +27,10 @@ const storeSettingsService = vi.hoisted(() => ({
   getStoreSettings: vi.fn(),
   updateStoreSettings: vi.fn(),
 }));
+const landingPageSettingsService = vi.hoisted(() => ({
+  getLandingPageSettings: vi.fn(),
+  updateLandingPageSettings: vi.fn(),
+}));
 
 vi.mock('../utils/jwt.util', () => ({
   verifyToken,
@@ -49,10 +53,15 @@ vi.mock('../services/storeSettings.service', () => ({
   StoreSettingsService: vi.fn(() => storeSettingsService),
 }));
 
+vi.mock('../services/landingPageSettings.service', () => ({
+  LandingPageSettingsService: vi.fn(() => landingPageSettingsService),
+}));
+
 const createServer = async () => {
   const { default: orderingConstraintsRoutes } = await import('../routes/orderingConstraints.routes');
   const { default: paymentSettingsRoutes } = await import('../routes/paymentSettings.routes');
   const { default: storeSettingsRoutes } = await import('../routes/storeSettings.routes');
+  const { default: landingPageSettingsRoutes } = await import('../routes/landingPageSettings.routes');
 
   const app = express();
   app.use(express.json());
@@ -63,6 +72,7 @@ const createServer = async () => {
   app.use('/api/ordering-constraints', orderingConstraintsRoutes);
   app.use('/api/payment-settings', paymentSettingsRoutes);
   app.use('/api/store-settings', storeSettingsRoutes);
+  app.use('/api/landing-page-settings', landingPageSettingsRoutes);
   app.use(errorHandler);
   return app.listen(0);
 };
@@ -186,6 +196,84 @@ describe('admin settings routes integration', () => {
       error: {
         message: 'Invalid store settings',
         code: 'INVALID_STORE_SETTINGS',
+        requestId: 'req-integration',
+      },
+    });
+  });
+
+  it('rejects unauthenticated requests to landing page settings', async () => {
+    const { response, body } = await requestJson(server, '/api/landing-page-settings');
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({ error: 'No token provided. Authentication required.' });
+  });
+
+  it('rejects non-management users from landing page settings', async () => {
+    verifyToken.mockReturnValue({ userId: 2, username: 'customer-one', roles: ['CUSTOMER'] });
+
+    const { response, body } = await requestJson(server, '/api/landing-page-settings', {
+      headers: { Authorization: 'Bearer customer-token' },
+    });
+
+    expect(response.status).toBe(403);
+    expect(body).toMatchObject({ error: 'Access denied. Insufficient permissions.' });
+    expect(landingPageSettingsService.getLandingPageSettings).not.toHaveBeenCalled();
+  });
+
+  it('returns landing page settings for a management user', async () => {
+    verifyToken.mockReturnValue({ userId: 3, username: 'manager-one', roles: ['MANAGEMENT'] });
+    landingPageSettingsService.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [5, 3, 9] });
+
+    const { response, body } = await requestJson(server, '/api/landing-page-settings', {
+      headers: { Authorization: 'Bearer manager-token' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ featuredProductIds: [5, 3, 9] });
+  });
+
+  it('updates landing page settings for a management user and returns the success shape', async () => {
+    verifyToken.mockReturnValue({ userId: 3, username: 'manager-one', roles: ['MANAGEMENT'] });
+    const payload = { featuredProductIds: [1, 2, 3] };
+    landingPageSettingsService.updateLandingPageSettings.mockResolvedValue(payload);
+
+    const { response, body } = await requestJson(server, '/api/landing-page-settings', {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer manager-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      message: 'Landing page settings updated successfully',
+      settings: payload,
+    });
+    expect(landingPageSettingsService.updateLandingPageSettings).toHaveBeenCalledWith(payload);
+  });
+
+  it('surfaces landing page service validation errors through the global error handler', async () => {
+    verifyToken.mockReturnValue({ userId: 1, username: 'admin-one', roles: ['ADMIN'] });
+    landingPageSettingsService.updateLandingPageSettings.mockRejectedValue(
+      new AppError('cannot select more than 12 featured products', 400, 'INVALID_LANDING_PAGE_SETTINGS')
+    );
+
+    const { response, body } = await requestJson(server, '/api/landing-page-settings', {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer admin-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ featuredProductIds: Array.from({ length: 13 }, (_, i) => i + 1) }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: {
+        message: 'cannot select more than 12 featured products',
+        code: 'INVALID_LANDING_PAGE_SETTINGS',
         requestId: 'req-integration',
       },
     });
