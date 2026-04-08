@@ -20,6 +20,7 @@ import paymentSettingsRoutes from './routes/paymentSettings.routes';
 import storeSettingsRoutes from './routes/storeSettings.routes';
 import orderingConstraintsRoutes from './routes/orderingConstraints.routes';
 import creditRoutes from './routes/credit.routes';
+import landingPageSettingsRoutes from './routes/landingPageSettings.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -155,26 +156,33 @@ import { DEFAULT_TAX_RATE } from './constants/settings';
 import { PaymentSettingsService } from './services/paymentSettings.service';
 import { StoreSettingsService } from './services/storeSettings.service';
 import { OrderingConstraintsService } from './services/orderingConstraints.service';
+import { LandingPageSettingsService } from './services/landingPageSettings.service';
 
 const paymentSettingsService = new PaymentSettingsService();
 const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
+const landingPageSettingsService = new LandingPageSettingsService();
 
 // Config check route
 app.get('/api/config', async (_req, res) => {
-  const [paymentSettings, storeSettings, orderingConstraints] = await Promise.all([
+  const [paymentSettings, storeSettings, orderingConstraints, landingPageSettings] = await Promise.all([
     paymentSettingsService.getPaymentSettings(),
     storeSettingsService.getStoreSettings(),
     orderingConstraintsService.getOrderingConstraints(),
+    landingPageSettingsService.getLandingPageSettings(),
   ]);
   res.json({
     taxRate: DEFAULT_TAX_RATE,
     minimumDeliveryOrder: orderingConstraints.minimumDeliveryOrder,
     minimumDeliveryOrderEnabled: orderingConstraints.minimumDeliveryOrderEnabled,
+    deliveryDisabled: orderingConstraints.deliveryDisabled,
+    deliveryDisabledMessage: orderingConstraints.deliveryDisabledMessage,
     pickupLocation: storeSettings.address,
     storeCashappUsername: paymentSettings.cashapp?.handle || '',
     paymentSettings,
     storeSettings,
+    featuredProductIds: landingPageSettings.featuredProductIds,
+    promotions: landingPageSettings.promotions,
   });
 });
 
@@ -195,6 +203,7 @@ app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
 app.use('/api/credits', generalLimiter, creditRoutes);
+app.use('/api/landing-page-settings', generalLimiter, landingPageSettingsRoutes);
 
 // ========================================
 // ERROR HANDLING

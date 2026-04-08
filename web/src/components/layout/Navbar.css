@@ -198,12 +198,20 @@
   justify-content: flex-start;
 }
 
+.mobile-menu .nav-link span {
+  display: inline;
+}
+
 .mobile-menu .admin-dropdown {
   width: 100%;
 }
 
 .mobile-menu .admin-dropdown .nav-link {
   width: 100%;
+}
+
+.mobile-menu .admin-dropdown .nav-link span {
+  display: inline;
 }
 
 .mobile-menu .admin-menu {

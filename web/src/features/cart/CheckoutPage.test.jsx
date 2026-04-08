@@ -98,4 +98,29 @@ describe('CheckoutPage', () => {
     expect(await screen.findByText(/order placed successfully/i)).toBeInTheDocument();
     expect(screen.getAllByText(/\$SmokeStationHQ/).length).toBeGreaterThan(0);
   });
+
+  it('closes the send-payment modal even when deleteOrder throws on cancel', async () => {
+    deleteOrderMock.mockRejectedValue(new Error('server error'));
+    useAppMock.mockReturnValue({
+      ...baseAppState,
+      creditBalance: 0,
+    });
+
+    renderCheckout();
+
+    fireEvent.change(screen.getByLabelText(/payment will be received from/i), {
+      target: { value: '$customer-one' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+    // Wait for the send-payment modal to appear
+    expect(await screen.findByText(/order placed successfully/i)).toBeInTheDocument();
+
+    // Cancel — deleteOrder will throw but the modal must still close
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/order placed successfully/i)).not.toBeInTheDocument()
+    );
+  });
 });

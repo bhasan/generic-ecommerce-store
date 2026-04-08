@@ -40,6 +40,9 @@ nginx/ssl/
 *.sql
 backups/
 
+# Local Docker image exports
+docker/
+
 # Uploaded files (product images, etc.)
 backend/uploads/
 

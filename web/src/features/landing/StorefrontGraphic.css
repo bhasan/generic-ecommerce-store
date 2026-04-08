@@ -1,0 +1,43 @@
+.storefront-graphic-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  /* Pull the headline up into the faded area */
+  margin-bottom: -3rem;
+}
+
+.storefront-graphic {
+  width: 100%;
+  max-width: 1120px;
+  height: auto;
+  border-radius: 10px 10px 0 0;
+  display: block;
+  animation: sfFadeIn 0.7s ease both;
+  /* Fade the bottom of the image to transparent so the page background shows through */
+  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+@media (max-width: 600px) {
+  .storefront-graphic-wrap {
+    /* Less overlap on mobile — the image is much shorter */
+    margin-bottom: -1.5rem;
+  }
+
+  .storefront-graphic {
+    /* Start the fade earlier so more of the image stays visible */
+    -webkit-mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+  }
+}
+
+@keyframes sfFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -2,15 +2,16 @@ import React from 'react';
 import { AlertCircle, CheckCircle, X } from 'lucide-react';
 import './ConfirmationModal.css';
 
-function ConfirmationModal({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  title, 
-  message, 
-  confirmText = 'Confirm', 
+function ConfirmationModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirm',
   cancelText = 'Cancel',
-  type = 'info' // 'info', 'warning', 'success', 'danger'
+  type = 'info', // 'info', 'warning', 'success', 'danger'
+  isSubmitting = false
 }) {
   if (!isOpen) return null;
 
@@ -27,7 +28,7 @@ function ConfirmationModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={isSubmitting ? undefined : onClose}>
       <div className="modal-container" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>
           <X size={20} />
@@ -52,11 +53,12 @@ function ConfirmationModal({
           >
             {cancelText}
           </button>
-          <button 
+          <button
             className={`btn-modal-confirm btn-modal-${type}`}
             onClick={onConfirm}
+            disabled={isSubmitting}
           >
-            {confirmText}
+            {isSubmitting ? 'Processing...' : confirmText}
           </button>
         </div>
       </div>

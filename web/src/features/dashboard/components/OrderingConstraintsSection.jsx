@@ -5,6 +5,8 @@ import './OrderingConstraintsSection.css';
 const DEFAULT_CONSTRAINTS = {
   minimumDeliveryOrder: 35,
   minimumDeliveryOrderEnabled: false,
+  deliveryDisabled: false,
+  deliveryDisabledMessage: '',
 };
 
 function OrderingConstraintsSection({ isLoading, orderingConstraints, onSave }) {
@@ -94,6 +96,47 @@ function OrderingConstraintsSection({ isLoading, orderingConstraints, onSave }) 
                   step="1"
                   placeholder="35"
                 />
+              </div>
+            )}
+          </div>
+
+          <div className="ordering-constraint-row">
+            <div className="ordering-constraint-row-header">
+              <div>
+                <span className="form-label">Disable Delivery</span>
+                <p className="form-hint">Temporarily disable the delivery option for all customers.</p>
+              </div>
+              <label className="payment-method-toggle">
+                <span className={`payment-method-toggle-status${draft.deliveryDisabled ? ' enabled' : ''}`}>
+                  {draft.deliveryDisabled ? 'Disabled' : 'Enabled'}
+                </span>
+                <input
+                  type="checkbox"
+                  checked={draft.deliveryDisabled}
+                  onChange={() =>
+                    setDraft((prev) => ({ ...prev, deliveryDisabled: !prev.deliveryDisabled }))
+                  }
+                  className="payment-method-toggle-checkbox"
+                />
+              </label>
+            </div>
+
+            {draft.deliveryDisabled && (
+              <div className="form-group ordering-constraint-amount-group">
+                <label className="form-label" htmlFor="delivery-disabled-message">
+                  Message to Customers
+                </label>
+                <textarea
+                  id="delivery-disabled-message"
+                  className="form-input"
+                  value={draft.deliveryDisabledMessage}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, deliveryDisabledMessage: e.target.value.slice(0, 300) }))
+                  }
+                  rows={3}
+                  placeholder="e.g. Delivery is temporarily unavailable. Please check back soon."
+                />
+                <p className="form-hint">{draft.deliveryDisabledMessage.length}/300 characters</p>
               </div>
             )}
           </div>

@@ -9,13 +9,13 @@ import HeaderDivider from '../../components/common/HeaderDivider';
 
 function CartPage() {
   const navigate = useNavigate();
-  const { cart, removeFromCart, updateCartQuantity, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled } = useApp();
+  const { cart, removeFromCart, updateCartQuantity, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled, deliveryDisabled, deliveryDisabledMessage } = useApp();
   const [deliveryMethod, setDeliveryMethod] = useState('PICKUP');
   const total = cart.reduce((sum, item) => {
     const unitPrice = getDiscountedUnitPrice(item, item.quantity);
     return sum + (unitPrice * item.quantity);
   }, 0);
-  const deliveryBlocked = minimumDeliveryOrderEnabled && total < minimumDeliveryOrder;
+  const deliveryBlocked = deliveryDisabled || (minimumDeliveryOrderEnabled && total < minimumDeliveryOrder);
 
   useEffect(() => {
     if (deliveryBlocked && deliveryMethod === 'DELIVERY') {
@@ -132,7 +132,7 @@ function CartPage() {
               onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
               className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
               disabled={deliveryBlocked}
-              title={deliveryBlocked ? `Add $${(minimumDeliveryOrder - total).toFixed(2)} more for delivery` : undefined}
+              title={deliveryBlocked ? (deliveryDisabled ? (deliveryDisabledMessage || 'Delivery is currently unavailable.') : `Add $${(minimumDeliveryOrder - total).toFixed(2)} more for delivery`) : undefined}
             >
               Delivery
             </button>
@@ -146,8 +146,9 @@ function CartPage() {
 
           {deliveryBlocked && (
             <div className="minimum-order-notice">
-              Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum
-              {' '}(${(minimumDeliveryOrder - total).toFixed(2)} more needed)
+              {deliveryDisabled
+                ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
+                : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - total).toFixed(2)} more needed)`}
             </div>
           )}
 

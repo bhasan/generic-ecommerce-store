@@ -49,7 +49,7 @@ const parseAddress = (addressStr) => {
 function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled, pickupLocation, storeCashappUsername, paymentSettings, creditBalance } = useApp();
+  const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled, deliveryDisabled, deliveryDisabledMessage, pickupLocation, storeCashappUsername, paymentSettings, creditBalance } = useApp();
   const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || 'PICKUP');
   const [address, setAddress] = useState({
     street: '',
@@ -91,7 +91,7 @@ function CheckoutPage() {
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
 
-  const deliveryBlocked = minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder;
+  const deliveryBlocked = deliveryDisabled || (minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder);
 
   // Auto-switch to pickup if delivery becomes unavailable
   useEffect(() => {
@@ -214,14 +214,19 @@ function CheckoutPage() {
 
   const handleSendPaymentCancel = async () => {
     setOrderCancelled(true);
-    if (pendingOrderState?.order?.id) {
-      await deleteOrder(pendingOrderState.order.id, { silent: true });
+    try {
+      if (pendingOrderState?.order?.id) {
+        await deleteOrder(pendingOrderState.order.id, { silent: true });
+      }
+      if (pendingOrderState?.items?.length) {
+        restoreCart(pendingOrderState.items);
+      }
+    } catch {
+      // If deletion fails, still close the modal so the user isn't stuck
+    } finally {
+      setShowSendPaymentModal(false);
+      setPendingOrderState(null);
     }
-    if (pendingOrderState?.items?.length) {
-      restoreCart(pendingOrderState.items);
-    }
-    setShowSendPaymentModal(false);
-    setPendingOrderState(null);
   };
 
   return (
@@ -422,7 +427,7 @@ function CheckoutPage() {
                 onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
                 className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
                 disabled={deliveryBlocked}
-                title={deliveryBlocked ? `Add $${(minimumDeliveryOrder - subtotal).toFixed(2)} more for delivery` : undefined}
+                title={deliveryBlocked ? (deliveryDisabled ? (deliveryDisabledMessage || 'Delivery is currently unavailable.') : `Add $${(minimumDeliveryOrder - subtotal).toFixed(2)} more for delivery`) : undefined}
               >
                 Delivery
               </button>
@@ -436,7 +441,9 @@ function CheckoutPage() {
             </div>
             {deliveryBlocked && (
               <p className="delivery-blocked-hint">
-                Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum (${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)
+                {deliveryDisabled
+                  ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
+                  : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)`}
               </p>
             )}
 

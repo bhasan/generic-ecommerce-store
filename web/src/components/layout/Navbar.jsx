@@ -222,7 +222,7 @@ function Navbar() {
       <nav className="navbar">
         <div className="navbar-container">
           <div className="navbar-left">
-            <Link to="/products" className="navbar-brand">
+            <Link to="/" className="navbar-brand">
               <span>Smoke Station HTX</span>
             </Link>
 

@@ -61,6 +61,8 @@ export function AppProvider({ children }) {
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
   const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
   const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
+  const [deliveryDisabled, setDeliveryDisabled] = useState(false);
+  const [deliveryDisabledMessage, setDeliveryDisabledMessage] = useState('');
   const [pickupLocation, setPickupLocation] = useState('');
   const [storeCashappUsername, setStoreCashappUsername] = useState('');
   const [paymentSettings, setPaymentSettings] = useState({
@@ -69,6 +71,8 @@ export function AppProvider({ children }) {
     venmo: { enabled: false, handle: '' },
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [featuredProductIds, setFeaturedProductIds] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const hasInteractedRef = useRef(false);
   const hasLoadedNotificationsRef = useRef(false);
@@ -332,6 +336,8 @@ export function AppProvider({ children }) {
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
         if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
         if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
+        if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
+        if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
         if (config.storeSettings) {
           setStoreSettings(config.storeSettings);
           if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
@@ -343,6 +349,12 @@ export function AppProvider({ children }) {
           setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
         } else if (typeof config.storeCashappUsername === 'string') {
           setStoreCashappUsername(config.storeCashappUsername);
+        }
+        if (Array.isArray(config.featuredProductIds)) {
+          setFeaturedProductIds(config.featuredProductIds);
+        }
+        if (Array.isArray(config.promotions)) {
+          setPromotions(config.promotions);
         }
       }
     } catch (e) {
@@ -495,7 +507,7 @@ export function AppProvider({ children }) {
       setInboxNotifications([]);
       setUnreadNotificationCount(0);
       setReturnPath(null);
-      navigate('/products');
+      navigate('/login');
       showNotification('You have been logged out', 'info');
     }
   };
@@ -1033,10 +1045,14 @@ export function AppProvider({ children }) {
     taxRate,
     minimumDeliveryOrder,
     minimumDeliveryOrderEnabled,
+    deliveryDisabled,
+    deliveryDisabledMessage,
     pickupLocation,
     storeCashappUsername,
     paymentSettings,
     storeSettings,
+    featuredProductIds,
+    promotions,
     loadConfig,
     restoreCart,
     creditBalance,
