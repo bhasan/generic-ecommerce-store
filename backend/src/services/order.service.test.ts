@@ -42,6 +42,10 @@ const orderingConstraintsInstance = {
   getOrderingConstraints: vi.fn(),
 };
 
+const deliveryEligibilityService = {
+  checkDeliveryEligibility: vi.fn(),
+};
+
 vi.mock('../config/database', () => ({
   default: prismaMock,
 }));
@@ -62,12 +66,20 @@ vi.mock('./orderingConstraints.service', () => ({
   OrderingConstraintsService: vi.fn(() => orderingConstraintsInstance),
 }));
 
+vi.mock('./deliveryEligibility.service', () => ({
+  DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
+}));
+
 describe('order service notifications', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     orderingConstraintsInstance.getOrderingConstraints.mockResolvedValue({
       minimumDeliveryOrder: 0,
       minimumDeliveryOrderEnabled: false,
+      deliveryRadiusMiles: 5,
+      offlineZipFallbackEnabled: false,
+      offlineDeliveryZipCodes: [],
     });
   });
 
@@ -114,6 +126,55 @@ describe('order service notifications', () => {
     });
 
     expect(notificationEventsService.notifyOrderCreated).toHaveBeenCalledWith(77, 5);
+  });
+
+  it('revalidates delivery eligibility during order creation and rejects out-of-zone orders', async () => {
+    prismaMock.productItem.findMany.mockResolvedValue([
+      {
+        id: 3,
+        name: 'Product One',
+        price: 10,
+        stock: 10,
+        stockEnabled: true,
+        allowedQuantitiesOverride: [],
+        quantityDiscountsOverride: null,
+        category: { allowedQuantities: [], quantityDiscounts: null },
+      },
+    ]);
+    deliveryEligibilityService.checkDeliveryEligibility.mockResolvedValue({
+      deliverable: false,
+      deliveryZoneStatus: 'OUT_OF_ZONE',
+      deliveryZoneSource: 'GOOGLE_GEOCODING',
+      distanceMiles: 7.1,
+      thresholdMiles: 5,
+      message: 'Outside radius',
+      canonicalAddress: '123 Main St, Houston, TX 77083',
+      checkedAt: new Date('2026-04-04T02:00:00.000Z'),
+    });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await expect(service.createOrder({
+      userId: 5,
+      items: [{ productId: 3, quantity: 1 }],
+      deliveryMethod: 'DELIVERY',
+      deliveryAddress: {
+        street: '123 Main St',
+        city: 'Houston',
+        state: 'TX',
+        zipCode: '77083',
+      },
+      paymentMethod: 'EXTERNAL',
+    })).rejects.toThrow('Outside radius');
+
+    expect(deliveryEligibilityService.checkDeliveryEligibility).toHaveBeenCalledWith({
+      street: '123 Main St',
+      city: 'Houston',
+      state: 'TX',
+      zipCode: '77083',
+    });
+    expect(prismaMock.order.create).not.toHaveBeenCalled();
   });
 
   it('emits an order-status notification after successful status update', async () => {

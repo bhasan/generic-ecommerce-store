@@ -25,18 +25,30 @@ describe('ordering constraints service', () => {
     expect(result).toEqual({
       minimumDeliveryOrder: 35,
       minimumDeliveryOrderEnabled: true,
+      deliveryRadiusMiles: 5,
+      offlineZipFallbackEnabled: false,
+      offlineDeliveryZipCodes: [],
     });
   });
 
-  it('upserts validated ordering constraints', async () => {
+  it('upserts validated ordering constraints and normalizes ZIP codes', async () => {
     const savedSettings = {
       minimumDeliveryOrder: 50,
       minimumDeliveryOrderEnabled: false,
+      deliveryRadiusMiles: 7.5,
+      offlineZipFallbackEnabled: true,
+      offlineDeliveryZipCodes: ['77082', '77083', '77498'],
     };
     prismaMock.uiSetting.upsert.mockResolvedValue({ value: savedSettings });
     const { OrderingConstraintsService } = await import('./orderingConstraints.service');
 
-    const result = await new OrderingConstraintsService().updateOrderingConstraints(savedSettings);
+    const result = await new OrderingConstraintsService().updateOrderingConstraints({
+      minimumDeliveryOrder: 50,
+      minimumDeliveryOrderEnabled: false,
+      deliveryRadiusMiles: 7.5,
+      offlineZipFallbackEnabled: true,
+      offlineDeliveryZipCodes: ['77083', '77082', '77083-1234', '77498'],
+    });
 
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
       where: { key: 'ordering_constraints' },
@@ -52,6 +64,29 @@ describe('ordering constraints service', () => {
     await expect(new OrderingConstraintsService().updateOrderingConstraints({
       minimumDeliveryOrder: -1,
       minimumDeliveryOrderEnabled: true,
+      deliveryRadiusMiles: 5,
+      offlineZipFallbackEnabled: false,
+      offlineDeliveryZipCodes: [],
     })).rejects.toEqual(expect.any(AppError));
+  });
+
+  it('merges persisted legacy rows with new defaults', async () => {
+    prismaMock.uiSetting.findUnique.mockResolvedValue({
+      value: {
+        minimumDeliveryOrder: 42,
+        minimumDeliveryOrderEnabled: true,
+      },
+    });
+    const { OrderingConstraintsService } = await import('./orderingConstraints.service');
+
+    const result = await new OrderingConstraintsService().getOrderingConstraints();
+
+    expect(result).toEqual({
+      minimumDeliveryOrder: 42,
+      minimumDeliveryOrderEnabled: true,
+      deliveryRadiusMiles: 5,
+      offlineZipFallbackEnabled: false,
+      offlineDeliveryZipCodes: [],
+    });
   });
 });

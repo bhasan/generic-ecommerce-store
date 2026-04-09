@@ -6,6 +6,7 @@ const {
   comparePassword,
   generateToken,
   notificationEventsService,
+  deliveryEligibilityService,
   logger,
 } = vi.hoisted(() => ({
   prismaMock: {
@@ -26,6 +27,9 @@ const {
   generateToken: vi.fn(),
   notificationEventsService: {
     notifyRegistrationSubmitted: vi.fn(),
+  },
+  deliveryEligibilityService: {
+    evaluateRegistrationAddress: vi.fn(),
   },
   logger: {
     info: vi.fn(),
@@ -56,9 +60,14 @@ vi.mock('./notificationEvents.service', () => ({
   notificationEventsService,
 }));
 
+vi.mock('./deliveryEligibility.service', () => ({
+  DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
+}));
+
 describe('auth service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    deliveryEligibilityService.evaluateRegistrationAddress.mockResolvedValue(null);
   });
 
   it('logs and rejects duplicate registrations', async () => {
@@ -143,6 +152,48 @@ describe('auth service', () => {
     });
 
     expect(notificationEventsService.notifyRegistrationSubmitted).toHaveBeenCalledWith(21, 'new-user');
+  });
+
+  it('persists delivery metadata when registration address evaluation succeeds', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    hashPassword.mockResolvedValue('hashed-password');
+    deliveryEligibilityService.evaluateRegistrationAddress.mockResolvedValue({
+      deliveryZoneStatus: 'IN_ZONE',
+      deliveryZoneSource: 'ZIP_FALLBACK',
+      deliveryZoneDistanceMiles: 0,
+      deliveryZoneCheckedAt: new Date('2026-04-04T02:00:00.000Z'),
+    });
+    prismaMock.role.findMany.mockResolvedValue([{ id: 1, name: 'CUSTOMER' }]);
+    prismaMock.user.create.mockResolvedValue({
+      id: 30,
+      username: 'geo-user',
+      approved: false,
+      createdAt: new Date('2024-01-01'),
+    });
+    prismaMock.userRole.createMany.mockResolvedValue({});
+    prismaMock.userRole.findMany.mockResolvedValue([{ roleId: 1 }]);
+    prismaMock.role.findMany
+      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }])
+      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }]);
+
+    const { AuthService } = await import('./auth.service');
+    const service = new AuthService();
+
+    await service.register({
+      username: 'geo-user',
+      password: 'secret123',
+      address: '123 Main St, Houston, TX 77083',
+      phoneNumber: '1234567890',
+    });
+
+    expect(deliveryEligibilityService.evaluateRegistrationAddress).toHaveBeenCalledWith('123 Main St, Houston, TX 77083');
+    expect(prismaMock.user.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        deliveryZoneStatus: 'IN_ZONE',
+        deliveryZoneSource: 'ZIP_FALLBACK',
+        deliveryZoneDistanceMiles: 0,
+      }),
+    }));
   });
 
   it('logs and rejects unapproved login attempts', async () => {

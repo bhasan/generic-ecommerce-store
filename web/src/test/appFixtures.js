@@ -25,6 +25,7 @@ export const sampleConfig = {
   taxRate: 0.0825,
   minimumDeliveryOrder: 35,
   minimumDeliveryOrderEnabled: true,
+  deliveryRadiusMiles: 5,
   pickupLocation: '101 Example Ave',
   storeCashappUsername: '$SmokeStationHQ',
   paymentSettings: {

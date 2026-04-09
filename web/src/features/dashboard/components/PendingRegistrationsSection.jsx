@@ -1,7 +1,26 @@
 import React, { useState } from 'react';
-import { UserPlus, Mail, Phone, DollarSign, Clock, X, MapPin, Check } from 'lucide-react';
+import { UserPlus, Phone, DollarSign, Clock, X, MapPin, Check } from 'lucide-react';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import RejectUserModal from '../../../components/common/RejectUserModal';
+
+const formatDeliveryZoneLabel = (status) => {
+  switch (status) {
+    case 'IN_ZONE':
+      return 'In zone';
+    case 'OUT_OF_ZONE':
+      return 'Out of zone';
+    case 'UNVERIFIED':
+      return 'Unverified';
+    default:
+      return '';
+  }
+};
+
+const formatCheckedAt = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString();
+};
 
 function PendingRegistrationsSection({
   isLoading,
@@ -87,16 +106,44 @@ function PendingRegistrationsSection({
                   <h4 className="pending-user-name">{user.username}</h4>
                   <div className="pending-user-info">
                     <div className="pending-info-item">
-                      <Mail size={16} />
-                      <span>{user.email}</span>
-                    </div>
-                    <div className="pending-info-item">
                       <MapPin size={16} />
                       <span className="info-label">Address:</span>
                       <span className={user.address ? "info-value" : "info-value-empty"}>
                         {user.address || "Not provided"}
                       </span>
                     </div>
+                    {(user.deliveryZoneStatus || user.deliveryZoneSource === 'ZIP_FALLBACK') && (
+                      <div className="pending-info-item pending-info-item-zone">
+                        <MapPin size={16} />
+                        <span className="info-label">Delivery zone:</span>
+                        <span className="pending-zone-badges">
+                          {user.deliveryZoneStatus && (
+                            <span className={`pending-zone-badge pending-zone-badge-${user.deliveryZoneStatus.toLowerCase().replace(/_/g, '-')}`}>
+                              {formatDeliveryZoneLabel(user.deliveryZoneStatus)}
+                            </span>
+                          )}
+                          {user.deliveryZoneSource === 'ZIP_FALLBACK' && (
+                            <span className="pending-zone-badge pending-zone-badge-fallback">
+                              ZIP fallback
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    {(user.deliveryZoneCheckedAt || user.deliveryZoneDistanceMiles !== undefined) && (
+                      <div className="pending-info-item pending-info-item-zone-meta">
+                        <Clock size={16} />
+                        <span className="info-label">Zone check:</span>
+                        <span className="info-value">
+                          {[
+                            user.deliveryZoneDistanceMiles !== undefined && user.deliveryZoneDistanceMiles !== null
+                              ? `${user.deliveryZoneDistanceMiles.toFixed(2)} miles`
+                              : null,
+                            formatCheckedAt(user.deliveryZoneCheckedAt),
+                          ].filter(Boolean).join(' | ') || 'Recorded'}
+                        </span>
+                      </div>
+                    )}
                     <div className="pending-info-item">
                       <DollarSign size={16} />
                       <span className="payment-method-label">Payment Method:</span>
@@ -151,7 +198,7 @@ function PendingRegistrationsSection({
         title="Approve User Registration"
         message={
           <>
-            Are you sure you want to approve registration for <strong>{userToApprove?.username || ''}</strong>?
+            Are you sure you want to approve registration for <strong>{userToApprove?.name || ''}</strong>?
             <br />
             <br />
             This will grant them access to the system.

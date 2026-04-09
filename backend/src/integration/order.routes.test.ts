@@ -27,6 +27,9 @@ const orderService = vi.hoisted(() => ({
   deleteOrderItem: vi.fn(),
   deleteOrder: vi.fn(),
 }));
+const deliveryEligibilityService = vi.hoisted(() => ({
+  checkDeliveryEligibility: vi.fn(),
+}));
 
 vi.mock('../utils/jwt.util', () => ({
   verifyToken,
@@ -39,6 +42,10 @@ vi.mock('../utils/logger', () => ({
 
 vi.mock('../services/order.service', () => ({
   default: orderService,
+}));
+
+vi.mock('../services/deliveryEligibility.service', () => ({
+  DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
 }));
 
 const createServer = async () => {
@@ -109,6 +116,27 @@ describe('order routes integration', () => {
     expect(orderService.createOrder).not.toHaveBeenCalled();
   });
 
+  it('requires an explicit delivery method for checkout', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+
+    const { response, body } = await requestJson(server, '/api/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        items: [{ productId: 7, quantity: 1 }],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(body.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ msg: 'Delivery method must be DELIVERY or PICKUP' }),
+    ]));
+    expect(orderService.createOrder).not.toHaveBeenCalled();
+  });
+
   it('creates orders through the full checkout route stack', async () => {
     verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
     orderService.createOrder.mockResolvedValue({ id: 900, total: 42.5, status: 'PENDING' });
@@ -139,8 +167,50 @@ describe('order routes integration', () => {
       items: payload.items,
       cashAppUsername: '$customer-one',
       deliveryMethod: 'PICKUP',
+      deliveryAddress: undefined,
       paymentMethod: 'EXTERNAL',
     });
+  });
+
+  it('validates the delivery eligibility endpoint and returns the service response', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+    deliveryEligibilityService.checkDeliveryEligibility.mockResolvedValue({
+      deliverable: true,
+      deliveryZoneStatus: 'IN_ZONE',
+      deliveryZoneSource: 'ZIP_FALLBACK',
+      distanceMiles: null,
+      thresholdMiles: 5,
+      message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
+    });
+
+    const payload = {
+      deliveryAddress: {
+        street: '123 Main St',
+        city: 'Houston',
+        state: 'TX',
+        zipCode: '77083',
+      },
+    };
+
+    const { response, body } = await requestJson(server, '/api/orders/delivery-eligibility', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      deliverable: true,
+      deliveryZoneStatus: 'IN_ZONE',
+      deliveryZoneSource: 'ZIP_FALLBACK',
+      distanceMiles: null,
+      thresholdMiles: 5,
+      message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
+    });
+    expect(deliveryEligibilityService.checkDeliveryEligibility).toHaveBeenCalledWith(payload.deliveryAddress);
   });
 
   it('blocks delivery drivers from setting disallowed order statuses', async () => {

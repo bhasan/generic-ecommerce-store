@@ -5,6 +5,14 @@ import { authenticate } from '../middleware/auth.middleware';
 import { authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role.middleware';
 
 const router = Router();
+const deliveryAddressValidators = [
+  body('deliveryAddress').isObject().withMessage('Delivery address is required'),
+  body('deliveryAddress.street').isString().trim().notEmpty().withMessage('Delivery street is required'),
+  body('deliveryAddress.apartment').optional().isString().withMessage('Delivery apartment must be a string'),
+  body('deliveryAddress.city').isString().trim().notEmpty().withMessage('Delivery city is required'),
+  body('deliveryAddress.state').isString().trim().isLength({ min: 2, max: 2 }).withMessage('Delivery state must be a 2-letter code'),
+  body('deliveryAddress.zipCode').isString().trim().matches(/^\d{5}(-\d{4})?$/).withMessage('Delivery ZIP code must be a valid ZIP code'),
+];
 
 // Order listing uses the authenticated user's roles to decide which records the service returns.
 /**
@@ -43,6 +51,18 @@ router.get('/delivered', authenticate, authorizeAdmin, orderController.getDelive
  */
 router.get('/:id', authenticate, orderController.getOrderById);
 
+/**
+ * @route   POST /api/orders/delivery-eligibility
+ * @desc    Check whether a delivery address is currently eligible
+ * @access  Private (All authenticated users)
+ */
+router.post(
+  '/delivery-eligibility',
+  authenticate,
+  deliveryAddressValidators,
+  orderController.checkDeliveryEligibility
+);
+
 // Checkout requests land here after cart submission and fan into validation plus order creation.
 /**
  * @route   POST /api/orders
@@ -57,7 +77,46 @@ router.post(
     body('items.*.productId').isInt().withMessage('Valid product ID is required'),
     body('items.*.quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
     body('cashAppUsername').optional().isString().withMessage('CashApp username must be a string'),
-    body('deliveryMethod').optional().isIn(['DELIVERY', 'PICKUP']).withMessage('Delivery method must be DELIVERY or PICKUP')
+    body('deliveryMethod').isIn(['DELIVERY', 'PICKUP']).withMessage('Delivery method must be DELIVERY or PICKUP'),
+    body('deliveryAddress').custom((value, { req }) => {
+      if (req.body.deliveryMethod !== 'DELIVERY') {
+        return true;
+      }
+
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new Error('Delivery address is required for delivery orders');
+      }
+
+      return true;
+    }),
+    body('deliveryAddress.street')
+      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage('Delivery street is required'),
+    body('deliveryAddress.apartment')
+      .optional()
+      .isString()
+      .withMessage('Delivery apartment must be a string'),
+    body('deliveryAddress.city')
+      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage('Delivery city is required'),
+    body('deliveryAddress.state')
+      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .isString()
+      .trim()
+      .isLength({ min: 2, max: 2 })
+      .withMessage('Delivery state must be a 2-letter code'),
+    body('deliveryAddress.zipCode')
+      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .isString()
+      .trim()
+      .matches(/^\d{5}(-\d{4})?$/)
+      .withMessage('Delivery ZIP code must be a valid ZIP code')
   ],
   orderController.createOrder
 );

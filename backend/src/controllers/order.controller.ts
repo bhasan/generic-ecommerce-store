@@ -1,7 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import orderService from '../services/order.service';
+import { DeliveryEligibilityService } from '../services/deliveryEligibility.service';
 import { logger } from '../utils/logger';
+
+const deliveryEligibilityService = new DeliveryEligibilityService();
 
 export class OrderController {
   /**
@@ -86,6 +89,37 @@ export class OrderController {
   }
 
   /**
+   * Check delivery eligibility for a structured address
+   * POST /api/orders/delivery-eligibility
+   */
+  async checkDeliveryEligibility(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ errors: errors.array() });
+        return;
+      }
+
+      const result = await deliveryEligibilityService.checkDeliveryEligibility(req.body.deliveryAddress);
+      res.status(200).json({
+        deliverable: result.deliverable,
+        deliveryZoneStatus: result.deliveryZoneStatus,
+        deliveryZoneSource: result.deliveryZoneSource,
+        distanceMiles: result.distanceMiles,
+        thresholdMiles: result.thresholdMiles,
+        message: result.message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Create order (checkout)
    * POST /api/orders
    */
@@ -121,6 +155,7 @@ export class OrderController {
         items: req.body.items,
         cashAppUsername: req.body.cashAppUsername,
         deliveryMethod: req.body.deliveryMethod,
+        deliveryAddress: req.body.deliveryAddress,
         paymentMethod: req.body.paymentMethod
       });
 

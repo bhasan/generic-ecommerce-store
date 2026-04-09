@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { DeliveryEligibilitySource, DeliveryZoneStatus } from '../../generated/prisma';
 import { AppError } from '../middleware/error.middleware';
 import { hashPassword, comparePassword } from '../utils/password.util';
 import { RoleName, isRoleName } from '../constants/roles';
@@ -664,8 +665,43 @@ export class UserService {
   /**
    * Format user response (exclude password, format roles)
    */
-  private formatUser<T extends { id: number; username: string; address?: string | null; cashapp?: string | null; zelle?: string | null; venmo?: string | null; phoneNumber?: string | null; approved?: boolean; rejected?: boolean; rejectionNote?: string | null; createdAt: Date; updatedAt?: Date; roles: Array<{ role: { name: string } | null }> }>(user: T) {
-    const { id, username, address, cashapp, zelle, venmo, phoneNumber, approved, rejected, rejectionNote, createdAt, updatedAt } = user;
+  private formatUser<T extends {
+    id: number;
+    username: string;
+    address?: string | null;
+    cashapp?: string | null;
+    zelle?: string | null;
+    venmo?: string | null;
+    phoneNumber?: string | null;
+    approved?: boolean;
+    rejected?: boolean;
+    rejectionNote?: string | null;
+    deliveryZoneStatus?: DeliveryZoneStatus | null;
+    deliveryZoneSource?: DeliveryEligibilitySource | null;
+    deliveryZoneDistanceMiles?: number | null;
+    deliveryZoneCheckedAt?: Date | null;
+    createdAt: Date;
+    updatedAt?: Date;
+    roles: Array<{ role: { name: string } | null }>;
+  }>(user: T) {
+    const {
+      id,
+      username,
+      address,
+      cashapp,
+      zelle,
+      venmo,
+      phoneNumber,
+      approved,
+      rejected,
+      rejectionNote,
+      deliveryZoneStatus,
+      deliveryZoneSource,
+      deliveryZoneDistanceMiles,
+      deliveryZoneCheckedAt,
+      createdAt,
+      updatedAt,
+    } = user;
     return {
       id,
       username,
@@ -677,6 +713,10 @@ export class UserService {
       ...(approved !== undefined ? { approved } : {}),
       ...(rejected !== undefined ? { rejected } : {}),
       ...(rejectionNote ? { rejectionNote } : {}),
+      ...(deliveryZoneStatus !== undefined && deliveryZoneStatus !== null ? { deliveryZoneStatus } : {}),
+      ...(deliveryZoneSource !== undefined && deliveryZoneSource !== null ? { deliveryZoneSource } : {}),
+      ...(deliveryZoneDistanceMiles !== undefined && deliveryZoneDistanceMiles !== null ? { deliveryZoneDistanceMiles } : {}),
+      ...(deliveryZoneCheckedAt !== undefined && deliveryZoneCheckedAt !== null ? { deliveryZoneCheckedAt } : {}),
       roles: this.toRoleNames(user.roles),
       createdAt,
       ...(updatedAt ? { updatedAt } : {})

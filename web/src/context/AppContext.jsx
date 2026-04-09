@@ -61,6 +61,9 @@ export function AppProvider({ children }) {
   const [taxRate, setTaxRate] = useState(0); // Set initial to 0, let config endpoint provide it
   const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
   const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
+  const [deliveryDisabled, setDeliveryDisabled] = useState(false);
+  const [deliveryDisabledMessage, setDeliveryDisabledMessage] = useState('');
+  const [deliveryRadiusMiles, setDeliveryRadiusMiles] = useState(5);
   const [pickupLocation, setPickupLocation] = useState('');
   const [storeCashappUsername, setStoreCashappUsername] = useState('');
   const [paymentSettings, setPaymentSettings] = useState({
@@ -332,6 +335,9 @@ export function AppProvider({ children }) {
         if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
         if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
         if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
+        if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
+        if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
+        if (typeof config.deliveryRadiusMiles === 'number') setDeliveryRadiusMiles(config.deliveryRadiusMiles);
         if (config.storeSettings) {
           setStoreSettings(config.storeSettings);
           if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
@@ -590,7 +596,11 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod) => {
+  const checkDeliveryEligibility = useCallback(async (deliveryAddress) => {
+    return ordersApi.checkDeliveryEligibility(deliveryAddress);
+  }, []);
+
+  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -599,9 +609,25 @@ export function AppProvider({ children }) {
       }));
 
       // Create order via API
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress);
 
-      if (paymentMethod !== 'CREDIT') {
+      if (deliveryMethod === 'DELIVERY') {
+        try {
+          const refreshedUser = await authApi.getProfile();
+          if (!refreshedUser.roles && refreshedUser.role) {
+            refreshedUser.roles = [refreshedUser.role];
+          }
+          setCurrentUser(refreshedUser);
+          setIsAuthenticated(true);
+        } catch (profileError) {
+          console.warn('Failed to refresh profile after delivery order:', profileError);
+          if (paymentMethod !== 'CREDIT') {
+            const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
+            setCurrentUser(updatedUserData);
+            localStorage.setItem('userData', JSON.stringify(updatedUserData));
+          }
+        }
+      } else if (paymentMethod !== 'CREDIT') {
         // Persist the latest payment handle so checkout, profile, and later orders show the same value.
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
@@ -1033,6 +1059,9 @@ export function AppProvider({ children }) {
     taxRate,
     minimumDeliveryOrder,
     minimumDeliveryOrderEnabled,
+    deliveryDisabled,
+    deliveryDisabledMessage,
+    deliveryRadiusMiles,
     pickupLocation,
     storeCashappUsername,
     paymentSettings,
@@ -1041,6 +1070,7 @@ export function AppProvider({ children }) {
     restoreCart,
     creditBalance,
     refreshCreditBalance,
+    checkDeliveryEligibility,
   };
 
   return (
