@@ -181,7 +181,7 @@
   background: var(--bg-navbar-mobile);
   border-bottom: 2px solid var(--color-primary-dark);
   padding: var(--spacing-md);
-  z-index: var(--z-sticky);
+  z-index: var(--z-modal);
   max-height: calc(100vh - 60px);
   overflow-y: auto;
   animation: slideDown var(--transition-fast) ease-out;
@@ -198,12 +198,20 @@
   justify-content: flex-start;
 }
 
+.mobile-menu .nav-link span {
+  display: inline;
+}
+
 .mobile-menu .admin-dropdown {
   width: 100%;
 }
 
 .mobile-menu .admin-dropdown .nav-link {
   width: 100%;
+}
+
+.mobile-menu .admin-dropdown .nav-link span {
+  display: inline;
 }
 
 .mobile-menu .admin-menu {

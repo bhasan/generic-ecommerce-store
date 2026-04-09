@@ -31,7 +31,7 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    const usernameTrimmed = (username || '').trim();
+    const usernameTrimmed = (username || '').trim().toLowerCase();
     const passwordTrimmed = (password || '').trim();
     const errors = {
       username: !usernameTrimmed ? 'Username is required' : '',

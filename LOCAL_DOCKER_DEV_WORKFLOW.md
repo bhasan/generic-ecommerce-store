@@ -38,7 +38,7 @@ JWT_SECRET=replace-with-local-secret
 Typical keys:
 
 ```env
-DATABASE_URL=postgresql://backend_user:change-me@localhost:5432/smoke-station-delivery-db
+DATABASE_URL=postgresql://backend_user:change-me@db:5432/smoke-station-delivery-db
 JWT_SECRET=replace-with-local-secret
 JWT_EXPIRES_IN=24h
 PORT=3000

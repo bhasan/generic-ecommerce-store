@@ -41,6 +41,10 @@ const orderingConstraintsApi = vi.hoisted(() => ({
   getOrderingConstraints: vi.fn(),
   updateOrderingConstraints: vi.fn(),
 }));
+const landingPageSettingsApi = vi.hoisted(() => ({
+  getLandingPageSettings: vi.fn(),
+  updateLandingPageSettings: vi.fn(),
+}));
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
@@ -52,6 +56,7 @@ vi.mock('../../services/contactMessagesApi', () => contactMessagesApi);
 vi.mock('../../services/paymentSettingsApi', () => paymentSettingsApi);
 vi.mock('../../services/storeSettingsApi', () => storeSettingsApi);
 vi.mock('../../services/orderingConstraintsApi', () => orderingConstraintsApi);
+vi.mock('../../services/landingPageSettingsApi', () => landingPageSettingsApi);
 
 vi.mock('../../components/layout/AdminLayout', () => ({
   default: ({ children }) => <div>{children}</div>,
@@ -130,6 +135,18 @@ vi.mock('./components/OrderingConstraintsSection', () => ({
   ),
 }));
 
+vi.mock('./components/LandingPageSection', () => ({
+  default: ({ landingPageSettings, onSave }) => (
+    <div>
+      <div>Landing Page Section</div>
+      <div data-testid="featured-ids">{JSON.stringify(landingPageSettings?.featuredProductIds || [])}</div>
+      <button onClick={() => onSave({ featuredProductIds: [1, 2, 3] })}>
+        Save Landing Page
+      </button>
+    </div>
+  ),
+}));
+
 const baseAppState = {
   showNotification: vi.fn(),
   currentUser: { id: 1, username: 'admin-one', roles: ['ADMIN'] },
@@ -144,6 +161,72 @@ const renderDashboard = (route = '/dashboard?section=payment-settings') =>
       </Routes>
     </MemoryRouter>
   );
+
+describe('DashboardPage layout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAppMock.mockReturnValue(baseAppState);
+    usersApi.getPendingRegistrations.mockResolvedValue([]);
+    usersApi.getAllUsers.mockResolvedValue([]);
+    usersApi.getAllRoles.mockResolvedValue([]);
+    usersApi.getRejectedUsers.mockResolvedValue([]);
+    announcementsApi.getAllAnnouncements.mockResolvedValue([]);
+    contactMessagesApi.getAllMessages.mockResolvedValue([]);
+    paymentSettingsApi.getPaymentSettings.mockResolvedValue({});
+    storeSettingsApi.getStoreSettings.mockResolvedValue({});
+    orderingConstraintsApi.getOrderingConstraints.mockResolvedValue({});
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [] });
+  });
+
+  it('renders a dashboard-layout wrapper containing the sidebar and main content', async () => {
+    const { container } = renderDashboard('/dashboard?section=payment-settings');
+    await waitFor(() => expect(paymentSettingsApi.getPaymentSettings).toHaveBeenCalled());
+
+    const layout = container.querySelector('.dashboard-layout');
+    expect(layout).toBeInTheDocument();
+
+    const sidebar = layout?.querySelector('aside.dashboard-sidebar');
+    expect(sidebar).toBeInTheDocument();
+
+    const main = layout?.querySelector('.dashboard-main-content');
+    expect(main).toBeInTheDocument();
+  });
+
+  it('renders all 9 sidebar nav items', async () => {
+    renderDashboard('/dashboard');
+    await waitFor(() => expect(usersApi.getPendingRegistrations).toHaveBeenCalled());
+
+    const expectedLabels = [
+      /messages/i,
+      /pending registrations/i,
+      /announcements/i,
+      /^users$/i,
+      /rejected users/i,
+      /payment settings/i,
+      /store settings/i,
+      /ordering constraints/i,
+      /landing page/i,
+    ];
+    for (const label of expectedLabels) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it('defaults to the pending-registrations section when no query param is present', async () => {
+    renderDashboard('/dashboard');
+    await waitFor(() => expect(usersApi.getPendingRegistrations).toHaveBeenCalled());
+    expect(screen.getByText(/^Pending:/)).toBeInTheDocument();
+  });
+
+  it('marks the active sidebar item based on the current section', async () => {
+    const { container } = renderDashboard('/dashboard?section=store-settings');
+    await waitFor(() => expect(storeSettingsApi.getStoreSettings).toHaveBeenCalled());
+
+    const activeButtons = container.querySelectorAll('button.sidebar-nav-item.active');
+    expect(activeButtons).toHaveLength(1);
+    expect(activeButtons[0]).toHaveAccessibleName(/store settings/i);
+  });
+});
 
 describe('DashboardPage orchestration', () => {
   beforeEach(() => {
@@ -173,6 +256,8 @@ describe('DashboardPage orchestration', () => {
     paymentSettingsApi.updatePaymentSettings.mockResolvedValue({});
     storeSettingsApi.updateStoreSettings.mockResolvedValue({});
     orderingConstraintsApi.updateOrderingConstraints.mockResolvedValue({});
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [5, 7] });
+    landingPageSettingsApi.updateLandingPageSettings.mockResolvedValue({});
   });
 
   it('loads the section selected from the query string', async () => {
@@ -229,6 +314,27 @@ describe('DashboardPage orchestration', () => {
     expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(2);
 
     intervalSpy.mockRestore();
+  });
+
+  it('loads landing page settings when the landing-page section is selected', async () => {
+    renderDashboard('/dashboard?section=landing-page');
+
+    await waitFor(() => expect(screen.getByTestId('featured-ids')).toHaveTextContent('[5,7]'));
+    expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled();
+    expect(screen.getByText('Landing Page Section')).toBeInTheDocument();
+  });
+
+  it('saves landing page settings, shows a success notification, and refreshes shared config', async () => {
+    renderDashboard('/dashboard?section=landing-page');
+
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /save landing page/i }));
+
+    await waitFor(() => expect(landingPageSettingsApi.updateLandingPageSettings).toHaveBeenCalledWith({
+      featuredProductIds: [1, 2, 3],
+    }));
+    expect(baseAppState.showNotification).toHaveBeenCalledWith('Landing page settings updated successfully', 'success');
+    expect(baseAppState.loadConfig).toHaveBeenCalled();
   });
 
   it('shows a warning when reply persistence succeeds but email delivery fails', async () => {

@@ -1,5 +1,11 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  return null;
+}
 import { AppProvider } from './context/AppContext';
 import AnnouncementBanner from './components/common/AnnouncementBanner';
 import Navbar from './components/layout/Navbar';
@@ -22,12 +28,14 @@ import StoreCreditPage from './features/credits/StoreCreditPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import OrderHistoryPage from './features/orders/OrderHistoryPage';
 import HelpPage from './features/help/HelpPage';
+import LandingPage from './features/landing/LandingPage';
 
 function App() {
   return (
     <ErrorBoundary>
       <AppProvider>
         <TawkToWidget />
+        <ScrollToTop />
         <div className="app-wrapper">
           <AnnouncementBanner />
           <Navbar />
@@ -36,6 +44,13 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+
+              {/* Landing page — default home for authenticated users */}
+              <Route path="/" element={
+                <ProtectedRoute roles={[ROLES.CUSTOMER, ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]}>
+                  <LandingPage />
+                </ProtectedRoute>
+              } />
               
               {/* All routes below require login (no guest access) */}
               <Route path="/products" element={

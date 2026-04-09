@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './RejectUserModal.css';
 import { X, AlertTriangle } from 'lucide-react';
 
-function RejectUserModal({ isOpen, onClose, onConfirm, userName }) {
+function RejectUserModal({ isOpen, onClose, onConfirm, userName, isSubmitting = false }) {
   const [rejectionNote, setRejectionNote] = useState('');
 
   if (!isOpen) return null;
@@ -18,7 +18,7 @@ function RejectUserModal({ isOpen, onClose, onConfirm, userName }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={handleCancel}>
+    <div className="modal-overlay" onClick={isSubmitting ? undefined : handleCancel}>
       <div className="reject-user-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-header-content">
@@ -64,8 +64,8 @@ function RejectUserModal({ isOpen, onClose, onConfirm, userName }) {
           <button className="btn-modal-cancel" onClick={handleCancel}>
             Cancel
           </button>
-          <button className="btn-modal-reject" onClick={handleConfirm}>
-            Reject User
+          <button className="btn-modal-reject" onClick={handleConfirm} disabled={isSubmitting}>
+            {isSubmitting ? 'Rejecting...' : 'Reject User'}
           </button>
         </div>
       </div>

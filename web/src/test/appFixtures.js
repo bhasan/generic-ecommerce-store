@@ -38,4 +38,6 @@ export const sampleConfig = {
     address: '101 Example Ave',
     phoneNumber: '555-0100',
   },
+  featuredProductIds: [101],
+  promotions: [{ url: '/api/uploads/promo.webp', description: 'Summer sale' }],
 };

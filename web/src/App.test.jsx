@@ -1,6 +1,6 @@
 import React from 'react';
-import { describe, beforeEach, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { describe, beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 import { renderWithProviders } from './test/renderWithProviders';
@@ -32,6 +32,29 @@ vi.mock('./features/credits/StoreCreditPage', () => ({ default: () => <div>Store
 vi.mock('./features/delivery/DeliveryDriverDashboard', () => ({ default: () => <div>DeliveryDriverDashboard</div> }));
 vi.mock('./features/orders/OrderHistoryPage', () => ({ default: () => <div>OrderHistoryPage</div> }));
 vi.mock('./features/help/HelpPage', () => ({ default: () => <div>HelpPage</div> }));
+
+describe('ScrollToTop', () => {
+  let scrollToSpy;
+
+  beforeEach(() => {
+    scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    appState = {
+      currentUser: { id: 3, username: 'manager-one', roles: ['MANAGEMENT'] },
+      setReturnPath: vi.fn(),
+      notification: null,
+      closeNotification: vi.fn(),
+    };
+  });
+
+  afterEach(() => {
+    scrollToSpy.mockRestore();
+  });
+
+  it('scrolls to the top on initial render', () => {
+    renderWithProviders(<App />, { route: '/dashboard' });
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+  });
+});
 
 describe('App routes', () => {
   beforeEach(() => {

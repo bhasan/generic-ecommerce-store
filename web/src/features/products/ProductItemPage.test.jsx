@@ -46,6 +46,7 @@ const renderProductPage = () =>
 describe('ProductItemPage behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     useAppMock.mockReturnValue({
       products: [baseProduct],
       addToCart: addToCartMock,
@@ -84,6 +85,24 @@ describe('ProductItemPage behavior', () => {
 
     expect(addToCartMock).toHaveBeenCalledWith(expect.objectContaining({ id: 101, hidden: true }), 2);
     expect(screen.getByText('Save $3.00')).toBeInTheDocument();
+  });
+
+  it('scrolls to top and stores the product id in sessionStorage on mount', () => {
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    renderProductPage();
+
+    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+    expect(sessionStorage.getItem('productsScrollProductId')).toBe('101');
+
+    scrollToSpy.mockRestore();
+  });
+
+  it('navigates back to /products when the back button is clicked', () => {
+    renderProductPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /back to products/i }));
+
+    expect(screen.getByText('Products Page')).toBeInTheDocument();
   });
 
   it('opens the media modal from the main image and supports gallery navigation', () => {
