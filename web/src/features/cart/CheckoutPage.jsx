@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
+import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import SendPaymentModal from '../../components/common/SendPaymentModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
@@ -50,7 +51,7 @@ function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled, deliveryDisabled, deliveryDisabledMessage, pickupLocation, storeCashappUsername, paymentSettings, creditBalance } = useApp();
-  const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || 'PICKUP');
+  const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || DeliveryMethod.PICKUP);
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -60,12 +61,20 @@ function CheckoutPage() {
   });
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cashAppUsername, setCashAppUsername] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('EXTERNAL');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(PaymentMethod.EXTERNAL);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
   const [pendingOrderState, setPendingOrderState] = useState(null);
   const [orderCancelled, setOrderCancelled] = useState(false);
   const [errors, setErrors] = useState({});
+
+  // Derived booleans — name the conditions once so they read as intent throughout
+  const isPickup = deliveryMethod === DeliveryMethod.PICKUP;
+  const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
+  const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
+  const isInStorePayment = selectedPaymentMethod === PaymentMethod.IN_STORE;
+  const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
+  const showPaymentSelector = creditBalance > 0 || isPickup;
 
   // Pre-populate address and CashApp from user profile
   useEffect(() => {
@@ -92,13 +101,23 @@ function CheckoutPage() {
   const total = subtotal + tax;
 
   const deliveryBlocked = deliveryDisabled || (minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder);
+  const deliveryBlockedReason = deliveryDisabled
+    ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
+    : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)`;
 
   // Auto-switch to pickup if delivery becomes unavailable
   useEffect(() => {
-    if (deliveryBlocked && deliveryMethod === 'DELIVERY') {
-      setDeliveryMethod('PICKUP');
+    if (deliveryBlocked && isDelivery) {
+      setDeliveryMethod(DeliveryMethod.PICKUP);
     }
-  }, [deliveryBlocked, deliveryMethod]);
+  }, [deliveryBlocked, isDelivery]);
+
+  // Reset IN_STORE payment if user switches to delivery
+  useEffect(() => {
+    if (isDelivery && isInStorePayment) {
+      setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
+    }
+  }, [isDelivery]);
 
   // Redirect if cart is empty and we haven't just placed or cancelled an order
   useEffect(() => {
@@ -114,19 +133,16 @@ function CheckoutPage() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (deliveryMethod === 'DELIVERY') {
+    if (isDelivery) {
       if (!address.street.trim()) {
         newErrors.street = 'Street address is required';
       }
-
       if (!address.city.trim()) {
         newErrors.city = 'City is required';
       }
-
       if (!address.state.trim()) {
         newErrors.state = 'State is required';
       }
-
       if (!address.zipCode.trim()) {
         newErrors.zipCode = 'ZIP code is required';
       } else if (!/^\d{5}(-\d{4})?$/.test(address.zipCode)) {
@@ -134,7 +150,7 @@ function CheckoutPage() {
       }
     }
 
-    if (selectedPaymentMethod !== 'CREDIT' && paymentSettings?.cashapp?.enabled) {
+    if (isExternalPayment && paymentSettings?.cashapp?.enabled) {
       if (!cashAppUsername.trim()) {
         newErrors.cashAppUsername = 'CashApp username is required';
       } else if (!cashAppUsername.startsWith('$')) {
@@ -144,7 +160,7 @@ function CheckoutPage() {
       }
     }
 
-    if (selectedPaymentMethod === 'CREDIT' && creditBalance < total) {
+    if (isCreditPayment && creditBalance < total) {
       newErrors.credit = `Insufficient credit balance. You have $${creditBalance.toFixed(2)} but the order total is $${total.toFixed(2)}.`;
     }
 
@@ -189,8 +205,8 @@ function CheckoutPage() {
         paymentMethod: selectedPaymentMethod
       };
 
-      if (selectedPaymentMethod === 'CREDIT') {
-        // Credit payment is already handled — skip SendPaymentModal
+      if (!isExternalPayment) {
+        // Credit and in-store payments don't require a SendPaymentModal
         navigate('/order-success', { state: orderState });
       } else {
         // Show send-payment modal before navigating to success page
@@ -270,30 +286,21 @@ function CheckoutPage() {
               <h3>Order Review</h3>
             </div>
             <div className="order-items-review">
-              {cart.map(item => (
-                (() => {
-                  const imageSrc = getProductImageSrc(item);
-                  return (
-                    <div key={item.id} className="checkout-item">
-                      <ProductImage
-                        src={imageSrc}
-                        alt={item.name}
-                        className="checkout-item-image"
-                      />
-                      <div className="checkout-item-details">
-                        <h4>{item.name}</h4>
-                        <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
-                        <p className="checkout-item-price">
-                          ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} × {item.quantity}
-                        </p>
-                      </div>
-                      <div className="checkout-item-total">
-                        ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
-                      </div>
+              {cart.map(item => {
+                const imageSrc = getProductImageSrc(item);
+                const unitPrice = getDiscountedUnitPrice(item, item.quantity);
+                return (
+                  <div key={item.id} className="checkout-item">
+                    <ProductImage src={imageSrc} alt={item.name} className="checkout-item-image" />
+                    <div className="checkout-item-details">
+                      <h4>{item.name}</h4>
+                      <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
+                      <p className="checkout-item-price">${unitPrice.toFixed(2)} × {item.quantity}</p>
                     </div>
-                  );
-                })()
-              ))}
+                    <div className="checkout-item-total">${(unitPrice * item.quantity).toFixed(2)}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -304,37 +311,53 @@ function CheckoutPage() {
               <h3>Payment Information</h3>
             </div>
             <div className="payment-info-box">
-              {/* Store Credit Option */}
-              {creditBalance > 0 && (
+              {showPaymentSelector && (
                 <div className="form-group">
                   <label className="payment-method-select-label">Payment Method</label>
                   <div className="payment-method-options">
-                    <label className={`payment-method-option ${selectedPaymentMethod === 'CREDIT' ? 'selected' : ''}`}>
+                    {creditBalance > 0 && (
+                      <label className={`payment-method-option ${isCreditPayment ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={PaymentMethod.CREDIT}
+                          checked={isCreditPayment}
+                          onChange={() => {
+                            setSelectedPaymentMethod(PaymentMethod.CREDIT);
+                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
+                          }}
+                        />
+                        <span>Store Credit (${creditBalance.toFixed(2)} available)</span>
+                      </label>
+                    )}
+                    <label className={`payment-method-option ${isExternalPayment ? 'selected' : ''}`}>
                       <input
                         type="radio"
                         name="paymentMethod"
-                        value="CREDIT"
-                        checked={selectedPaymentMethod === 'CREDIT'}
+                        value={PaymentMethod.EXTERNAL}
+                        checked={isExternalPayment}
                         onChange={() => {
-                          setSelectedPaymentMethod('CREDIT');
-                          setErrors({ ...errors, credit: '', cashAppUsername: '' });
-                        }}
-                      />
-                      <span>Store Credit (${creditBalance.toFixed(2)} available)</span>
-                    </label>
-                    <label className={`payment-method-option ${selectedPaymentMethod === 'EXTERNAL' ? 'selected' : ''}`}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="EXTERNAL"
-                        checked={selectedPaymentMethod === 'EXTERNAL'}
-                        onChange={() => {
-                          setSelectedPaymentMethod('EXTERNAL');
+                          setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
                           setErrors({ ...errors, credit: '' });
                         }}
                       />
                       <span>Pay via CashApp / Zelle / Venmo</span>
                     </label>
+                    {isPickup && (
+                      <label className={`payment-method-option ${isInStorePayment ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={PaymentMethod.IN_STORE}
+                          checked={isInStorePayment}
+                          onChange={() => {
+                            setSelectedPaymentMethod(PaymentMethod.IN_STORE);
+                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
+                          }}
+                        />
+                        <span>Pay in Store</span>
+                      </label>
+                    )}
                   </div>
                   {errors.credit && (
                     <span className="error-message">
@@ -345,7 +368,7 @@ function CheckoutPage() {
                 </div>
               )}
 
-              {selectedPaymentMethod !== 'CREDIT' && (
+              {isExternalPayment && (
                 <>
                   {paymentSettings?.cashapp?.enabled && (
                     <div className="form-group">
@@ -406,9 +429,15 @@ function CheckoutPage() {
                 </>
               )}
 
-              {selectedPaymentMethod === 'CREDIT' && (
+              {isCreditPayment && (
                 <div className="payment-credit-confirm">
                   <p>Your store credit balance of <strong>${creditBalance.toFixed(2)}</strong> will be used to pay for this order.</p>
+                </div>
+              )}
+
+              {isInStorePayment && (
+                <div className="payment-credit-confirm">
+                  <p>You'll pay <strong>${total.toFixed(2)}</strong> when you arrive to pick up your order.</p>
                 </div>
               )}
             </div>
@@ -424,30 +453,26 @@ function CheckoutPage() {
             <div className="delivery-method-toggle delivery-method-toggle-large">
               <button
                 type="button"
-                onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
-                className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
+                onClick={() => !deliveryBlocked && setDeliveryMethod(DeliveryMethod.DELIVERY)}
+                className={`toggle-btn ${isDelivery ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
                 disabled={deliveryBlocked}
-                title={deliveryBlocked ? (deliveryDisabled ? (deliveryDisabledMessage || 'Delivery is currently unavailable.') : `Add $${(minimumDeliveryOrder - subtotal).toFixed(2)} more for delivery`) : undefined}
+                title={deliveryBlocked ? deliveryBlockedReason : undefined}
               >
                 Delivery
               </button>
               <button
                 type="button"
-                onClick={() => setDeliveryMethod('PICKUP')}
-                className={`toggle-btn ${deliveryMethod === 'PICKUP' ? 'active' : ''}`}
+                onClick={() => setDeliveryMethod(DeliveryMethod.PICKUP)}
+                className={`toggle-btn ${isPickup ? 'active' : ''}`}
               >
                 Pick Up
               </button>
             </div>
             {deliveryBlocked && (
-              <p className="delivery-blocked-hint">
-                {deliveryDisabled
-                  ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
-                  : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)`}
-              </p>
+              <p className="delivery-blocked-hint">{deliveryBlockedReason}</p>
             )}
 
-            {deliveryMethod === 'DELIVERY' ? (
+            {isDelivery ? (
               <div className="address-form">
                 <div className="form-group">
                   <label htmlFor="street">Street Address *</label>
@@ -612,11 +637,11 @@ function CheckoutPage() {
               {isSubmitting ? 'Processing...' : 'Place Order'}
             </button>
 
-            <p className="checkout-note">
-              {selectedPaymentMethod === 'CREDIT'
-                ? 'Store credit will be deducted from your balance when you place this order.'
-                : 'By placing this order, you agree to send payment via the method(s) shown above'}
-            </p>
+            <p className="checkout-note">{
+              isCreditPayment  ? 'Store credit will be deducted from your balance when you place this order.'
+              : isInStorePayment ? 'Have your payment ready when you arrive to pick up your order.'
+              : 'By placing this order, you agree to send payment via the method(s) shown above'
+            }</p>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { AppError } from '../middleware/error.middleware';
 import { OrderStatus } from '../../generated/prisma';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
 import creditService from './credit.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
@@ -460,7 +461,12 @@ export class OrderService {
    */
   async createOrder(data: CreateOrderData) {
     const { userId, items, cashAppUsername, deliveryMethod, paymentMethod } = data;
-    const isCredit = paymentMethod === 'CREDIT';
+    const isCredit = paymentMethod === PaymentMethod.CREDIT;
+
+    // IN_STORE payment is only valid for pickup orders
+    if (paymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP) {
+      throw new AppError('Pay in store is only available for pickup orders', 400);
+    }
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -539,7 +545,7 @@ export class OrderService {
 
       // Enforce minimum delivery order
       const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = await orderingConstraintsService.getOrderingConstraints();
-      if (deliveryMethod === 'DELIVERY' && minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
+      if (deliveryMethod === DeliveryMethod.DELIVERY && minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
         throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
       }
 
@@ -554,7 +560,7 @@ export class OrderService {
         tax,
         total,
         status: OrderStatus.PENDING,
-        paymentMethod: paymentMethod || 'EXTERNAL',
+        paymentMethod: paymentMethod || PaymentMethod.EXTERNAL,
       });
 
       let order: Awaited<ReturnType<typeof prisma.order.create>>;
@@ -568,8 +574,8 @@ export class OrderService {
               userId,
               total,
               status: OrderStatus.PENDING,
-              deliveryMethod: deliveryMethod || 'DELIVERY',
-              paymentMethod: 'CREDIT',
+              deliveryMethod: deliveryMethod || DeliveryMethod.DELIVERY,
+              paymentMethod: PaymentMethod.CREDIT,
             }
           });
 
@@ -600,8 +606,8 @@ export class OrderService {
             userId,
             total,
             status: OrderStatus.PENDING,
-            deliveryMethod: deliveryMethod || 'DELIVERY',
-            paymentMethod: 'EXTERNAL',
+            deliveryMethod: deliveryMethod || DeliveryMethod.DELIVERY,
+            paymentMethod: paymentMethod || PaymentMethod.EXTERNAL,
           }
         });
 
@@ -1050,7 +1056,7 @@ export class OrderService {
       });
 
       // Auto-refund credit if this was a credit-paid order
-      if (order.paymentMethod === 'CREDIT') {
+      if (order.paymentMethod === PaymentMethod.CREDIT) {
         logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
         await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
       }

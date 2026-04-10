@@ -1,4 +1,5 @@
 import { OrderStatus } from '../../generated/prisma';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const prismaMock = {
   user: {
@@ -89,10 +90,10 @@ describe('order service notifications', () => {
       userId: 5,
       total: 10.82,
       status: 'PENDING',
-      paymentMethod: 'EXTERNAL',
+      paymentMethod: PaymentMethod.EXTERNAL,
       createdAt: new Date(),
       updatedAt: new Date(),
-      deliveryMethod: 'PICKUP',
+      deliveryMethod: DeliveryMethod.PICKUP,
     });
     prismaMock.orderItem.create.mockResolvedValue({
       id: 901,
@@ -109,8 +110,8 @@ describe('order service notifications', () => {
     await service.createOrder({
       userId: 5,
       items: [{ productId: 3, quantity: 1 }],
-      deliveryMethod: 'PICKUP',
-      paymentMethod: 'EXTERNAL',
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.EXTERNAL,
     });
 
     expect(notificationEventsService.notifyOrderCreated).toHaveBeenCalledWith(77, 5);
@@ -122,7 +123,7 @@ describe('order service notifications', () => {
       userId: 5,
       status: OrderStatus.APPROVED,
       total: 10,
-      paymentMethod: 'EXTERNAL',
+      paymentMethod: PaymentMethod.EXTERNAL,
     });
     prismaMock.order.update.mockResolvedValue({
       id: 77,
