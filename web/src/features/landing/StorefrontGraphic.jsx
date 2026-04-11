@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './StorefrontGraphic.css';
 
 export default function StorefrontGraphic() {
+  const [isLoaded, setIsLoaded] = useState(false);
+
   return (
-    <div className="storefront-graphic-wrap">
-      <picture>
+    <div className={`storefront-graphic-wrap ${isLoaded ? 'is-loaded' : 'is-loading'}`}>
+      {!isLoaded && <div className="storefront-shimmer" />}
+      <picture className={isLoaded ? 'visible' : 'hidden'}>
         <source
           type="image/webp"
           srcSet="/images/storefront-1x.webp 1120w, /images/storefront-2x.webp 2240w"
@@ -17,6 +20,7 @@ export default function StorefrontGraphic() {
           height="1091"
           fetchPriority="high"
           className="storefront-graphic"
+          onLoad={() => setIsLoaded(true)}
         />
       </picture>
     </div>

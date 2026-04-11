@@ -79,9 +79,9 @@ function LandingPage() {
       {/* Hero */}
       <section className="landing-hero">
         <StorefrontGraphic />
-        <h1 className="landing-headline">What are you looking for today?</h1>
+        <h1 className="landing-headline animate-in" style={{ '--index': 1 }}>What are you looking for today?</h1>
 
-        <div className="landing-search-wrapper">
+        <div className="landing-search-wrapper animate-in" style={{ '--index': 2 }}>
           <div className="landing-search-box">
             <Search size={20} className="landing-search-icon" />
             <input
@@ -106,12 +106,13 @@ function LandingPage() {
           </div>
 
           {!query && topLevelCategories.length > 0 && (
-            <div className="landing-category-pills">
-              {topLevelCategories.map(cat => (
+            <div className="landing-category-pills animate-in" style={{ '--index': 3 }}>
+              {topLevelCategories.map((cat, idx) => (
                 <button
                   key={cat.id}
                   className="landing-category-pill"
                   onClick={() => setQuery(cat.name)}
+                  style={{ '--idx': idx }}
                 >
                   {cat.name}
                 </button>
@@ -119,7 +120,7 @@ function LandingPage() {
             </div>
           )}
 
-          <Link to="/products" className="landing-browse-btn">
+          <Link to="/products" className="landing-browse-btn animate-in" style={{ '--index': 4 }}>
             Browse All Products <ArrowRight size={16} />
           </Link>
         </div>
@@ -127,7 +128,7 @@ function LandingPage() {
 
       {/* Promotions */}
       {promotions.length > 0 && (
-        <section className="landing-promotions">
+        <section className="landing-promotions animate-in" style={{ '--index': 5 }}>
           <PromotionsCarousel slides={promotions} />
         </section>
       )}

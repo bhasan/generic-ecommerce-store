@@ -22,6 +22,7 @@ function Navbar() {
     markAllNotificationsRead,
     notificationsMuted,
     toggleNotificationsMuted,
+    orders,
   } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
@@ -267,6 +268,7 @@ function Navbar() {
                 notificationsMuted={notificationsMuted}
                 onToggleMuted={toggleNotificationsMuted}
                 canManageOrders={canManageOrders}
+                orders={orders}
               />
             )}
             {!isGuest && <CartPreview cart={cart} cartCount={cartCount} />}

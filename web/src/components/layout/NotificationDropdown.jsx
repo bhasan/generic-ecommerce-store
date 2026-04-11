@@ -21,6 +21,7 @@ function NotificationDropdown({
   notificationsMuted,
   onToggleMuted,
   canManageOrders,
+  orders = [],
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -44,6 +45,9 @@ function NotificationDropdown({
   const staffTotalCount = canManageOrders ? totalOrders + pendingRegsCount : 0;
   const totalCount = unreadCount + staffTotalCount;
   const hasInboxNotifications = notifications.length > 0;
+  const readyForPickupOrders = (orders || []).filter(order => order.status === 'READY_FOR_PICKUP');
+  const hasPickupNotifications = readyForPickupOrders.length > 0;
+  
   const hasOperationalQueue = canManageOrders && (
     orderEntries.length > 0 || (pendingRegistrations > 0 && canAccessDashboard)
   );
@@ -94,7 +98,7 @@ function NotificationDropdown({
         aria-label="Notifications"
       >
         <Bell size={20} />
-        {totalCount > 0 && <span className="notification-badge">{totalCount}</span>}
+        {(totalCount > 0 || hasPickupNotifications) && <span className="notification-badge">{totalCount}</span>}
       </button>
       {open && (
         <div className="notification-panel">
@@ -112,10 +116,34 @@ function NotificationDropdown({
             </div>
           </div>
 
-          {notifications.length === 0 && staffTotalCount === 0 ? (
+          {notifications.length === 0 && staffTotalCount === 0 && !hasPickupNotifications ? (
             <div className="notification-empty">No notifications</div>
           ) : (
             <div className="notification-panel-body">
+              {hasPickupNotifications && (
+                <div className="notification-section notification-section-pickup">
+                  <div className="notification-section-label pickup-blink">Action Required</div>
+                  <button
+                    type="button"
+                    className="notification-item notification-item-pickup"
+                    onClick={() => handleNavigate('/orders')}
+                  >
+                    <span className="notification-item-main">
+                      <span className="notification-item-pickup-icon">
+                        <Bell size={18} />
+                      </span>
+                      <span className="notification-item-copy">
+                        <span className="notification-item-title">Order Ready for Pickup!</span>
+                        <span className="notification-item-message">
+                          You have {readyForPickupOrders.length} order{readyForPickupOrders.length > 1 ? 's' : ''} waiting for you at the store.
+                        </span>
+                      </span>
+                    </span>
+                  </button>
+                  <div className="notification-divider" />
+                </div>
+              )}
+
               {hasOperationalQueue && (
                 <div className="notification-section notification-section-queue">
                   <div className="notification-section-label">Operational Queue</div>

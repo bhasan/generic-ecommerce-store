@@ -14,6 +14,7 @@ vi.mock('./context/AppContext', () => ({
 }));
 
 vi.mock('./components/common/AnnouncementBanner', () => ({ default: () => <div>AnnouncementBanner</div> }));
+vi.mock('./components/common/OrderPickupNotice', () => ({ default: () => <div>OrderPickupNotice</div> }));
 vi.mock('./components/layout/Navbar', () => ({ default: () => <div>Navbar</div> }));
 vi.mock('./components/common/Notification', () => ({ default: () => <div>Notification</div> }));
 vi.mock('./components/common/ErrorBoundary', () => ({ default: ({ children }) => <>{children}</> }));
@@ -53,6 +54,11 @@ describe('App routing and global behaviors', () => {
   it('scrolls to the top on initial render', () => {
     renderWithProviders(<App />, { route: '/dashboard' });
     expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+  });
+
+  it('renders the order pickup notice globally', () => {
+    renderWithProviders(<App />);
+    expect(screen.getByText('OrderPickupNotice')).toBeInTheDocument();
   });
 
   it('redirects guests to login for protected routes and stores the return path', () => {
