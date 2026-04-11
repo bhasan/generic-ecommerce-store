@@ -381,16 +381,15 @@ export function AppProvider({ children }) {
     loadConfig();
   }, [loadConfig]);
 
-  // Load orders function (can be called manually)
-  // Loads orders for authenticated users only and clears orders for signed-out sessions to avoid stale data.
-  const loadOrders = useCallback(async () => {
+  // Loads orders for authenticated users only, clears signed-out state, and supports silent background refreshes.
+  const loadOrders = useCallback(async (silent = false) => {
     if (!isAuthenticated) {
       setOrders([]);
       return;
     }
 
     try {
-      setIsLoadingOrders(true);
+      if (!silent) setIsLoadingOrders(true);
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
     } catch (error) {
@@ -398,7 +397,7 @@ export function AppProvider({ children }) {
       // Don't show error notification on initial load, just log it
       // Orders will remain empty array
     } finally {
-      setIsLoadingOrders(false);
+      if (!silent) setIsLoadingOrders(false);
     }
   }, [isAuthenticated]);
 

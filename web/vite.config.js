@@ -5,6 +5,17 @@ const devProxyTarget = process.env.VITE_DEV_PROXY_TARGET || 'http://localhost:30
 
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        maxForks: 1,
+        minForks: 1,
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {

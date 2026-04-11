@@ -252,13 +252,13 @@ describe('OrdersPage — customer role', () => {
     expect(screen.queryByRole('heading', { name: 'Orders' })).not.toBeInTheDocument();
   });
 
-  it('only shows the kanban card belonging to the logged-in customer', () => {
+  it('only shows the order belonging to the logged-in customer', () => {
     renderOrdersPage();
 
-    // Order 701 belongs to userId 9 (this customer) — should appear
-    expect(screen.getByText('#701')).toBeInTheDocument();
+    // Order 701 belongs to userId 9 (this customer) — should appear in the list view
+    expect(screen.getByText('Order #701')).toBeInTheDocument();
     // Order 702 belongs to userId 11 (different customer) — should not appear
-    expect(screen.queryByText('#702')).not.toBeInTheDocument();
+    expect(screen.queryByText('Order #702')).not.toBeInTheDocument();
   });
 
   it('does not render any quick-action buttons for customers', () => {
