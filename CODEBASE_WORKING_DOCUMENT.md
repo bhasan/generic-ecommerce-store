@@ -82,6 +82,16 @@ The following merge-sensitive behaviors were rechecked and should be preserved i
     - `thumbnail` may be `null`
     - `images` may be `[]`
     - `image` should only be sent when `images[0]` is a real string URL
+- [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\context\AppContext.jsx`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\context\AppContext.jsx) now intentionally persists the cart in `localStorage['cartData']`.
+  - Refreshing the browser should no longer empty the cart for guests or authenticated users.
+  - The persisted cart should still clear on successful checkout, explicit logout, forced unauthorized logout, and order-success cleanup.
+- Product media upload behavior should stay aligned between frontend and backend.
+  - Frontend management flows now intentionally reject unsupported media types before upload instead of allowing broad `image/*`.
+  - Current allowed types are `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `video/mp4`, and `video/webm`.
+  - Do not reintroduce silent acceptance of unsupported formats such as `HEIC/HEIF` unless real conversion support is added.
+- Product image save logic should keep using one canonical normalized gallery list on save.
+  - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\features\products\ManageProductsPanel.jsx`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\features\products\ManageProductsPanel.jsx) now derives both `images` and primary `image` from the same normalized array.
+  - Placeholder empty rows are useful in form state, but they must not leak into saved product payloads.
 - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\order.service.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\order.service.ts) should not expose `user.cashapp` in order payloads unless there is a clearly approved operational requirement.
   - Order detail and workflow screens should use generic external-payment labels by default.
   - Re-adding payment handles to order payloads should be treated as a privacy decision, not a convenience refactor.
@@ -92,6 +102,18 @@ The following merge-sensitive behaviors were rechecked and should be preserved i
   - delivery eligibility and address snapshot behavior
   - printer/manual receipt flows
   - `IN_STORE` payment support from `develop`
+- Prisma schema changes must ship with committed SQL migrations.
+  - A production failure was traced to code using `products.vipOnly` and pickup statuses before migration history covered them.
+  - Current repair migration is [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\prisma\migrations\20260411170935_add_vip_only_and_pickup_statuses\migration.sql`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\prisma\migrations\20260411170935_add_vip_only_and_pickup_statuses\migration.sql).
+  - Future Prisma field or enum additions should not be considered complete until the migration file is committed, the Prisma client is regenerated, and the backend image/runtime is rebuilt.
+- Root [`.gitignore`](D:\projects\smoke-station-delivery\smoke-station-delivery\.gitignore) must keep allowing Prisma migration SQL files to be tracked.
+  - The repo still ignores generic `*.sql`, so the explicit exception for `backend/prisma/migrations/**/*.sql` is required.
+  - If that exception is removed, new migrations can be created locally and silently fail to enter version control.
+- Delivery verification fallback defaults were intentionally softened for production resilience.
+  - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\orderingConstraints.service.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\orderingConstraints.service.ts) now defaults `offlineZipFallbackEnabled` to `true`.
+  - The default offline ZIP allowlist now starts with the store ZIP `77083` so delivery checks have a safe fallback when live geocoding is unavailable.
+- Customer-facing delivery verification copy was simplified on purpose.
+  - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\deliveryEligibility.service.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\deliveryEligibility.service.ts) should keep human-readable messages rather than internal/provider-style error wording.
 - Full verification that last passed on this merged branch:
   - backend tests: `139/139`
   - web tests: `264/264`
