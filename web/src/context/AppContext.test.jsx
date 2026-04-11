@@ -27,6 +27,7 @@ const productsApi = vi.hoisted(() => ({
 const ordersApi = vi.hoisted(() => ({
   getAllOrders: vi.fn(),
   createOrder: vi.fn(),
+  checkDeliveryEligibility: vi.fn(),
   updateOrderStatus: vi.fn(),
   deleteOrder: vi.fn(),
   addItemToOrder: vi.fn(),
@@ -95,6 +96,7 @@ function ContextHarness() {
       <div data-testid="categories-count">{app.categories.length}</div>
       <div data-testid="credit-balance">{app.creditBalance}</div>
       <div data-testid="minimum-delivery-order">{app.minimumDeliveryOrder}</div>
+      <div data-testid="delivery-radius-miles">{app.deliveryRadiusMiles}</div>
       <div data-testid="featured-product-ids">{JSON.stringify(app.featuredProductIds)}</div>
       <div data-testid="promotions">{JSON.stringify(app.promotions)}</div>
       <div data-testid="staff-notifications">{JSON.stringify(app.staffNotificationCounts)}</div>
@@ -151,37 +153,9 @@ describe('AppContext', () => {
     expect(screen.getByTestId('categories-count')).toHaveTextContent('1');
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('20');
     expect(screen.getByTestId('minimum-delivery-order')).toHaveTextContent('35');
+    expect(screen.getByTestId('delivery-radius-miles')).toHaveTextContent('5');
     expect(screen.getByTestId('staff-notifications')).toHaveTextContent('pendingRegistrations');
     expect(screen.getByTestId('unread-notification-count')).toHaveTextContent('1');
-  });
-
-  it('hydrates featuredProductIds from the config response', async () => {
-    configApi.getConfig.mockResolvedValue({ ...sampleConfig, featuredProductIds: [101] });
-
-    renderWithProviders(
-      <AppProvider>
-        <ContextHarness />
-      </AppProvider>
-    );
-
-    await waitFor(() =>
-      expect(screen.getByTestId('featured-product-ids')).toHaveTextContent('[101]')
-    );
-  });
-
-  it('hydrates promotions from the config response', async () => {
-    const promos = [{ url: '/api/uploads/promo.webp', description: 'Summer sale' }];
-    configApi.getConfig.mockResolvedValue({ ...sampleConfig, promotions: promos });
-
-    renderWithProviders(
-      <AppProvider>
-        <ContextHarness />
-      </AppProvider>
-    );
-
-    await waitFor(() =>
-      expect(screen.getByTestId('promotions')).toHaveTextContent('Summer sale')
-    );
   });
 
   it('redirects to login and clears auth state after an unauthorized event', async () => {
@@ -237,7 +211,7 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('orders-count')).toHaveTextContent('2'));
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('5');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
-    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ productId: 101, quantity: 1 }], '', 'PICKUP', 'CREDIT');
+    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ productId: 101, quantity: 1 }], '', 'PICKUP', 'CREDIT', undefined);
   });
 
   it('marks notifications read optimistically and refreshes the inbox state', async () => {

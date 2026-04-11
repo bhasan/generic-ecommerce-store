@@ -20,7 +20,8 @@ import {
   User,
   CreditCard,
   Phone,
-  MapPin
+  MapPin,
+  Printer
 } from 'lucide-react';
 import './OrderDetailPanel.css';
 import { OrderStatus } from '../../constants/orderStatuses';
@@ -54,6 +55,7 @@ function OrderDetailPanel({
   onVoidItem,
   onDeleteItem,
   onDeleteOrder,
+  onPrintReceipt,
   showConfirmDialog,
   getProductName,
   getStatusIcon,
@@ -69,6 +71,15 @@ function OrderDetailPanel({
   const nextActions = canModifyOrders ? getNextStatusActions(order) : [];
   const canEdit = canModifyOrders && order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.PICKED_UP;
   const isAddingItem = addingItemToOrderId === order.id;
+  const deliveryAddress = order.deliveryAddress || order.user?.address;
+  const deliveryCheckSummary = [
+    order.deliveryDistanceMiles !== null && order.deliveryDistanceMiles !== undefined
+      ? `${order.deliveryDistanceMiles.toFixed(2)} miles`
+      : null,
+    order.deliveryEligibilitySource === 'ZIP_FALLBACK'
+      ? 'ZIP fallback'
+      : null,
+  ].filter(Boolean).join(' | ');
 
   return (
     <>
@@ -189,11 +200,18 @@ function OrderDetailPanel({
                     <span className="customer-info-value">{order.user.phoneNumber}</span>
                   </div>
                 )}
-                {order.user.address && (
+                {deliveryAddress && (
                   <div className="customer-info-row">
                     <MapPin size={14} className="customer-info-icon" />
                     <span className="customer-info-label">Address:</span>
-                    <span className="customer-info-value">{order.user.address}</span>
+                    <span className="customer-info-value">{deliveryAddress}</span>
+                  </div>
+                )}
+                {deliveryCheckSummary && (
+                  <div className="customer-info-row">
+                    <MapPin size={14} className="customer-info-icon" />
+                    <span className="customer-info-label">Delivery check:</span>
+                    <span className="customer-info-value">{deliveryCheckSummary}</span>
                   </div>
                 )}
               </div>
@@ -305,6 +323,17 @@ function OrderDetailPanel({
               <HelpCircle size={16} />
               Need Help?
             </button>
+
+            {canModifyOrders && (
+              <button
+                type="button"
+                onClick={() => onPrintReceipt(order.id)}
+                className="btn-order-help btn-order-print"
+              >
+                <Printer size={16} />
+                Print Receipt
+              </button>
+            )}
 
             {canEdit && (
               <div className="order-edit-section">

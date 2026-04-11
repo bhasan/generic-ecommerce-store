@@ -1,3 +1,4 @@
+/* TODO(mobile): Admin product management needs a dedicated phone/tablet hardening pass. Audit header actions, list/grid cards, and modal-triggered editing for narrow widths. */
 .manage-products-container {
   max-width: 1400px;
   margin: 0 auto;
@@ -395,6 +396,7 @@
   align-items: center;
 }
 
+/* TODO(mobile): Upload/library controls are horizontally dense. Stack buttons and reduce overflow pressure below tablet widths. */
 .image-input-group {
   display: flex;
   align-items: center;

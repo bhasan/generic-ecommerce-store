@@ -78,6 +78,7 @@ function OrdersPage() {
     loadOrders,
     updateOrderStatus,
     deleteOrder,
+    printOrderReceipt,
     addItemToOrder,
     voidOrderItem,
     deleteOrderItem,
@@ -719,6 +720,7 @@ function OrdersPage() {
           onVoidItem={handleVoidItem}
           onDeleteItem={handleDeleteItem}
           onDeleteOrder={deleteOrder}
+          onPrintReceipt={printOrderReceipt}
           showConfirmDialog={showConfirmDialog}
           getProductName={getProductName}
           getStatusIcon={getStatusIcon}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
@@ -8,49 +8,42 @@ import SendPaymentModal from '../../components/common/SendPaymentModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
+import {
+  formatDeliveryAddress,
+  isDeliveryAddressComplete,
+  normalizeDeliveryAddress,
+  parseAddress,
+} from '../../utils/address';
 
-// Helper to parse address string into components
-const parseAddress = (addressStr) => {
-  if (!addressStr) return { street: '', apartment: '', city: '', state: 'TX', zipCode: '' };
+// Creates the empty delivery-check state used before validation starts or after it is reset.
+const createInitialEligibilityState = () => ({
+  status: 'idle',
+  result: null,
+  error: '',
+});
 
-  // Try to parse address like "123 Main St, Apt 4B, City, TX 12345"
-  const parts = addressStr.split(',').map(p => p.trim());
-
-  if (parts.length >= 3) {
-    // Check if second part looks like an apartment
-    const hasApt = parts[1]?.toLowerCase().includes('apt') || parts[1]?.toLowerCase().includes('suite');
-
-    if (hasApt && parts.length >= 4) {
-      // Format: street, apt, city, state zip
-      const stateZip = parts[3]?.split(' ') || [];
-      return {
-        street: parts[0] || '',
-        apartment: parts[1]?.replace(/^(apt|suite)\s*/i, '') || '',
-        city: parts[2] || '',
-        state: stateZip[0] || 'TX',
-        zipCode: stateZip[1] || ''
-      };
-    } else {
-      // Format: street, city, state zip
-      const stateZip = parts[2]?.split(' ') || [];
-      return {
-        street: parts[0] || '',
-        apartment: '',
-        city: parts[1] || '',
-        state: stateZip[0] || 'TX',
-        zipCode: stateZip[1] || ''
-      };
-    }
-  }
-
-  // Fallback - just put everything in street
-  return { street: addressStr, apartment: '', city: '', state: 'TX', zipCode: '' };
-};
-
+// Drives checkout UI for pickup and delivery, including delivery prechecks and external-payment recovery.
 function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cart, currentUser, checkout, deleteOrder, restoreCart, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled, deliveryDisabled, deliveryDisabledMessage, pickupLocation, storeCashappUsername, paymentSettings, creditBalance } = useApp();
+  const {
+    cart,
+    currentUser,
+    checkout,
+    checkDeliveryEligibility,
+    deleteOrder,
+    restoreCart,
+    taxRate,
+    minimumDeliveryOrder,
+    minimumDeliveryOrderEnabled,
+    deliveryDisabled,
+    deliveryDisabledMessage,
+    deliveryRadiusMiles,
+    pickupLocation,
+    storeCashappUsername,
+    paymentSettings,
+    creditBalance,
+  } = useApp();
   const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || DeliveryMethod.PICKUP);
   const [address, setAddress] = useState({
     street: '',
@@ -66,9 +59,13 @@ function CheckoutPage() {
   const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
   const [pendingOrderState, setPendingOrderState] = useState(null);
   const [orderCancelled, setOrderCancelled] = useState(false);
+  const [orderCompleted, setOrderCompleted] = useState(false);
   const [errors, setErrors] = useState({});
+  const [deliveryEligibility, setDeliveryEligibility] = useState(createInitialEligibilityState);
+  const latestEligibilityRequestRef = useRef(0);
+  const prefilledAddressKeyRef = useRef('');
+  const hasUsedImmediatePrefillCheckRef = useRef(false);
 
-  // Derived booleans — name the conditions once so they read as intent throughout
   const isPickup = deliveryMethod === DeliveryMethod.PICKUP;
   const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
   const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
@@ -76,23 +73,24 @@ function CheckoutPage() {
   const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
   const showPaymentSelector = creditBalance > 0 || isPickup;
 
-  // Pre-populate address and CashApp from user profile
   useEffect(() => {
-    if (currentUser) {
-      // Parse and set address from user profile
-      if (currentUser.address) {
-        const parsedAddress = parseAddress(currentUser.address);
-        setAddress(parsedAddress);
-      }
+    if (!currentUser) return;
 
-      // Set CashApp username from user profile
-      if (currentUser.cashapp) {
-        setCashAppUsername(currentUser.cashapp);
-      }
+    if (currentUser.address) {
+      const parsedAddress = parseAddress(currentUser.address);
+      setAddress(parsedAddress);
+      prefilledAddressKeyRef.current = JSON.stringify(normalizeDeliveryAddress(parsedAddress));
+      hasUsedImmediatePrefillCheckRef.current = false;
+    } else {
+      prefilledAddressKeyRef.current = '';
+      hasUsedImmediatePrefillCheckRef.current = false;
+    }
+
+    if (currentUser.cashapp) {
+      setCashAppUsername(currentUser.cashapp);
     }
   }, [currentUser]);
 
-  // Calculate totals
   const subtotal = cart.reduce((sum, item) => {
     const unitPrice = getDiscountedUnitPrice(item, item.quantity);
     return sum + (unitPrice * item.quantity);
@@ -100,53 +98,139 @@ function CheckoutPage() {
   const tax = subtotal * taxRate;
   const total = subtotal + tax;
 
-  const deliveryBlocked = deliveryDisabled || (minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder);
+  const normalizedAddress = normalizeDeliveryAddress(address);
+  const normalizedAddressKey = JSON.stringify(normalizedAddress);
+  const deliveryAddressComplete = isDeliveryAddressComplete(normalizedAddress);
+  const deliveryMinimumBlocked = minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder;
+  const deliveryBlocked = deliveryDisabled || deliveryMinimumBlocked;
   const deliveryBlockedReason = deliveryDisabled
     ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
     : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)`;
+  const deliverySubmitBlocked = isDelivery && (
+    deliveryBlocked
+    || !deliveryAddressComplete
+    || deliveryEligibility.status === 'checking'
+    || !deliveryEligibility.result?.deliverable
+  );
 
-  // Auto-switch to pickup if delivery becomes unavailable
+  useEffect(() => {
+    if (!isDelivery) {
+      latestEligibilityRequestRef.current += 1;
+      setDeliveryEligibility(createInitialEligibilityState());
+      return;
+    }
+
+    if (!deliveryAddressComplete) {
+      latestEligibilityRequestRef.current += 1;
+      setDeliveryEligibility(createInitialEligibilityState());
+      return;
+    }
+
+    const requestId = latestEligibilityRequestRef.current + 1;
+    latestEligibilityRequestRef.current = requestId;
+    const shouldRunImmediately = (
+      normalizedAddressKey === prefilledAddressKeyRef.current
+      && !hasUsedImmediatePrefillCheckRef.current
+    );
+
+    const timeoutId = setTimeout(async () => {
+      setDeliveryEligibility((prev) => ({
+        ...prev,
+        status: 'checking',
+        error: '',
+      }));
+
+      try {
+        const result = await checkDeliveryEligibility(normalizedAddress);
+        if (latestEligibilityRequestRef.current !== requestId) {
+          return;
+        }
+
+        if (shouldRunImmediately) {
+          hasUsedImmediatePrefillCheckRef.current = true;
+        }
+
+        setDeliveryEligibility({
+          status: 'ready',
+          result,
+          error: '',
+        });
+      } catch (error) {
+        if (latestEligibilityRequestRef.current !== requestId) {
+          return;
+        }
+
+        setDeliveryEligibility({
+          status: 'error',
+          result: null,
+          error: error.message || 'Delivery verification failed. Please try again.',
+        });
+      }
+    }, shouldRunImmediately ? 0 : 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [
+    checkDeliveryEligibility,
+    deliveryAddressComplete,
+    isDelivery,
+    normalizedAddressKey,
+  ]);
+
   useEffect(() => {
     if (deliveryBlocked && isDelivery) {
       setDeliveryMethod(DeliveryMethod.PICKUP);
     }
   }, [deliveryBlocked, isDelivery]);
 
-  // Reset IN_STORE payment if user switches to delivery
   useEffect(() => {
     if (isDelivery && isInStorePayment) {
       setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
     }
-  }, [isDelivery]);
+  }, [isDelivery, isInStorePayment]);
 
-  // Redirect if cart is empty and we haven't just placed or cancelled an order
   useEffect(() => {
-    if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled) {
+    if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted) {
       navigate('/cart');
     }
-  }, [cart.length, isSubmitting, pendingOrderState, showSendPaymentModal, orderCancelled, navigate]);
+  }, [cart.length, isSubmitting, pendingOrderState, showSendPaymentModal, orderCancelled, orderCompleted, navigate]);
 
-  if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled) {
+  if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted) {
     return null;
   }
 
+  // Clears one address-field error and any derived delivery-eligibility error after user edits that field.
+  const clearAddressError = (fieldName) => {
+    setErrors((prev) => ({
+      ...prev,
+      [fieldName]: '',
+      deliveryEligibility: '',
+    }));
+  };
+
+  // Validates address, payment, delivery eligibility, and credit rules before any order request is submitted.
   const validateForm = () => {
     const newErrors = {};
 
     if (isDelivery) {
-      if (!address.street.trim()) {
-        newErrors.street = 'Street address is required';
-      }
-      if (!address.city.trim()) {
-        newErrors.city = 'City is required';
-      }
-      if (!address.state.trim()) {
-        newErrors.state = 'State is required';
-      }
-      if (!address.zipCode.trim()) {
+      if (!normalizedAddress.street) newErrors.street = 'Street address is required';
+      if (!normalizedAddress.city) newErrors.city = 'City is required';
+      if (!normalizedAddress.state) newErrors.state = 'State is required';
+      if (!normalizedAddress.zipCode) {
         newErrors.zipCode = 'ZIP code is required';
-      } else if (!/^\d{5}(-\d{4})?$/.test(address.zipCode)) {
-        newErrors.zipCode = 'Invalid ZIP code format (e.g., 12345 or 12345-6789)';
+      } else if (!/^\d{5}$/.test(normalizedAddress.zipCode)) {
+        newErrors.zipCode = 'ZIP code must contain 5 digits';
+      }
+
+      if (deliveryMinimumBlocked) {
+        newErrors.deliveryEligibility = `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum subtotal.`;
+      } else if (!deliveryAddressComplete) {
+        newErrors.deliveryEligibility = 'Complete the delivery address so we can verify eligibility.';
+      } else if (deliveryEligibility.status === 'checking') {
+        newErrors.deliveryEligibility = 'Delivery eligibility is still being checked.';
+      } else if (deliveryEligibility.status === 'error') {
+        newErrors.deliveryEligibility = deliveryEligibility.error;
+      } else if (!deliveryEligibility.result?.deliverable) {
+        newErrors.deliveryEligibility = deliveryEligibility.result?.message || 'Delivery is not available for this address.';
       }
     }
 
@@ -168,34 +252,29 @@ function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Places the order, preserves a restorable cart snapshot, and branches correctly for external-payment flows.
   const handlePlaceOrder = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
-    // Prevent duplicate submissions
     setIsSubmitting(true);
 
     try {
-      // Capture cart items before checkout clears them
       const itemsForSuccess = [...cart];
-
-      // Call checkout function which creates order via API
-      const newOrder = await checkout(cashAppUsername, deliveryMethod, selectedPaymentMethod);
-
-      // Format full address for display
-      const fullAddress = [
-        address.street,
-        address.apartment ? `Apt ${address.apartment}` : '',
-        `${address.city}, ${address.state} ${address.zipCode}`
-      ].filter(Boolean).join('\n');
+      const newOrder = await checkout(
+        cashAppUsername,
+        deliveryMethod,
+        selectedPaymentMethod,
+        isDelivery ? normalizedAddress : undefined
+      );
 
       const orderState = {
         order: newOrder,
         deliveryMethod,
-        deliveryAddress: deliveryMethod === DeliveryMethod.DELIVERY ? fullAddress : 'Store Pickup',
-        pickupLocation: deliveryMethod === DeliveryMethod.PICKUP ? pickupLocation : null,
-        addressDetails: address,
+        deliveryAddress: isDelivery
+          ? (newOrder.deliveryAddress || formatDeliveryAddress(normalizedAddress))
+          : 'Store Pickup',
+        pickupLocation: isPickup ? pickupLocation : null,
+        addressDetails: normalizedAddress,
         specialInstructions,
         cashAppUsername,
         subtotal,
@@ -206,21 +285,21 @@ function CheckoutPage() {
       };
 
       if (!isExternalPayment) {
-        // Credit and in-store payments don't require a SendPaymentModal
         navigate('/order-success', { state: orderState });
       } else {
-        // Show send-payment modal before navigating to success page
         setPendingOrderState(orderState);
         setShowSendPaymentModal(true);
       }
-    } catch (error) {
-      // Error is already handled in checkout function
+    } catch {
+      // Error is already handled in AppContext.
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Finalizes the external-payment handoff after the user confirms they sent payment.
   const handleSendPaymentDone = () => {
+    setOrderCompleted(true);
     setShowSendPaymentModal(false);
     if (pendingOrderState) {
       navigate('/order-success', { state: pendingOrderState });
@@ -228,21 +307,75 @@ function CheckoutPage() {
     }
   };
 
+  // Cancels the pending external-payment order and restores the cart even if deleteOrder fails.
   const handleSendPaymentCancel = async () => {
     setOrderCancelled(true);
     try {
       if (pendingOrderState?.order?.id) {
         await deleteOrder(pendingOrderState.order.id, { silent: true });
       }
+    } catch {
+      // Cancellation should still close the modal and restore the cart even if cleanup fails.
+    } finally {
       if (pendingOrderState?.items?.length) {
         restoreCart(pendingOrderState.items);
       }
-    } catch {
-      // If deletion fails, still close the modal so the user isn't stuck
-    } finally {
       setShowSendPaymentModal(false);
       setPendingOrderState(null);
     }
+  };
+
+  // Chooses the most specific delivery status message so disabled-delivery reasons beat generic minimum-order text.
+  const renderDeliveryEligibilityMessage = () => {
+    if (!isDelivery) return null;
+
+    if (deliveryMinimumBlocked) {
+      return (
+        <p className="delivery-blocked-hint">
+          Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum (${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)
+        </p>
+      );
+    }
+
+    if (!deliveryAddressComplete) {
+      return (
+        <p className="delivery-check-hint">
+          Enter your full address to check whether it is within our {deliveryRadiusMiles.toFixed(2)} mile delivery area.
+        </p>
+      );
+    }
+
+    if (deliveryEligibility.status === 'checking') {
+      return <p className="delivery-check-hint">Checking delivery eligibility for this address...</p>;
+    }
+
+    if (deliveryEligibility.status === 'error') {
+      return (
+        <div className="delivery-eligibility-banner delivery-eligibility-banner-warning">
+          <AlertCircle size={16} />
+          <span>{deliveryEligibility.error}</span>
+        </div>
+      );
+    }
+
+    if (!deliveryEligibility.result) {
+      return null;
+    }
+
+    const toneClass = deliveryEligibility.result.deliverable
+      ? (deliveryEligibility.result.deliveryZoneSource === 'ZIP_FALLBACK'
+        ? 'delivery-eligibility-banner-fallback'
+        : 'delivery-eligibility-banner-success')
+      : (deliveryEligibility.result.deliveryZoneStatus === 'UNVERIFIED'
+        ? 'delivery-eligibility-banner-warning'
+        : 'delivery-eligibility-banner-error');
+
+    return (
+      <div className={`delivery-eligibility-banner ${toneClass}`}>
+        <AlertCircle size={16} />
+        <span>{deliveryEligibility.result.message}</span>
+      </div>
+    );
   };
 
   return (
@@ -278,7 +411,6 @@ function CheckoutPage() {
       />
 
       <div className="checkout-content">
-        {/* Order Review Section */}
         <div className="checkout-main">
           <div className="checkout-section surface-card">
             <div className="section-header">
@@ -286,7 +418,7 @@ function CheckoutPage() {
               <h3>Order Review</h3>
             </div>
             <div className="order-items-review">
-              {cart.map(item => {
+              {cart.map((item) => {
                 const imageSrc = getProductImageSrc(item);
                 const unitPrice = getDiscountedUnitPrice(item, item.quantity);
                 return (
@@ -295,7 +427,7 @@ function CheckoutPage() {
                     <div className="checkout-item-details">
                       <h4>{item.name}</h4>
                       <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
-                      <p className="checkout-item-price">${unitPrice.toFixed(2)} × {item.quantity}</p>
+                      <p className="checkout-item-price">${unitPrice.toFixed(2)} x {item.quantity}</p>
                     </div>
                     <div className="checkout-item-total">${(unitPrice * item.quantity).toFixed(2)}</div>
                   </div>
@@ -304,7 +436,6 @@ function CheckoutPage() {
             </div>
           </div>
 
-          {/* Payment Section */}
           <div className="checkout-section surface-card">
             <div className="section-header">
               <DollarSign size={20} />
@@ -443,7 +574,6 @@ function CheckoutPage() {
             </div>
           </div>
 
-          {/* Delivery Address Section */}
           <div className="checkout-section surface-card">
             <div className="section-header">
               <MapPin size={20} />
@@ -482,9 +612,7 @@ function CheckoutPage() {
                     value={address.street}
                     onChange={(e) => {
                       setAddress({ ...address, street: e.target.value });
-                      if (errors.street) {
-                        setErrors({ ...errors, street: '' });
-                      }
+                      clearAddressError('street');
                     }}
                     placeholder="123 Main Street"
                     className={`form-input ${errors.street ? 'form-error' : ''}`}
@@ -503,7 +631,10 @@ function CheckoutPage() {
                     id="apartment"
                     type="text"
                     value={address.apartment}
-                    onChange={(e) => setAddress({ ...address, apartment: e.target.value })}
+                    onChange={(e) => {
+                      setAddress({ ...address, apartment: e.target.value });
+                      setErrors((prev) => ({ ...prev, deliveryEligibility: '' }));
+                    }}
                     placeholder="Apt 4B"
                     className="form-input"
                   />
@@ -518,11 +649,9 @@ function CheckoutPage() {
                       value={address.city}
                       onChange={(e) => {
                         setAddress({ ...address, city: e.target.value });
-                        if (errors.city) {
-                          setErrors({ ...errors, city: '' });
-                        }
+                        clearAddressError('city');
                       }}
-                      placeholder="New York"
+                      placeholder="Houston"
                       className={`form-input ${errors.city ? 'form-error' : ''}`}
                     />
                     {errors.city && (
@@ -540,9 +669,7 @@ function CheckoutPage() {
                       value={address.state}
                       onChange={(e) => {
                         setAddress({ ...address, state: e.target.value });
-                        if (errors.state) {
-                          setErrors({ ...errors, state: '' });
-                        }
+                        clearAddressError('state');
                       }}
                       className={`form-input ${errors.state ? 'form-error' : ''}`}
                     >
@@ -564,11 +691,9 @@ function CheckoutPage() {
                       value={address.zipCode}
                       onChange={(e) => {
                         setAddress({ ...address, zipCode: e.target.value });
-                        if (errors.zipCode) {
-                          setErrors({ ...errors, zipCode: '' });
-                        }
+                        clearAddressError('zipCode');
                       }}
-                      placeholder="10001"
+                      placeholder="77083"
                       className={`form-input ${errors.zipCode ? 'form-error' : ''}`}
                     />
                     {errors.zipCode && (
@@ -579,6 +704,15 @@ function CheckoutPage() {
                     )}
                   </div>
                 </div>
+
+                {renderDeliveryEligibilityMessage()}
+
+                {errors.deliveryEligibility && (
+                  <span className="error-message">
+                    <AlertCircle size={14} />
+                    {errors.deliveryEligibility}
+                  </span>
+                )}
               </div>
             ) : (
               <div className="pickup-location-info">
@@ -589,7 +723,6 @@ function CheckoutPage() {
             )}
           </div>
 
-          {/* Special Instructions Section */}
           <div className="checkout-section surface-card">
             <div className="section-header">
               <FileText size={20} />
@@ -608,7 +741,6 @@ function CheckoutPage() {
           </div>
         </div>
 
-        {/* Order Summary Sidebar */}
         <div className="checkout-sidebar">
           <div className="checkout-summary surface-card-accent">
             <h3 className="summary-title">Order Summary</h3>
@@ -631,16 +763,20 @@ function CheckoutPage() {
 
             <button
               onClick={handlePlaceOrder}
-              disabled={isSubmitting}
+              disabled={isSubmitting || deliverySubmitBlocked}
               className="btn-place-order"
             >
-              {isSubmitting ? 'Processing...' : 'Place Order'}
+              {isSubmitting
+                ? 'Processing...'
+                : deliveryEligibility.status === 'checking'
+                  ? 'Checking delivery...'
+                  : 'Place Order'}
             </button>
 
             <p className="checkout-note">{
-              isCreditPayment  ? 'Store credit will be deducted from your balance when you place this order.'
-              : isInStorePayment ? 'Have your payment ready when you arrive to pick up your order.'
-              : 'By placing this order, you agree to send payment via the method(s) shown above'
+              isCreditPayment ? 'Store credit will be deducted from your balance when you place this order.'
+                : isInStorePayment ? 'Have your payment ready when you arrive to pick up your order.'
+                  : 'By placing this order, you agree to send payment via the method(s) shown above'
             }</p>
           </div>
         </div>

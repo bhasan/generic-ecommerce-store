@@ -35,6 +35,20 @@
   margin: 0;
 }
 
+.ordering-constraint-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.ordering-constraint-textarea-group {
+  margin: 0;
+}
+
+.ordering-constraints-zip-textarea {
+  min-height: 108px;
+  resize: vertical;
+}
+
 .ordering-constraints-save-btn {
   display: flex;
   align-items: center;

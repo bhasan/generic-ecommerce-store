@@ -426,6 +426,7 @@
   }
 }
 
+/* TODO(mobile): Orders is only partially phone-optimized. Further collapse secondary columns/actions and verify status controls stay tappable at 390-480px. */
 @media (max-width: 768px) {
   .orders-header-actions {
     flex-wrap: wrap;
@@ -1429,6 +1430,7 @@
   opacity: 0.5;
 }
 
+/* TODO(mobile): Validate kanban card density and action stacking on phones. Prefer one-column readable cards over compressed controls. */
 .kanban-columns {
   display: flex;
   gap: 1rem;

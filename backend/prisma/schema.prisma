@@ -10,20 +10,24 @@ datasource db {
 }
 
 model User {
-  id            Int      @id @default(autoincrement())
-  username      String   @unique
-  password      String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  approved      Boolean  @default(false)
-  cashapp       String?
-  zelle         String?
-  venmo         String?
-  phoneNumber   String?
-  address       String?
-  rejected      Boolean  @default(false)
-  rejectionNote String?
-  creditBalance Float    @default(0)
+  id                        Int                       @id @default(autoincrement())
+  username                  String                    @unique
+  password                  String
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  approved                  Boolean                   @default(false)
+  cashapp                   String?
+  zelle                     String?
+  venmo                     String?
+  phoneNumber               String?
+  address                   String?
+  rejected                  Boolean                   @default(false)
+  rejectionNote             String?
+  creditBalance             Float                     @default(0)
+  deliveryZoneStatus        DeliveryZoneStatus?
+  deliveryZoneSource        DeliveryEligibilitySource?
+  deliveryZoneDistanceMiles Float?
+  deliveryZoneCheckedAt     DateTime?
 
   @@map("users")
 }
@@ -48,16 +52,37 @@ model UserRole {
 }
 
 model Order {
-  id             Int         @id @default(autoincrement())
-  userId         Int
-  status         OrderStatus @default(PENDING)
-  total          Float
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  deliveryMethod String      @default("DELIVERY")
-  paymentMethod  String      @default("EXTERNAL")
+  id                        Int                       @id @default(autoincrement())
+  userId                    Int
+  status                    OrderStatus               @default(PENDING)
+  total                     Float
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  deliveryMethod            String                    @default("DELIVERY")
+  paymentMethod             String                    @default("EXTERNAL")
+  deliveryAddress           String?
+  deliveryZoneStatus        DeliveryZoneStatus?
+  deliveryEligibilitySource DeliveryEligibilitySource?
+  deliveryDistanceMiles     Float?
+  deliveryThresholdMiles    Float?
+  deliveryZoneCheckedAt     DateTime?
 
   @@map("orders")
+}
+
+model AddressGeocodeCache {
+  id                Int      @id @default(autoincrement())
+  normalizedAddress String   @unique
+  formattedAddress  String
+  latitude          Float
+  longitude         Float
+  city              String?
+  state             String?
+  zipCode           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("address_geocode_cache")
 }
 
 model CreditTransaction {
@@ -280,4 +305,17 @@ enum CreditTransactionType {
   USED
   REFUNDED
   REMOVED
+}
+
+enum DeliveryZoneStatus {
+  IN_ZONE
+  OUT_OF_ZONE
+  UNVERIFIED
+}
+
+enum DeliveryEligibilitySource {
+  GOOGLE_GEOCODING
+  ADDRESS_CACHE
+  ZIP_FALLBACK
+  NONE
 }

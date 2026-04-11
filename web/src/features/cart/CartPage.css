@@ -16,6 +16,8 @@
   align-items: start;
 }
 
+/* TODO(mobile): Cart layout should be verified at phone widths for image/action stacking and sticky-summary removal behavior. */
+
 .cart-items {
   display: flex;
   flex-direction: column;

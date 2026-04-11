@@ -10,6 +10,7 @@
     "start:prod": "npx prisma migrate deploy && node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "printer:mock": "node scripts/mock-thermal-printer-server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",

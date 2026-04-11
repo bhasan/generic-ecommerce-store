@@ -10,47 +10,25 @@ import ProductImage from '../products/ProductImage';
 function OrderSuccessPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, orders, setOrders, setCart } = useApp();
+  const { setCart } = useApp();
   const orderData = location.state;
 
   useEffect(() => {
     // If no order data, redirect to products
     if (!orderData) {
       navigate('/products');
-      return;
+      return undefined;
     }
-
-    // Create the order
-    const newOrder = {
-      id: orders.length + 1,
-      userId: currentUser.id,
-      status: 'PENDING',
-      total: orderData.total,
-      items: orderData.items.map(item => ({
-        productId: item.id,
-        quantity: item.quantity,
-        price: item.price
-      })),
-      createdAt: new Date().toISOString().split('T')[0],
-      deliveryAddress: orderData.deliveryAddress,
-      addressDetails: orderData.addressDetails,
-      specialInstructions: orderData.specialInstructions,
-      cashAppUsername: orderData.cashAppUsername
-    };
-
-    // Add order to orders list
-    setOrders([...orders, newOrder]);
-    
-    // Clear the cart
     setCart([]);
-  }, []);
+    return undefined;
+  }, [orderData, navigate, setCart]);
 
   if (!orderData) {
     return null;
   }
 
-  const orderId = orders.length + 1;
-  const orderDate = new Date().toLocaleDateString('en-US', {
+  const orderId = orderData.order?.id || 'Pending';
+  const orderDate = new Date(orderData.order?.createdAt || Date.now()).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -74,7 +52,9 @@ function OrderSuccessPage() {
         {/* Order ID Section */}
         <div className="order-id-card">
           <div className="order-id-label">Order ID</div>
-          <div className="order-id-number">#{orderId.toString().padStart(6, '0')}</div>
+          <div className="order-id-number">
+            {typeof orderId === 'number' ? `#${orderId.toString().padStart(6, '0')}` : orderId}
+          </div>
           <div className="order-date">{orderDate}</div>
         </div>
 

@@ -114,6 +114,7 @@ function DeliveryDriverDashboard() {
   };
 
   const renderOrderCard = (order, isInRoute = false, showCheckbox = false) => {
+    const deliveryAddress = order.deliveryAddress || order.user?.address;
     const itemsSummary = order.items && order.items.length > 0
       ? order.items
           .filter(item => !item.voided)
@@ -164,10 +165,10 @@ function DeliveryDriverDashboard() {
               </button>
             )}
           </div>
-          {order.user && order.user.address && (
+          {deliveryAddress && (
             <div className="order-address">
               <MapPin size={14} />
-              <span>{order.user.address}</span>
+              <span>{deliveryAddress}</span>
             </div>
           )}
           <div className="order-items-summary">

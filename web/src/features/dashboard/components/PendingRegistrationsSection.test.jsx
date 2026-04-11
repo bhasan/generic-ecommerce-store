@@ -37,7 +37,8 @@ describe('PendingRegistrationsSection', () => {
   it('renders each pending user', () => {
     render(<PendingRegistrationsSection {...defaultProps} />);
     expect(screen.getByText('newuser')).toBeInTheDocument();
-    expect(screen.getByText('new@example.com')).toBeInTheDocument();
+    expect(screen.getByText('123 Main St')).toBeInTheDocument();
+    expect(screen.getByText('$newuser')).toBeInTheDocument();
   });
 
   describe('approve flow', () => {

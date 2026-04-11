@@ -31,15 +31,28 @@ export const getOrderById = async (id) => {
  * @param {string} [cashAppUsername] - CashApp username for payment
  * @param {string} [deliveryMethod] - 'DELIVERY' or 'PICKUP'
  * @param {string} [paymentMethod] - payment method selected at checkout
+ * @param {object} [deliveryAddress] - structured delivery address for delivery orders
  * @returns {Promise<object>} Created order object
  */
-export const createOrder = async (items, cashAppUsername, deliveryMethod, paymentMethod) => {
+export const createOrder = async (items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress) => {
   const payload = { items };
   if (cashAppUsername) payload.cashAppUsername = cashAppUsername;
   if (deliveryMethod) payload.deliveryMethod = deliveryMethod;
   if (paymentMethod) payload.paymentMethod = paymentMethod;
+  if (deliveryMethod === 'DELIVERY' && deliveryAddress) {
+    payload.deliveryAddress = deliveryAddress;
+  }
   const response = await post('/orders', payload);
   return response.order || response;
+};
+
+/**
+ * Check live delivery eligibility for a structured address
+ * @param {object} deliveryAddress
+ * @returns {Promise<object>}
+ */
+export const checkDeliveryEligibility = async (deliveryAddress) => {
+  return post('/orders/delivery-eligibility', { deliveryAddress });
 };
 
 /**
@@ -93,6 +106,16 @@ export const deleteOrderItem = async (orderId, itemId) => {
  */
 export const deleteOrder = async (id) => {
   return del(`/orders/${id}`);
+};
+
+/**
+ * Queue a thermal receipt print or reprint
+ * @param {number} id - Order ID
+ * @returns {Promise<object>} Queue result
+ */
+export const printOrderReceipt = async (id) => {
+  const response = await post(`/orders/${id}/print`, {});
+  return response.result || response;
 };
 
 /**

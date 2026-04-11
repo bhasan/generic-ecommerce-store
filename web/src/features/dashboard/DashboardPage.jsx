@@ -238,7 +238,8 @@ function DashboardPage() {
 
   const handleSavePaymentSettings = async (data) => {
     try {
-      await paymentSettingsApi.updatePaymentSettings(data);
+      const response = await paymentSettingsApi.updatePaymentSettings(data);
+      setLocalPaymentSettings(response.settings || response);
       showNotification('Payment settings updated successfully', 'success');
       // Refresh shared config so checkout and header surfaces pick up new payment options immediately.
       loadConfig();
@@ -262,7 +263,8 @@ function DashboardPage() {
 
   const handleSaveStoreSettings = async (data) => {
     try {
-      await storeSettingsApi.updateStoreSettings(data);
+      const response = await storeSettingsApi.updateStoreSettings(data);
+      setLocalStoreSettings(response.settings || response);
       showNotification('Store settings updated successfully', 'success');
       // Refresh shared config so pickup/store details stay aligned outside the dashboard.
       loadConfig();
@@ -286,7 +288,8 @@ function DashboardPage() {
 
   const handleSaveOrderingConstraints = async (data) => {
     try {
-      await orderingConstraintsApi.updateOrderingConstraints(data);
+      const response = await orderingConstraintsApi.updateOrderingConstraints(data);
+      setLocalOrderingConstraints(response.constraints || response);
       showNotification('Ordering constraints updated successfully', 'success');
       // Refresh shared config so cart and checkout rules see the latest limits right away.
       loadConfig();
