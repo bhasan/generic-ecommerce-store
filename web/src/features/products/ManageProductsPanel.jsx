@@ -410,16 +410,21 @@ function ManageProductsPanel() {
     setFormErrors(errors);
     if (errors.name || errors.categoryId || errors.price || errors.stock) return;
 
+    const normalizedImages = normalizeImageList(formData.images).filter(Boolean);
     const productData = {
       ...formData,
       categoryId: parseInt(formData.categoryId, 10),
       price: parseFloat(formData.price),
       stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
       thumbnail: formData.thumbnail || null,
-      images: normalizeImageList(formData.images).filter(Boolean),
-      image: normalizeImageList(formData.images).filter(Boolean)[0] || null,
+      images: normalizedImages,
       quantityDiscountsOverride: parseQuantityDiscounts(formData.quantityDiscountsOverride)
     };
+
+    // Keep `image` omitted when empty; backend validation accepts optional strings here, but `image: null` breaks product create/update.
+    if (normalizedImages[0]) {
+      productData.image = normalizedImages[0];
+    }
 
     try {
       if (editingId) {

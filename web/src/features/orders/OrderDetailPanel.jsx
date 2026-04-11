@@ -189,7 +189,7 @@ function OrderDetailPanel({
                   }`}>
                     {order.paymentMethod === 'IN_STORE' ? 'Pay In Store' :
                      (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING') ? 'Verify External Payment' :
-                     (order.paymentMethod === 'EXTERNAL' ? `${order.user.cashapp || 'External'} (Paid)` : 
+                     (order.paymentMethod === 'EXTERNAL' ? 'External Payment (Paid)' : 
                       order.paymentMethod === 'CREDIT' ? 'Store Credit (Paid)' : 'No payment method')}
                   </span>
                 </div>
