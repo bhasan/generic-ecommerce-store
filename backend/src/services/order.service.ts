@@ -601,11 +601,15 @@ export class OrderService {
         order = result.newOrder;
         createdItems = result.newItems;
       } else {
+        const initialStatus = (deliveryMethod === DeliveryMethod.PICKUP && paymentMethod === PaymentMethod.IN_STORE) 
+          ? OrderStatus.APPROVED 
+          : OrderStatus.PENDING;
+
         order = await prisma.order.create({
           data: {
             userId,
             total,
-            status: OrderStatus.PENDING,
+            status: initialStatus,
             deliveryMethod: deliveryMethod || DeliveryMethod.DELIVERY,
             paymentMethod: paymentMethod || PaymentMethod.EXTERNAL,
           }

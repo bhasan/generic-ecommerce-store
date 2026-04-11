@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import OrdersPage from './OrdersPage';
+
+// Mock window.scrollTo since it's not implemented in JSDOM
+window.scrollTo = vi.fn();
 import { ROLES } from '../../utils/roles';
 
 const useAppMock = vi.fn();
@@ -84,16 +87,16 @@ describe('OrdersPage integration', () => {
 
     expect(screen.getByText('Orders')).toBeInTheDocument();
     expect(screen.getByText('Pending (1)')).toBeInTheDocument();
-    expect(screen.getByText('Approved (1)')).toBeInTheDocument();
+    expect(screen.getByText('Prep Orders (1)')).toBeInTheDocument();
     await waitFor(() => expect(baseAppState.loadOrders).toHaveBeenCalled());
   });
 
   it('updates selected status filters and hides unchecked columns', () => {
     renderOrdersPage();
 
-    fireEvent.click(screen.getByLabelText(/approved \(1\)/i));
+    fireEvent.click(screen.getByLabelText(/prep orders \(1\)/i));
 
-    expect(screen.getAllByText('Approved (1)')).toHaveLength(1);
+    expect(screen.getAllByText('Prep Orders (1)')).toHaveLength(1);
     expect(screen.getByText('Pending (1)')).toBeInTheDocument();
   });
 
@@ -106,6 +109,31 @@ describe('OrdersPage integration', () => {
     fireEvent.click(screen.getByText('Approve from Panel'));
 
     await waitFor(() => expect(baseAppState.updateOrderStatus).toHaveBeenCalledWith(701, 'APPROVED'));
+  });
+
+  it('shows the specialized "Take Payment in Store" dialog for in-store pickup orders', async () => {
+    const pickupOrder = {
+      id: 801,
+      userId: 12,
+      status: 'READY_FOR_PICKUP',
+      total: 55.5,
+      deliveryMethod: 'PICKUP',
+      paymentMethod: 'IN_STORE',
+      user: { username: 'test-user' },
+      items: [{ id: 3, productId: 101, quantity: 1, price: 55.5, voided: false }],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    useAppMock.mockReturnValue(makeAppState({ orders: [pickupOrder] }));
+    renderOrdersPage();
+
+    const card = screen.getByText('#801').closest('.kanban-card');
+    fireEvent.click(within(card).getByText('Picked Up'));
+
+    expect(screen.getByText('Take Payment in Store')).toBeInTheDocument();
+    expect(screen.getByText(/Order Total: \$55\.50/i)).toBeInTheDocument();
+    expect(screen.getByText('Paid')).toHaveClass('variant-success');
   });
 });
 

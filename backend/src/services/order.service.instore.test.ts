@@ -66,7 +66,7 @@ describe('order service — IN_STORE payment', () => {
       minimumDeliveryOrderEnabled: true,
       deliveryDisabled: false,
     });
-    const createdOrder = { id: 42, total: 10.83, status: 'PENDING', paymentMethod: PaymentMethod.IN_STORE };
+    const createdOrder = { id: 42, total: 10.83, status: 'APPROVED', paymentMethod: PaymentMethod.IN_STORE };
     prismaMock.order.create.mockResolvedValue(createdOrder);
     prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 42, productId: 7, quantity: 1, price: 10 });
     notificationEventsMock.notifyOrderCreated.mockResolvedValue(undefined);
@@ -80,7 +80,7 @@ describe('order service — IN_STORE payment', () => {
       paymentMethod: PaymentMethod.IN_STORE,
     });
 
-    expect(result).toMatchObject({ id: 42, status: 'PENDING' });
+    expect(result).toMatchObject({ id: 42, status: 'APPROVED' });
     expect(prismaMock.order.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
