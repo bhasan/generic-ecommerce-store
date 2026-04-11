@@ -5,6 +5,7 @@ export const ROLES = {
   MANAGEMENT: 'MANAGEMENT',
   ADMIN: 'ADMIN',
   DELIVERY_DRIVER: 'DELIVERY_DRIVER',
+  VIP: 'VIP',
 };
 
 export const GUEST_USER = { id: 999, email: 'guest@guest.com', roles: [ROLES.GUEST], name: 'Guest' };

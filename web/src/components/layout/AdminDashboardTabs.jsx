@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Megaphone, UserPlus, Users, UserX, MessageSquare, CreditCard, Store, ShoppingCart, LayoutDashboard } from 'lucide-react';
+import { Megaphone, UserPlus, Users, UserX, MessageSquare, CreditCard, Store, ShoppingCart, LayoutDashboard, Crown } from 'lucide-react';
 import './AdminDashboardTabs.css';
 
 const SECTIONS = {
@@ -8,6 +8,7 @@ const SECTIONS = {
   PENDING_REGISTRATIONS: 'pending-registrations',
   USERS: 'users',
   REJECTED_USERS: 'rejected-users',
+  VIP_MANAGEMENT: 'vip-management',
   MESSAGES: 'messages',
   PAYMENT_SETTINGS: 'payment-settings',
   STORE_SETTINGS: 'store-settings',
@@ -33,13 +34,6 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
     <aside className="dashboard-sidebar">
       <nav className="sidebar-nav">
         <button
-          className={`sidebar-nav-item ${isActive(SECTIONS.MESSAGES)}`}
-          onClick={() => handleSelect(SECTIONS.MESSAGES)}
-        >
-          <MessageSquare size={20} />
-          <span>Messages</span>
-        </button>
-        <button
           className={`sidebar-nav-item ${isActive(SECTIONS.PENDING_REGISTRATIONS)}`}
           onClick={() => handleSelect(SECTIONS.PENDING_REGISTRATIONS)}
         >
@@ -54,18 +48,25 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
           <span>Announcements</span>
         </button>
         <button
-          className={`sidebar-nav-item ${isActive(SECTIONS.USERS)}`}
-          onClick={() => handleSelect(SECTIONS.USERS)}
+          className={`sidebar-nav-item ${isActive(SECTIONS.MESSAGES)}`}
+          onClick={() => handleSelect(SECTIONS.MESSAGES)}
         >
-          <Users size={20} />
-          <span>Users</span>
+          <MessageSquare size={20} />
+          <span>Messages</span>
         </button>
         <button
-          className={`sidebar-nav-item ${isActive(SECTIONS.REJECTED_USERS)}`}
-          onClick={() => handleSelect(SECTIONS.REJECTED_USERS)}
+          className={`sidebar-nav-item ${isActive(SECTIONS.VIP_MANAGEMENT)}`}
+          onClick={() => handleSelect(SECTIONS.VIP_MANAGEMENT)}
         >
-          <UserX size={20} />
-          <span>Rejected Users</span>
+          <Crown size={20} />
+          <span>VIP Management</span>
+        </button>
+        <button
+          className={`sidebar-nav-item ${isActive(SECTIONS.LANDING_PAGE)}`}
+          onClick={() => handleSelect(SECTIONS.LANDING_PAGE)}
+        >
+          <LayoutDashboard size={20} />
+          <span>Landing Page</span>
         </button>
         <button
           className={`sidebar-nav-item ${isActive(SECTIONS.PAYMENT_SETTINGS)}`}
@@ -89,11 +90,18 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
           <span>Ordering Constraints</span>
         </button>
         <button
-          className={`sidebar-nav-item ${isActive(SECTIONS.LANDING_PAGE)}`}
-          onClick={() => handleSelect(SECTIONS.LANDING_PAGE)}
+          className={`sidebar-nav-item ${isActive(SECTIONS.USERS)}`}
+          onClick={() => handleSelect(SECTIONS.USERS)}
         >
-          <LayoutDashboard size={20} />
-          <span>Landing Page</span>
+          <Users size={20} />
+          <span>Users</span>
+        </button>
+        <button
+          className={`sidebar-nav-item ${isActive(SECTIONS.REJECTED_USERS)}`}
+          onClick={() => handleSelect(SECTIONS.REJECTED_USERS)}
+        >
+          <UserX size={20} />
+          <span>Rejected Users</span>
         </button>
       </nav>
     </aside>

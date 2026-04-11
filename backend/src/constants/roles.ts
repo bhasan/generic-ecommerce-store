@@ -1,4 +1,4 @@
-export const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
+export const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'VIP'] as const;
 
 export type RoleName = (typeof ROLE_NAMES)[number];
 
@@ -9,6 +9,7 @@ export const ROLES = {
   MANAGEMENT: 'MANAGEMENT',
   ADMIN: 'ADMIN',
   DELIVERY_DRIVER: 'DELIVERY_DRIVER',
+  VIP: 'VIP',
 } as const satisfies Record<string, RoleName>;
 
 export const isRoleName = (value: unknown): value is RoleName => {

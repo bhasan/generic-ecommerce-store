@@ -314,6 +314,7 @@ function ManageProductsPanel() {
     stock: '',
     stockEnabled: false,
     hidden: false,
+    vipOnly: false,
     quantityDiscountsOverride: ''
   });
   const [viewMode, setViewMode] = useState(() => {
@@ -380,6 +381,7 @@ function ManageProductsPanel() {
       images: product.images || [product.image],
       stockEnabled: product.stockEnabled !== false,
       hidden: product.hidden || false,
+      vipOnly: product.vipOnly || false,
       quantityDiscountsOverride: formatQuantityDiscounts(product.quantityDiscountsOverride || [])
     });
     setCategoryQuery(selectedCategoryLabel);
