@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# AI related files
+.claude/*
+
 # Environment files and local snapshots (secrets; use .env.example as template)
 .env*
 !**/.env.example
