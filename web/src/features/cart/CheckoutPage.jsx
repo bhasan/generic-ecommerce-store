@@ -193,8 +193,8 @@ function CheckoutPage() {
       const orderState = {
         order: newOrder,
         deliveryMethod,
-        deliveryAddress: deliveryMethod === 'DELIVERY' ? fullAddress : 'Store Pickup',
-        pickupLocation: deliveryMethod === 'PICKUP' ? pickupLocation : null,
+        deliveryAddress: deliveryMethod === DeliveryMethod.DELIVERY ? fullAddress : 'Store Pickup',
+        pickupLocation: deliveryMethod === DeliveryMethod.PICKUP ? pickupLocation : null,
         addressDetails: address,
         specialInstructions,
         cashAppUsername,

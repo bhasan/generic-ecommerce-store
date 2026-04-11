@@ -2,7 +2,9 @@ import {
   NotificationCategory,
   NotificationEntityType,
   NotificationType,
+  OrderStatus,
 } from '../../generated/prisma';
+import { ROLES } from '../constants/roles';
 import { notificationDeliveryService } from './notificationDelivery.service';
 import { NotificationInput, notificationService } from './notification.service';
 
@@ -79,7 +81,7 @@ export class NotificationEventsService {
       category: NotificationCategory.ORDERS,
       title: 'New order submitted',
       message: `Order #${orderId} is waiting for review.`,
-      recipientRoles: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
+      recipientRoles: [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN],
       sourceEntityType: NotificationEntityType.ORDER,
       sourceEntityId: orderId,
       metadata: {
@@ -119,24 +121,24 @@ export class NotificationEventsService {
           path: '/orders',
           label: 'View order',
         },
-        requiresAttention: status === 'NOT_FULFILLING',
-        channelIntent: status === 'NOT_FULFILLING' ? 'ops_alert' : 'in_app_sync',
-        sendToMake: status === 'NOT_FULFILLING'
-          || status === 'READY_FOR_DELIVERY'
-          || status === 'OUT_FOR_DELIVERY',
+        requiresAttention: status === OrderStatus.NOT_FULFILLING,
+        channelIntent: status === OrderStatus.NOT_FULFILLING ? 'ops_alert' : 'in_app_sync',
+        sendToMake: status === OrderStatus.NOT_FULFILLING
+          || status === OrderStatus.READY_FOR_DELIVERY
+          || status === OrderStatus.OUT_FOR_DELIVERY,
         actor,
       }),
     ];
 
-    if (status === 'READY_FOR_DELIVERY' || status === 'OUT_FOR_DELIVERY') {
+    if (status === OrderStatus.READY_FOR_DELIVERY || status === OrderStatus.OUT_FOR_DELIVERY) {
       notifications.push(this.emit({
         type: NotificationType.ORDER_STATUS_UPDATED,
-        category: status === 'READY_FOR_DELIVERY' ? NotificationCategory.DRIVER : NotificationCategory.DRIVER,
-        title: `Order #${orderId} ${status === 'READY_FOR_DELIVERY' ? 'ready for delivery' : 'out for delivery'}`,
-        message: status === 'READY_FOR_DELIVERY'
+        category: status === OrderStatus.READY_FOR_DELIVERY ? NotificationCategory.DRIVER : NotificationCategory.DRIVER,
+        title: `Order #${orderId} ${status === OrderStatus.READY_FOR_DELIVERY ? 'ready for delivery' : 'out for delivery'}`,
+        message: status === OrderStatus.READY_FOR_DELIVERY
           ? `Order #${orderId} is ready to be added to a route.`
           : `Order #${orderId} is now out for delivery.`,
-        recipientRoles: ['DELIVERY_DRIVER', 'MANAGEMENT', 'ADMIN'],
+        recipientRoles: [ROLES.DELIVERY_DRIVER, ROLES.MANAGEMENT, ROLES.ADMIN],
         sourceEntityType: NotificationEntityType.ORDER,
         sourceEntityId: orderId,
         metadata: {
@@ -145,20 +147,20 @@ export class NotificationEventsService {
           path: '/delivery-dashboard',
           label: 'Open delivery board',
         },
-        requiresAttention: status === 'READY_FOR_DELIVERY',
+        requiresAttention: status === OrderStatus.READY_FOR_DELIVERY,
         channelIntent: 'ops_alert',
         sendToMake: true,
         actor,
       }));
     }
 
-    if (status === 'DELIVERED') {
+    if (status === OrderStatus.DELIVERED) {
       notifications.push(this.emit({
         type: NotificationType.ORDER_STATUS_UPDATED,
         category: NotificationCategory.ADMIN,
         title: `Order #${orderId} delivered`,
         message: `Order #${orderId} was marked delivered.`,
-        recipientRoles: ['MANAGEMENT', 'ADMIN'],
+        recipientRoles: [ROLES.MANAGEMENT, ROLES.ADMIN],
         sourceEntityType: NotificationEntityType.ORDER,
         sourceEntityId: orderId,
         metadata: {
@@ -181,7 +183,7 @@ export class NotificationEventsService {
       category: NotificationCategory.AUTH,
       title: 'New registration pending',
       message: `${username} is waiting for approval.`,
-      recipientRoles: ['MANAGEMENT', 'ADMIN'],
+      recipientRoles: [ROLES.MANAGEMENT, ROLES.ADMIN],
       sourceEntityType: NotificationEntityType.USER,
       sourceEntityId: userId,
       metadata: {
@@ -242,7 +244,7 @@ export class NotificationEventsService {
       category: NotificationCategory.CONTACT,
       title: 'New support message',
       message: 'A customer message needs staff attention.',
-      recipientRoles: ['MANAGEMENT', 'ADMIN'],
+      recipientRoles: [ROLES.MANAGEMENT, ROLES.ADMIN],
       sourceEntityType: NotificationEntityType.CONTACT_MESSAGE,
       sourceEntityId: contactMessageId,
       metadata: {

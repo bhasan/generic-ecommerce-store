@@ -4,6 +4,7 @@ import orderController from '../controllers/order.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role.middleware';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
+import { OrderStatus } from '../../generated/prisma';
 
 const router = Router();
 
@@ -74,7 +75,7 @@ router.patch(
   authenticate,
   [
     body('status')
-      .isIn(['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'])
+      .isIn(Object.values(OrderStatus))
       .withMessage('Invalid order status')
   ],
   orderController.updateOrderStatus

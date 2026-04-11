@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { OrderStatus } from '../../generated/prisma';
-import { RoleName, hasAnyRole } from '../constants/roles';
+import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
@@ -87,7 +87,7 @@ export class OrderService {
    * Get all orders (with user filtering for customers)
    */
   async getAllOrders(userId: number, userRoles: RoleName[]) {
-    const isCustomerScoped = !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']);
+    const isCustomerScoped = !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]);
     const where = isCustomerScoped ? { userId } : {};
 
     logger.info('Retrieving orders from database', {
@@ -421,7 +421,7 @@ export class OrderService {
     }
 
     // Customers can only view their own orders
-    if (!hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']) && order.userId !== userId) {
+    if (!hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]) && order.userId !== userId) {
       throw new AppError('Access denied', 403);
     }
 
@@ -728,8 +728,8 @@ export class OrderService {
       });
 
       // Check if user is delivery driver trying to set status other than DELIVERED
-      if (userRoles && hasAnyRole(userRoles, ['DELIVERY_DRIVER']) && !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'])) {
-        if (data.status !== 'DELIVERED') {
+      if (userRoles && hasAnyRole(userRoles, [ROLES.DELIVERY_DRIVER]) && !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN])) {
+        if (data.status !== OrderStatus.DELIVERED) {
           logger.warn('Order status update denied: delivery driver trying to set non-DELIVERED status', {
             orderId,
             attemptedStatus: data.status,
@@ -738,7 +738,7 @@ export class OrderService {
           throw new AppError('Delivery drivers can only mark orders as DELIVERED', 403);
         }
         // Delivery drivers can only mark READY_FOR_DELIVERY orders as DELIVERED
-        if (order.status !== 'READY_FOR_DELIVERY') {
+        if (order.status !== OrderStatus.READY_FOR_DELIVERY) {
           logger.warn('Order status update denied: delivery driver can only update READY_FOR_DELIVERY orders', {
             orderId,
             currentStatus: order.status,

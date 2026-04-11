@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { hashPassword, comparePassword } from '../utils/password.util';
-import { RoleName, isRoleName } from '../constants/roles';
+import { RoleName, isRoleName, ROLES, hasAnyRole } from '../constants/roles';
 import { logger } from '../utils/logger';
 import { notificationEventsService } from './notificationEvents.service';
 
@@ -82,9 +82,7 @@ export class UserService {
 
     // Check if user is viewing their own profile or has MANAGEMENT/ADMIN role
     const isOwnProfile = requestingUserId === userId;
-    const hasManagementAccess = requestingUserRoles?.some(role => 
-      role === 'MANAGEMENT' || role === 'ADMIN'
-    );
+    const hasManagementAccess = hasAnyRole(requestingUserRoles, [ROLES.MANAGEMENT, ROLES.ADMIN]);
 
     if (!isOwnProfile && !hasManagementAccess) {
       throw new AppError('Access denied. You can only view your own profile.', 403);
@@ -140,9 +138,7 @@ export class UserService {
 
     // Check permissions
     const isOwnProfile = requestingUserId === userId;
-    const hasManagementAccess = requestingUserRoles?.some(role => 
-      role === 'MANAGEMENT' || role === 'ADMIN'
-    );
+    const hasManagementAccess = hasAnyRole(requestingUserRoles, [ROLES.MANAGEMENT, ROLES.ADMIN]);
 
     if (!isOwnProfile && !hasManagementAccess) {
       throw new AppError('Access denied. You can only update your own profile.', 403);

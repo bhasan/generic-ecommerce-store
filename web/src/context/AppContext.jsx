@@ -11,6 +11,7 @@ import * as creditApi from '../services/creditApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
+import { PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -613,7 +614,7 @@ export function AppProvider({ children }) {
       // Create order via API
       const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
 
-      if (paymentMethod !== 'CREDIT') {
+      if (paymentMethod !== PaymentMethod.CREDIT) {
         // Persist the latest payment handle so checkout, profile, and later orders show the same value.
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
