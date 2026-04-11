@@ -4,7 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 DOCKER_DIR="$PROJECT_ROOT/docker"
-TIMESTAMP_FILE="/tmp/ssd_last_build_timestamp"
 
 echo "==> Project root: $PROJECT_ROOT"
 echo "==> Docker output dir: $DOCKER_DIR"
@@ -27,9 +26,8 @@ echo "==> [3/5] Building web Docker image..."
 docker build -t smoke-station-delivery/web:latest -f nginx/Dockerfile .
 
 # --- Save images ---
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKEND_TAR="$DOCKER_DIR/backend_$TIMESTAMP.tar"
-WEB_TAR="$DOCKER_DIR/web_$TIMESTAMP.tar"
+BACKEND_TAR="$DOCKER_DIR/backend.tar"
+WEB_TAR="$DOCKER_DIR/web.tar"
 
 echo ""
 echo "==> [4/5] Saving backend image to $BACKEND_TAR..."
@@ -43,7 +41,3 @@ echo ""
 echo "==> Build complete."
 echo "    Backend: $BACKEND_TAR ($(du -h "$BACKEND_TAR" | cut -f1))"
 echo "    Web:     $WEB_TAR ($(du -h "$WEB_TAR" | cut -f1))"
-echo "    Timestamp: $TIMESTAMP"
-
-echo "$TIMESTAMP" > "$TIMESTAMP_FILE"
-echo "    Timestamp saved to $TIMESTAMP_FILE"
