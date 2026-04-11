@@ -393,7 +393,13 @@ export function AppProvider({ children }) {
     if (!isLoading) {
       loadOrders();
     }
-  }, [isAuthenticated, isLoading]);
+    
+    if (!isAuthenticated || isLoading) return;
+    
+    // Background polling for orders keeps the UI (like pickup notices) fresh without full reloads.
+    const interval = setInterval(() => loadOrders(true), 50000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isLoading, loadOrders]);
 
   // Notification system (message is normalized so we never show "[object Object]")
   const showNotification = useCallback((message, type = 'success', action = null) => {

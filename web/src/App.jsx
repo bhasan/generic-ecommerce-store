@@ -8,6 +8,7 @@ function ScrollToTop() {
 }
 import { AppProvider } from './context/AppContext';
 import AnnouncementBanner from './components/common/AnnouncementBanner';
+import OrderPickupNotice from './components/common/OrderPickupNotice';
 import Navbar from './components/layout/Navbar';
 import Notification from './components/common/Notification';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -41,6 +42,7 @@ function App() {
         <ScrollToTop />
         <div className="app-wrapper">
           <AnnouncementBanner />
+          <OrderPickupNotice />
           <Navbar />
           <Notification />
           <main className={isOrdersPage ? 'full-width-layout main-content' : 'container main-content'}>
