@@ -429,6 +429,17 @@ function ProductFormModal({
                   <span>Hide this product from the Products page</span>
                 </label>
               </div>
+
+              <div className="form-group form-group-full">
+                <label className="checkbox-label checkbox-label-large">
+                  <input
+                    type="checkbox"
+                    checked={formData.vipOnly || false}
+                    onChange={(e) => setFormData({ ...formData, vipOnly: e.target.checked })}
+                  />
+                  <span>VIP-only — visible only to VIP customers and staff</span>
+                </label>
+              </div>
             </div>
 
             <div className="form-actions">

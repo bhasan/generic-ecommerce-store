@@ -15,6 +15,7 @@ interface CreateProductData {
   stock?: number;
   stockEnabled?: boolean;
   hidden?: boolean;
+  vipOnly?: boolean;
   sortOrder?: number;
   cardSize?: string;
   allowedQuantitiesOverride?: number[];
@@ -32,6 +33,7 @@ interface UpdateProductData {
   stock?: number;
   stockEnabled?: boolean;
   hidden?: boolean;
+  vipOnly?: boolean;
   sortOrder?: number;
   cardSize?: string;
   allowedQuantitiesOverride?: number[];
@@ -84,7 +86,16 @@ export class ProductService {
    */
   async getAllProducts(userRoles?: RoleName[]) {
     const canViewHidden = hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT']);
-    const where = canViewHidden ? {} : { hidden: false };
+    const isVip = hasAnyRole(userRoles, ['VIP']);
+
+    let where: object;
+    if (canViewHidden) {
+      where = {};
+    } else if (isVip) {
+      where = { hidden: false };
+    } else {
+      where = { hidden: false, vipOnly: false };
+    }
 
     const products = await prisma.productItem.findMany({
       where,
@@ -149,6 +160,10 @@ export class ProductService {
     }
 
     if (product.hidden && !hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) {
+      throw new AppError('Product not found', 404);
+    }
+
+    if (product.vipOnly && !hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT', 'VIP'])) {
       throw new AppError('Product not found', 404);
     }
 
@@ -246,7 +261,7 @@ export class ProductService {
 
     const allowedFields: (keyof UpdateProductData)[] = [
       'name', 'categoryId', 'price', 'description',
-      'thumbnail', 'image', 'images', 'stock', 'stockEnabled', 'hidden',
+      'thumbnail', 'image', 'images', 'stock', 'stockEnabled', 'hidden', 'vipOnly',
       'sortOrder', 'cardSize', 'allowedQuantitiesOverride', 'quantityDiscountsOverride'
     ];
 

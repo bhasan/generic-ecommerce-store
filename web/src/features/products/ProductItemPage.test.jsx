@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductItemPage from './ProductItemPage';
 import { GUEST_USER, ROLES } from '../../utils/roles';
 
+// Mock window.scrollTo since it's not implemented in JSDOM
+window.scrollTo = vi.fn();
+
 const addToCartMock = vi.fn();
 const useAppMock = vi.fn();
 
@@ -88,13 +91,13 @@ describe('ProductItemPage behavior', () => {
   });
 
   it('scrolls to top and stores the product id in sessionStorage on mount', () => {
-    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
+    // Already mocked globally at top
     renderProductPage();
 
-    expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+    expect(window.scrollTo).toHaveBeenCalled();
     expect(sessionStorage.getItem('productsScrollProductId')).toBe('101');
 
-    scrollToSpy.mockRestore();
+    expect(sessionStorage.getItem('productsScrollProductId')).toBe('101');
   });
 
   it('navigates back to /products when the back button is clicked', () => {

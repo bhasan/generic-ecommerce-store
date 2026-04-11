@@ -11,15 +11,16 @@ vi.mock('react-router-dom', async (importOriginal) => {
 });
 
 const SECTIONS = [
-  { label: /messages/i, key: 'messages' },
   { label: /pending registrations/i, key: 'pending-registrations' },
   { label: /announcements/i, key: 'announcements' },
-  { label: /^users$/i, key: 'users' },
-  { label: /rejected users/i, key: 'rejected-users' },
+  { label: /messages/i, key: 'messages' },
+  { label: /vip management/i, key: 'vip-management' },
+  { label: /landing page/i, key: 'landing-page' },
   { label: /payment settings/i, key: 'payment-settings' },
   { label: /store settings/i, key: 'store-settings' },
   { label: /ordering constraints/i, key: 'ordering-constraints' },
-  { label: /landing page/i, key: 'landing-page' },
+  { label: /^users$/i, key: 'users' },
+  { label: /rejected users/i, key: 'rejected-users' },
 ];
 
 const renderSidebar = (props = {}) =>
@@ -51,10 +52,10 @@ describe('AdminDashboardTabs sidebar', () => {
     expect(nav).toBeInTheDocument();
   });
 
-  it('renders all 9 section items', () => {
+  it('renders all 10 section items', () => {
     renderSidebar();
     const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(9);
+    expect(buttons).toHaveLength(10);
   });
 
   it.each(SECTIONS)('renders a "$key" nav item', ({ label }) => {
@@ -65,7 +66,7 @@ describe('AdminDashboardTabs sidebar', () => {
   it('applies sidebar-nav-item class to all buttons', () => {
     const { container } = renderSidebar();
     const buttons = container.querySelectorAll('button.sidebar-nav-item');
-    expect(buttons).toHaveLength(9);
+    expect(buttons).toHaveLength(10);
   });
 
   it('applies the active class to the button matching activeSection', () => {

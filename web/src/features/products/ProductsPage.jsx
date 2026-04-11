@@ -69,8 +69,16 @@ function ProductsPage({ mode = 'browse' }) {
 
   const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
   const isManagement = userRoles.includes(ROLES.ADMIN) || userRoles.includes(ROLES.MANAGEMENT);
-  const isCustomer = !isManagement && (userRoles.includes(ROLES.CUSTOMER) || isGuest(currentUser));
-  const visibleProducts = isCustomer ? products.filter(product => !product.hidden) : products;
+  const isVip = userRoles.includes(ROLES.VIP);
+
+  let visibleProducts;
+  if (isManagement) {
+    visibleProducts = products;
+  } else if (isVip) {
+    visibleProducts = products.filter(product => !product.hidden);
+  } else {
+    visibleProducts = products.filter(product => !product.hidden && !product.vipOnly);
+  }
 
   const { topLevel, childrenByParent, byCategoryId, flat } = groupProductsByCategory(visibleProducts, categories);
   const productCategoryLabel = getProductCategoryLabel;
@@ -104,7 +112,7 @@ function ProductsPage({ mode = 'browse' }) {
           getCategoryLabel={productCategoryLabel}
           onAddToCart={addToCart}
           onProductClick={handleProductClick}
-          showHiddenLabel={!isCustomer}
+          showHiddenLabel={isManagement}
         />
       ) : (
         <>
@@ -119,7 +127,7 @@ function ProductsPage({ mode = 'browse' }) {
             getCategoryLabel={productCategoryLabel}
             onAddToCart={addToCart}
             onProductClick={handleProductClick}
-            showHiddenLabel={!isCustomer}
+            showHiddenLabel={isManagement}
           />
         ))}
         </>

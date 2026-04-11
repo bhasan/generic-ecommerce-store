@@ -595,12 +595,19 @@ export class OrderService {
         paymentMethod: effectivePaymentMethod,
       });
 
+      const initialStatus = (
+        deliveryMethod === DeliveryMethod.PICKUP
+        && effectivePaymentMethod === PaymentMethod.IN_STORE
+      )
+        ? OrderStatus.APPROVED
+        : OrderStatus.PENDING;
+
       const result = await prisma.$transaction(async (tx) => {
         const newOrder = await tx.order.create({
           data: {
             userId,
             total,
-            status: OrderStatus.PENDING,
+            status: initialStatus,
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
             ...(deliveryEligibility ? {

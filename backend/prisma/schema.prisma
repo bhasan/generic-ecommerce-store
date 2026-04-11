@@ -140,6 +140,7 @@ model ProductItem {
   stock                     Float    @default(0)
   stockEnabled              Boolean  @default(true)
   hidden                    Boolean  @default(false)
+  vipOnly                   Boolean  @default(false)
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
   categoryId                Int
@@ -252,6 +253,8 @@ enum OrderStatus {
   READY_FOR_DELIVERY
   OUT_FOR_DELIVERY
   DELIVERED
+  READY_FOR_PICKUP
+  PICKED_UP
 }
 
 enum AnnouncementType {

@@ -31,6 +31,9 @@ import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
 
 function App() {
+  const location = useLocation();
+  const isOrdersPage = location.pathname === '/orders' || location.pathname === '/delivery-dashboard';
+
   return (
     <ErrorBoundary>
       <AppProvider>
@@ -40,7 +43,7 @@ function App() {
           <AnnouncementBanner />
           <Navbar />
           <Notification />
-          <main className="container main-content">
+          <main className={isOrdersPage ? 'full-width-layout main-content' : 'container main-content'}>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />

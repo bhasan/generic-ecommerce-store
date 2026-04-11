@@ -68,8 +68,8 @@ function OrderDetailPanel({
 }) {
   if (!order) return null;
 
-  const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
-  const canEdit = canModifyOrders && order.status !== OrderStatus.DELIVERED;
+  const nextActions = canModifyOrders ? getNextStatusActions(order) : [];
+  const canEdit = canModifyOrders && order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.PICKED_UP;
   const isAddingItem = addingItemToOrderId === order.id;
   const deliveryAddress = order.deliveryAddress || order.user?.address;
   const deliveryCheckSummary = [
@@ -100,6 +100,9 @@ function OrderDetailPanel({
         <div className="order-detail-panel-body">
           <div className="order-detail-meta">
             <span className="order-detail-date">{formatOrderDate(order.createdAt)}</span>
+            <span className={`order-detail-method-badge ${order.deliveryMethod === 'PICKUP' ? 'method-pickup' : 'method-delivery'}`}>
+              {order.deliveryMethod === 'PICKUP' ? 'Pickup' : 'Delivery'}
+            </span>
             <span className="order-detail-total">${order.total.toFixed(2)}</span>
           </div>
 
@@ -175,8 +178,19 @@ function OrderDetailPanel({
                 <div className="customer-info-row">
                   <CreditCard size={14} className="customer-info-icon" />
                   <span className="customer-info-label">Payment:</span>
-                  <span className={`customer-info-value ${order.user.cashapp ? 'payment-cashapp' : 'payment-none'}`}>
-                    {order.user.cashapp || 'No payment method'}
+                  <span className={`customer-info-value ${
+                    order.paymentMethod === 'IN_STORE' 
+                      ? 'payment-store' 
+                      : (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING')
+                        ? 'payment-verify'
+                        : (order.paymentMethod === 'CREDIT' || order.paymentMethod === 'EXTERNAL')
+                          ? 'payment-paid'
+                          : 'payment-none'
+                  }`}>
+                    {order.paymentMethod === 'IN_STORE' ? 'Pay In Store' :
+                     (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING') ? 'Verify External Payment' :
+                     (order.paymentMethod === 'EXTERNAL' ? `${order.user.cashapp || 'External'} (Paid)` : 
+                      order.paymentMethod === 'CREDIT' ? 'Store Credit (Paid)' : 'No payment method')}
                   </span>
                 </div>
                 {order.user.phoneNumber && (
