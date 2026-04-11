@@ -262,6 +262,14 @@ input, textarea, select {
   padding: var(--spacing-xl) var(--spacing-md);
 }
 
+.full-width-layout {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 /* ============================================
    ANIMATIONS
    ============================================ */

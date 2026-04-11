@@ -33,13 +33,13 @@ vi.mock('./features/delivery/DeliveryDriverDashboard', () => ({ default: () => <
 vi.mock('./features/orders/OrderHistoryPage', () => ({ default: () => <div>OrderHistoryPage</div> }));
 vi.mock('./features/help/HelpPage', () => ({ default: () => <div>HelpPage</div> }));
 
-describe('ScrollToTop', () => {
+describe('App routing and global behaviors', () => {
   let scrollToSpy;
 
   beforeEach(() => {
     scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
     appState = {
-      currentUser: { id: 3, username: 'manager-one', roles: ['MANAGEMENT'] },
+      currentUser: GUEST_USER,
       setReturnPath: vi.fn(),
       notification: null,
       closeNotification: vi.fn(),
@@ -54,38 +54,22 @@ describe('ScrollToTop', () => {
     renderWithProviders(<App />, { route: '/dashboard' });
     expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
   });
-});
-
-describe('App routes', () => {
-  beforeEach(() => {
-    appState = {
-      currentUser: GUEST_USER,
-      setReturnPath: vi.fn(),
-      notification: null,
-      closeNotification: vi.fn(),
-    };
-  });
 
   it('redirects guests to login for protected routes and stores the return path', () => {
     renderWithProviders(<App />, { route: '/products' });
-
     expect(screen.getByText('LoginPage')).toBeInTheDocument();
     expect(appState.setReturnPath).toHaveBeenCalledWith('/products');
   });
 
   it('allows management users to access the dashboard route', () => {
     appState.currentUser = { id: 3, username: 'manager-one', roles: [ROLES.MANAGEMENT] };
-
     renderWithProviders(<App />, { route: '/dashboard' });
-
     expect(screen.getByText('DashboardPage')).toBeInTheDocument();
   });
 
   it('redirects unauthorized staff from admin-only dashboard routes back to products', () => {
     appState.currentUser = { id: 2, username: 'employee-one', roles: [ROLES.EMPLOYEE] };
-
     renderWithProviders(<App />, { route: '/dashboard' });
-
     expect(screen.getByText('ProductsPage')).toBeInTheDocument();
   });
 });
