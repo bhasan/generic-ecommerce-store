@@ -368,14 +368,15 @@ export function AppProvider({ children }) {
   }, [loadConfig]);
 
   // Load orders function (can be called manually)
-  const loadOrders = useCallback(async () => {
+  // Pass silent=true for background polls so the loading spinner does not disrupt the UI.
+  const loadOrders = useCallback(async (silent = false) => {
     if (!isAuthenticated) {
       setOrders([]);
       return;
     }
 
     try {
-      setIsLoadingOrders(true);
+      if (!silent) setIsLoadingOrders(true);
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
     } catch (error) {
@@ -383,7 +384,7 @@ export function AppProvider({ children }) {
       // Don't show error notification on initial load, just log it
       // Orders will remain empty array
     } finally {
-      setIsLoadingOrders(false);
+      if (!silent) setIsLoadingOrders(false);
     }
   }, [isAuthenticated]);
 

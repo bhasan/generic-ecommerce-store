@@ -31,6 +31,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole, ROLES } from '../../utils/roles';
 import OrderDetailPanel from './OrderDetailPanel';
+import CustomerOrderList from './CustomerOrderList';
 import { OrderStatus } from '../../constants/orderStatuses';
 
 const FILTER_STATUSES = Object.values(OrderStatus);
@@ -196,20 +197,21 @@ function OrdersPage() {
       viewStartAtRef.current = Date.now();
       setNewOrderIds([]);
       knownOrderIdsRef.current = new Set(ordersRef.current.map((o) => o.id));
-      loadOrders();
+      // Silent refresh on focus — no loading spinner, avoids disrupting the current view.
+      loadOrders(true);
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadOrders]);
 
   useEffect(() => {
-    if (!canModifyOrders) return undefined;
-    // Staff views poll in the background so the board stays current during active fulfillment work.
+    if (!canModifyOrders && !isCustomerOnly) return undefined;
+    // Background poll for both staff and customers — silent so the UI is never disrupted.
     const intervalId = setInterval(() => {
-      if (!document.hidden) loadOrders();
+      if (!document.hidden) loadOrders(true);
     }, ORDER_POLL_INTERVAL_MS);
     return () => clearInterval(intervalId);
-  }, [loadOrders, canModifyOrders]);
+  }, [loadOrders, canModifyOrders, isCustomerOnly]);
 
   useEffect(() => {
     if (isLoadingOrders) return;
@@ -428,6 +430,82 @@ function OrdersPage() {
   };
 
   const selectedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
+
+  // Customers get a dedicated list view — no kanban, no staff-only controls.
+  if (isCustomerOnly) {
+    const myOrders = orders.filter((o) => o.userId === currentUser.id);
+    return (
+      <>
+        <CustomerOrderList
+          orders={myOrders}
+          isLoadingOrders={isLoadingOrders}
+          loadOrders={loadOrders}
+          onSelectOrder={setSelectedOrderId}
+          products={products}
+          formatOrderDate={formatOrderDate}
+        />
+        {selectedOrder && (
+          <OrderDetailPanel
+            order={selectedOrder}
+            onClose={() => setSelectedOrderId(null)}
+            products={products}
+            canModifyOrders={false}
+            canDeleteOrder={false}
+            isEditing={false}
+            onToggleEdit={() => {}}
+            onSaveEdit={() => {}}
+            onCancelEdit={() => {}}
+            addingItemToOrderId={null}
+            newItemProductId=""
+            setNewItemProductId={() => {}}
+            newItemQuantity={1}
+            setNewItemQuantity={() => {}}
+            onAddItem={() => {}}
+            onCancelAddItem={() => {}}
+            onStartAddItem={() => {}}
+            editingStatusId={null}
+            onStartEditStatus={() => {}}
+            onStatusChange={() => {}}
+            onCancelStatusEdit={() => {}}
+            updateOrderStatus={updateOrderStatus}
+            onQuickAction={() => {}}
+            onVoidItem={() => {}}
+            onDeleteItem={() => {}}
+            onDeleteOrder={() => {}}
+            showConfirmDialog={showConfirmDialog}
+            getProductName={getProductName}
+            getStatusIcon={getStatusIcon}
+            getStatusClass={getStatusClass}
+            getStatusLabel={(s) => STATUS_LABELS[s] ?? s.replace(/_/g, ' ')}
+            formatOrderDate={formatOrderDate}
+            getNextStatusActions={() => []}
+            navigate={navigate}
+            updatingOrderId={null}
+          />
+        )}
+        {confirmDialog && (
+          <div className="confirmation-dialog-overlay" onClick={() => setConfirmDialog(null)}>
+            <div className="confirmation-dialog surface-card" onClick={(e) => e.stopPropagation()}>
+              <h3 className="confirmation-dialog-title">{confirmDialog.title}</h3>
+              <p className="confirmation-dialog-message">{confirmDialog.message}</p>
+              <div className="confirmation-dialog-actions">
+                <button type="button" className="btn-dialog btn-dialog-cancel" onClick={() => setConfirmDialog(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`btn-dialog btn-dialog-confirm ${confirmDialog.confirmVariant ? 'variant-' + confirmDialog.confirmVariant : ''}`}
+                  onClick={handleConfirm}
+                >
+                  {confirmDialog.confirmLabel || 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="orders-page-container orders-page-kanban">
