@@ -19,6 +19,7 @@ import uploadRoutes from './routes/upload.routes';
 import paymentSettingsRoutes from './routes/paymentSettings.routes';
 import storeSettingsRoutes from './routes/storeSettings.routes';
 import orderingConstraintsRoutes from './routes/orderingConstraints.routes';
+import landingPageSettingsRoutes from './routes/landingPageSettings.routes';
 import creditRoutes from './routes/credit.routes';
 
 // Import middleware
@@ -197,6 +198,7 @@ app.use('/api/notifications', generalLimiter, notificationRoutes);
 app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
+app.use('/api/landing-page-settings', generalLimiter, landingPageSettingsRoutes);
 app.use('/api/credits', generalLimiter, creditRoutes);
 
 // ========================================
@@ -213,6 +215,7 @@ app.use(errorHandler);
 // SERVER START
 // ========================================
 
+// Validates production-only env requirements before startup and keeps wildcard CORS out of prod.
 function validateProductionEnv() {
   if (process.env.NODE_ENV !== 'production') return;
   const required = ['JWT_SECRET', 'CORS_ORIGIN', 'DATABASE_URL'];
@@ -227,6 +230,7 @@ function validateProductionEnv() {
 
 validateProductionEnv();
 
+// Starts the Express app with the configured port, which defaults to 3000 when PORT is unset.
 app.listen(PORT, () => {
   console.log('========================================');
   console.log(`🚀 Server running on port ${PORT}`);

@@ -69,6 +69,7 @@ describe('order service — IN_STORE payment', () => {
     const createdOrder = { id: 42, total: 10.83, status: 'APPROVED', paymentMethod: PaymentMethod.IN_STORE };
     prismaMock.order.create.mockResolvedValue(createdOrder);
     prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 42, productId: 7, quantity: 1, price: 10 });
+    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     notificationEventsMock.notifyOrderCreated.mockResolvedValue(undefined);
 
     const { default: orderService } = await import('./order.service');

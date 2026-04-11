@@ -64,6 +64,28 @@ The repo now has:
 - frontend API error preservation and dev-only request traces in [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\services\api.js`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\services\api.js)
 - frontend role-helper cleanup in protected-route and product review surfaces
 
+## Recent Merge Guardrails
+
+The following merge-sensitive behaviors were rechecked and should be preserved in future branches:
+
+- [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\context\AppContext.jsx`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\context\AppContext.jsx) must continue exposing `featuredProductIds` and `promotions`.
+  - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\features\landing\LandingPage.jsx`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\features\landing\LandingPage.jsx) reads both arrays directly and can throw if they become `undefined`.
+  - Current safe default is empty arrays, with hydration from `/api/config` when available.
+- [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\index.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\index.ts) must keep mounting `/api/landing-page-settings`.
+  - The dashboard management UI still calls this endpoint for featured products and promotions.
+  - If it is dropped again, management load/save flows fall back to 404s.
+- [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\features\cart\CheckoutPage.jsx`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\features\cart\CheckoutPage.jsx) must preserve the disabled-delivery reason path.
+  - When `deliveryDisabled` is true, the UI should show `deliveryDisabledMessage` instead of minimum-order text.
+- Checkout and payment merges must preserve all three active paths together:
+  - delivery eligibility and address snapshot behavior
+  - printer/manual receipt flows
+  - `IN_STORE` payment support from `develop`
+- Full verification that last passed on this merged branch:
+  - backend tests: `139/139`
+  - web tests: `264/264`
+  - backend build: passed
+  - web build: passed
+
 ## Key Backend Files
 
 - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\index.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\index.ts)

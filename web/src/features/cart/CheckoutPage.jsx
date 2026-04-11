@@ -15,12 +15,14 @@ import {
   parseAddress,
 } from '../../utils/address';
 
+// Creates the empty delivery-check state used before validation starts or after it is reset.
 const createInitialEligibilityState = () => ({
   status: 'idle',
   result: null,
   error: '',
 });
 
+// Drives checkout UI for pickup and delivery, including delivery prechecks and external-payment recovery.
 function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -171,7 +173,6 @@ function CheckoutPage() {
     checkDeliveryEligibility,
     deliveryAddressComplete,
     isDelivery,
-    normalizedAddress,
     normalizedAddressKey,
   ]);
 
@@ -197,6 +198,7 @@ function CheckoutPage() {
     return null;
   }
 
+  // Clears one address-field error and any derived delivery-eligibility error after user edits that field.
   const clearAddressError = (fieldName) => {
     setErrors((prev) => ({
       ...prev,
@@ -205,6 +207,7 @@ function CheckoutPage() {
     }));
   };
 
+  // Validates address, payment, delivery eligibility, and credit rules before any order request is submitted.
   const validateForm = () => {
     const newErrors = {};
 
@@ -249,6 +252,7 @@ function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Places the order, preserves a restorable cart snapshot, and branches correctly for external-payment flows.
   const handlePlaceOrder = async () => {
     if (!validateForm()) return;
 
@@ -293,6 +297,7 @@ function CheckoutPage() {
     }
   };
 
+  // Finalizes the external-payment handoff after the user confirms they sent payment.
   const handleSendPaymentDone = () => {
     setOrderCompleted(true);
     setShowSendPaymentModal(false);
@@ -302,6 +307,7 @@ function CheckoutPage() {
     }
   };
 
+  // Cancels the pending external-payment order and restores the cart even if deleteOrder fails.
   const handleSendPaymentCancel = async () => {
     setOrderCancelled(true);
     try {
@@ -319,6 +325,7 @@ function CheckoutPage() {
     }
   };
 
+  // Chooses the most specific delivery status message so disabled-delivery reasons beat generic minimum-order text.
   const renderDeliveryEligibilityMessage = () => {
     if (!isDelivery) return null;
 

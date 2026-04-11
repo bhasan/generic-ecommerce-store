@@ -44,6 +44,7 @@ interface PrintOrderReceiptData {
 }
 
 export class OrderService {
+  // Normalizes raw discount-rule data into valid numeric quantity rules and drops malformed entries.
   private normalizeQuantityDiscounts(value: unknown) {
     if (!Array.isArray(value)) return [];
     return value
@@ -61,6 +62,7 @@ export class OrderService {
       .filter(Boolean) as Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
   }
 
+  // Resolves allowed quantity steps with product overrides taking precedence over category defaults.
   private resolveAllowedQuantities(product: { allowedQuantitiesOverride?: number[]; category?: { allowedQuantities?: number[] } }) {
     if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
       return product.allowedQuantitiesOverride;
@@ -68,6 +70,7 @@ export class OrderService {
     return product.category?.allowedQuantities ?? [];
   }
 
+  // Resolves quantity discount rules with product overrides winning so category defaults do not mask them.
   private resolveQuantityDiscounts(product: {
     quantityDiscountsOverride?: unknown;
     category?: { quantityDiscounts?: unknown };
@@ -77,6 +80,7 @@ export class OrderService {
     return this.normalizeQuantityDiscounts(product.category?.quantityDiscounts);
   }
 
+  // Applies the matching quantity discount to a base price and never returns a negative unit price.
   private resolveDiscountedUnitPrice(
     basePrice: number,
     quantity: number,
@@ -91,6 +95,7 @@ export class OrderService {
     return Math.max(0, basePrice - discount);
   }
 
+  // Compares quantities with decimal tolerance so fractional allowed quantities stay reliable.
   private isQuantityAllowed(quantity: number, allowedQuantities: number[]) {
     return allowedQuantities.some((allowed) => Math.abs(allowed - quantity) < 1e-9);
   }
@@ -98,6 +103,7 @@ export class OrderService {
   /**
    * Get all orders (with user filtering for customers)
    */
+  // Returns all visible orders, scoped to the current user unless the caller has staff or driver roles.
   async getAllOrders(userId: number, userRoles: RoleName[]) {
     const isCustomerScoped = !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]);
     const where = isCustomerScoped ? { userId } : {};
@@ -190,6 +196,7 @@ export class OrderService {
   /**
    * Get delivered orders (latest first)
    */
+  // Returns delivered orders enriched with user and item snapshots for delivery-history style views.
   async getDeliveredOrders() {
     const orders = await prisma.order.findMany({
       where: {
@@ -264,6 +271,7 @@ export class OrderService {
   /**
    * Get out-for-delivery orders (for delivery drivers)
    */
+  // Returns orders currently out for delivery with attached user and item details for driver/staff tracking.
   async getOutForDeliveryOrders() {
     const orders = await prisma.order.findMany({
       where: {
@@ -339,6 +347,7 @@ export class OrderService {
   /**
    * Get ready-for-delivery orders (for delivery drivers)
    */
+  // Returns orders ready for delivery with enough related data for dispatching and handoff screens.
   async getReadyForDeliveryOrders() {
     const orders = await prisma.order.findMany({
       where: {
@@ -414,6 +423,7 @@ export class OrderService {
   /**
    * Get single order by ID
    */
+  // Returns one order with role-aware access control and the related user/item data needed by detail views.
   async getOrderById(orderId: number, userId: number, userRoles: RoleName[]) {
     const order = await prisma.order.findUnique({
       where: { id: orderId }
@@ -462,6 +472,7 @@ export class OrderService {
   /**
    * Create a new order (checkout)
    */
+  // Creates an order, enforces stock and delivery rules, persists delivery snapshots, and triggers notifications/printing.
   async createOrder(data: CreateOrderData) {
     const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, paymentMethod } = data;
     const effectivePaymentMethod = paymentMethod || PaymentMethod.EXTERNAL;
@@ -595,19 +606,12 @@ export class OrderService {
         paymentMethod: effectivePaymentMethod,
       });
 
-      const initialStatus = (
-        deliveryMethod === DeliveryMethod.PICKUP
-        && effectivePaymentMethod === PaymentMethod.IN_STORE
-      )
-        ? OrderStatus.APPROVED
-        : OrderStatus.PENDING;
-
       const result = await prisma.$transaction(async (tx) => {
         const newOrder = await tx.order.create({
           data: {
             userId,
             total,
-            status: initialStatus,
+            status: OrderStatus.PENDING,
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
             ...(deliveryEligibility ? {
@@ -751,6 +755,7 @@ export class OrderService {
    * Management/Admin can update to any status
    * Delivery Driver can only update to DELIVERED
    */
+  // Updates order status, applies any required side effects, and keeps role-aware delivery transitions intact.
   async updateOrderStatus(orderId: number, data: UpdateOrderStatusData, userRoles?: RoleName[]) {
     logger.info('Updating order status', {
       orderId,
@@ -859,6 +864,7 @@ export class OrderService {
   /**
    * Add item to existing order (Management/Admin only)
    */
+  // Adds a post-submission order item, validates quantity rules, and marks the item as added after submission.
   async addItemToOrder(orderId: number, data: AddOrderItemData) {
     logger.info('Adding item to order', {
       orderId,
@@ -956,6 +962,7 @@ export class OrderService {
   /**
    * Void order item (Management/Admin only)
    */
+  // Marks one order item voided without removing the record so fulfillment and receipt history stay auditable.
   async voidOrderItem(orderId: number, itemId: number) {
     const orderItem = await prisma.orderItem.findFirst({
       where: { id: itemId, orderId }
@@ -1001,6 +1008,7 @@ export class OrderService {
   /**
    * Delete order item (Management/Admin only)
    */
+  // Deletes one order item permanently after validation when the editing flow requires full removal instead of voiding.
   async deleteOrderItem(orderId: number, itemId: number) {
     logger.info('Deleting order item', { orderId, itemId });
 
@@ -1074,6 +1082,7 @@ export class OrderService {
   /**
    * Delete entire order (Admin only)
    */
+  // Deletes an order and restores reserved stock so cancelled or test orders do not keep inventory locked.
   async deleteOrder(orderId: number) {
     logger.info('Deleting order', { orderId });
 
@@ -1114,6 +1123,7 @@ export class OrderService {
     }
   }
 
+  // Builds and dispatches a manual reprint request while preserving actor metadata for audit history.
   async printOrderReceipt(orderId: number, data: PrintOrderReceiptData = {}) {
     const order = await prisma.order.findUnique({
       where: { id: orderId },

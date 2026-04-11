@@ -146,6 +146,8 @@ describe('CheckoutPage', () => {
         roles: ['CUSTOMER'],
         address: '123 Main St, Houston, TX 77083',
       },
+      minimumDeliveryOrder: 0,
+      minimumDeliveryOrderEnabled: false,
       creditBalance: 0,
     });
 
@@ -246,9 +248,10 @@ describe('CheckoutPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
       await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith(
-        expect.any(String),
+        '$customer-one',
         DeliveryMethod.PICKUP,
-        PaymentMethod.IN_STORE
+        PaymentMethod.IN_STORE,
+        undefined
       ));
 
       // SendPaymentModal should NOT appear — go directly to success page
