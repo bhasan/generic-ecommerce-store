@@ -14,7 +14,8 @@
       "Bash(do echo:*)",
       "Read(//home/bilal/projects/smoke-station-delivery/**)",
       "Bash(done)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(wait)"
     ]
   }
 }

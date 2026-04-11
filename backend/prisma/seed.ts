@@ -23,7 +23,7 @@ async function seed() {
 
   console.log('👥 Creating roles and users...');
   
-  const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER'] as const;
+  const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'VIP'] as const;
   type RoleName = (typeof roleNames)[number];
 
   const roles = await Promise.all(
@@ -152,6 +152,21 @@ async function seed() {
   });
   await prisma.userRole.createMany({
     data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: david.id, roleId }))
+  });
+
+  const vipPassword = await hashPassword('vip123');
+  const vipUser = await prisma.user.create({
+    data: {
+      username: 'vipuser',
+      password: vipPassword,
+      address: '100 VIP Lane, Austin, TX 78706',
+      cashapp: '$VIPUser',
+      phoneNumber: '(512) 555-0106',
+      approved: true,
+    },
+  });
+  await prisma.userRole.createMany({
+    data: getRoleIds(['CUSTOMER', 'VIP']).map(roleId => ({ userId: vipUser.id, roleId }))
   });
 
   const driverPassword = await hashPassword('driver123');
