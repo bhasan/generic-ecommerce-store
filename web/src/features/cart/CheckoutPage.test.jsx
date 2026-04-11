@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CheckoutPage from './CheckoutPage';
+import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 
 const checkoutMock = vi.fn();
 const checkDeliveryEligibilityMock = vi.fn();
@@ -71,7 +72,7 @@ describe('CheckoutPage', () => {
     fireEvent.click(screen.getByLabelText(/store credit/i));
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', 'PICKUP', 'CREDIT', undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined));
     expect(await screen.findByText('Order success page')).toBeInTheDocument();
   });
 
@@ -106,7 +107,7 @@ describe('CheckoutPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', 'PICKUP', 'EXTERNAL', undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.EXTERNAL, undefined));
     expect(await screen.findByText(/order placed successfully/i)).toBeInTheDocument();
     expect(screen.getAllByText(/\$SmokeStationHQ/).length).toBeGreaterThan(0);
   });
@@ -188,5 +189,89 @@ describe('CheckoutPage', () => {
     expect(await screen.findByText(/outside the 5\.00 mile delivery radius/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /place order/i })).toBeDisabled();
     expect(checkoutMock).not.toHaveBeenCalled();
+  });
+
+  describe('IN_STORE payment', () => {
+    it('shows "Pay in Store" option when delivery method is PICKUP', () => {
+      renderCheckout();
+
+      // Default delivery method is PICKUP
+      expect(screen.getByRole('radio', { name: /pay in store/i })).toBeInTheDocument();
+    });
+
+    it('hides "Pay in Store" option when delivery method switches to DELIVERY', () => {
+      useAppMock.mockReturnValue({
+        ...baseAppState,
+        minimumDeliveryOrderEnabled: false, // unlock delivery so the button is clickable
+      });
+
+      renderCheckout();
+
+      fireEvent.click(screen.getByRole('button', { name: /^delivery$/i }));
+
+      expect(screen.queryByRole('radio', { name: /pay in store/i })).not.toBeInTheDocument();
+    });
+
+    it('hides the CashApp username field when "Pay in Store" is selected', () => {
+      renderCheckout();
+
+      fireEvent.click(screen.getByRole('radio', { name: /pay in store/i }));
+
+      expect(screen.queryByPlaceholderText(/\$username/i)).not.toBeInTheDocument();
+    });
+
+    it('resets payment method to EXTERNAL when switching from PICKUP to DELIVERY', () => {
+      useAppMock.mockReturnValue({
+        ...baseAppState,
+        minimumDeliveryOrderEnabled: false,
+      });
+
+      renderCheckout();
+
+      // Select Pay in Store while on PICKUP
+      fireEvent.click(screen.getByRole('radio', { name: /pay in store/i }));
+      expect(screen.getByRole('radio', { name: /pay in store/i })).toBeChecked();
+
+      // Switch to Delivery — IN_STORE is no longer available
+      fireEvent.click(screen.getByRole('button', { name: /^delivery$/i }));
+
+      // CashApp field reappears, confirming payment method reverted to EXTERNAL
+      expect(screen.getByPlaceholderText(/\$username/i)).toBeInTheDocument();
+    });
+
+    it('navigates directly to order success without showing SendPaymentModal', async () => {
+      renderCheckout();
+
+      fireEvent.click(screen.getByRole('radio', { name: /pay in store/i }));
+      fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+      await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith(
+        expect.any(String),
+        DeliveryMethod.PICKUP,
+        PaymentMethod.IN_STORE
+      ));
+
+      // SendPaymentModal should NOT appear — go directly to success page
+      expect(screen.queryByText(/payment instructions/i)).not.toBeInTheDocument();
+      expect(await screen.findByText('Order success page')).toBeInTheDocument();
+    });
+
+    it('skips CashApp validation when IN_STORE is selected', async () => {
+      useAppMock.mockReturnValue({
+        ...baseAppState,
+        currentUser: { id: 1, username: 'customer-one', cashapp: '', roles: ['CUSTOMER'] },
+        creditBalance: 0,
+      });
+
+      renderCheckout();
+
+      fireEvent.click(screen.getByRole('radio', { name: /pay in store/i }));
+      fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+      await waitFor(() => expect(checkoutMock).toHaveBeenCalled());
+
+      // No CashApp validation error should appear
+      expect(screen.queryByText(/cashapp username is required/i)).not.toBeInTheDocument();
+    });
   });
 });

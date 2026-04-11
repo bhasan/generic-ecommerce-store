@@ -3,6 +3,8 @@ import { body } from 'express-validator';
 import orderController from '../controllers/order.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role.middleware';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
+import { OrderStatus } from '../../generated/prisma';
 
 const router = Router();
 const deliveryAddressValidators = [
@@ -77,9 +79,10 @@ router.post(
     body('items.*.productId').isInt().withMessage('Valid product ID is required'),
     body('items.*.quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
     body('cashAppUsername').optional().isString().withMessage('CashApp username must be a string'),
-    body('deliveryMethod').isIn(['DELIVERY', 'PICKUP']).withMessage('Delivery method must be DELIVERY or PICKUP'),
+    body('paymentMethod').optional().isIn(Object.values(PaymentMethod)).withMessage('Payment method must be EXTERNAL, CREDIT, or IN_STORE'),
+    body('deliveryMethod').isIn(Object.values(DeliveryMethod)).withMessage('Delivery method must be DELIVERY or PICKUP'),
     body('deliveryAddress').custom((value, { req }) => {
-      if (req.body.deliveryMethod !== 'DELIVERY') {
+      if (req.body.deliveryMethod !== DeliveryMethod.DELIVERY) {
         return true;
       }
 
@@ -90,7 +93,7 @@ router.post(
       return true;
     }),
     body('deliveryAddress.street')
-      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
       .isString()
       .trim()
       .notEmpty()
@@ -100,19 +103,19 @@ router.post(
       .isString()
       .withMessage('Delivery apartment must be a string'),
     body('deliveryAddress.city')
-      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
       .isString()
       .trim()
       .notEmpty()
       .withMessage('Delivery city is required'),
     body('deliveryAddress.state')
-      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
       .isString()
       .trim()
       .isLength({ min: 2, max: 2 })
       .withMessage('Delivery state must be a 2-letter code'),
     body('deliveryAddress.zipCode')
-      .if((_value, { req }) => req.body.deliveryMethod === 'DELIVERY')
+      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
       .isString()
       .trim()
       .matches(/^\d{5}(-\d{4})?$/)
@@ -131,7 +134,7 @@ router.patch(
   authenticate,
   [
     body('status')
-      .isIn(['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'])
+      .isIn(Object.values(OrderStatus))
       .withMessage('Invalid order status')
   ],
   orderController.updateOrderStatus

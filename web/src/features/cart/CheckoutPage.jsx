@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
+import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import SendPaymentModal from '../../components/common/SendPaymentModal';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
@@ -41,7 +42,7 @@ function CheckoutPage() {
     paymentSettings,
     creditBalance,
   } = useApp();
-  const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || 'PICKUP');
+  const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || DeliveryMethod.PICKUP);
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -51,7 +52,7 @@ function CheckoutPage() {
   });
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cashAppUsername, setCashAppUsername] = useState('');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('EXTERNAL');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(PaymentMethod.EXTERNAL);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
   const [pendingOrderState, setPendingOrderState] = useState(null);
@@ -63,11 +64,15 @@ function CheckoutPage() {
   const prefilledAddressKeyRef = useRef('');
   const hasUsedImmediatePrefillCheckRef = useRef(false);
 
-  // Pre-populate address and CashApp from user profile
+  const isPickup = deliveryMethod === DeliveryMethod.PICKUP;
+  const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
+  const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
+  const isInStorePayment = selectedPaymentMethod === PaymentMethod.IN_STORE;
+  const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
+  const showPaymentSelector = creditBalance > 0 || isPickup;
+
   useEffect(() => {
-    if (!currentUser) {
-      return;
-    }
+    if (!currentUser) return;
 
     if (currentUser.address) {
       const parsedAddress = parseAddress(currentUser.address);
@@ -84,7 +89,6 @@ function CheckoutPage() {
     }
   }, [currentUser]);
 
-  // Calculate totals
   const subtotal = cart.reduce((sum, item) => {
     const unitPrice = getDiscountedUnitPrice(item, item.quantity);
     return sum + (unitPrice * item.quantity);
@@ -97,7 +101,10 @@ function CheckoutPage() {
   const deliveryAddressComplete = isDeliveryAddressComplete(normalizedAddress);
   const deliveryMinimumBlocked = minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder;
   const deliveryBlocked = deliveryDisabled || deliveryMinimumBlocked;
-  const deliverySubmitBlocked = deliveryMethod === 'DELIVERY' && (
+  const deliveryBlockedReason = deliveryDisabled
+    ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
+    : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)`;
+  const deliverySubmitBlocked = isDelivery && (
     deliveryBlocked
     || !deliveryAddressComplete
     || deliveryEligibility.status === 'checking'
@@ -105,7 +112,7 @@ function CheckoutPage() {
   );
 
   useEffect(() => {
-    if (deliveryMethod !== 'DELIVERY') {
+    if (!isDelivery) {
       latestEligibilityRequestRef.current += 1;
       setDeliveryEligibility(createInitialEligibilityState());
       return;
@@ -119,7 +126,6 @@ function CheckoutPage() {
 
     const requestId = latestEligibilityRequestRef.current + 1;
     latestEligibilityRequestRef.current = requestId;
-
     const shouldRunImmediately = (
       normalizedAddressKey === prefilledAddressKeyRef.current
       && !hasUsedImmediatePrefillCheckRef.current
@@ -162,13 +168,25 @@ function CheckoutPage() {
 
     return () => clearTimeout(timeoutId);
   }, [
-    deliveryMethod,
-    deliveryAddressComplete,
-    normalizedAddressKey,
     checkDeliveryEligibility,
+    deliveryAddressComplete,
+    isDelivery,
+    normalizedAddress,
+    normalizedAddressKey,
   ]);
 
-  // Redirect if cart is empty and we haven't just placed or cancelled an order
+  useEffect(() => {
+    if (deliveryBlocked && isDelivery) {
+      setDeliveryMethod(DeliveryMethod.PICKUP);
+    }
+  }, [deliveryBlocked, isDelivery]);
+
+  useEffect(() => {
+    if (isDelivery && isInStorePayment) {
+      setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
+    }
+  }, [isDelivery, isInStorePayment]);
+
   useEffect(() => {
     if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted) {
       navigate('/cart');
@@ -190,19 +208,10 @@ function CheckoutPage() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (deliveryMethod === 'DELIVERY') {
-      if (!normalizedAddress.street) {
-        newErrors.street = 'Street address is required';
-      }
-
-      if (!normalizedAddress.city) {
-        newErrors.city = 'City is required';
-      }
-
-      if (!normalizedAddress.state) {
-        newErrors.state = 'State is required';
-      }
-
+    if (isDelivery) {
+      if (!normalizedAddress.street) newErrors.street = 'Street address is required';
+      if (!normalizedAddress.city) newErrors.city = 'City is required';
+      if (!normalizedAddress.state) newErrors.state = 'State is required';
       if (!normalizedAddress.zipCode) {
         newErrors.zipCode = 'ZIP code is required';
       } else if (!/^\d{5}$/.test(normalizedAddress.zipCode)) {
@@ -222,7 +231,7 @@ function CheckoutPage() {
       }
     }
 
-    if (selectedPaymentMethod !== 'CREDIT' && paymentSettings?.cashapp?.enabled) {
+    if (isExternalPayment && paymentSettings?.cashapp?.enabled) {
       if (!cashAppUsername.trim()) {
         newErrors.cashAppUsername = 'CashApp username is required';
       } else if (!cashAppUsername.startsWith('$')) {
@@ -232,7 +241,7 @@ function CheckoutPage() {
       }
     }
 
-    if (selectedPaymentMethod === 'CREDIT' && creditBalance < total) {
+    if (isCreditPayment && creditBalance < total) {
       newErrors.credit = `Insufficient credit balance. You have $${creditBalance.toFixed(2)} but the order total is $${total.toFixed(2)}.`;
     }
 
@@ -241,9 +250,7 @@ function CheckoutPage() {
   };
 
   const handlePlaceOrder = async () => {
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsSubmitting(true);
 
@@ -253,16 +260,16 @@ function CheckoutPage() {
         cashAppUsername,
         deliveryMethod,
         selectedPaymentMethod,
-        deliveryMethod === 'DELIVERY' ? normalizedAddress : undefined
+        isDelivery ? normalizedAddress : undefined
       );
 
       const orderState = {
         order: newOrder,
         deliveryMethod,
-        deliveryAddress: deliveryMethod === 'DELIVERY'
+        deliveryAddress: isDelivery
           ? (newOrder.deliveryAddress || formatDeliveryAddress(normalizedAddress))
           : 'Store Pickup',
-        pickupLocation: deliveryMethod === 'PICKUP' ? pickupLocation : null,
+        pickupLocation: isPickup ? pickupLocation : null,
         addressDetails: normalizedAddress,
         specialInstructions,
         cashAppUsername,
@@ -273,7 +280,7 @@ function CheckoutPage() {
         paymentMethod: selectedPaymentMethod
       };
 
-      if (selectedPaymentMethod === 'CREDIT') {
+      if (!isExternalPayment) {
         navigate('/order-success', { state: orderState });
       } else {
         setPendingOrderState(orderState);
@@ -302,7 +309,7 @@ function CheckoutPage() {
         await deleteOrder(pendingOrderState.order.id, { silent: true });
       }
     } catch {
-      // Cancellation should still close the modal and restore the cart even if order cleanup fails.
+      // Cancellation should still close the modal and restore the cart even if cleanup fails.
     } finally {
       if (pendingOrderState?.items?.length) {
         restoreCart(pendingOrderState.items);
@@ -313,9 +320,7 @@ function CheckoutPage() {
   };
 
   const renderDeliveryEligibilityMessage = () => {
-    if (deliveryMethod !== 'DELIVERY') {
-      return null;
-    }
+    if (!isDelivery) return null;
 
     if (deliveryMinimumBlocked) {
       return (
@@ -334,11 +339,7 @@ function CheckoutPage() {
     }
 
     if (deliveryEligibility.status === 'checking') {
-      return (
-        <p className="delivery-check-hint">
-          Checking delivery eligibility for this address...
-        </p>
-      );
+      return <p className="delivery-check-hint">Checking delivery eligibility for this address...</p>;
     }
 
     if (deliveryEligibility.status === 'error') {
@@ -410,30 +411,21 @@ function CheckoutPage() {
               <h3>Order Review</h3>
             </div>
             <div className="order-items-review">
-              {cart.map(item => (
-                (() => {
-                  const imageSrc = getProductImageSrc(item);
-                  return (
-                    <div key={item.id} className="checkout-item">
-                      <ProductImage
-                        src={imageSrc}
-                        alt={item.name}
-                        className="checkout-item-image"
-                      />
-                      <div className="checkout-item-details">
-                        <h4>{item.name}</h4>
-                        <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
-                        <p className="checkout-item-price">
-                          ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} x {item.quantity}
-                        </p>
-                      </div>
-                      <div className="checkout-item-total">
-                        ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
-                      </div>
+              {cart.map((item) => {
+                const imageSrc = getProductImageSrc(item);
+                const unitPrice = getDiscountedUnitPrice(item, item.quantity);
+                return (
+                  <div key={item.id} className="checkout-item">
+                    <ProductImage src={imageSrc} alt={item.name} className="checkout-item-image" />
+                    <div className="checkout-item-details">
+                      <h4>{item.name}</h4>
+                      <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
+                      <p className="checkout-item-price">${unitPrice.toFixed(2)} x {item.quantity}</p>
                     </div>
-                  );
-                })()
-              ))}
+                    <div className="checkout-item-total">${(unitPrice * item.quantity).toFixed(2)}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -443,36 +435,53 @@ function CheckoutPage() {
               <h3>Payment Information</h3>
             </div>
             <div className="payment-info-box">
-              {creditBalance > 0 && (
+              {showPaymentSelector && (
                 <div className="form-group">
                   <label className="payment-method-select-label">Payment Method</label>
                   <div className="payment-method-options">
-                    <label className={`payment-method-option ${selectedPaymentMethod === 'CREDIT' ? 'selected' : ''}`}>
+                    {creditBalance > 0 && (
+                      <label className={`payment-method-option ${isCreditPayment ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={PaymentMethod.CREDIT}
+                          checked={isCreditPayment}
+                          onChange={() => {
+                            setSelectedPaymentMethod(PaymentMethod.CREDIT);
+                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
+                          }}
+                        />
+                        <span>Store Credit (${creditBalance.toFixed(2)} available)</span>
+                      </label>
+                    )}
+                    <label className={`payment-method-option ${isExternalPayment ? 'selected' : ''}`}>
                       <input
                         type="radio"
                         name="paymentMethod"
-                        value="CREDIT"
-                        checked={selectedPaymentMethod === 'CREDIT'}
+                        value={PaymentMethod.EXTERNAL}
+                        checked={isExternalPayment}
                         onChange={() => {
-                          setSelectedPaymentMethod('CREDIT');
-                          setErrors({ ...errors, credit: '', cashAppUsername: '' });
-                        }}
-                      />
-                      <span>Store Credit (${creditBalance.toFixed(2)} available)</span>
-                    </label>
-                    <label className={`payment-method-option ${selectedPaymentMethod === 'EXTERNAL' ? 'selected' : ''}`}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="EXTERNAL"
-                        checked={selectedPaymentMethod === 'EXTERNAL'}
-                        onChange={() => {
-                          setSelectedPaymentMethod('EXTERNAL');
+                          setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
                           setErrors({ ...errors, credit: '' });
                         }}
                       />
                       <span>Pay via CashApp / Zelle / Venmo</span>
                     </label>
+                    {isPickup && (
+                      <label className={`payment-method-option ${isInStorePayment ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={PaymentMethod.IN_STORE}
+                          checked={isInStorePayment}
+                          onChange={() => {
+                            setSelectedPaymentMethod(PaymentMethod.IN_STORE);
+                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
+                          }}
+                        />
+                        <span>Pay in Store</span>
+                      </label>
+                    )}
                   </div>
                   {errors.credit && (
                     <span className="error-message">
@@ -483,7 +492,7 @@ function CheckoutPage() {
                 </div>
               )}
 
-              {selectedPaymentMethod !== 'CREDIT' && (
+              {isExternalPayment && (
                 <>
                   {paymentSettings?.cashapp?.enabled && (
                     <div className="form-group">
@@ -544,9 +553,15 @@ function CheckoutPage() {
                 </>
               )}
 
-              {selectedPaymentMethod === 'CREDIT' && (
+              {isCreditPayment && (
                 <div className="payment-credit-confirm">
                   <p>Your store credit balance of <strong>${creditBalance.toFixed(2)}</strong> will be used to pay for this order.</p>
+                </div>
+              )}
+
+              {isInStorePayment && (
+                <div className="payment-credit-confirm">
+                  <p>You'll pay <strong>${total.toFixed(2)}</strong> when you arrive to pick up your order.</p>
                 </div>
               )}
             </div>
@@ -561,28 +576,26 @@ function CheckoutPage() {
             <div className="delivery-method-toggle delivery-method-toggle-large">
               <button
                 type="button"
-                onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
-                className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
+                onClick={() => !deliveryBlocked && setDeliveryMethod(DeliveryMethod.DELIVERY)}
+                className={`toggle-btn ${isDelivery ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
                 disabled={deliveryBlocked}
-                title={deliveryBlocked ? `Add $${(minimumDeliveryOrder - subtotal).toFixed(2)} more for delivery` : undefined}
+                title={deliveryBlocked ? deliveryBlockedReason : undefined}
               >
                 Delivery
               </button>
               <button
                 type="button"
-                onClick={() => setDeliveryMethod('PICKUP')}
-                className={`toggle-btn ${deliveryMethod === 'PICKUP' ? 'active' : ''}`}
+                onClick={() => setDeliveryMethod(DeliveryMethod.PICKUP)}
+                className={`toggle-btn ${isPickup ? 'active' : ''}`}
               >
                 Pick Up
               </button>
             </div>
             {deliveryBlocked && (
-              <p className="delivery-blocked-hint">
-                Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum (${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)
-              </p>
+              <p className="delivery-blocked-hint">{deliveryBlockedReason}</p>
             )}
 
-            {deliveryMethod === 'DELIVERY' ? (
+            {isDelivery ? (
               <div className="address-form">
                 <div className="form-group">
                   <label htmlFor="street">Street Address *</label>
@@ -753,11 +766,11 @@ function CheckoutPage() {
                   : 'Place Order'}
             </button>
 
-            <p className="checkout-note">
-              {selectedPaymentMethod === 'CREDIT'
-                ? 'Store credit will be deducted from your balance when you place this order.'
-                : 'By placing this order, you agree to send payment via the method(s) shown above'}
-            </p>
+            <p className="checkout-note">{
+              isCreditPayment ? 'Store credit will be deducted from your balance when you place this order.'
+                : isInStorePayment ? 'Have your payment ready when you arrive to pick up your order.'
+                  : 'By placing this order, you agree to send payment via the method(s) shown above'
+            }</p>
           </div>
         </div>
       </div>

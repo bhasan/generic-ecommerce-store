@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, PackageCheck, MapPin, X } from 'lucide-react';
 import './SendPaymentModal.css';
+import { DeliveryMethod } from '../../constants/orderMethods';
 
 function SendPaymentModal({ isOpen, onDone, onCancel, pendingOrderState, storeCashappUsername, paymentSettings }) {
   const [paymentSent, setPaymentSent] = useState(false);
@@ -94,11 +95,11 @@ function SendPaymentModal({ isOpen, onDone, onCancel, pendingOrderState, storeCa
             <div className="send-payment-location-header">
               <MapPin size={18} className="send-payment-location-icon" />
               <h3 className="send-payment-location-title">
-                {deliveryMethod === 'DELIVERY' ? 'Delivery Address' : 'Store Pickup Location'}
+                {deliveryMethod === DeliveryMethod.DELIVERY ? 'Delivery Address' : 'Store Pickup Location'}
               </h3>
             </div>
             <p className="send-payment-location-address">
-              {deliveryMethod === 'DELIVERY' ? deliveryAddress : pickupLocation}
+              {deliveryMethod === DeliveryMethod.DELIVERY ? deliveryAddress : pickupLocation}
             </p>
           </div>
 

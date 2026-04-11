@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError, errorHandler } from '../middleware/error.middleware';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const verifyToken = vi.hoisted(() => vi.fn());
 const extractTokenFromHeader = vi.hoisted(() => vi.fn((header?: string) => {
@@ -145,8 +146,8 @@ describe('order routes integration', () => {
     const payload = {
       items: [{ productId: 7, quantity: 2 }],
       cashAppUsername: '$customer-one',
-      deliveryMethod: 'PICKUP',
-      paymentMethod: 'EXTERNAL',
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.EXTERNAL,
     };
 
     const { response, body } = await requestJson(server, '/api/orders', {
@@ -167,9 +168,9 @@ describe('order routes integration', () => {
       userId: 10,
       items: payload.items,
       cashAppUsername: '$customer-one',
-      deliveryMethod: 'PICKUP',
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.EXTERNAL,
       deliveryAddress: undefined,
-      paymentMethod: 'EXTERNAL',
     });
   });
 
@@ -347,6 +348,59 @@ describe('order routes integration', () => {
         orderId: 44,
       },
     });
+  });
+
+  it('accepts IN_STORE payment method with PICKUP delivery', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+    orderService.createOrder.mockResolvedValue({ id: 901, total: 10.83, status: 'PENDING' });
+
+    const payload = {
+      items: [{ productId: 3, quantity: 1 }],
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.IN_STORE,
+    };
+
+    const { response, body } = await requestJson(server, '/api/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.status).toBe(201);
+    expect(body).toEqual({
+      message: 'Order created successfully',
+      order: { id: 901, total: 10.83, status: 'PENDING' },
+    });
+    expect(orderService.createOrder).toHaveBeenCalledWith({
+      userId: 10,
+      items: payload.items,
+      cashAppUsername: undefined,
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.IN_STORE,
+    });
+  });
+
+  it('rejects unknown payment method values before hitting order creation', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+
+    const { response, body } = await requestJson(server, '/api/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        items: [{ productId: 1, quantity: 1 }],
+        paymentMethod: 'CASH',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(body.errors[0].msg).toBe('Payment method must be EXTERNAL, CREDIT, or IN_STORE');
+    expect(orderService.createOrder).not.toHaveBeenCalled();
   });
 
   it('surfaces service errors for admin-only order deletion', async () => {

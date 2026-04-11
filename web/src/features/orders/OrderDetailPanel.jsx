@@ -24,8 +24,9 @@ import {
   Printer
 } from 'lucide-react';
 import './OrderDetailPanel.css';
+import { OrderStatus } from '../../constants/orderStatuses';
 
-const STATUSES = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+const STATUSES = Object.values(OrderStatus);
 
 function OrderDetailPanel({
   order,
@@ -68,7 +69,7 @@ function OrderDetailPanel({
   if (!order) return null;
 
   const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
-  const canEdit = canModifyOrders && order.status !== 'DELIVERED';
+  const canEdit = canModifyOrders && order.status !== OrderStatus.DELIVERED;
   const isAddingItem = addingItemToOrderId === order.id;
   const deliveryAddress = order.deliveryAddress || order.user?.address;
   const deliveryCheckSummary = [

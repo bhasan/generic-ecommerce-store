@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './CartPage.css';
 import { useApp } from '../../context/AppContext';
+import { DeliveryMethod } from '../../constants/orderMethods';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
@@ -10,7 +11,7 @@ import HeaderDivider from '../../components/common/HeaderDivider';
 function CartPage() {
   const navigate = useNavigate();
   const { cart, removeFromCart, updateCartQuantity, taxRate, minimumDeliveryOrder, minimumDeliveryOrderEnabled, deliveryDisabled, deliveryDisabledMessage } = useApp();
-  const [deliveryMethod, setDeliveryMethod] = useState('PICKUP');
+  const [deliveryMethod, setDeliveryMethod] = useState(DeliveryMethod.PICKUP);
   const total = cart.reduce((sum, item) => {
     const unitPrice = getDiscountedUnitPrice(item, item.quantity);
     return sum + (unitPrice * item.quantity);
@@ -18,8 +19,8 @@ function CartPage() {
   const deliveryBlocked = deliveryDisabled || (minimumDeliveryOrderEnabled && total < minimumDeliveryOrder);
 
   useEffect(() => {
-    if (deliveryBlocked && deliveryMethod === 'DELIVERY') {
-      setDeliveryMethod('PICKUP');
+    if (deliveryBlocked && deliveryMethod === DeliveryMethod.DELIVERY) {
+      setDeliveryMethod(DeliveryMethod.PICKUP);
     }
   }, [deliveryBlocked, deliveryMethod]);
 
@@ -129,16 +130,16 @@ function CartPage() {
 
           <div className="delivery-method-toggle delivery-method-toggle-large">
             <button
-              onClick={() => !deliveryBlocked && setDeliveryMethod('DELIVERY')}
-              className={`toggle-btn ${deliveryMethod === 'DELIVERY' ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
+              onClick={() => !deliveryBlocked && setDeliveryMethod(DeliveryMethod.DELIVERY)}
+              className={`toggle-btn ${deliveryMethod === DeliveryMethod.DELIVERY ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
               disabled={deliveryBlocked}
               title={deliveryBlocked ? (deliveryDisabled ? (deliveryDisabledMessage || 'Delivery is currently unavailable.') : `Add $${(minimumDeliveryOrder - total).toFixed(2)} more for delivery`) : undefined}
             >
               Delivery
             </button>
             <button
-              onClick={() => setDeliveryMethod('PICKUP')}
-              className={`toggle-btn ${deliveryMethod === 'PICKUP' ? 'active' : ''}`}
+              onClick={() => setDeliveryMethod(DeliveryMethod.PICKUP)}
+              className={`toggle-btn ${deliveryMethod === DeliveryMethod.PICKUP ? 'active' : ''}`}
             >
               Pick Up
             </button>

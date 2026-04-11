@@ -1,8 +1,9 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { OrderStatus } from '../../generated/prisma';
-import { RoleName, hasAnyRole } from '../constants/roles';
+import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
 import { StructuredDeliveryAddress } from '../utils/address.util';
 import creditService from './credit.service';
@@ -21,9 +22,9 @@ interface CreateOrderData {
     quantity: number;
   }>;
   cashAppUsername?: string;
-  deliveryMethod: 'DELIVERY' | 'PICKUP';
+  deliveryMethod: typeof DeliveryMethod[keyof typeof DeliveryMethod];
   deliveryAddress?: StructuredDeliveryAddress;
-  paymentMethod?: string;
+  paymentMethod?: typeof PaymentMethod[keyof typeof PaymentMethod];
 }
 
 interface UpdateOrderStatusData {
@@ -98,7 +99,7 @@ export class OrderService {
    * Get all orders (with user filtering for customers)
    */
   async getAllOrders(userId: number, userRoles: RoleName[]) {
-    const isCustomerScoped = !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']);
+    const isCustomerScoped = !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]);
     const where = isCustomerScoped ? { userId } : {};
 
     logger.info('Retrieving orders from database', {
@@ -423,7 +424,7 @@ export class OrderService {
     }
 
     // Customers can only view their own orders
-    if (!hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']) && order.userId !== userId) {
+    if (!hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]) && order.userId !== userId) {
       throw new AppError('Access denied', 403);
     }
 
@@ -463,8 +464,8 @@ export class OrderService {
    */
   async createOrder(data: CreateOrderData) {
     const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, paymentMethod } = data;
-    const isCredit = paymentMethod === 'CREDIT';
-    const effectivePaymentMethod = isCredit ? 'CREDIT' : 'EXTERNAL';
+    const effectivePaymentMethod = paymentMethod || PaymentMethod.EXTERNAL;
+    const isCredit = effectivePaymentMethod === PaymentMethod.CREDIT;
 
     logger.info('Creating new order', {
       userId,
@@ -474,7 +475,7 @@ export class OrderService {
       paymentMethod: effectivePaymentMethod,
     });
 
-    if (deliveryMethod !== 'DELIVERY' && deliveryMethod !== 'PICKUP') {
+    if (!Object.values(DeliveryMethod).includes(deliveryMethod)) {
       logger.warn('Order creation failed: invalid delivery method', {
         userId,
         deliveryMethod,
@@ -485,6 +486,10 @@ export class OrderService {
     if (!items || items.length === 0) {
       logger.warn('Order creation failed: empty items array', { userId });
       throw new AppError('Order must contain at least one item', 400);
+    }
+
+    if (effectivePaymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP) {
+      throw new AppError('Pay in store is only available for pickup orders', 400);
     }
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
@@ -552,13 +557,10 @@ export class OrderService {
     });
 
       const orderingConstraints = await orderingConstraintsService.getOrderingConstraints();
-      const {
-        minimumDeliveryOrder,
-        minimumDeliveryOrderEnabled,
-      } = orderingConstraints;
+      const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = orderingConstraints;
 
-      let deliveryEligibility = null;
-      if (deliveryMethod === 'DELIVERY') {
+      let deliveryEligibility: Awaited<ReturnType<typeof deliveryEligibilityService.checkDeliveryEligibility>> | null = null;
+      if (deliveryMethod === DeliveryMethod.DELIVERY) {
         if (!deliveryAddress) {
           throw new AppError('Delivery address is required for delivery orders', 400);
         }
@@ -643,7 +645,7 @@ export class OrderService {
           }
         }
 
-        if (deliveryMethod === 'DELIVERY' && deliveryEligibility?.canonicalAddress) {
+        if (deliveryMethod === DeliveryMethod.DELIVERY && deliveryEligibility?.canonicalAddress) {
           await tx.user.update({
             where: { id: userId },
             data: {
@@ -765,8 +767,8 @@ export class OrderService {
       });
 
       // Check if user is delivery driver trying to set status other than DELIVERED
-      if (userRoles && hasAnyRole(userRoles, ['DELIVERY_DRIVER']) && !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'])) {
-        if (data.status !== 'DELIVERED') {
+      if (userRoles && hasAnyRole(userRoles, [ROLES.DELIVERY_DRIVER]) && !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN])) {
+        if (data.status !== OrderStatus.DELIVERED) {
           logger.warn('Order status update denied: delivery driver trying to set non-DELIVERED status', {
             orderId,
             attemptedStatus: data.status,
@@ -775,7 +777,7 @@ export class OrderService {
           throw new AppError('Delivery drivers can only mark orders as DELIVERED', 403);
         }
         // Delivery drivers can only mark READY_FOR_DELIVERY orders as DELIVERED
-        if (order.status !== 'READY_FOR_DELIVERY') {
+        if (order.status !== OrderStatus.READY_FOR_DELIVERY) {
           logger.warn('Order status update denied: delivery driver can only update READY_FOR_DELIVERY orders', {
             orderId,
             currentStatus: order.status,
@@ -1093,7 +1095,7 @@ export class OrderService {
       });
 
       // Auto-refund credit if this was a credit-paid order
-      if (order.paymentMethod === 'CREDIT') {
+      if (order.paymentMethod === PaymentMethod.CREDIT) {
         logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
         await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
       }

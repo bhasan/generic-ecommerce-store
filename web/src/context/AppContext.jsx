@@ -11,6 +11,7 @@ import * as creditApi from '../services/creditApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
+import { PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
 const AppContext = createContext();
@@ -611,7 +612,7 @@ export function AppProvider({ children }) {
       // Create order via API
       const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress);
 
-      if (deliveryMethod === 'DELIVERY') {
+      if (deliveryMethod === DeliveryMethod.DELIVERY) {
         try {
           const refreshedUser = await authApi.getProfile();
           if (!refreshedUser.roles && refreshedUser.role) {
@@ -621,21 +622,22 @@ export function AppProvider({ children }) {
           setIsAuthenticated(true);
         } catch (profileError) {
           console.warn('Failed to refresh profile after delivery order:', profileError);
-          if (paymentMethod !== 'CREDIT') {
+          if (paymentMethod !== PaymentMethod.CREDIT) {
             const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
             setCurrentUser(updatedUserData);
             localStorage.setItem('userData', JSON.stringify(updatedUserData));
           }
         }
-      } else if (paymentMethod !== 'CREDIT') {
+      } else if (paymentMethod !== PaymentMethod.CREDIT) {
         // Persist the latest payment handle so checkout, profile, and later orders show the same value.
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
         localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      } else {
+      } else if (paymentMethod === PaymentMethod.CREDIT) {
         // Refresh credit balance after credit payment
         await refreshCreditBalance(currentUser.id);
       }
+      // IN_STORE: no payment handle to save
 
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();

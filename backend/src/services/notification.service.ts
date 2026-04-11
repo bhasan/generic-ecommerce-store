@@ -10,11 +10,11 @@ import { RoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 
 const UNFULFILLED_STATUSES: OrderStatus[] = [
-  'PENDING',
-  'APPROVED',
-  'NOT_FULFILLING',
-  'READY_FOR_DELIVERY',
-  'OUT_FOR_DELIVERY'
+  OrderStatus.PENDING,
+  OrderStatus.APPROVED,
+  OrderStatus.NOT_FULFILLING,
+  OrderStatus.READY_FOR_DELIVERY,
+  OrderStatus.OUT_FOR_DELIVERY,
 ];
 
 export interface NotificationMetadata {
@@ -199,7 +199,7 @@ export class NotificationService {
       },
       data: {
         deliveryStatus: status,
-        ...(status === 'DELIVERED' ? { deliveredAt: new Date() } : {}),
+        ...(status === NotificationDeliveryStatus.DELIVERED ? { deliveredAt: new Date() } : {}),
       },
     });
   }

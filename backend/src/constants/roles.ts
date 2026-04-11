@@ -2,6 +2,15 @@ export const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN
 
 export type RoleName = (typeof ROLE_NAMES)[number];
 
+export const ROLES = {
+  GUEST: 'GUEST',
+  CUSTOMER: 'CUSTOMER',
+  EMPLOYEE: 'EMPLOYEE',
+  MANAGEMENT: 'MANAGEMENT',
+  ADMIN: 'ADMIN',
+  DELIVERY_DRIVER: 'DELIVERY_DRIVER',
+} as const satisfies Record<string, RoleName>;
+
 export const isRoleName = (value: unknown): value is RoleName => {
   if (typeof value !== 'string') return false;
   return ROLE_NAMES.includes(value as RoleName);
