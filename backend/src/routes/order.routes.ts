@@ -3,6 +3,8 @@ import { body } from 'express-validator';
 import orderController from '../controllers/order.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role.middleware';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
+import { OrderStatus } from '../../generated/prisma';
 
 const router = Router();
 
@@ -57,7 +59,8 @@ router.post(
     body('items.*.productId').isInt().withMessage('Valid product ID is required'),
     body('items.*.quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
     body('cashAppUsername').optional().isString().withMessage('CashApp username must be a string'),
-    body('deliveryMethod').optional().isIn(['DELIVERY', 'PICKUP']).withMessage('Delivery method must be DELIVERY or PICKUP')
+    body('paymentMethod').optional().isIn(Object.values(PaymentMethod)).withMessage('Payment method must be EXTERNAL, CREDIT, or IN_STORE'),
+    body('deliveryMethod').optional().isIn(Object.values(DeliveryMethod)).withMessage('Delivery method must be DELIVERY or PICKUP')
   ],
   orderController.createOrder
 );
@@ -72,7 +75,7 @@ router.patch(
   authenticate,
   [
     body('status')
-      .isIn(['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'])
+      .isIn(Object.values(OrderStatus))
       .withMessage('Invalid order status')
   ],
   orderController.updateOrderStatus

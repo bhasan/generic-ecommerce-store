@@ -29,9 +29,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole, ROLES } from '../../utils/roles';
 import OrderDetailPanel from './OrderDetailPanel';
+import { OrderStatus } from '../../constants/orderStatuses';
 
-const FILTER_STATUSES = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
-const DEFAULT_SELECTED_STATUSES = ['PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY'];
+const FILTER_STATUSES = Object.values(OrderStatus);
+const DEFAULT_SELECTED_STATUSES = [OrderStatus.PENDING, OrderStatus.APPROVED, OrderStatus.READY_FOR_DELIVERY, OrderStatus.OUT_FOR_DELIVERY];
 const STATUS_LABELS = {
   PENDING: 'Pending',
   APPROVED: 'Approve (Payment Verified)',
@@ -136,7 +137,7 @@ function OrdersPage() {
   const filteredOrders = orders.filter((o) => {
     if (isCustomerOnly && o.userId !== currentUser.id) return false;
     if (!selectedStatuses.includes(o.status)) return false;
-    if (o.status === 'DELIVERED' && !isToday(o.updatedAt)) return false;
+    if (o.status === OrderStatus.DELIVERED && !isToday(o.updatedAt)) return false;
     return true;
   });
 
@@ -235,7 +236,7 @@ function OrdersPage() {
   };
 
   const handleQuickAction = (orderId, newStatus) => {
-    if (newStatus === 'NOT_FULFILLING') {
+    if (newStatus === OrderStatus.NOT_FULFILLING) {
       setConfirmDialog({
         title: 'Reject Order',
         message: 'Reject this order? The customer will no longer expect this order to be fulfilled.',
@@ -243,7 +244,7 @@ function OrdersPage() {
       });
       return;
     }
-    if (newStatus === 'DELIVERED') {
+    if (newStatus === OrderStatus.DELIVERED) {
       setConfirmDialog({
         title: 'Mark as Delivered',
         message: `Mark order #${orderId} as Delivered?`,
@@ -397,7 +398,7 @@ function OrdersPage() {
           const count = orders.filter((o) => {
             if (isCustomerOnly && o.userId !== currentUser.id) return false;
             if (o.status !== s) return false;
-            if (s === 'DELIVERED' && !isToday(o.updatedAt)) return false;
+            if (s === OrderStatus.DELIVERED && !isToday(o.updatedAt)) return false;
             return true;
           }).length;
           const isChecked = selectedStatuses.includes(s);

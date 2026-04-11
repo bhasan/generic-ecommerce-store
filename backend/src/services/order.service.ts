@@ -1,8 +1,9 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { OrderStatus } from '../../generated/prisma';
-import { RoleName, hasAnyRole } from '../constants/roles';
+import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
 import creditService from './credit.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
@@ -86,7 +87,7 @@ export class OrderService {
    * Get all orders (with user filtering for customers)
    */
   async getAllOrders(userId: number, userRoles: RoleName[]) {
-    const isCustomerScoped = !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']);
+    const isCustomerScoped = !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]);
     const where = isCustomerScoped ? { userId } : {};
 
     logger.info('Retrieving orders from database', {
@@ -420,7 +421,7 @@ export class OrderService {
     }
 
     // Customers can only view their own orders
-    if (!hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']) && order.userId !== userId) {
+    if (!hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]) && order.userId !== userId) {
       throw new AppError('Access denied', 403);
     }
 
@@ -460,7 +461,12 @@ export class OrderService {
    */
   async createOrder(data: CreateOrderData) {
     const { userId, items, cashAppUsername, deliveryMethod, paymentMethod } = data;
-    const isCredit = paymentMethod === 'CREDIT';
+    const isCredit = paymentMethod === PaymentMethod.CREDIT;
+
+    // IN_STORE payment is only valid for pickup orders
+    if (paymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP) {
+      throw new AppError('Pay in store is only available for pickup orders', 400);
+    }
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -539,7 +545,7 @@ export class OrderService {
 
       // Enforce minimum delivery order
       const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = await orderingConstraintsService.getOrderingConstraints();
-      if (deliveryMethod === 'DELIVERY' && minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
+      if (deliveryMethod === DeliveryMethod.DELIVERY && minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
         throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
       }
 
@@ -554,7 +560,7 @@ export class OrderService {
         tax,
         total,
         status: OrderStatus.PENDING,
-        paymentMethod: paymentMethod || 'EXTERNAL',
+        paymentMethod: paymentMethod || PaymentMethod.EXTERNAL,
       });
 
       let order: Awaited<ReturnType<typeof prisma.order.create>>;
@@ -568,8 +574,8 @@ export class OrderService {
               userId,
               total,
               status: OrderStatus.PENDING,
-              deliveryMethod: deliveryMethod || 'DELIVERY',
-              paymentMethod: 'CREDIT',
+              deliveryMethod: deliveryMethod || DeliveryMethod.DELIVERY,
+              paymentMethod: PaymentMethod.CREDIT,
             }
           });
 
@@ -600,8 +606,8 @@ export class OrderService {
             userId,
             total,
             status: OrderStatus.PENDING,
-            deliveryMethod: deliveryMethod || 'DELIVERY',
-            paymentMethod: 'EXTERNAL',
+            deliveryMethod: deliveryMethod || DeliveryMethod.DELIVERY,
+            paymentMethod: paymentMethod || PaymentMethod.EXTERNAL,
           }
         });
 
@@ -722,8 +728,8 @@ export class OrderService {
       });
 
       // Check if user is delivery driver trying to set status other than DELIVERED
-      if (userRoles && hasAnyRole(userRoles, ['DELIVERY_DRIVER']) && !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'])) {
-        if (data.status !== 'DELIVERED') {
+      if (userRoles && hasAnyRole(userRoles, [ROLES.DELIVERY_DRIVER]) && !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN])) {
+        if (data.status !== OrderStatus.DELIVERED) {
           logger.warn('Order status update denied: delivery driver trying to set non-DELIVERED status', {
             orderId,
             attemptedStatus: data.status,
@@ -732,7 +738,7 @@ export class OrderService {
           throw new AppError('Delivery drivers can only mark orders as DELIVERED', 403);
         }
         // Delivery drivers can only mark READY_FOR_DELIVERY orders as DELIVERED
-        if (order.status !== 'READY_FOR_DELIVERY') {
+        if (order.status !== OrderStatus.READY_FOR_DELIVERY) {
           logger.warn('Order status update denied: delivery driver can only update READY_FOR_DELIVERY orders', {
             orderId,
             currentStatus: order.status,
@@ -1050,7 +1056,7 @@ export class OrderService {
       });
 
       // Auto-refund credit if this was a credit-paid order
-      if (order.paymentMethod === 'CREDIT') {
+      if (order.paymentMethod === PaymentMethod.CREDIT) {
         logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
         await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
       }

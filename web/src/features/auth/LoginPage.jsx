@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './LoginPage.css';
 import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
@@ -14,11 +14,16 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
+  // Tracks whether the user just submitted the login form. AppContext.login()
+  // already calls navigate() in that path, so the effect below must not fire
+  // a second time or it causes a double-navigate to the same route.
+  const justLoggedInRef = useRef(false);
 
-  // Redirect authenticated users away from login page
+  // Redirect authenticated users who visit /login while already logged in
+  // (e.g. via the browser back button). Skipped for fresh logins because
+  // AppContext.login() already handles post-login navigation.
   useEffect(() => {
-    if (!authLoading && isAuthenticated && !isGuest(currentUser)) {
-      // Redirect based on user role
+    if (!authLoading && isAuthenticated && !isGuest(currentUser) && !justLoggedInRef.current) {
       const primaryRole = currentUser.roles?.[0] || currentUser.role || ROLES.CUSTOMER;
       if (primaryRole === ROLES.CUSTOMER) {
         navigate('/products', { replace: true });
@@ -41,15 +46,18 @@ function LoginPage() {
     if (errors.username || errors.password) return;
 
     setIsLoading(true);
+    justLoggedInRef.current = true;
     try {
       const success = await login(usernameTrimmed, passwordTrimmed);
       if (success) {
         setError('');
         setFieldErrors({ username: '', password: '' });
       } else {
+        justLoggedInRef.current = false;
         setError('Invalid credentials. Please try again.');
       }
     } catch (err) {
+      justLoggedInRef.current = false;
       setError(toNotificationMessage(err?.message ?? err, 'Login failed. Please try again.'));
     } finally {
       setIsLoading(false);

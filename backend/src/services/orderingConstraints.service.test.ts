@@ -25,6 +25,8 @@ describe('ordering constraints service', () => {
     expect(result).toEqual({
       minimumDeliveryOrder: 35,
       minimumDeliveryOrderEnabled: true,
+      deliveryDisabled: false,
+      deliveryDisabledMessage: '',
     });
   });
 
@@ -32,6 +34,8 @@ describe('ordering constraints service', () => {
     const savedSettings = {
       minimumDeliveryOrder: 50,
       minimumDeliveryOrderEnabled: false,
+      deliveryDisabled: false,
+      deliveryDisabledMessage: '',
     };
     prismaMock.uiSetting.upsert.mockResolvedValue({ value: savedSettings });
     const { OrderingConstraintsService } = await import('./orderingConstraints.service');

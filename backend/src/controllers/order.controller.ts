@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import orderService from '../services/order.service';
 import { logger } from '../utils/logger';
+import { ROLES } from '../constants/roles';
+import { OrderStatus } from '../../generated/prisma';
 
 export class OrderController {
   /**
@@ -164,13 +166,13 @@ export class OrderController {
       }
 
       const userRoles = req.user.roles || [];
-      const isEmployee = userRoles.includes('EMPLOYEE');
-      const isManagementOrAdmin = userRoles.includes('MANAGEMENT') || userRoles.includes('ADMIN');
+      const isEmployee = userRoles.includes(ROLES.EMPLOYEE);
+      const isManagementOrAdmin = userRoles.includes(ROLES.MANAGEMENT) || userRoles.includes(ROLES.ADMIN);
       const canManageOrders = isEmployee || isManagementOrAdmin;
-      const isDeliveryDriver = userRoles.includes('DELIVERY_DRIVER') && !canManageOrders;
+      const isDeliveryDriver = userRoles.includes(ROLES.DELIVERY_DRIVER) && !canManageOrders;
 
       // Delivery drivers only complete the final handoff step; broader order edits stay with staff roles.
-      if (isDeliveryDriver && req.body.status !== 'DELIVERED') {
+      if (isDeliveryDriver && req.body.status !== OrderStatus.DELIVERED) {
         res.status(403).json({ error: 'Delivery drivers can only mark orders as DELIVERED' });
         return;
       }
