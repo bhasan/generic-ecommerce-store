@@ -23,8 +23,10 @@ import {
   CreditCard,
   Phone,
   MapPin,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
+import Fuse from 'fuse.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole, ROLES } from '../../utils/roles';
@@ -97,6 +99,7 @@ function OrdersPage() {
     const list = s.split(',').filter((x) => FILTER_STATUSES.includes(x));
     return list.length > 0 ? list : [...DEFAULT_SELECTED_STATUSES];
   });
+  const [searchQuery, setSearchQuery] = useState('');
   const knownOrderIdsRef = useRef(new Set());
   const viewStartAtRef = useRef(Date.now());
   const hasInitializedOrdersRef = useRef(false);
@@ -144,12 +147,37 @@ function OrdersPage() {
       d.getDate() === today.getDate();
   };
 
-  const filteredOrders = orders.filter((o) => {
-    if (isCustomerOnly && o.userId !== currentUser.id) return false;
-    if (!selectedStatuses.includes(o.status)) return false;
-    if ((o.status === OrderStatus.DELIVERED || o.status === OrderStatus.PICKED_UP) && !isToday(o.updatedAt)) return false;
-    return true;
-  });
+  const fuse = React.useMemo(() => {
+    return new Fuse(orders, {
+      keys: [
+        { name: 'id', weight: 1 },
+        { name: 'user.username', weight: 0.7 },
+        { name: 'user.cashapp', weight: 0.5 },
+        { name: 'user.phoneNumber', weight: 0.5 },
+        { name: 'user.address', weight: 0.4 }
+      ],
+      threshold: 0.3,
+      ignoreLocation: true,
+      useExtendedSearch: true
+    });
+  }, [orders]);
+
+  const filteredOrders = React.useMemo(() => {
+    let result = orders;
+
+    // Apply fuzzy search if query exists
+    if (searchQuery.trim()) {
+      result = fuse.search(searchQuery).map((r) => r.item);
+    }
+
+    // Apply existing tab/status filters
+    return result.filter((o) => {
+      if (isCustomerOnly && o.userId !== currentUser.id) return false;
+      if (!selectedStatuses.includes(o.status)) return false;
+      if ((o.status === OrderStatus.DELIVERED || o.status === OrderStatus.PICKED_UP) && !isToday(o.updatedAt)) return false;
+      return true;
+    });
+  }, [orders, searchQuery, selectedStatuses, fuse, currentUser.id, isCustomerOnly]);
 
   const columnsToShow = selectedStatuses.length > 0 ? selectedStatuses : [...DEFAULT_SELECTED_STATUSES];
   const ordersByStatus = columnsToShow.reduce((acc, s) => {
@@ -411,6 +439,26 @@ function OrdersPage() {
           </p>
         </div>
         <div className="orders-header-actions">
+          <div className="orders-search-wrapper">
+            <Search size={18} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search ID, customer, phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="orders-search-input"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="btn-clear-search"
+                onClick={() => setSearchQuery('')}
+                title="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => loadOrders()}
