@@ -619,10 +619,11 @@ export function AppProvider({ children }) {
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
         localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      } else {
+      } else if (paymentMethod === 'CREDIT') {
         // Refresh credit balance after credit payment
         await refreshCreditBalance(currentUser.id);
       }
+      // IN_STORE: no payment handle to save
 
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
