@@ -24,7 +24,6 @@ interface ReceiptOrderSnapshot {
   customer: {
     id: number;
     username: string;
-    cashapp: string | null;
     phoneNumber: string | null;
     address: string | null;
   };
@@ -274,7 +273,6 @@ export class ThermalPrinterService {
         select: {
           id: true,
           username: true,
-          cashapp: true,
           phoneNumber: true,
           address: true,
         },

@@ -214,6 +214,11 @@ describe('ManageProductsPanel upload handling', () => {
         })
       );
     });
+    expect(appState.addProduct).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        images: expect.arrayContaining(['']),
+      })
+    );
 
     expect(screen.getByTestId('product-form-modal')).toBeInTheDocument();
     expect(screen.getByTestId('images-state')).toHaveTextContent('/api/uploads/uploaded.webp');
@@ -240,5 +245,30 @@ describe('ManageProductsPanel upload handling', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('product-form-modal')).not.toBeInTheDocument();
     });
+  });
+
+  it('omits the primary image field when saving a product with no gallery images', async () => {
+    const appState = createAppState();
+    useAppMock.mockReturnValue(appState);
+
+    render(<ManageProductsPanel />);
+    await openAddForm();
+
+    fireEvent.click(screen.getByText('Set Valid Form'));
+    fireEvent.click(screen.getByText('Save Product'));
+
+    await waitFor(() => {
+      expect(appState.addProduct).toHaveBeenCalledWith(
+        expect.objectContaining({
+          images: [],
+        })
+      );
+    });
+
+    expect(appState.addProduct).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        image: null,
+      })
+    );
   });
 });

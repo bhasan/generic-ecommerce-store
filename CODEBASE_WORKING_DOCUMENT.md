@@ -76,6 +76,18 @@ The following merge-sensitive behaviors were rechecked and should be preserved i
   - If it is dropped again, management load/save flows fall back to 404s.
 - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\features\cart\CheckoutPage.jsx`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\features\cart\CheckoutPage.jsx) must preserve the disabled-delivery reason path.
   - When `deliveryDisabled` is true, the UI should show `deliveryDisabledMessage` instead of minimum-order text.
+- [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\features\products\ManageProductsPanel.jsx`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\features\products\ManageProductsPanel.jsx) must keep omitting `image` from product create/update payloads when there is no gallery image URL.
+  - Backend product validation treats `image` as optional-but-string, so `image: null` breaks `POST /api/products` with a 400 validation error.
+  - Current safe contract is:
+    - `thumbnail` may be `null`
+    - `images` may be `[]`
+    - `image` should only be sent when `images[0]` is a real string URL
+- [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\order.service.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\order.service.ts) should not expose `user.cashapp` in order payloads unless there is a clearly approved operational requirement.
+  - Order detail and workflow screens should use generic external-payment labels by default.
+  - Re-adding payment handles to order payloads should be treated as a privacy decision, not a convenience refactor.
+- [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\thermalPrinter.service.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\thermalPrinter.service.ts) should also avoid carrying payment handles in webhook payloads unless the receipt format actually requires them.
+  - The current 80mm staff ticket does not print the Cash App handle.
+  - Keep printer payloads limited to the fields the local print agent and receipt template truly need.
 - Checkout and payment merges must preserve all three active paths together:
   - delivery eligibility and address snapshot behavior
   - printer/manual receipt flows

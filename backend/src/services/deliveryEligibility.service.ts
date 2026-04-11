@@ -254,7 +254,7 @@ export class DeliveryEligibilityService {
         deliveryZoneSource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
-        message: 'Delivery verification is temporarily unavailable. Please contact the store for help.',
+        message: 'We cannot check delivery for this address right now. Please contact the store.',
         canonicalAddress,
         checkedAt,
       };
@@ -303,7 +303,7 @@ export class DeliveryEligibilityService {
         deliveryZoneSource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
-        message: 'Delivery verification is temporarily unavailable. Please try again shortly.',
+        message: 'We cannot check delivery for this address right now. Please try again in a few minutes.',
         canonicalAddress,
         checkedAt,
       };
@@ -316,7 +316,7 @@ export class DeliveryEligibilityService {
         deliveryZoneSource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
-        message: 'Delivery verification is temporarily unavailable, and we could not extract a ZIP code from this address.',
+        message: 'We could not confirm delivery for this address. Please check the ZIP code and try again.',
         canonicalAddress,
         checkedAt,
       };
@@ -336,8 +336,8 @@ export class DeliveryEligibilityService {
       distanceMiles: null,
       thresholdMiles: constraints.deliveryRadiusMiles,
       message: deliverable
-        ? 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.'
-        : 'This ZIP code is outside the store delivery fallback area.',
+        ? 'Delivery is available for this address.'
+        : 'This address is outside our delivery area.',
       canonicalAddress,
       checkedAt,
     };
