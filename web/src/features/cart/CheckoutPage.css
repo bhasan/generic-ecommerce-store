@@ -391,6 +391,7 @@
 }
 
 /* Responsive */
+/* TODO(mobile): Checkout is close to ready; keep validating payment/address sections at 390px and ensure summary/actions never fall below thumb-friendly sizing. */
 @media (max-width: 968px) {
   .checkout-content {
     grid-template-columns: 1fr;

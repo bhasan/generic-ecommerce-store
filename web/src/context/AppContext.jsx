@@ -780,6 +780,23 @@ export function AppProvider({ children }) {
     }
   };
 
+  const printOrderReceipt = async (orderId) => {
+    try {
+      const result = await ordersApi.printOrderReceipt(orderId);
+      showNotification(
+        result.queued
+          ? 'Receipt queued for printing.'
+          : 'Printer is not configured yet, so no receipt was queued.',
+        result.queued ? 'success' : 'warning'
+      );
+      return result;
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to print receipt. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
+  };
+
   const addItemToOrder = async (orderId, productIdOrItem, quantity) => {
     try {
       // Accept both legacy and current call shapes so older order-editing UI still reaches the same API.
@@ -1031,6 +1048,7 @@ export function AppProvider({ children }) {
     deleteCategory,
     updateOrderStatus, 
     deleteOrder,
+    printOrderReceipt,
     addItemToOrder,
     voidOrderItem,
     deleteOrderItem,

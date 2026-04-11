@@ -322,6 +322,7 @@ function Navbar() {
         </div>
       </nav>
 
+      {/* TODO(mobile): Navbar mobile menu exists; keep this as the primary small-screen nav path and validate all role-based links remain accessible. */}
       {/* Mobile Menu Overlay */}
       {showMobileMenu && (
         <div

@@ -25,6 +25,8 @@ describe('ordering constraints service', () => {
     expect(result).toEqual({
       minimumDeliveryOrder: 35,
       minimumDeliveryOrderEnabled: true,
+      deliveryDisabled: false,
+      deliveryDisabledMessage: '',
       deliveryRadiusMiles: 5,
       offlineZipFallbackEnabled: false,
       offlineDeliveryZipCodes: [],
@@ -35,6 +37,8 @@ describe('ordering constraints service', () => {
     const savedSettings = {
       minimumDeliveryOrder: 50,
       minimumDeliveryOrderEnabled: false,
+      deliveryDisabled: false,
+      deliveryDisabledMessage: '',
       deliveryRadiusMiles: 7.5,
       offlineZipFallbackEnabled: true,
       offlineDeliveryZipCodes: ['77082', '77083', '77498'],
@@ -45,6 +49,8 @@ describe('ordering constraints service', () => {
     const result = await new OrderingConstraintsService().updateOrderingConstraints({
       minimumDeliveryOrder: 50,
       minimumDeliveryOrderEnabled: false,
+      deliveryDisabled: false,
+      deliveryDisabledMessage: '',
       deliveryRadiusMiles: 7.5,
       offlineZipFallbackEnabled: true,
       offlineDeliveryZipCodes: ['77083', '77082', '77083-1234', '77498'],
@@ -64,6 +70,8 @@ describe('ordering constraints service', () => {
     await expect(new OrderingConstraintsService().updateOrderingConstraints({
       minimumDeliveryOrder: -1,
       minimumDeliveryOrderEnabled: true,
+      deliveryDisabled: false,
+      deliveryDisabledMessage: '',
       deliveryRadiusMiles: 5,
       offlineZipFallbackEnabled: false,
       offlineDeliveryZipCodes: [],
@@ -84,6 +92,8 @@ describe('ordering constraints service', () => {
     expect(result).toEqual({
       minimumDeliveryOrder: 42,
       minimumDeliveryOrderEnabled: true,
+      deliveryDisabled: false,
+      deliveryDisabledMessage: '',
       deliveryRadiusMiles: 5,
       offlineZipFallbackEnabled: false,
       offlineDeliveryZipCodes: [],

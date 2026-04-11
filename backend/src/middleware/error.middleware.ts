@@ -35,13 +35,19 @@ export const errorHandler = (
   const multerErr = err as Error & { code?: string };
   if (multerErr.code === 'LIMIT_FILE_SIZE') {
     res.status(400).json({
-      error: { message: 'File too large. Maximum size is 5MB.', code: 'FILE_TOO_LARGE', requestId },
+      error: { message: 'File too large. Maximum size is 50MB.', code: 'FILE_TOO_LARGE', requestId },
     });
     return;
   }
   if (multerErr.code === 'LIMIT_UNEXPECTED_FILE') {
     res.status(400).json({
       error: { message: 'Unexpected file field. Use "file" as the field name.', code: 'INVALID_FIELD', requestId },
+    });
+    return;
+  }
+  if (err.message === 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, MP4, WebM.') {
+    res.status(400).json({
+      error: { message: err.message, code: 'INVALID_FILE_TYPE', requestId },
     });
     return;
   }

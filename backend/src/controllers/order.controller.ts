@@ -317,6 +317,36 @@ export class OrderController {
       next(error);
     }
   }
+
+  /**
+   * Print order receipt
+   * POST /api/orders/:id/print
+   */
+  async printOrderReceipt(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'Invalid order ID' });
+        return;
+      }
+
+      const result = await orderService.printOrderReceipt(id, {
+        actor: {
+          userId: req.user?.userId,
+          username: req.user?.username,
+        },
+      });
+
+      res.status(202).json({
+        message: result.queued
+          ? 'Order receipt queued for printing'
+          : 'Printer is not configured; receipt was not queued',
+        result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new OrderController();

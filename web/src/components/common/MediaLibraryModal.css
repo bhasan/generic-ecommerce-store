@@ -420,6 +420,7 @@
 }
 
 /* Responsive tweaks for List */
+/* TODO(mobile): Media library should be rechecked for phone usability, especially selection, bulk actions, and preview density. */
 @media (max-width: 640px) {
   .media-list .media-item-meta {
     width: auto;

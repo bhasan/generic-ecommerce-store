@@ -38,6 +38,10 @@ const notificationEventsService = {
   notifyOrderStatusUpdated: vi.fn(),
 };
 
+const thermalPrinterService = {
+  dispatchReceipt: vi.fn(),
+};
+
 const orderingConstraintsInstance = {
   getOrderingConstraints: vi.fn(),
 };
@@ -60,6 +64,10 @@ vi.mock('./credit.service', () => ({
 
 vi.mock('./notificationEvents.service', () => ({
   notificationEventsService,
+}));
+
+vi.mock('./thermalPrinter.service', () => ({
+  thermalPrinterService,
 }));
 
 vi.mock('./orderingConstraints.service', () => ({
@@ -126,6 +134,9 @@ describe('order service notifications', () => {
     });
 
     expect(notificationEventsService.notifyOrderCreated).toHaveBeenCalledWith(77, 5);
+    expect(thermalPrinterService.dispatchReceipt).toHaveBeenCalledWith(77, 'ORDER_CREATED', {
+      userId: 5,
+    });
   });
 
   it('revalidates delivery eligibility during order creation and rejects out-of-zone orders', async () => {
@@ -209,5 +220,93 @@ describe('order service notifications', () => {
       OrderStatus.READY_FOR_DELIVERY,
       OrderStatus.APPROVED,
     );
+  });
+
+  it('queues a manual reprint for an existing order', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({ id: 77 });
+    thermalPrinterService.dispatchReceipt.mockResolvedValue({
+      queued: true,
+      reason: 'MANUAL_REPRINT',
+      orderId: 77,
+    });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    const result = await service.printOrderReceipt(77, {
+      actor: {
+        userId: 2,
+        username: 'employee-one',
+      },
+    });
+
+    expect(result).toEqual({
+      queued: true,
+      reason: 'MANUAL_REPRINT',
+      orderId: 77,
+    });
+    expect(thermalPrinterService.dispatchReceipt).toHaveBeenCalledWith(77, 'MANUAL_REPRINT', {
+      userId: 2,
+      username: 'employee-one',
+    });
+  });
+
+  it('does not fail checkout when printer dispatch throws unexpectedly', async () => {
+    prismaMock.productItem.findMany.mockResolvedValue([
+      {
+        id: 3,
+        name: 'Product One',
+        price: 10,
+        stock: 10,
+        stockEnabled: true,
+        allowedQuantitiesOverride: [],
+        quantityDiscountsOverride: null,
+        category: { allowedQuantities: [], quantityDiscounts: null },
+      },
+    ]);
+    prismaMock.order.create.mockResolvedValue({
+      id: 78,
+      userId: 5,
+      total: 10.82,
+      status: 'PENDING',
+      paymentMethod: 'EXTERNAL',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deliveryMethod: 'PICKUP',
+    });
+    prismaMock.orderItem.create.mockResolvedValue({
+      id: 902,
+      orderId: 78,
+      productId: 3,
+      quantity: 1,
+      price: 10,
+    });
+    prismaMock.productItem.update.mockResolvedValue({});
+    thermalPrinterService.dispatchReceipt.mockRejectedValue(new Error('Printer exploded'));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await expect(service.createOrder({
+      userId: 5,
+      items: [{ productId: 3, quantity: 1 }],
+      deliveryMethod: 'PICKUP',
+      paymentMethod: 'EXTERNAL',
+    })).resolves.toMatchObject({
+      id: 78,
+      status: 'PENDING',
+    });
+  });
+
+  it('returns 404 when trying to reprint a nonexistent order', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(null);
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await expect(service.printOrderReceipt(999)).rejects.toMatchObject({
+      message: 'Order not found',
+      statusCode: 404,
+    });
   });
 });

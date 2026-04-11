@@ -297,14 +297,19 @@ function CheckoutPage() {
 
   const handleSendPaymentCancel = async () => {
     setOrderCancelled(true);
-    if (pendingOrderState?.order?.id) {
-      await deleteOrder(pendingOrderState.order.id, { silent: true });
+    try {
+      if (pendingOrderState?.order?.id) {
+        await deleteOrder(pendingOrderState.order.id, { silent: true });
+      }
+    } catch {
+      // Cancellation should still close the modal and restore the cart even if order cleanup fails.
+    } finally {
+      if (pendingOrderState?.items?.length) {
+        restoreCart(pendingOrderState.items);
+      }
+      setShowSendPaymentModal(false);
+      setPendingOrderState(null);
     }
-    if (pendingOrderState?.items?.length) {
-      restoreCart(pendingOrderState.items);
-    }
-    setShowSendPaymentModal(false);
-    setPendingOrderState(null);
   };
 
   const renderDeliveryEligibilityMessage = () => {

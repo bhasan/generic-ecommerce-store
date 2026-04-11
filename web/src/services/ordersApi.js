@@ -109,6 +109,16 @@ export const deleteOrder = async (id) => {
 };
 
 /**
+ * Queue a thermal receipt print or reprint
+ * @param {number} id - Order ID
+ * @returns {Promise<object>} Queue result
+ */
+export const printOrderReceipt = async (id) => {
+  const response = await post(`/orders/${id}/print`, {});
+  return response.result || response;
+};
+
+/**
  * Get delivered orders
  * @returns {Promise<Array>} Array of delivered order objects
  */

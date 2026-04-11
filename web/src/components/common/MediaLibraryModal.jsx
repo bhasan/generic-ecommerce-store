@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Loader2, UploadCloud, RefreshCw, PlayCircle, Grid, List as ListIcon, CheckCircle2 } from 'lucide-react';
 import { getImages, deleteImage, uploadFile, uploadFiles } from '../../services/uploadApi';
+import { MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile } from '../../utils/mediaUpload';
 import ImageCropModal from './ImageCropModal';
 import './MediaLibraryModal.css';
 
@@ -103,6 +104,13 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     e.target.value = null;
+    setError(null);
+
+    const unsupportedFile = files.find((file) => !isSupportedMediaFile(file));
+    if (unsupportedFile) {
+      setError(UNSUPPORTED_MEDIA_MESSAGE);
+      return;
+    }
 
     if (files.length > 1) {
       // Multiple files: upload all directly without crop
@@ -207,7 +215,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
             <label className={`btn-upload-prominent ${isUploading ? 'loading' : ''}`}>
               {isUploading ? <Loader2 size={18} className="spin" /> : <UploadCloud size={18} />}
               <span>{isUploading ? 'Uploading...' : 'Upload New'}</span>
-              <input type="file" accept="image/*,video/mp4,video/webm" multiple onChange={handleUpload} disabled={isUploading} hidden />
+              <input type="file" accept={MEDIA_INPUT_ACCEPT} multiple onChange={handleUpload} disabled={isUploading} hidden />
             </label>
             
             <button className="btn btn-secondary btn-icon" onClick={fetchImages} title="Refresh Library">

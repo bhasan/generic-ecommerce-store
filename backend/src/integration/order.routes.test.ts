@@ -26,6 +26,7 @@ const orderService = vi.hoisted(() => ({
   voidOrderItem: vi.fn(),
   deleteOrderItem: vi.fn(),
   deleteOrder: vi.fn(),
+  printOrderReceipt: vi.fn(),
 }));
 const deliveryEligibilityService = vi.hoisted(() => ({
   checkDeliveryEligibility: vi.fn(),
@@ -268,6 +269,83 @@ describe('order routes integration', () => {
       error: 'Access denied. Insufficient permissions.',
       required: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
       current: ['CUSTOMER'],
+    });
+  });
+
+  it('queues a manual reprint for staff users', async () => {
+    verifyToken.mockReturnValue({ userId: 2, username: 'employee-one', roles: ['EMPLOYEE'] });
+    orderService.printOrderReceipt.mockResolvedValue({
+      queued: true,
+      reason: 'MANUAL_REPRINT',
+      orderId: 44,
+    });
+
+    const { response, body } = await requestJson(server, '/api/orders/44/print', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer employee-token',
+      },
+    });
+
+    expect(response.status).toBe(202);
+    expect(body).toEqual({
+      message: 'Order receipt queued for printing',
+      result: {
+        queued: true,
+        reason: 'MANUAL_REPRINT',
+        orderId: 44,
+      },
+    });
+    expect(orderService.printOrderReceipt).toHaveBeenCalledWith(44, {
+      actor: {
+        userId: 2,
+        username: 'employee-one',
+      },
+    });
+  });
+
+  it('blocks customers from the manual reprint endpoint', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+
+    const { response, body } = await requestJson(server, '/api/orders/44/print', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+      },
+    });
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      error: 'Access denied. Insufficient permissions.',
+      required: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
+      current: ['CUSTOMER'],
+    });
+    expect(orderService.printOrderReceipt).not.toHaveBeenCalled();
+  });
+
+  it('returns a not-configured message when the printer queue is skipped', async () => {
+    verifyToken.mockReturnValue({ userId: 2, username: 'employee-one', roles: ['EMPLOYEE'] });
+    orderService.printOrderReceipt.mockResolvedValue({
+      queued: false,
+      reason: 'MANUAL_REPRINT',
+      orderId: 44,
+    });
+
+    const { response, body } = await requestJson(server, '/api/orders/44/print', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer employee-token',
+      },
+    });
+
+    expect(response.status).toBe(202);
+    expect(body).toEqual({
+      message: 'Printer is not configured; receipt was not queued',
+      result: {
+        queued: false,
+        reason: 'MANUAL_REPRINT',
+        orderId: 44,
+      },
     });
   });
 

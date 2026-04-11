@@ -20,7 +20,8 @@ import {
   User,
   CreditCard,
   Phone,
-  MapPin
+  MapPin,
+  Printer
 } from 'lucide-react';
 import './OrderDetailPanel.css';
 
@@ -53,6 +54,7 @@ function OrderDetailPanel({
   onVoidItem,
   onDeleteItem,
   onDeleteOrder,
+  onPrintReceipt,
   showConfirmDialog,
   getProductName,
   getStatusIcon,
@@ -306,6 +308,17 @@ function OrderDetailPanel({
               <HelpCircle size={16} />
               Need Help?
             </button>
+
+            {canModifyOrders && (
+              <button
+                type="button"
+                onClick={() => onPrintReceipt(order.id)}
+                className="btn-order-help btn-order-print"
+              >
+                <Printer size={16} />
+                Print Receipt
+              </button>
+            )}
 
             {canEdit && (
               <div className="order-edit-section">

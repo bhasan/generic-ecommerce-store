@@ -17,6 +17,7 @@
 }
 
 /* Dashboard Layout with Sidebar */
+/* TODO(mobile): Dashboard is responsive but not fully phone-hardened. Audit sidebar-to-content flow, dense cards, and data tables for real mobile usability. */
 .dashboard-layout {
   display: flex;
   gap: 2rem;
@@ -637,6 +638,7 @@
 }
 
 /* Users Table Styles */
+/* TODO(mobile): Users/admin tables need an intentional mobile pattern (stacked cards or guided horizontal scroll), not overflow alone. */
 .users-table-container {
   overflow-x: auto;
 }

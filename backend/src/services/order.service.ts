@@ -9,6 +9,7 @@ import creditService from './credit.service';
 import { DeliveryEligibilityService } from './deliveryEligibility.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
 import { notificationEventsService } from './notificationEvents.service';
+import { thermalPrinterService } from './thermalPrinter.service';
 
 const orderingConstraintsService = new OrderingConstraintsService();
 const deliveryEligibilityService = new DeliveryEligibilityService();
@@ -32,6 +33,13 @@ interface UpdateOrderStatusData {
 interface AddOrderItemData {
   productId: number;
   quantity: number;
+}
+
+interface PrintOrderReceiptData {
+  actor?: {
+    userId?: number | null;
+    username?: string | null;
+  };
 }
 
 export class OrderService {
@@ -705,6 +713,16 @@ export class OrderService {
       });
 
       await notificationEventsService.notifyOrderCreated(order.id, userId);
+      try {
+        await thermalPrinterService.dispatchReceipt(order.id, 'ORDER_CREATED', {
+          userId,
+        });
+      } catch (printerError) {
+        logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, {
+          orderId: order.id,
+          userId,
+        });
+      }
 
       return {
         ...order,
@@ -1085,6 +1103,19 @@ export class OrderService {
       logger.error('Failed to delete order', error, { orderId });
       throw error;
     }
+  }
+
+  async printOrderReceipt(orderId: number, data: PrintOrderReceiptData = {}) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true },
+    });
+
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    return thermalPrinterService.dispatchReceipt(orderId, 'MANUAL_REPRINT', data.actor);
   }
 }
 

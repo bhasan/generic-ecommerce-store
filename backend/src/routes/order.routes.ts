@@ -169,6 +169,13 @@ router.patch('/:id/items/:itemId/void', authenticate, authorizeEmployee, orderCo
 router.delete('/:id/items/:itemId', authenticate, authorizeEmployee, orderController.deleteOrderItem);
 
 /**
+ * @route   POST /api/orders/:id/print
+ * @desc    Queue a thermal receipt reprint
+ * @access  Private (Employee/Management/Admin)
+ */
+router.post('/:id/print', authenticate, authorizeEmployee, orderController.printOrderReceipt);
+
+/**
  * @route   DELETE /api/orders/:id
  * @desc    Delete entire order
  * @access  Private (Admin only)
