@@ -15,6 +15,7 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
 const AppContext = createContext();
+const CART_STORAGE_KEY = 'cartData';
 
 // Returns the shared app context and throws early if a consumer renders outside AppProvider.
 export const useApp = () => {
@@ -44,6 +45,22 @@ export function AppProvider({ children }) {
     return GUEST_USER;
   };
 
+  // Persists the cart across refreshes via localStorage; do not remove this without replacing refresh-safe cart restore behavior.
+  const getInitialCart = () => {
+    const storedCart = localStorage.getItem(CART_STORAGE_KEY);
+    if (!storedCart) {
+      return [];
+    }
+
+    try {
+      const parsedCart = JSON.parse(storedCart);
+      return Array.isArray(parsedCart) ? parsedCart : [];
+    } catch (error) {
+      console.error('Error parsing stored cart data:', error);
+      return [];
+    }
+  };
+
   const [currentUser, setCurrentUser] = useState(getInitialUser);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +70,7 @@ export function AppProvider({ children }) {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [categories, setCategories] = useState([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(getInitialCart);
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
@@ -84,6 +101,15 @@ export function AppProvider({ children }) {
   const knownAttentionNotificationIdsRef = useRef(new Set());
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (cart.length === 0) {
+      localStorage.removeItem(CART_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  }, [cart]);
 
   // Check authentication on mount
   useEffect(() => {

@@ -28,8 +28,8 @@ describe('ordering constraints service', () => {
       deliveryDisabled: false,
       deliveryDisabledMessage: '',
       deliveryRadiusMiles: 5,
-      offlineZipFallbackEnabled: false,
-      offlineDeliveryZipCodes: [],
+      offlineZipFallbackEnabled: true,
+      offlineDeliveryZipCodes: ['77083'],
     });
   });
 
@@ -95,8 +95,8 @@ describe('ordering constraints service', () => {
       deliveryDisabled: false,
       deliveryDisabledMessage: '',
       deliveryRadiusMiles: 5,
-      offlineZipFallbackEnabled: false,
-      offlineDeliveryZipCodes: [],
+      offlineZipFallbackEnabled: true,
+      offlineDeliveryZipCodes: ['77083'],
     });
   });
 });

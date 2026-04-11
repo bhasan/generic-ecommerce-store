@@ -158,6 +158,38 @@ describe('AppContext', () => {
     expect(screen.getByTestId('unread-notification-count')).toHaveTextContent('1');
   });
 
+  it('bootstraps cart state from localStorage on load', async () => {
+    localStorage.setItem('cartData', JSON.stringify([{ ...sampleProducts[0], quantity: 2 }]));
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/products' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('products-count')).toHaveTextContent('1'));
+    expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
+  });
+
+  it('falls back safely when stored cart data is invalid JSON', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    localStorage.setItem('cartData', '{bad-json');
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/products' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('products-count')).toHaveTextContent('1'));
+    expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
+    expect(localStorage.getItem('cartData')).toBeNull();
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
   it('redirects to login and clears auth state after an unauthorized event', async () => {
     apiModule.getAuthToken.mockReturnValue('token-123');
     authApi.getProfile.mockResolvedValue(users.customer);
@@ -172,6 +204,9 @@ describe('AppContext', () => {
 
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
 
+    fireEvent.click(screen.getByText('Add To Cart'));
+    await waitFor(() => expect(localStorage.getItem('cartData')).toContain('"id":101'));
+
     await act(async () => {
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
     });
@@ -179,6 +214,7 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/login'));
     expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
     expect(screen.getByTestId('notification')).toHaveTextContent('Your session has expired. Please log in again.');
+    expect(localStorage.getItem('cartData')).toBeNull();
   });
 
   it('refreshes orders and credit balance after a credit checkout', async () => {
@@ -203,6 +239,7 @@ describe('AppContext', () => {
 
     fireEvent.click(screen.getByText('Add To Cart'));
     expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
+    await waitFor(() => expect(localStorage.getItem('cartData')).toContain('"id":101'));
 
     await act(async () => {
       fireEvent.click(screen.getByText('Checkout With Credit'));
@@ -211,7 +248,24 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('orders-count')).toHaveTextContent('2'));
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('5');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
+    expect(localStorage.getItem('cartData')).toBeNull();
     expect(ordersApi.createOrder).toHaveBeenCalledWith([{ productId: 101, quantity: 1 }], '', 'PICKUP', 'CREDIT', undefined);
+  });
+
+  it('persists cart changes to localStorage after adding an item', async () => {
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/products' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('products-count')).toHaveTextContent('1'));
+
+    fireEvent.click(screen.getByText('Add To Cart'));
+
+    await waitFor(() => expect(localStorage.getItem('cartData')).toContain('"id":101'));
+    expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
   });
 
   it('marks notifications read optimistically and refreshes the inbox state', async () => {
