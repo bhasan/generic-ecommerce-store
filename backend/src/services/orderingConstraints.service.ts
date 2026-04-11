@@ -18,8 +18,8 @@ const DEFAULT_ORDERING_CONSTRAINTS: OrderingConstraints = {
   deliveryDisabled: false,
   deliveryDisabledMessage: '',
   deliveryRadiusMiles: 5,
-  offlineZipFallbackEnabled: false,
-  offlineDeliveryZipCodes: [],
+  offlineZipFallbackEnabled: true,
+  offlineDeliveryZipCodes: ['77083'],
 };
 
 export class OrderingConstraintsService {
