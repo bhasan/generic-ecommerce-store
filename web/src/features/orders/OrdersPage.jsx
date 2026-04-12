@@ -23,31 +23,45 @@ import {
   CreditCard,
   Phone,
   MapPin,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
+import Fuse from 'fuse.js';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { hasRole, ROLES } from '../../utils/roles';
 import OrderDetailPanel from './OrderDetailPanel';
+import CustomerOrderList from './CustomerOrderList';
+import { OrderStatus } from '../../constants/orderStatuses';
 
-const FILTER_STATUSES = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
-const DEFAULT_SELECTED_STATUSES = ['PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY'];
+const FILTER_STATUSES = Object.values(OrderStatus);
+const DEFAULT_SELECTED_STATUSES = [
+  OrderStatus.PENDING,
+  OrderStatus.APPROVED,
+  OrderStatus.READY_FOR_DELIVERY,
+  OrderStatus.OUT_FOR_DELIVERY,
+  OrderStatus.READY_FOR_PICKUP
+];
 const STATUS_LABELS = {
   PENDING: 'Pending',
-  APPROVED: 'Approve (Payment Verified)',
-  NOT_FULFILLING: 'Rejected Orders',
-  READY_FOR_DELIVERY: 'Order is Ready',
+  APPROVED: 'Prep Order',
+  NOT_FULFILLING: 'Reject Order (Invalid Payment)',
+  READY_FOR_DELIVERY: 'Ready for Delivery',
   OUT_FOR_DELIVERY: 'In Delivery',
-  DELIVERED: 'Delivered'
+  DELIVERED: 'Delivered',
+  READY_FOR_PICKUP: 'Ready for Pickup',
+  PICKED_UP: 'Picked Up'
 };
 
 const COLUMN_LABELS = {
   PENDING: 'Pending',
-  APPROVED: 'Approved',
-  NOT_FULFILLING: 'Rejected Orders',
-  READY_FOR_DELIVERY: 'Ready Awaiting Delivery Pickup',
+  APPROVED: 'Prep Orders',
+  NOT_FULFILLING: 'Rejected (Invalid Payment)',
+  READY_FOR_DELIVERY: 'Awaiting Delivery Pickup',
   OUT_FOR_DELIVERY: 'Out for Delivery',
-  DELIVERED: 'Delivered'
+  DELIVERED: 'Delivered',
+  READY_FOR_PICKUP: 'Ready for Pickup',
+  PICKED_UP: 'Picked Up'
 };
 
 const ORDER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS || 60000);
@@ -64,6 +78,7 @@ function OrdersPage() {
     loadOrders,
     updateOrderStatus,
     deleteOrder,
+    printOrderReceipt,
     addItemToOrder,
     voidOrderItem,
     deleteOrderItem,
@@ -86,6 +101,7 @@ function OrdersPage() {
     const list = s.split(',').filter((x) => FILTER_STATUSES.includes(x));
     return list.length > 0 ? list : [...DEFAULT_SELECTED_STATUSES];
   });
+  const [searchQuery, setSearchQuery] = useState('');
   const knownOrderIdsRef = useRef(new Set());
   const viewStartAtRef = useRef(Date.now());
   const hasInitializedOrdersRef = useRef(false);
@@ -133,12 +149,37 @@ function OrdersPage() {
       d.getDate() === today.getDate();
   };
 
-  const filteredOrders = orders.filter((o) => {
-    if (isCustomerOnly && o.userId !== currentUser.id) return false;
-    if (!selectedStatuses.includes(o.status)) return false;
-    if (o.status === 'DELIVERED' && !isToday(o.updatedAt)) return false;
-    return true;
-  });
+  const fuse = React.useMemo(() => {
+    return new Fuse(orders, {
+      keys: [
+        { name: 'id', weight: 1 },
+        { name: 'user.username', weight: 0.7 },
+        { name: 'user.cashapp', weight: 0.5 },
+        { name: 'user.phoneNumber', weight: 0.5 },
+        { name: 'user.address', weight: 0.4 }
+      ],
+      threshold: 0.3,
+      ignoreLocation: true,
+      useExtendedSearch: true
+    });
+  }, [orders]);
+
+  const filteredOrders = React.useMemo(() => {
+    let result = orders;
+
+    // Apply fuzzy search if query exists
+    if (searchQuery.trim()) {
+      result = fuse.search(searchQuery).map((r) => r.item);
+    }
+
+    // Apply existing tab/status filters
+    return result.filter((o) => {
+      if (isCustomerOnly && o.userId !== currentUser.id) return false;
+      if (!selectedStatuses.includes(o.status)) return false;
+      if ((o.status === OrderStatus.DELIVERED || o.status === OrderStatus.PICKED_UP) && !isToday(o.updatedAt)) return false;
+      return true;
+    });
+  }, [orders, searchQuery, selectedStatuses, fuse, currentUser.id, isCustomerOnly]);
 
   const columnsToShow = selectedStatuses.length > 0 ? selectedStatuses : [...DEFAULT_SELECTED_STATUSES];
   const ordersByStatus = columnsToShow.reduce((acc, s) => {
@@ -157,20 +198,21 @@ function OrdersPage() {
       viewStartAtRef.current = Date.now();
       setNewOrderIds([]);
       knownOrderIdsRef.current = new Set(ordersRef.current.map((o) => o.id));
-      loadOrders();
+      // Silent refresh on focus — no loading spinner, avoids disrupting the current view.
+      loadOrders(true);
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadOrders]);
 
   useEffect(() => {
-    if (!canModifyOrders) return undefined;
-    // Staff views poll in the background so the board stays current during active fulfillment work.
+    if (!canModifyOrders && !isCustomerOnly) return undefined;
+    // Background poll for both staff and customers — silent so the UI is never disrupted.
     const intervalId = setInterval(() => {
-      if (!document.hidden) loadOrders();
+      if (!document.hidden) loadOrders(true);
     }, ORDER_POLL_INTERVAL_MS);
     return () => clearInterval(intervalId);
-  }, [loadOrders, canModifyOrders]);
+  }, [loadOrders, canModifyOrders, isCustomerOnly]);
 
   useEffect(() => {
     if (isLoadingOrders) return;
@@ -210,8 +252,10 @@ function OrdersPage() {
       case 'APPROVED': return <Check size={18} />;
       case 'NOT_FULFILLING': return <XCircle size={18} />;
       case 'READY_FOR_DELIVERY': return <Package size={18} />;
+      case 'READY_FOR_PICKUP': return <Package size={18} />;
       case 'OUT_FOR_DELIVERY': return <Truck size={18} />;
       case 'DELIVERED': return <CheckCircle size={18} />;
+      case 'PICKED_UP': return <CheckCircle size={18} />;
       default: return <Clock size={18} />;
     }
   };
@@ -222,8 +266,10 @@ function OrdersPage() {
       APPROVED: 'status-approved',
       NOT_FULFILLING: 'status-not-fulfilling',
       READY_FOR_DELIVERY: 'status-ready',
+      READY_FOR_PICKUP: 'status-ready',
       OUT_FOR_DELIVERY: 'status-out-for-delivery',
-      DELIVERED: 'status-delivered'
+      DELIVERED: 'status-delivered',
+      PICKED_UP: 'status-picked-up'
     };
     return map[status] || 'status-pending';
   };
@@ -235,15 +281,15 @@ function OrdersPage() {
   };
 
   const handleQuickAction = (orderId, newStatus) => {
-    if (newStatus === 'NOT_FULFILLING') {
+    if (newStatus === OrderStatus.NOT_FULFILLING) {
       setConfirmDialog({
-        title: 'Reject Order',
-        message: 'Reject this order? The customer will no longer expect this order to be fulfilled.',
+        title: 'Reject Order (Invalid Payment)',
+        message: 'Reject this order due to invalid payment? This action is permanent.',
         onConfirm: () => performStatusUpdate(orderId, newStatus)
       });
       return;
     }
-    if (newStatus === 'DELIVERED') {
+    if (newStatus === OrderStatus.DELIVERED) {
       setConfirmDialog({
         title: 'Mark as Delivered',
         message: `Mark order #${orderId} as Delivered?`,
@@ -251,22 +297,41 @@ function OrdersPage() {
       });
       return;
     }
+    if (newStatus === OrderStatus.PICKED_UP) {
+      const order = orders.find((o) => o.id === orderId);
+      const isPayInStore = order?.paymentMethod === 'IN_STORE';
+      setConfirmDialog({
+        title: 'Take Payment in Store',
+        message: `Order Total: $${order.total.toFixed(2)}\n\n⚠️ REMINDER: Please ensure payment has been collected before proceeding.`,
+        confirmLabel: 'Paid',
+        confirmVariant: 'success',
+        onConfirm: () => performStatusUpdate(orderId, newStatus)
+      });
+      return;
+    }
     performStatusUpdate(orderId, newStatus);
   };
 
-  const getNextStatusActions = (currentStatus) => {
+  const getNextStatusActions = (order) => {
+    const currentStatus = order.status;
+    const isPickup = order.deliveryMethod === 'PICKUP';
+
     switch (currentStatus) {
       case 'PENDING':
         return [
-          { status: 'APPROVED', label: STATUS_LABELS.APPROVED, icon: <Check size={16} />, className: 'btn-quick-action-approve' },
-          { status: 'NOT_FULFILLING', label: STATUS_LABELS.NOT_FULFILLING, icon: <XCircle size={16} />, className: 'btn-quick-action-reject' }
+          { status: 'APPROVED', label: 'Approve (Payment Verified)', icon: <Check size={16} />, className: 'btn-quick-action-approve' },
+          { status: 'NOT_FULFILLING', label: 'Reject Order (Invalid Payment)', icon: <XCircle size={16} />, className: 'btn-quick-action-reject' }
         ];
       case 'APPROVED':
-        return [{ status: 'READY_FOR_DELIVERY', label: STATUS_LABELS.READY_FOR_DELIVERY, icon: <PackageCheck size={16} />, className: 'btn-quick-action-ready' }];
+        return isPickup
+          ? [{ status: 'READY_FOR_PICKUP', label: STATUS_LABELS.READY_FOR_PICKUP, icon: <PackageCheck size={16} />, className: 'btn-quick-action-ready' }]
+          : [{ status: 'READY_FOR_DELIVERY', label: STATUS_LABELS.READY_FOR_DELIVERY, icon: <PackageCheck size={16} />, className: 'btn-quick-action-ready' }];
       case 'READY_FOR_DELIVERY':
         return [{ status: 'OUT_FOR_DELIVERY', label: STATUS_LABELS.OUT_FOR_DELIVERY, icon: <TruckIcon size={16} />, className: 'btn-quick-action-deliver' }];
       case 'OUT_FOR_DELIVERY':
         return [{ status: 'DELIVERED', label: STATUS_LABELS.DELIVERED, icon: <CheckCheck size={16} />, className: 'btn-quick-action-complete' }];
+      case 'READY_FOR_PICKUP':
+        return [{ status: 'PICKED_UP', label: STATUS_LABELS.PICKED_UP, icon: <CheckCheck size={16} />, className: 'btn-quick-action-complete' }];
       default:
         return [];
     }
@@ -367,6 +432,82 @@ function OrdersPage() {
 
   const selectedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
 
+  // Customers get a dedicated list view — no kanban, no staff-only controls.
+  if (isCustomerOnly) {
+    const myOrders = orders.filter((o) => o.userId === currentUser.id);
+    return (
+      <>
+        <CustomerOrderList
+          orders={myOrders}
+          isLoadingOrders={isLoadingOrders}
+          loadOrders={loadOrders}
+          onSelectOrder={setSelectedOrderId}
+          products={products}
+          formatOrderDate={formatOrderDate}
+        />
+        {selectedOrder && (
+          <OrderDetailPanel
+            order={selectedOrder}
+            onClose={() => setSelectedOrderId(null)}
+            products={products}
+            canModifyOrders={false}
+            canDeleteOrder={false}
+            isEditing={false}
+            onToggleEdit={() => {}}
+            onSaveEdit={() => {}}
+            onCancelEdit={() => {}}
+            addingItemToOrderId={null}
+            newItemProductId=""
+            setNewItemProductId={() => {}}
+            newItemQuantity={1}
+            setNewItemQuantity={() => {}}
+            onAddItem={() => {}}
+            onCancelAddItem={() => {}}
+            onStartAddItem={() => {}}
+            editingStatusId={null}
+            onStartEditStatus={() => {}}
+            onStatusChange={() => {}}
+            onCancelStatusEdit={() => {}}
+            updateOrderStatus={updateOrderStatus}
+            onQuickAction={() => {}}
+            onVoidItem={() => {}}
+            onDeleteItem={() => {}}
+            onDeleteOrder={() => {}}
+            showConfirmDialog={showConfirmDialog}
+            getProductName={getProductName}
+            getStatusIcon={getStatusIcon}
+            getStatusClass={getStatusClass}
+            getStatusLabel={(s) => STATUS_LABELS[s] ?? s.replace(/_/g, ' ')}
+            formatOrderDate={formatOrderDate}
+            getNextStatusActions={() => []}
+            navigate={navigate}
+            updatingOrderId={null}
+          />
+        )}
+        {confirmDialog && (
+          <div className="confirmation-dialog-overlay" onClick={() => setConfirmDialog(null)}>
+            <div className="confirmation-dialog surface-card" onClick={(e) => e.stopPropagation()}>
+              <h3 className="confirmation-dialog-title">{confirmDialog.title}</h3>
+              <p className="confirmation-dialog-message">{confirmDialog.message}</p>
+              <div className="confirmation-dialog-actions">
+                <button type="button" className="btn-dialog btn-dialog-cancel" onClick={() => setConfirmDialog(null)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`btn-dialog btn-dialog-confirm ${confirmDialog.confirmVariant ? 'variant-' + confirmDialog.confirmVariant : ''}`}
+                  onClick={handleConfirm}
+                >
+                  {confirmDialog.confirmLabel || 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="orders-page-container orders-page-kanban">
       <div className="orders-header section-header-surface">
@@ -377,6 +518,26 @@ function OrdersPage() {
           </p>
         </div>
         <div className="orders-header-actions">
+          <div className="orders-search-wrapper">
+            <Search size={18} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search ID, customer, phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="orders-search-input"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="btn-clear-search"
+                onClick={() => setSearchQuery('')}
+                title="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
           <button
             type="button"
             onClick={() => loadOrders()}
@@ -397,7 +558,7 @@ function OrdersPage() {
           const count = orders.filter((o) => {
             if (isCustomerOnly && o.userId !== currentUser.id) return false;
             if (o.status !== s) return false;
-            if (s === 'DELIVERED' && !isToday(o.updatedAt)) return false;
+            if ((s === OrderStatus.DELIVERED || s === OrderStatus.PICKED_UP) && !isToday(o.updatedAt)) return false;
             return true;
           }).length;
           const isChecked = selectedStatuses.includes(s);
@@ -441,9 +602,14 @@ function OrdersPage() {
                 </div>
                 <div className="kanban-column-cards">
                   {(ordersByStatus[status] ?? []).map((order) => {
-                    const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
+                    const nextActions = canModifyOrders ? getNextStatusActions(order) : [];
                     const isNew = newOrderIds.includes(order.id);
                     const itemCount = order.items?.filter((i) => !i.voided).length ?? 0;
+                    const isPickup = order.deliveryMethod === 'PICKUP';
+                    const isPayInStore = order.paymentMethod === 'IN_STORE';
+                    const isExternal = order.paymentMethod === 'EXTERNAL';
+                    const isPaid = order.paymentMethod === 'CREDIT' || (isExternal && order.status !== 'PENDING');
+                    const needsVerification = isExternal && order.status === 'PENDING';
 
                     return (
                       <div
@@ -455,36 +621,50 @@ function OrdersPage() {
                       >
                         <div className="kanban-card-header">
                           <span className="kanban-card-id">#{order.id}</span>
-                          {isNew && <span className="kanban-card-new-badge">New</span>}
+                          <div className="kanban-card-badges">
+                            {isNew && <span className="kanban-card-new-badge">New</span>}
+                            <span className={`kanban-card-method-badge ${isPickup ? 'method-pickup' : 'method-delivery'}`}>
+                              {isPickup ? 'Pickup' : 'Delivery'}
+                            </span>
+                            {isPayInStore && (
+                              <span className="kanban-card-payment-badge payment-store">Pay in Store</span>
+                            )}
+                            {isPaid && (
+                              <span className="kanban-card-payment-badge payment-paid">Paid</span>
+                            )}
+                            {needsVerification && (
+                              <span className="kanban-card-payment-badge payment-verify">Verify Payment</span>
+                            )}
+                          </div>
                         </div>
                         <div className="kanban-card-date">{formatOrderDate(order.createdAt)}</div>
                         <div className="kanban-card-customer">{order.user?.username ?? 'N/A'}</div>
                         <div className="kanban-card-meta">
                           ${order.total.toFixed(2)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
                         </div>
-                        <div className={`kanban-card-payment ${order.user?.cashapp ? 'has' : 'none'}`}>
-                          {order.user?.cashapp ? `@${order.user.cashapp}` : 'No payment'}
+                        <div className={`kanban-card-payment-info ${order.user?.cashapp ? 'has' : 'none'}`}>
+                          {order.user?.cashapp ? `@${order.user.cashapp}` : (isPayInStore ? 'Payment in Store' : 'No payment username')}
                         </div>
                         {nextActions.length > 0 && (
                           <div className="kanban-card-actions">
                             <span className="kanban-card-actions-label">Move Order Status To:</span>
                             <div className="kanban-card-actions-buttons">
-                            {nextActions.map((action) => (
-                              <button
-                                key={action.status}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleQuickAction(order.id, action.status);
-                                }}
-                                className={`btn-quick-action-compact ${action.className}`}
-                                title={action.label}
-                                disabled={updatingOrderId === order.id}
-                              >
-                                {action.icon}
-                                <span>{action.label}</span>
-                              </button>
-                            ))}
+                              {nextActions.map((action) => (
+                                <button
+                                  key={action.status}
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleQuickAction(order.id, action.status);
+                                  }}
+                                  className={`btn-quick-action-compact ${action.className}`}
+                                  title={action.label}
+                                  disabled={updatingOrderId === order.id}
+                                >
+                                  {action.icon}
+                                  <span>{action.label}</span>
+                                </button>
+                              ))}
                             </div>
                           </div>
                         )}
@@ -540,6 +720,7 @@ function OrdersPage() {
           onVoidItem={handleVoidItem}
           onDeleteItem={handleDeleteItem}
           onDeleteOrder={deleteOrder}
+          onPrintReceipt={printOrderReceipt}
           showConfirmDialog={showConfirmDialog}
           getProductName={getProductName}
           getStatusIcon={getStatusIcon}
@@ -561,8 +742,12 @@ function OrdersPage() {
               <button type="button" className="btn-dialog btn-dialog-cancel" onClick={() => setConfirmDialog(null)}>
                 Cancel
               </button>
-              <button type="button" className="btn-dialog btn-dialog-confirm" onClick={handleConfirm}>
-                Confirm
+              <button
+                type="button"
+                className={`btn-dialog btn-dialog-confirm ${confirmDialog.confirmVariant ? 'variant-' + confirmDialog.confirmVariant : ''}`}
+                onClick={handleConfirm}
+              >
+                {confirmDialog.confirmLabel || 'Confirm'}
               </button>
             </div>
           </div>

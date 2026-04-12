@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError, errorHandler } from '../middleware/error.middleware';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const verifyToken = vi.hoisted(() => vi.fn());
 const extractTokenFromHeader = vi.hoisted(() => vi.fn((header?: string) => {
@@ -26,6 +27,10 @@ const orderService = vi.hoisted(() => ({
   voidOrderItem: vi.fn(),
   deleteOrderItem: vi.fn(),
   deleteOrder: vi.fn(),
+  printOrderReceipt: vi.fn(),
+}));
+const deliveryEligibilityService = vi.hoisted(() => ({
+  checkDeliveryEligibility: vi.fn(),
 }));
 
 vi.mock('../utils/jwt.util', () => ({
@@ -39,6 +44,10 @@ vi.mock('../utils/logger', () => ({
 
 vi.mock('../services/order.service', () => ({
   default: orderService,
+}));
+
+vi.mock('../services/deliveryEligibility.service', () => ({
+  DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
 }));
 
 const createServer = async () => {
@@ -109,6 +118,27 @@ describe('order routes integration', () => {
     expect(orderService.createOrder).not.toHaveBeenCalled();
   });
 
+  it('requires an explicit delivery method for checkout', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+
+    const { response, body } = await requestJson(server, '/api/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        items: [{ productId: 7, quantity: 1 }],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(body.errors).toEqual(expect.arrayContaining([
+      expect.objectContaining({ msg: 'Delivery method must be DELIVERY or PICKUP' }),
+    ]));
+    expect(orderService.createOrder).not.toHaveBeenCalled();
+  });
+
   it('creates orders through the full checkout route stack', async () => {
     verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
     orderService.createOrder.mockResolvedValue({ id: 900, total: 42.5, status: 'PENDING' });
@@ -116,8 +146,8 @@ describe('order routes integration', () => {
     const payload = {
       items: [{ productId: 7, quantity: 2 }],
       cashAppUsername: '$customer-one',
-      deliveryMethod: 'PICKUP',
-      paymentMethod: 'EXTERNAL',
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.EXTERNAL,
     };
 
     const { response, body } = await requestJson(server, '/api/orders', {
@@ -138,9 +168,51 @@ describe('order routes integration', () => {
       userId: 10,
       items: payload.items,
       cashAppUsername: '$customer-one',
-      deliveryMethod: 'PICKUP',
-      paymentMethod: 'EXTERNAL',
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.EXTERNAL,
+      deliveryAddress: undefined,
     });
+  });
+
+  it('validates the delivery eligibility endpoint and returns the service response', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+    deliveryEligibilityService.checkDeliveryEligibility.mockResolvedValue({
+      deliverable: true,
+      deliveryZoneStatus: 'IN_ZONE',
+      deliveryZoneSource: 'ZIP_FALLBACK',
+      distanceMiles: null,
+      thresholdMiles: 5,
+      message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
+    });
+
+    const payload = {
+      deliveryAddress: {
+        street: '123 Main St',
+        city: 'Houston',
+        state: 'TX',
+        zipCode: '77083',
+      },
+    };
+
+    const { response, body } = await requestJson(server, '/api/orders/delivery-eligibility', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      deliverable: true,
+      deliveryZoneStatus: 'IN_ZONE',
+      deliveryZoneSource: 'ZIP_FALLBACK',
+      distanceMiles: null,
+      thresholdMiles: 5,
+      message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
+    });
+    expect(deliveryEligibilityService.checkDeliveryEligibility).toHaveBeenCalledWith(payload.deliveryAddress);
   });
 
   it('blocks delivery drivers from setting disallowed order statuses', async () => {
@@ -199,6 +271,136 @@ describe('order routes integration', () => {
       required: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
       current: ['CUSTOMER'],
     });
+  });
+
+  it('queues a manual reprint for staff users', async () => {
+    verifyToken.mockReturnValue({ userId: 2, username: 'employee-one', roles: ['EMPLOYEE'] });
+    orderService.printOrderReceipt.mockResolvedValue({
+      queued: true,
+      reason: 'MANUAL_REPRINT',
+      orderId: 44,
+    });
+
+    const { response, body } = await requestJson(server, '/api/orders/44/print', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer employee-token',
+      },
+    });
+
+    expect(response.status).toBe(202);
+    expect(body).toEqual({
+      message: 'Order receipt queued for printing',
+      result: {
+        queued: true,
+        reason: 'MANUAL_REPRINT',
+        orderId: 44,
+      },
+    });
+    expect(orderService.printOrderReceipt).toHaveBeenCalledWith(44, {
+      actor: {
+        userId: 2,
+        username: 'employee-one',
+      },
+    });
+  });
+
+  it('blocks customers from the manual reprint endpoint', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+
+    const { response, body } = await requestJson(server, '/api/orders/44/print', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+      },
+    });
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      error: 'Access denied. Insufficient permissions.',
+      required: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
+      current: ['CUSTOMER'],
+    });
+    expect(orderService.printOrderReceipt).not.toHaveBeenCalled();
+  });
+
+  it('returns a not-configured message when the printer queue is skipped', async () => {
+    verifyToken.mockReturnValue({ userId: 2, username: 'employee-one', roles: ['EMPLOYEE'] });
+    orderService.printOrderReceipt.mockResolvedValue({
+      queued: false,
+      reason: 'MANUAL_REPRINT',
+      orderId: 44,
+    });
+
+    const { response, body } = await requestJson(server, '/api/orders/44/print', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer employee-token',
+      },
+    });
+
+    expect(response.status).toBe(202);
+    expect(body).toEqual({
+      message: 'Printer is not configured; receipt was not queued',
+      result: {
+        queued: false,
+        reason: 'MANUAL_REPRINT',
+        orderId: 44,
+      },
+    });
+  });
+
+  it('accepts IN_STORE payment method with PICKUP delivery', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+    orderService.createOrder.mockResolvedValue({ id: 901, total: 10.83, status: 'PENDING' });
+
+    const payload = {
+      items: [{ productId: 3, quantity: 1 }],
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.IN_STORE,
+    };
+
+    const { response, body } = await requestJson(server, '/api/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.status).toBe(201);
+    expect(body).toEqual({
+      message: 'Order created successfully',
+      order: { id: 901, total: 10.83, status: 'PENDING' },
+    });
+    expect(orderService.createOrder).toHaveBeenCalledWith({
+      userId: 10,
+      items: payload.items,
+      cashAppUsername: undefined,
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.IN_STORE,
+    });
+  });
+
+  it('rejects unknown payment method values before hitting order creation', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+
+    const { response, body } = await requestJson(server, '/api/orders', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer customer-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        items: [{ productId: 1, quantity: 1 }],
+        paymentMethod: 'CASH',
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(body.errors[0].msg).toBe('Payment method must be EXTERNAL, CREDIT, or IN_STORE');
+    expect(orderService.createOrder).not.toHaveBeenCalled();
   });
 
   it('surfaces service errors for admin-only order deletion', async () => {

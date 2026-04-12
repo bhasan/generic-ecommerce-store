@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# AI related files
+.claude/*
+
 # Environment files and local snapshots (secrets; use .env.example as template)
 .env*
 !**/.env.example
@@ -38,6 +41,7 @@ nginx/ssl/
 
 # Backups
 *.sql
+!backend/prisma/migrations/**/*.sql
 backups/
 
 # Local Docker image exports
@@ -48,3 +52,4 @@ backend/uploads/
 
 # Ensure Prisma migrations are tracked
 !backend/prisma/migrations/
+!backend/prisma/migrations/**/*.sql

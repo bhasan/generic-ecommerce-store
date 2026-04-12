@@ -441,6 +441,11 @@
   color: var(--color-primary-light);
 }
 
+.btn-order-print:hover {
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
 .edit-actions {
   display: flex;
   gap: 0.5rem;

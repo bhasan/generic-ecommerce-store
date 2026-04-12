@@ -163,6 +163,73 @@
   color: var(--text-primary);
 }
 
+/* Pickup Item Styling */
+.notification-item-pickup {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+  border: 1px solid var(--color-success);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--spacing-xs);
+}
+
+.notification-item-pickup:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 100%);
+}
+
+.notification-item-pickup::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  animation: shine 4s infinite;
+}
+
+@keyframes shine {
+  0% { left: -100%; }
+  20% { left: 200%; }
+  100% { left: 200%; }
+}
+
+.notification-item-pickup-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-success);
+  padding: var(--spacing-xs);
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: var(--radius-full);
+  animation: bell-ring 3s infinite;
+}
+
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  5%, 15%, 25% { transform: rotate(15deg); }
+  10%, 20%, 30% { transform: rotate(-15deg); }
+  35% { transform: rotate(0); }
+}
+
+.pickup-blink {
+  color: var(--color-success) !important;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  animation: text-pulse 2s infinite;
+}
+
+@keyframes text-pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+
 .notification-item-main {
   display: flex;
   gap: var(--spacing-xs);

@@ -6,9 +6,16 @@ const prismaMock = vi.hoisted(() => ({
     upsert: vi.fn(),
   },
 }));
+const deliveryEligibilityService = vi.hoisted(() => ({
+  verifyStoreAddress: vi.fn(),
+}));
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+}));
+
+vi.mock('./deliveryEligibility.service', () => ({
+  DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
 }));
 
 describe('store settings service', () => {
@@ -40,6 +47,7 @@ describe('store settings service', () => {
 
     const result = await new StoreSettingsService().updateStoreSettings(settings);
 
+    expect(deliveryEligibilityService.verifyStoreAddress).toHaveBeenCalledWith('101 Example Ave');
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
       where: { key: 'store_settings' },
       update: { value: settings },
@@ -56,5 +64,31 @@ describe('store settings service', () => {
       address: '101 Example Ave',
       phoneNumber: '555-0100',
     })).rejects.toEqual(expect.any(AppError));
+  });
+
+  it('skips store-address verification when the address did not change', async () => {
+    prismaMock.uiSetting.findUnique.mockResolvedValue({
+      value: {
+        name: 'Smoke Station',
+        address: '101 Example Ave',
+        phoneNumber: '555-0100',
+      },
+    });
+    prismaMock.uiSetting.upsert.mockResolvedValue({
+      value: {
+        name: 'Smoke Station West',
+        address: '101 Example Ave',
+        phoneNumber: '555-0100',
+      },
+    });
+    const { StoreSettingsService } = await import('./storeSettings.service');
+
+    await new StoreSettingsService().updateStoreSettings({
+      name: 'Smoke Station West',
+      address: '101 Example Ave',
+      phoneNumber: '555-0100',
+    });
+
+    expect(deliveryEligibilityService.verifyStoreAddress).not.toHaveBeenCalled();
   });
 });

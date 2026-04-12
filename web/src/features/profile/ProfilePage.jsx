@@ -4,55 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { User, Save, DollarSign, MapPin, Phone, Lock, AtSign } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { isGuest } from '../../utils/roles';
-
-// Helper to parse address string into components
-const parseAddress = (addressStr) => {
-  if (!addressStr) return { street: '', apartment: '', city: '', state: 'TX', zipCode: '' };
-
-  // Try to parse address like "123 Main St, Apt 4B, City, TX 12345"
-  const parts = addressStr.split(',').map(p => p.trim());
-
-  if (parts.length >= 3) {
-    // Check if second part looks like an apartment
-    const hasApt = parts[1]?.toLowerCase().includes('apt') || parts[1]?.toLowerCase().includes('suite');
-
-    if (hasApt && parts.length >= 4) {
-      // Format: street, apt, city, state zip
-      const stateZip = parts[3]?.split(' ') || [];
-      return {
-        street: parts[0] || '',
-        apartment: parts[1]?.replace(/^(apt|suite)\s*/i, '') || '',
-        city: parts[2] || '',
-        state: stateZip[0] || 'TX',
-        zipCode: stateZip[1] || ''
-      };
-    } else {
-      // Format: street, city, state zip
-      const stateZip = parts[2]?.split(' ') || [];
-      return {
-        street: parts[0] || '',
-        apartment: '',
-        city: parts[1] || '',
-        state: stateZip[0] || 'TX',
-        zipCode: stateZip[1] || ''
-      };
-    }
-  }
-
-  // Fallback - just put everything in street
-  return { street: addressStr, apartment: '', city: '', state: 'TX', zipCode: '' };
-};
-
-// Helper to combine address components into string
-const formatAddress = (address) => {
-  const parts = [address.street];
-  if (address.apartment) parts.push(`Apt ${address.apartment}`);
-  if (address.city) parts.push(address.city);
-  if (address.state || address.zipCode) {
-    parts.push(`${address.state} ${address.zipCode}`.trim());
-  }
-  return parts.filter(Boolean).join(', ');
-};
+import { formatDeliveryAddress, parseAddress } from '../../utils/address';
 
 function ProfilePage() {
   const { currentUser, updateUserProfile, showNotification, paymentSettings } = useApp();
@@ -81,7 +33,7 @@ function ProfilePage() {
 
     try {
       // Combine address fields into single string for storage
-      const fullAddress = formatAddress(address);
+      const fullAddress = formatDeliveryAddress(address);
       await updateUserProfile({ ...formData, address: fullAddress });
       // Success notification is handled in AppContext
     } catch (err) {

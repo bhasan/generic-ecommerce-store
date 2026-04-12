@@ -3,7 +3,7 @@ import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest } from '../../utils/roles';
-import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare, Wallet } from 'lucide-react';
+import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare, Wallet, Home } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
@@ -22,6 +22,7 @@ function Navbar() {
     markAllNotificationsRead,
     notificationsMuted,
     toggleNotificationsMuted,
+    orders,
   } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
@@ -98,6 +99,18 @@ function Navbar() {
   // Render navigation links (reusable for both desktop and mobile)
   const renderNavLinks = () => (
     <>
+      {/* Start Here - link to home for all logged in users */}
+      {!isGuest && (
+        <NavLink
+          to="/"
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+          end
+        >
+          <Home size={18} />
+          <span>Welcome</span>
+        </NavLink>
+      )}
+
       {/* Products page - only for authenticated users */}
       {!isGuest && (
         <NavLink
@@ -255,6 +268,7 @@ function Navbar() {
                 notificationsMuted={notificationsMuted}
                 onToggleMuted={toggleNotificationsMuted}
                 canManageOrders={canManageOrders}
+                orders={orders}
               />
             )}
             {!isGuest && <CartPreview cart={cart} cartCount={cartCount} />}
@@ -322,6 +336,7 @@ function Navbar() {
         </div>
       </nav>
 
+      {/* TODO(mobile): Navbar mobile menu exists; keep this as the primary small-screen nav path and validate all role-based links remain accessible. */}
       {/* Mobile Menu Overlay */}
       {showMobileMenu && (
         <div

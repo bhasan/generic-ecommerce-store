@@ -20,7 +20,17 @@ const isVideo = (url) => {
   return url.match(/\.(mp4|webm)$/i);
 };
 
-function SortableImageRow({ id, index, image, uploadingImageIndex, handleImageUpload, setActiveMediaLibraryIndex, removeImageField, showRemove }) {
+function SortableImageRow({
+  id,
+  index,
+  image,
+  uploadingImageIndex,
+  handleImageUpload,
+  setActiveMediaLibraryIndex,
+  removeImageField,
+  showRemove,
+  mediaInputAccept,
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -60,7 +70,7 @@ function SortableImageRow({ id, index, image, uploadingImageIndex, handleImageUp
           <span>{uploadingImageIndex === index ? 'Uploading...' : 'Upload'}</span>
           <input
             type="file"
-            accept="image/*,video/mp4,video/webm"
+            accept={mediaInputAccept}
             multiple
             onChange={(e) => handleImageUpload(index, e)}
             className="file-input-hidden"
@@ -109,7 +119,9 @@ function ProductFormModal({
   updateImageField,
   handleImageUpload,
   uploadingImageIndex = null,
-  formErrors = {}
+  formErrors = {},
+  imageInputAccept = 'image/jpeg,image/png,image/gif,image/webp',
+  mediaInputAccept = 'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm'
 }) {
   const [activeMediaLibraryIndex, setActiveMediaLibraryIndex] = useState(null);
 
@@ -171,6 +183,7 @@ function ProductFormModal({
               </button>
             </div>
 
+            {/* TODO(mobile): Product form modal needs a narrow-screen pass. Verify field grouping, image rows, and form actions stack cleanly on phones. */}
             <div className="form-grid">
               <div className="form-group">
                 <label htmlFor="name">Product Name *</label>
@@ -322,11 +335,11 @@ function ProductFormModal({
                       title={formData.thumbnail || ''}
                     />
                     <label className={`btn-upload-image ${uploadingImageIndex === 'thumbnail' ? 'btn-upload-image-loading' : ''}`}>
-                      <Upload size={16} />
+                        <Upload size={16} />
                       <span>{uploadingImageIndex === 'thumbnail' ? 'Uploading...' : 'Upload'}</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept={imageInputAccept}
                         onChange={(e) => handleImageUpload('thumbnail', e)}
                         className="file-input-hidden"
                         disabled={uploadingImageIndex !== null}
@@ -360,6 +373,7 @@ function ProductFormModal({
                 <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   Recommended: 1280×800px (16:10 landscape)
                 </p>
+                {/* TODO(mobile): Image picker rows should become fully stacked on small screens; avoid side-by-side upload/library/remove controls. */}
                 <div className="image-fields">
                   <DndContext collisionDetection={closestCenter} onDragEnd={handleImagesDragEnd}>
                     <SortableContext
@@ -377,6 +391,7 @@ function ProductFormModal({
                           setActiveMediaLibraryIndex={setActiveMediaLibraryIndex}
                           removeImageField={removeImageField}
                           showRemove={formData.images.length > 1}
+                          mediaInputAccept={mediaInputAccept}
                         />
                       ))}
                     </SortableContext>
@@ -412,6 +427,17 @@ function ProductFormModal({
                     onChange={(e) => setFormData({ ...formData, hidden: e.target.checked })}
                   />
                   <span>Hide this product from the Products page</span>
+                </label>
+              </div>
+
+              <div className="form-group form-group-full">
+                <label className="checkbox-label checkbox-label-large">
+                  <input
+                    type="checkbox"
+                    checked={formData.vipOnly || false}
+                    onChange={(e) => setFormData({ ...formData, vipOnly: e.target.checked })}
+                  />
+                  <span>VIP-only — visible only to VIP customers and staff</span>
                 </label>
               </div>
             </div>

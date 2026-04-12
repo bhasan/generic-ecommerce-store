@@ -349,6 +349,7 @@
   }
 }
 
+/* TODO(mobile): Driver dashboard is high-priority mobile surface. Verify cards, route/status actions, and scanability at phone widths. */
 @media (max-width: 768px) {
   .delivery-dashboard-container {
     padding: 1rem;

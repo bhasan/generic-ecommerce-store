@@ -554,6 +554,9 @@ docker run -p 3000:3000 --env-file .env smoke-station-backend
 | `NODE_ENV` | Environment mode | `development` | No |
 | `CORS_ORIGIN` | Allowed CORS origins | `*` | No |
 | `REQUEST_TIMEOUT_MS` | Request timeout (ms) | `30000` | No |
+| `GOOGLE_GEOCODING_API_KEY` | Google Geocoding API key for delivery radius checks | - | No |
+
+If `GOOGLE_GEOCODING_API_KEY` is missing or expires, delivery eligibility intentionally falls back to the offline ZIP allowlist when that admin setting is enabled.
 
 ---
 

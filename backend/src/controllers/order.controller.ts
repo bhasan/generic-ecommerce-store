@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import orderService from '../services/order.service';
+import { DeliveryEligibilityService } from '../services/deliveryEligibility.service';
 import { logger } from '../utils/logger';
+import { ROLES } from '../constants/roles';
+import { OrderStatus } from '../../generated/prisma';
+
+const deliveryEligibilityService = new DeliveryEligibilityService();
 
 export class OrderController {
   /**
@@ -86,6 +91,37 @@ export class OrderController {
   }
 
   /**
+   * Check delivery eligibility for a structured address
+   * POST /api/orders/delivery-eligibility
+   */
+  async checkDeliveryEligibility(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ errors: errors.array() });
+        return;
+      }
+
+      const result = await deliveryEligibilityService.checkDeliveryEligibility(req.body.deliveryAddress);
+      res.status(200).json({
+        deliverable: result.deliverable,
+        deliveryZoneStatus: result.deliveryZoneStatus,
+        deliveryZoneSource: result.deliveryZoneSource,
+        distanceMiles: result.distanceMiles,
+        thresholdMiles: result.thresholdMiles,
+        message: result.message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * Create order (checkout)
    * POST /api/orders
    */
@@ -121,6 +157,7 @@ export class OrderController {
         items: req.body.items,
         cashAppUsername: req.body.cashAppUsername,
         deliveryMethod: req.body.deliveryMethod,
+        deliveryAddress: req.body.deliveryAddress,
         paymentMethod: req.body.paymentMethod
       });
 
@@ -164,13 +201,13 @@ export class OrderController {
       }
 
       const userRoles = req.user.roles || [];
-      const isEmployee = userRoles.includes('EMPLOYEE');
-      const isManagementOrAdmin = userRoles.includes('MANAGEMENT') || userRoles.includes('ADMIN');
+      const isEmployee = userRoles.includes(ROLES.EMPLOYEE);
+      const isManagementOrAdmin = userRoles.includes(ROLES.MANAGEMENT) || userRoles.includes(ROLES.ADMIN);
       const canManageOrders = isEmployee || isManagementOrAdmin;
-      const isDeliveryDriver = userRoles.includes('DELIVERY_DRIVER') && !canManageOrders;
+      const isDeliveryDriver = userRoles.includes(ROLES.DELIVERY_DRIVER) && !canManageOrders;
 
       // Delivery drivers only complete the final handoff step; broader order edits stay with staff roles.
-      if (isDeliveryDriver && req.body.status !== 'DELIVERED') {
+      if (isDeliveryDriver && req.body.status !== OrderStatus.DELIVERED) {
         res.status(403).json({ error: 'Delivery drivers can only mark orders as DELIVERED' });
         return;
       }
@@ -278,6 +315,36 @@ export class OrderController {
 
       const result = await orderService.deleteOrder(id);
       res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Print order receipt
+   * POST /api/orders/:id/print
+   */
+  async printOrderReceipt(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'Invalid order ID' });
+        return;
+      }
+
+      const result = await orderService.printOrderReceipt(id, {
+        actor: {
+          userId: req.user?.userId,
+          username: req.user?.username,
+        },
+      });
+
+      res.status(202).json({
+        message: result.queued
+          ? 'Order receipt queued for printing'
+          : 'Printer is not configured; receipt was not queued',
+        result,
+      });
     } catch (error) {
       next(error);
     }

@@ -4,15 +4,65 @@
   width: 100%;
   /* Pull the headline up into the faded area */
   margin-bottom: -3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.storefront-shimmer {
+  width: 100%;
+  max-width: 1120px;
+  aspect-ratio: 2240 / 1091;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.storefront-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0,
+    rgba(255, 255, 255, 0.05) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: sfShimmer 2s infinite;
+}
+
+@keyframes sfShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.storefront-graphic-wrap picture {
+  width: 100%;
+  max-width: 1120px;
+  display: block;
+}
+
+.storefront-graphic-wrap picture.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.storefront-graphic-wrap picture.visible {
+  opacity: 1;
+  visibility: visible;
 }
 
 .storefront-graphic {
   width: 100%;
-  max-width: 1120px;
   height: auto;
   border-radius: 10px 10px 0 0;
   display: block;
-  animation: sfFadeIn 0.7s ease both;
+  animation: sfFadeIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) both;
   /* Fade the bottom of the image to transparent so the page background shows through */
   -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
   mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
@@ -34,10 +84,12 @@
 @keyframes sfFadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(20px) scale(1.02);
+    filter: blur(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+    filter: blur(0);
   }
 }

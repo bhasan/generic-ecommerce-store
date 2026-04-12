@@ -85,4 +85,35 @@ describe('NotificationDropdown', () => {
     expect(screen.queryByText('Operational Queue')).not.toBeInTheDocument();
     expect(screen.getByText('Order #3 updated')).toBeInTheDocument();
   });
+
+  it('renders the "Ready for Pickup" section at the top when orders are waiting', () => {
+    const orders = [
+      { id: 101, status: 'READY_FOR_PICKUP' },
+      { id: 102, status: 'READY_FOR_PICKUP' },
+    ];
+
+    render(
+      <NotificationDropdown
+        counts={{}}
+        canAccessDashboard={false}
+        notifications={[]}
+        unreadCount={0}
+        onMarkRead={vi.fn()}
+        onMarkAllRead={vi.fn()}
+        notificationsMuted={false}
+        onToggleMuted={vi.fn()}
+        canManageOrders={false}
+        orders={orders}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
+    
+    expect(screen.getByText('Action Required')).toBeInTheDocument();
+    expect(screen.getByText('Order Ready for Pickup!')).toBeInTheDocument();
+    expect(screen.getByText(/You have 2 orders waiting for you at the store/i)).toBeInTheDocument();
+    
+    fireEvent.click(screen.getByText('Order Ready for Pickup!'));
+    expect(navigate).toHaveBeenCalledWith('/orders');
+  });
 });

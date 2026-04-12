@@ -11,18 +11,23 @@ import * as creditApi from '../services/creditApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
 const AppContext = createContext();
+const CART_STORAGE_KEY = 'cartData';
 
+// Returns the shared app context and throws early if a consumer renders outside AppProvider.
 export const useApp = () => {
   const context = useContext(AppContext);
   if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 };
 
+// Owns the app-wide auth, catalog, order, cart, config, and notification state for the client.
 export function AppProvider({ children }) {
   // Initialize user from localStorage or default guest
+  // Restores the cached user when possible and falls back to the guest sentinel if parsing fails.
   const getInitialUser = () => {
     const storedUser = localStorage.getItem('userData');
     if (storedUser) {
@@ -40,6 +45,22 @@ export function AppProvider({ children }) {
     return GUEST_USER;
   };
 
+  // Persists the cart across refreshes via localStorage; do not remove this without replacing refresh-safe cart restore behavior.
+  const getInitialCart = () => {
+    const storedCart = localStorage.getItem(CART_STORAGE_KEY);
+    if (!storedCart) {
+      return [];
+    }
+
+    try {
+      const parsedCart = JSON.parse(storedCart);
+      return Array.isArray(parsedCart) ? parsedCart : [];
+    } catch (error) {
+      console.error('Error parsing stored cart data:', error);
+      return [];
+    }
+  };
+
   const [currentUser, setCurrentUser] = useState(getInitialUser);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +70,7 @@ export function AppProvider({ children }) {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [categories, setCategories] = useState([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(getInitialCart);
   const [notification, setNotification] = useState(null);
   const [returnPath, setReturnPath] = useState(null);
   const [staffNotificationCounts, setStaffNotificationCounts] = useState(null);
@@ -63,7 +84,10 @@ export function AppProvider({ children }) {
   const [minimumDeliveryOrderEnabled, setMinimumDeliveryOrderEnabled] = useState(false);
   const [deliveryDisabled, setDeliveryDisabled] = useState(false);
   const [deliveryDisabledMessage, setDeliveryDisabledMessage] = useState('');
+  const [deliveryRadiusMiles, setDeliveryRadiusMiles] = useState(5);
   const [pickupLocation, setPickupLocation] = useState('');
+  const [featuredProductIds, setFeaturedProductIds] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [storeCashappUsername, setStoreCashappUsername] = useState('');
   const [paymentSettings, setPaymentSettings] = useState({
     cashapp: { enabled: true, handle: '' },
@@ -71,8 +95,6 @@ export function AppProvider({ children }) {
     venmo: { enabled: false, handle: '' },
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
-  const [featuredProductIds, setFeaturedProductIds] = useState([]);
-  const [promotions, setPromotions] = useState([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const hasInteractedRef = useRef(false);
   const hasLoadedNotificationsRef = useRef(false);
@@ -80,8 +102,18 @@ export function AppProvider({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  useEffect(() => {
+    if (cart.length === 0) {
+      localStorage.removeItem(CART_STORAGE_KEY);
+      return;
+    }
+
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  }, [cart]);
+
   // Check authentication on mount
   useEffect(() => {
+    // Revalidates the saved token on mount and keeps credit state defaulted to 0 if credit lookup fails.
     const checkAuth = async () => {
       const token = getAuthToken();
       if (token) {
@@ -116,6 +148,7 @@ export function AppProvider({ children }) {
   }, []);
 
   // Load products function (can be called manually)
+  // Loads the product catalog and leaves products as an empty array on failure for a safe default UI.
   const loadProducts = useCallback(async () => {
     try {
       setIsLoadingProducts(true);
@@ -130,6 +163,7 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  // Loads categories for filtering and product forms, defaulting to an empty array if the request fails.
   const loadCategories = useCallback(async () => {
     try {
       setIsLoadingCategories(true);
@@ -153,6 +187,7 @@ export function AppProvider({ children }) {
   }, [loadCategories]);
 
   useEffect(() => {
+    // Marks the session as user-interacted once so staff alert sounds do not autoplay before interaction.
     const markInteracted = () => {
       hasInteractedRef.current = true;
     };
@@ -165,6 +200,7 @@ export function AppProvider({ children }) {
     };
   }, []);
 
+  // Plays a short staff-only attention tone and bails safely when the browser audio APIs are unavailable.
   const playStaffAttentionSound = useCallback(() => {
     if (typeof window === 'undefined') return;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -187,6 +223,7 @@ export function AppProvider({ children }) {
     };
   }, []);
 
+  // Loads the notification inbox for authenticated users and otherwise returns an empty list.
   const loadNotifications = useCallback(async () => {
     if (!isAuthenticated) return [];
     try {
@@ -198,6 +235,7 @@ export function AppProvider({ children }) {
     }
   }, [isAuthenticated]);
 
+  // Loads the unread notification count and defaults to 0 when the request cannot be completed.
   const loadUnreadNotificationCount = useCallback(async () => {
     if (!isAuthenticated) return { count: 0 };
     try {
@@ -209,6 +247,7 @@ export function AppProvider({ children }) {
     }
   }, [isAuthenticated]);
 
+  // Refreshes inbox state, unread counts, and staff attention tracking without double-playing old alerts.
   const refreshNotifications = useCallback(async () => {
     if (!isAuthenticated) {
       setInboxNotifications([]);
@@ -260,6 +299,7 @@ export function AppProvider({ children }) {
     playStaffAttentionSound,
   ]);
 
+  // Loads staff dashboard badge counts and clears them for non-staff or signed-out sessions.
   const loadStaffNotificationCounts = useCallback(async () => {
     if (!isAuthenticated) {
       setStaffNotificationCounts(null);
@@ -295,6 +335,7 @@ export function AppProvider({ children }) {
     return () => clearInterval(interval);
   }, [refreshNotifications, isAuthenticated]);
 
+  // Toggles the session-scoped mute flag used to suppress staff attention sounds on this browser tab.
   const toggleNotificationsMuted = useCallback(() => {
     setNotificationsMuted((prev) => {
       const next = !prev;
@@ -303,6 +344,7 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // Marks a single notification read optimistically, then re-syncs from the backend to avoid stale inbox state.
   const markNotificationRead = useCallback(async (notificationId) => {
     const now = new Date().toISOString();
 
@@ -323,11 +365,13 @@ export function AppProvider({ children }) {
     }
   }, [refreshNotifications]);
 
+  // Marks the full inbox read in one call and then refreshes counts so badges stay accurate.
   const markAllNotificationsRead = useCallback(async () => {
     await notificationsApi.markAllNotificationsRead();
     await refreshNotifications();
   }, [refreshNotifications]);
 
+  // Loads shared storefront config and keeps landing arrays defaulted to [] if config omits them.
   const loadConfig = useCallback(async () => {
     try {
       const config = await configApi.getConfig();
@@ -338,6 +382,9 @@ export function AppProvider({ children }) {
         if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
         if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
         if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
+        if (typeof config.deliveryRadiusMiles === 'number') setDeliveryRadiusMiles(config.deliveryRadiusMiles);
+        if (Array.isArray(config.featuredProductIds)) setFeaturedProductIds(config.featuredProductIds);
+        if (Array.isArray(config.promotions)) setPromotions(config.promotions);
         if (config.storeSettings) {
           setStoreSettings(config.storeSettings);
           if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
@@ -350,12 +397,6 @@ export function AppProvider({ children }) {
         } else if (typeof config.storeCashappUsername === 'string') {
           setStoreCashappUsername(config.storeCashappUsername);
         }
-        if (Array.isArray(config.featuredProductIds)) {
-          setFeaturedProductIds(config.featuredProductIds);
-        }
-        if (Array.isArray(config.promotions)) {
-          setPromotions(config.promotions);
-        }
       }
     } catch (e) {
       console.warn('Failed to load remote config, using default tax rate.', e);
@@ -366,15 +407,15 @@ export function AppProvider({ children }) {
     loadConfig();
   }, [loadConfig]);
 
-  // Load orders function (can be called manually)
-  const loadOrders = useCallback(async () => {
+  // Loads orders for authenticated users only, clears signed-out state, and supports silent background refreshes.
+  const loadOrders = useCallback(async (silent = false) => {
     if (!isAuthenticated) {
       setOrders([]);
       return;
     }
 
     try {
-      setIsLoadingOrders(true);
+      if (!silent) setIsLoadingOrders(true);
       const ordersData = await ordersApi.getAllOrders();
       setOrders(ordersData);
     } catch (error) {
@@ -382,7 +423,7 @@ export function AppProvider({ children }) {
       // Don't show error notification on initial load, just log it
       // Orders will remain empty array
     } finally {
-      setIsLoadingOrders(false);
+      if (!silent) setIsLoadingOrders(false);
     }
   }, [isAuthenticated]);
 
@@ -391,15 +432,23 @@ export function AppProvider({ children }) {
     if (!isLoading) {
       loadOrders();
     }
-  }, [isAuthenticated, isLoading]);
+    
+    if (!isAuthenticated || isLoading) return;
+    
+    // Background polling for orders keeps the UI (like pickup notices) fresh without full reloads.
+    const interval = setInterval(() => loadOrders(true), 50000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isLoading, loadOrders]);
 
   // Notification system (message is normalized so we never show "[object Object]")
+  // Shows one normalized toast-style notification with an optional action callback.
   const showNotification = useCallback((message, type = 'success', action = null) => {
     const safeMessage = toNotificationMessage(message, 'Something went wrong. Please try again.');
     setNotification({ message: safeMessage, type, action });
   }, []);
 
   useEffect(() => {
+    // Converts backend availability events into a reloadable warning notification for the current route.
     const handleBackendUnavailable = (event) => {
       const message = event?.detail?.message
         || 'We are having trouble reaching the server. Please try again shortly.';
@@ -416,6 +465,7 @@ export function AppProvider({ children }) {
   }, [showNotification]);
 
   useEffect(() => {
+    // Clears session-owned state on forced logout so expired tokens do not leave stale cart or order UI behind.
     const handleUnauthorized = () => {
       // Reset session-owned state before redirecting so stale cart/order UI does not survive an expired token.
       setCurrentUser(GUEST_USER);
@@ -432,10 +482,12 @@ export function AppProvider({ children }) {
     };
   }, [navigate, showNotification]);
 
+  // Clears the active notification without changing any underlying app state.
   const closeNotification = () => {
     setNotification(null);
   };
 
+  // Logs the user in, normalizes legacy single-role payloads, and routes by the current role mix.
   const login = async (username, password) => {
     try {
       const { user } = await authApi.login(username, password);
@@ -478,6 +530,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Registers a new account, surfaces the backend message, and leaves auth state unchanged until approval.
   const register = async (data) => {
     try {
       const response = await authApi.register(data);
@@ -494,6 +547,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Logs out locally even if the API call fails so the client never stays half-authenticated.
   const logout = async () => {
     try {
       await authApi.logout();
@@ -507,11 +561,12 @@ export function AppProvider({ children }) {
       setInboxNotifications([]);
       setUnreadNotificationCount(0);
       setReturnPath(null);
-      navigate('/login');
+      navigate('/products');
       showNotification('You have been logged out', 'info');
     }
   };
 
+  // Resolves product quantity rules with product overrides winning over category defaults.
   const resolveAllowedQuantities = (product) => {
     // Product-level overrides win so category defaults do not mask product-specific selling rules.
     if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
@@ -520,10 +575,12 @@ export function AppProvider({ children }) {
     return product.category?.allowedQuantities || [];
   };
 
+  // Compares quantities with decimal-safe tolerance so 0.25-style increments do not fail exact checks.
   const isQuantityAllowed = (quantity, allowedQuantities) => {
     return allowedQuantities.some((allowed) => Math.abs(allowed - quantity) < 1e-9);
   };
 
+  // Adds or increments a cart item while normalizing invalid picks to the closest allowed quantity step.
   const addToCart = (product, quantity) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -578,10 +635,12 @@ export function AppProvider({ children }) {
     );
   };
 
+  // Removes one cart line item entirely by product id.
   const removeFromCart = (productId) => {
     setCart(prev => prev.filter(item => item.id !== productId));
   };
 
+  // Updates a cart line quantity and removes the item if the incoming quantity is empty, invalid, or <= 0.
   const updateCartQuantity = (productId, quantity) => {
     const normalizedQuantity = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
     if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
@@ -593,6 +652,7 @@ export function AppProvider({ children }) {
     ));
   };
 
+  // Refreshes the signed-in user's credit balance and silently keeps the existing value on non-fatal errors.
   const refreshCreditBalance = useCallback(async (userId) => {
     try {
       const creditData = await creditApi.getUserCredit(userId);
@@ -602,7 +662,13 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod) => {
+  // Proxies delivery eligibility checks so checkout can reuse one app-level API contract.
+  const checkDeliveryEligibility = useCallback(async (deliveryAddress) => {
+    return ordersApi.checkDeliveryEligibility(deliveryAddress);
+  }, []);
+
+  // Creates an order, refreshes dependent state, and preserves delivery/profile/payment side effects by method.
+  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -611,17 +677,34 @@ export function AppProvider({ children }) {
       }));
 
       // Create order via API
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod);
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress);
 
-      if (paymentMethod !== 'CREDIT') {
+      if (deliveryMethod === DeliveryMethod.DELIVERY) {
+        try {
+          const refreshedUser = await authApi.getProfile();
+          if (!refreshedUser.roles && refreshedUser.role) {
+            refreshedUser.roles = [refreshedUser.role];
+          }
+          setCurrentUser(refreshedUser);
+          setIsAuthenticated(true);
+        } catch (profileError) {
+          console.warn('Failed to refresh profile after delivery order:', profileError);
+          if (paymentMethod !== PaymentMethod.CREDIT) {
+            const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
+            setCurrentUser(updatedUserData);
+            localStorage.setItem('userData', JSON.stringify(updatedUserData));
+          }
+        }
+      } else if (paymentMethod !== PaymentMethod.CREDIT) {
         // Persist the latest payment handle so checkout, profile, and later orders show the same value.
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
         localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      } else {
+      } else if (paymentMethod === PaymentMethod.CREDIT) {
         // Refresh credit balance after credit payment
         await refreshCreditBalance(currentUser.id);
       }
+      // IN_STORE: no payment handle to save
 
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();
@@ -642,6 +725,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Creates a product, reloads the catalog, and leaves error handling centralized in the notification flow.
   const addProduct = async (product) => {
     try {
       await productsApi.createProduct(product);
@@ -658,6 +742,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Updates a product, reloads the catalog, and keeps the latest server state as the source of truth.
   const updateProduct = async (id, updates) => {
     try {
       await productsApi.updateProduct(id, updates);
@@ -674,6 +759,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Deletes a product and refreshes the catalog so stale product cards do not linger in the UI.
   const deleteProduct = async (id) => {
     try {
       await productsApi.deleteProduct(id);
@@ -690,6 +776,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Creates a category and reloads categories so forms and filters stay in sync immediately.
   const createCategory = async (data) => {
     try {
       await categoriesApi.createCategory(data);
@@ -703,6 +790,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Updates a category and reloads category state so quantity rules and labels stay consistent.
   const updateCategory = async (id, updates) => {
     try {
       await categoriesApi.updateCategory(id, updates);
@@ -716,6 +804,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Deletes a category and refreshes local category state after the backend confirms removal.
   const deleteCategory = async (id) => {
     try {
       await categoriesApi.deleteCategory(id);
@@ -729,6 +818,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Updates an order status and then refreshes orders plus staff notifications for dashboard accuracy.
   const updateOrderStatus = async (orderId, status) => {
     try {
       await ordersApi.updateOrderStatus(orderId, status);
@@ -746,10 +836,12 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Restores the cart from a saved snapshot, which is used by external-payment cancel flows.
   const restoreCart = (items) => {
     setCart(items);
   };
 
+  // Deletes an order and supports silent cleanup for cancel/retry flows that should not show extra toasts.
   const deleteOrder = async (orderId, { silent = false } = {}) => {
     try {
       await ordersApi.deleteOrder(orderId);
@@ -766,6 +858,25 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Queues a manual receipt print request and warns instead of failing hard when the printer is not configured.
+  const printOrderReceipt = async (orderId) => {
+    try {
+      const result = await ordersApi.printOrderReceipt(orderId);
+      showNotification(
+        result.queued
+          ? 'Receipt queued for printing.'
+          : 'Printer is not configured yet, so no receipt was queued.',
+        result.queued ? 'success' : 'warning'
+      );
+      return result;
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to print receipt. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
+  };
+
+  // Adds an order item while supporting both the new `(orderId, productId, quantity)` and legacy object call shapes.
   const addItemToOrder = async (orderId, productIdOrItem, quantity) => {
     try {
       // Accept both legacy and current call shapes so older order-editing UI still reaches the same API.
@@ -794,6 +905,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Voids an order item and still accepts older index-based callers by translating them back to persisted item ids.
   const voidOrderItem = async (orderId, itemIdOrIndex) => {
     try {
       // Resolve array indexes back to persisted item IDs while older order-editing code is still supported.
@@ -823,6 +935,7 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Deletes an order item and resolves legacy index-based callers to stable server item ids before the API call.
   const deleteOrderItem = async (orderId, itemIdOrIndex) => {
     try {
       // Resolve array indexes back to persisted item IDs while older order-editing code is still supported.
@@ -852,12 +965,14 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Restores one order snapshot in local state, which is used by optimistic order-editing flows.
   const restoreOrder = (orderState) => {
     setOrders(prev => prev.map(o => 
       o.id === orderState.id ? orderState : o
     ));
   };
 
+  // Updates the signed-in user's profile, normalizes roles, and persists the result back to localStorage.
   const updateUserProfile = async (updates) => {
     try {
       const updatedUser = await usersApi.updateUser(currentUser.id, updates);
@@ -879,6 +994,7 @@ export function AppProvider({ children }) {
   };
 
   // Review management
+  // Adds a client-side review entry with default counters and today's date for the current user.
   const addReview = (productId, review) => {
     setProducts(prev => prev.map(p => {
       if (p.id === productId) {
@@ -901,6 +1017,7 @@ export function AppProvider({ children }) {
     showNotification('Review posted successfully', 'success');
   };
 
+  // Updates one local review in place for client-managed review editing flows.
   const updateReview = (productId, reviewId, updates) => {
     setProducts(prev => prev.map(p => {
       if (p.id === productId) {
@@ -914,6 +1031,7 @@ export function AppProvider({ children }) {
     showNotification('Review updated', 'success');
   };
 
+  // Removes one local review from the product review list.
   const deleteReview = (productId, reviewId) => {
     setProducts(prev => prev.map(p => {
       if (p.id === productId) {
@@ -924,6 +1042,7 @@ export function AppProvider({ children }) {
     showNotification('Review deleted', 'info');
   };
 
+  // Adds a review reply attributed to the current user and defaults the role to CUSTOMER when missing.
   const addReviewReply = (productId, reviewId, reply) => {
     setProducts(prev => prev.map(p => {
       if (p.id === productId) {
@@ -950,6 +1069,7 @@ export function AppProvider({ children }) {
     showNotification('Reply added', 'success');
   };
 
+  // Increments either the helpful or not-helpful counter for one local review vote action.
   const voteReview = (productId, reviewId, type) => {
     setProducts(prev => prev.map(p => {
       if (p.id === productId) {
@@ -971,6 +1091,7 @@ export function AppProvider({ children }) {
     }));
   };
 
+  // Flags a local review for moderation so the UI can reflect the pending moderation state immediately.
   const flagReview = (productId, reviewId) => {
     setProducts(prev => prev.map(p => {
       if (p.id === productId) {
@@ -1017,6 +1138,7 @@ export function AppProvider({ children }) {
     deleteCategory,
     updateOrderStatus, 
     deleteOrder,
+    printOrderReceipt,
     addItemToOrder,
     voidOrderItem,
     deleteOrderItem,
@@ -1047,16 +1169,18 @@ export function AppProvider({ children }) {
     minimumDeliveryOrderEnabled,
     deliveryDisabled,
     deliveryDisabledMessage,
+    deliveryRadiusMiles,
     pickupLocation,
+    featuredProductIds,
+    promotions,
     storeCashappUsername,
     paymentSettings,
     storeSettings,
-    featuredProductIds,
-    promotions,
     loadConfig,
     restoreCart,
     creditBalance,
     refreshCreditBalance,
+    checkDeliveryEligibility,
   };
 
   return (

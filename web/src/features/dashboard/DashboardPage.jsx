@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './DashboardPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
@@ -24,6 +24,8 @@ import PaymentSettingsSection from './components/PaymentSettingsSection';
 import StoreSettingsSection from './components/StoreSettingsSection';
 import OrderingConstraintsSection from './components/OrderingConstraintsSection';
 import LandingPageSection from './components/LandingPageSection';
+import VIPManagementSection from './components/VIPManagementSection';
+import * as productsApi from '../../services/productsApi';
 import { hasRole, ROLES } from '../../utils/roles';
 
 const DASHBOARD_SECTIONS = {
@@ -36,6 +38,7 @@ const DASHBOARD_SECTIONS = {
   STORE_SETTINGS: 'store-settings',
   ORDERING_CONSTRAINTS: 'ordering-constraints',
   LANDING_PAGE: 'landing-page',
+  VIP_MANAGEMENT: 'vip-management',
 };
 
 function DashboardPage() {
@@ -70,6 +73,7 @@ function DashboardPage() {
   
   // Users State
   const [allUsers, setAllUsers] = useState([]);
+  const allUsersRef = useRef([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [availableRoles, setAvailableRoles] = useState([]);
   const [editingUserId, setEditingUserId] = useState(null);
@@ -102,6 +106,10 @@ function DashboardPage() {
   // Landing Page Settings State
   const [localLandingPageSettings, setLocalLandingPageSettings] = useState(null);
   const [isLoadingLandingPageSettings, setIsLoadingLandingPageSettings] = useState(false);
+
+  // VIP Management State
+  const [vipProducts, setVipProducts] = useState([]);
+  const [isLoadingVip, setIsLoadingVip] = useState(false);
 
   // Contact Messages State
   const [contactMessages, setContactMessages] = useState([]);
@@ -145,11 +153,35 @@ function DashboardPage() {
     try {
       setIsLoadingUsers(true);
       const usersData = await usersApi.getAllUsers();
+      allUsersRef.current = usersData;
       setAllUsers(usersData);
     } catch (error) {
       showNotification(error.message || 'Failed to load users', 'error');
     } finally {
       setIsLoadingUsers(false);
+    }
+  }, [showNotification]);
+
+  // Load VIP management data — reuse already-loaded users if available, only fetch products
+  const loadVipData = useCallback(async () => {
+    try {
+      setIsLoadingVip(true);
+      const fetches = [productsApi.getAllProducts()];
+      const needsUsers = allUsersRef.current.length === 0;
+      if (needsUsers) fetches.unshift(usersApi.getAllUsers());
+
+      const results = await Promise.all(fetches);
+      if (needsUsers) {
+        allUsersRef.current = results[0];
+        setAllUsers(results[0]);
+        setVipProducts(results[1]);
+      } else {
+        setVipProducts(results[0]);
+      }
+    } catch (error) {
+      showNotification(error.message || 'Failed to load VIP data', 'error');
+    } finally {
+      setIsLoadingVip(false);
     }
   }, [showNotification]);
 
@@ -206,7 +238,8 @@ function DashboardPage() {
 
   const handleSavePaymentSettings = async (data) => {
     try {
-      await paymentSettingsApi.updatePaymentSettings(data);
+      const response = await paymentSettingsApi.updatePaymentSettings(data);
+      setLocalPaymentSettings(response.settings || response);
       showNotification('Payment settings updated successfully', 'success');
       // Refresh shared config so checkout and header surfaces pick up new payment options immediately.
       loadConfig();
@@ -230,7 +263,8 @@ function DashboardPage() {
 
   const handleSaveStoreSettings = async (data) => {
     try {
-      await storeSettingsApi.updateStoreSettings(data);
+      const response = await storeSettingsApi.updateStoreSettings(data);
+      setLocalStoreSettings(response.settings || response);
       showNotification('Store settings updated successfully', 'success');
       // Refresh shared config so pickup/store details stay aligned outside the dashboard.
       loadConfig();
@@ -254,7 +288,8 @@ function DashboardPage() {
 
   const handleSaveOrderingConstraints = async (data) => {
     try {
-      await orderingConstraintsApi.updateOrderingConstraints(data);
+      const response = await orderingConstraintsApi.updateOrderingConstraints(data);
+      setLocalOrderingConstraints(response.constraints || response);
       showNotification('Ordering constraints updated successfully', 'success');
       // Refresh shared config so cart and checkout rules see the latest limits right away.
       loadConfig();
@@ -308,8 +343,10 @@ function DashboardPage() {
       loadOrderingConstraints();
     } else if (activeSection === DASHBOARD_SECTIONS.LANDING_PAGE) {
       loadLandingPageSettings();
+    } else if (activeSection === DASHBOARD_SECTIONS.VIP_MANAGEMENT) {
+      loadVipData();
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints, loadLandingPageSettings]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints, loadLandingPageSettings, loadVipData]);
 
   useEffect(() => {
     if (activeSection !== DASHBOARD_SECTIONS.MESSAGES) return undefined;
@@ -505,6 +542,61 @@ function DashboardPage() {
       setEditingRoles(editingRoles.filter(r => r !== role));
     } else {
       setEditingRoles([...editingRoles, role]);
+    }
+  };
+
+  // VIP handlers — optimistic updates: mutate local state immediately, revert on error
+  const handleToggleVipUser = async (user) => {
+    const currentRoles = user.roles
+      ? user.roles.map((r) => (typeof r === 'string' ? r : r.name))
+      : [];
+    const isCurrentlyVip = currentRoles.includes(ROLES.VIP);
+    const newRoles = isCurrentlyVip
+      ? currentRoles.filter((r) => r !== ROLES.VIP)
+      : [...currentRoles, ROLES.VIP];
+
+    // Apply optimistic update
+    setAllUsers((prev) =>
+      prev.map((u) => (u.id === user.id ? { ...u, roles: newRoles } : u))
+    );
+
+    try {
+      await usersApi.updateUser(user.id, { roles: newRoles });
+      showNotification(
+        isCurrentlyVip ? `VIP access removed from ${user.username}` : `${user.username} is now VIP`,
+        'success'
+      );
+    } catch (error) {
+      // Revert on failure
+      setAllUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, roles: currentRoles } : u))
+      );
+      showNotification(error.message || 'Failed to update VIP status', 'error');
+    }
+  };
+
+  const handleToggleVipProduct = async (product) => {
+    const newVipOnly = !product.vipOnly;
+
+    // Apply optimistic update
+    setVipProducts((prev) =>
+      prev.map((p) => (p.id === product.id ? { ...p, vipOnly: newVipOnly } : p))
+    );
+
+    try {
+      await productsApi.updateProduct(product.id, { vipOnly: newVipOnly });
+      showNotification(
+        product.vipOnly
+          ? `"${product.name}" is no longer VIP-only`
+          : `"${product.name}" is now VIP-only`,
+        'success'
+      );
+    } catch (error) {
+      // Revert on failure
+      setVipProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, vipOnly: product.vipOnly } : p))
+      );
+      showNotification(error.message || 'Failed to update product VIP status', 'error');
     }
   };
 
@@ -778,6 +870,16 @@ function DashboardPage() {
             isLoading={isLoadingLandingPageSettings}
             landingPageSettings={localLandingPageSettings}
             onSave={handleSaveLandingPageSettings}
+          />
+        );
+      case DASHBOARD_SECTIONS.VIP_MANAGEMENT:
+        return (
+          <VIPManagementSection
+            isLoading={isLoadingVip}
+            users={allUsers}
+            products={vipProducts}
+            onToggleVipUser={handleToggleVipUser}
+            onToggleVipProduct={handleToggleVipProduct}
           />
         );
       default:

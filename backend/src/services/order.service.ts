@@ -1,14 +1,19 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { OrderStatus } from '../../generated/prisma';
-import { RoleName, hasAnyRole } from '../constants/roles';
+import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
+import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
+import { StructuredDeliveryAddress } from '../utils/address.util';
 import creditService from './credit.service';
+import { DeliveryEligibilityService } from './deliveryEligibility.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
 import { notificationEventsService } from './notificationEvents.service';
+import { thermalPrinterService } from './thermalPrinter.service';
 
 const orderingConstraintsService = new OrderingConstraintsService();
+const deliveryEligibilityService = new DeliveryEligibilityService();
 
 interface CreateOrderData {
   userId: number;
@@ -17,8 +22,9 @@ interface CreateOrderData {
     quantity: number;
   }>;
   cashAppUsername?: string;
-  deliveryMethod?: string;
-  paymentMethod?: string;
+  deliveryMethod: typeof DeliveryMethod[keyof typeof DeliveryMethod];
+  deliveryAddress?: StructuredDeliveryAddress;
+  paymentMethod?: typeof PaymentMethod[keyof typeof PaymentMethod];
 }
 
 interface UpdateOrderStatusData {
@@ -30,7 +36,15 @@ interface AddOrderItemData {
   quantity: number;
 }
 
+interface PrintOrderReceiptData {
+  actor?: {
+    userId?: number | null;
+    username?: string | null;
+  };
+}
+
 export class OrderService {
+  // Normalizes raw discount-rule data into valid numeric quantity rules and drops malformed entries.
   private normalizeQuantityDiscounts(value: unknown) {
     if (!Array.isArray(value)) return [];
     return value
@@ -48,6 +62,7 @@ export class OrderService {
       .filter(Boolean) as Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
   }
 
+  // Resolves allowed quantity steps with product overrides taking precedence over category defaults.
   private resolveAllowedQuantities(product: { allowedQuantitiesOverride?: number[]; category?: { allowedQuantities?: number[] } }) {
     if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
       return product.allowedQuantitiesOverride;
@@ -55,6 +70,7 @@ export class OrderService {
     return product.category?.allowedQuantities ?? [];
   }
 
+  // Resolves quantity discount rules with product overrides winning so category defaults do not mask them.
   private resolveQuantityDiscounts(product: {
     quantityDiscountsOverride?: unknown;
     category?: { quantityDiscounts?: unknown };
@@ -64,6 +80,7 @@ export class OrderService {
     return this.normalizeQuantityDiscounts(product.category?.quantityDiscounts);
   }
 
+  // Applies the matching quantity discount to a base price and never returns a negative unit price.
   private resolveDiscountedUnitPrice(
     basePrice: number,
     quantity: number,
@@ -78,6 +95,7 @@ export class OrderService {
     return Math.max(0, basePrice - discount);
   }
 
+  // Compares quantities with decimal tolerance so fractional allowed quantities stay reliable.
   private isQuantityAllowed(quantity: number, allowedQuantities: number[]) {
     return allowedQuantities.some((allowed) => Math.abs(allowed - quantity) < 1e-9);
   }
@@ -85,8 +103,9 @@ export class OrderService {
   /**
    * Get all orders (with user filtering for customers)
    */
+  // Returns all visible orders, scoped to the current user unless the caller has staff or driver roles.
   async getAllOrders(userId: number, userRoles: RoleName[]) {
-    const isCustomerScoped = !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']);
+    const isCustomerScoped = !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]);
     const where = isCustomerScoped ? { userId } : {};
 
     logger.info('Retrieving orders from database', {
@@ -114,9 +133,10 @@ export class OrderService {
       const userIds = [...new Set(orders.map(o => o.userId))];
       logger.debug('Fetching users for orders', { userIds });
 
+      // Keep order payloads free of payment handles unless a future approved use case requires them explicitly.
       const users = await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, username: true, cashapp: true, phoneNumber: true, address: true }
+        select: { id: true, username: true, phoneNumber: true, address: true }
       });
       const userMap = new Map(users.map(u => [u.id, u]));
 
@@ -177,6 +197,7 @@ export class OrderService {
   /**
    * Get delivered orders (latest first)
    */
+  // Returns delivered orders enriched with user and item snapshots for delivery-history style views.
   async getDeliveredOrders() {
     const orders = await prisma.order.findMany({
       where: {
@@ -223,11 +244,7 @@ export class OrderService {
       const items = itemsByOrder.get(order.id) || [];
       
       return {
-        id: order.id,
-        status: order.status,
-        total: order.total,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
+        ...order,
         user: user ? {
           id: user.id,
           username: user.username,
@@ -254,6 +271,7 @@ export class OrderService {
   /**
    * Get out-for-delivery orders (for delivery drivers)
    */
+  // Returns orders currently out for delivery with attached user and item details for driver/staff tracking.
   async getOutForDeliveryOrders() {
     const orders = await prisma.order.findMany({
       where: {
@@ -301,11 +319,7 @@ export class OrderService {
       const items = itemsByOrder.get(order.id) || [];
 
       return {
-        id: order.id,
-        status: order.status,
-        total: order.total,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
+        ...order,
         user: user ? {
           id: user.id,
           username: user.username,
@@ -332,6 +346,7 @@ export class OrderService {
   /**
    * Get ready-for-delivery orders (for delivery drivers)
    */
+  // Returns orders ready for delivery with enough related data for dispatching and handoff screens.
   async getReadyForDeliveryOrders() {
     const orders = await prisma.order.findMany({
       where: {
@@ -379,11 +394,7 @@ export class OrderService {
       const items = itemsByOrder.get(order.id) || [];
 
       return {
-        id: order.id,
-        status: order.status,
-        total: order.total,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
+        ...order,
         user: user ? {
           id: user.id,
           username: user.username,
@@ -410,6 +421,7 @@ export class OrderService {
   /**
    * Get single order by ID
    */
+  // Returns one order with role-aware access control and the related user/item data needed by detail views.
   async getOrderById(orderId: number, userId: number, userRoles: RoleName[]) {
     const order = await prisma.order.findUnique({
       where: { id: orderId }
@@ -420,14 +432,14 @@ export class OrderService {
     }
 
     // Customers can only view their own orders
-    if (!hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER']) && order.userId !== userId) {
+    if (!hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]) && order.userId !== userId) {
       throw new AppError('Access denied', 403);
     }
 
     // Fetch user
     const user = await prisma.user.findUnique({
       where: { id: order.userId },
-      select: { id: true, username: true, cashapp: true, phoneNumber: true, address: true }
+      select: { id: true, username: true, phoneNumber: true, address: true }
     });
 
     // Fetch order items
@@ -458,9 +470,36 @@ export class OrderService {
   /**
    * Create a new order (checkout)
    */
+  // Creates an order, enforces stock and delivery rules, persists delivery snapshots, and triggers notifications/printing.
   async createOrder(data: CreateOrderData) {
-    const { userId, items, cashAppUsername, deliveryMethod, paymentMethod } = data;
-    const isCredit = paymentMethod === 'CREDIT';
+    const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, paymentMethod } = data;
+    const effectivePaymentMethod = paymentMethod || PaymentMethod.EXTERNAL;
+    const isCredit = effectivePaymentMethod === PaymentMethod.CREDIT;
+
+    logger.info('Creating new order', {
+      userId,
+      itemCount: items?.length || 0,
+      items: items?.map(i => ({ productId: i.productId, quantity: i.quantity })),
+      deliveryMethod,
+      paymentMethod: effectivePaymentMethod,
+    });
+
+    if (!Object.values(DeliveryMethod).includes(deliveryMethod)) {
+      logger.warn('Order creation failed: invalid delivery method', {
+        userId,
+        deliveryMethod,
+      });
+      throw new AppError('Delivery method must be DELIVERY or PICKUP', 400);
+    }
+
+    if (!items || items.length === 0) {
+      logger.warn('Order creation failed: empty items array', { userId });
+      throw new AppError('Order must contain at least one item', 400);
+    }
+
+    if (effectivePaymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP) {
+      throw new AppError('Pay in store is only available for pickup orders', 400);
+    }
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -469,17 +508,6 @@ export class OrderService {
         data: { cashapp: cashAppUsername.trim() }
       });
       logger.debug('Updated user CashApp username for order', { userId });
-    }
-
-    logger.info('Creating new order', {
-      userId,
-      itemCount: items?.length || 0,
-      items: items?.map(i => ({ productId: i.productId, quantity: i.quantity })),
-    });
-
-    if (!items || items.length === 0) {
-      logger.warn('Order creation failed: empty items array', { userId });
-      throw new AppError('Order must contain at least one item', 400);
     }
 
     // Fetch product details and calculate total
@@ -537,10 +565,29 @@ export class OrderService {
       };
     });
 
-      // Enforce minimum delivery order
-      const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = await orderingConstraintsService.getOrderingConstraints();
-      if (deliveryMethod === 'DELIVERY' && minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
-        throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
+      const orderingConstraints = await orderingConstraintsService.getOrderingConstraints();
+      const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = orderingConstraints;
+
+      let deliveryEligibility: Awaited<ReturnType<typeof deliveryEligibilityService.checkDeliveryEligibility>> | null = null;
+      if (deliveryMethod === DeliveryMethod.DELIVERY) {
+        if (!deliveryAddress) {
+          throw new AppError('Delivery address is required for delivery orders', 400);
+        }
+
+        if (minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
+          throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
+        }
+
+        deliveryEligibility = await deliveryEligibilityService.checkDeliveryEligibility(deliveryAddress);
+        if (!deliveryEligibility.deliverable) {
+          throw new AppError(
+            deliveryEligibility.message,
+            400,
+            deliveryEligibility.deliveryZoneStatus === 'OUT_OF_ZONE'
+              ? 'DELIVERY_OUT_OF_ZONE'
+              : 'DELIVERY_UNVERIFIED'
+          );
+        }
       }
 
       // Calculate tax and final total
@@ -554,62 +601,33 @@ export class OrderService {
         tax,
         total,
         status: OrderStatus.PENDING,
-        paymentMethod: paymentMethod || 'EXTERNAL',
+        paymentMethod: effectivePaymentMethod,
       });
 
-      let order: Awaited<ReturnType<typeof prisma.order.create>>;
-      let createdItems: Awaited<ReturnType<typeof prisma.orderItem.create>>[];
-
-      if (isCredit) {
-        // Use a transaction to atomically create the order and deduct credit
-        const result = await prisma.$transaction(async (tx) => {
-          const newOrder = await tx.order.create({
-            data: {
-              userId,
-              total,
-              status: OrderStatus.PENDING,
-              deliveryMethod: deliveryMethod || 'DELIVERY',
-              paymentMethod: 'CREDIT',
-            }
-          });
-
-          const newItems = await Promise.all(
-            orderItems.map(item =>
-              tx.orderItem.create({
-                data: {
-                  orderId: newOrder.id,
-                  productId: item.productId,
-                  quantity: item.quantity,
-                  price: item.price
-                }
-              })
-            )
-          );
-
-          // Deduct credit inside the same transaction
-          await creditService.useCredit(userId, total, newOrder.id, tx);
-
-          return { newOrder, newItems };
-        });
-
-        order = result.newOrder;
-        createdItems = result.newItems;
-      } else {
-        order = await prisma.order.create({
+      const result = await prisma.$transaction(async (tx) => {
+        const newOrder = await tx.order.create({
           data: {
             userId,
             total,
             status: OrderStatus.PENDING,
-            deliveryMethod: deliveryMethod || 'DELIVERY',
-            paymentMethod: 'EXTERNAL',
+            deliveryMethod,
+            paymentMethod: effectivePaymentMethod,
+            ...(deliveryEligibility ? {
+              deliveryAddress: deliveryEligibility.canonicalAddress,
+              deliveryZoneStatus: deliveryEligibility.deliveryZoneStatus,
+              deliveryEligibilitySource: deliveryEligibility.deliveryZoneSource,
+              deliveryDistanceMiles: deliveryEligibility.distanceMiles,
+              deliveryThresholdMiles: deliveryEligibility.thresholdMiles,
+              deliveryZoneCheckedAt: deliveryEligibility.checkedAt,
+            } : {}),
           }
         });
 
-        createdItems = await Promise.all(
+        const newItems = await Promise.all(
           orderItems.map(item =>
-            prisma.orderItem.create({
+            tx.orderItem.create({
               data: {
-                orderId: order.id,
+                orderId: newOrder.id,
                 productId: item.productId,
                 quantity: item.quantity,
                 price: item.price
@@ -617,7 +635,52 @@ export class OrderService {
             })
           )
         );
-      }
+
+        const stockUpdates: Array<{ productId: number; oldStock: number; newStock: number; quantity: number }> = [];
+        for (const item of items) {
+          const product = products.find(p => p.id === item.productId);
+          if (product && product.stockEnabled) {
+            const oldStock = product.stock;
+            await tx.productItem.update({
+              where: { id: product.id },
+              data: { stock: { decrement: item.quantity } }
+            });
+            stockUpdates.push({
+              productId: product.id,
+              oldStock,
+              newStock: oldStock - item.quantity,
+              quantity: item.quantity,
+            });
+          }
+        }
+
+        if (deliveryMethod === DeliveryMethod.DELIVERY && deliveryEligibility?.canonicalAddress) {
+          await tx.user.update({
+            where: { id: userId },
+            data: {
+              address: deliveryEligibility.canonicalAddress,
+              deliveryZoneStatus: deliveryEligibility.deliveryZoneStatus,
+              deliveryZoneSource: deliveryEligibility.deliveryZoneSource,
+              deliveryZoneDistanceMiles: deliveryEligibility.distanceMiles,
+              deliveryZoneCheckedAt: deliveryEligibility.checkedAt,
+            }
+          });
+        }
+
+        if (isCredit) {
+          await creditService.useCredit(userId, total, newOrder.id, tx);
+        }
+
+        return {
+          newOrder,
+          newItems,
+          stockUpdates,
+        };
+      });
+
+      const order = result.newOrder;
+      const createdItems = result.newItems;
+      const stockUpdates = result.stockUpdates;
 
       logger.info('Order created in database', {
         orderId: order.id,
@@ -637,25 +700,6 @@ export class OrderService {
         itemCount: createdItems.length,
         items: createdItems.map(i => ({ id: i.id, productId: i.productId, quantity: i.quantity })),
       });
-
-      // Update stock if enabled
-      const stockUpdates: Array<{ productId: number; oldStock: number; newStock: number; quantity: number }> = [];
-      for (const item of items) {
-        const product = products.find(p => p.id === item.productId);
-        if (product && product.stockEnabled) {
-          const oldStock = product.stock;
-          await prisma.productItem.update({
-            where: { id: product.id },
-            data: { stock: { decrement: item.quantity } }
-          });
-          stockUpdates.push({
-            productId: product.id,
-            oldStock,
-            newStock: oldStock - item.quantity,
-            quantity: item.quantity,
-          });
-        }
-      }
 
       if (stockUpdates.length > 0) {
         logger.info('Product stock updated for order', {
@@ -680,6 +724,16 @@ export class OrderService {
       });
 
       await notificationEventsService.notifyOrderCreated(order.id, userId);
+      try {
+        await thermalPrinterService.dispatchReceipt(order.id, 'ORDER_CREATED', {
+          userId,
+        });
+      } catch (printerError) {
+        logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, {
+          orderId: order.id,
+          userId,
+        });
+      }
 
       return {
         ...order,
@@ -699,6 +753,7 @@ export class OrderService {
    * Management/Admin can update to any status
    * Delivery Driver can only update to DELIVERED
    */
+  // Updates order status, applies any required side effects, and keeps role-aware delivery transitions intact.
   async updateOrderStatus(orderId: number, data: UpdateOrderStatusData, userRoles?: RoleName[]) {
     logger.info('Updating order status', {
       orderId,
@@ -722,8 +777,8 @@ export class OrderService {
       });
 
       // Check if user is delivery driver trying to set status other than DELIVERED
-      if (userRoles && hasAnyRole(userRoles, ['DELIVERY_DRIVER']) && !hasAnyRole(userRoles, ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'])) {
-        if (data.status !== 'DELIVERED') {
+      if (userRoles && hasAnyRole(userRoles, [ROLES.DELIVERY_DRIVER]) && !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN])) {
+        if (data.status !== OrderStatus.DELIVERED) {
           logger.warn('Order status update denied: delivery driver trying to set non-DELIVERED status', {
             orderId,
             attemptedStatus: data.status,
@@ -732,7 +787,7 @@ export class OrderService {
           throw new AppError('Delivery drivers can only mark orders as DELIVERED', 403);
         }
         // Delivery drivers can only mark READY_FOR_DELIVERY orders as DELIVERED
-        if (order.status !== 'READY_FOR_DELIVERY') {
+        if (order.status !== OrderStatus.READY_FOR_DELIVERY) {
           logger.warn('Order status update denied: delivery driver can only update READY_FOR_DELIVERY orders', {
             orderId,
             currentStatus: order.status,
@@ -807,6 +862,7 @@ export class OrderService {
   /**
    * Add item to existing order (Management/Admin only)
    */
+  // Adds a post-submission order item, validates quantity rules, and marks the item as added after submission.
   async addItemToOrder(orderId: number, data: AddOrderItemData) {
     logger.info('Adding item to order', {
       orderId,
@@ -904,6 +960,7 @@ export class OrderService {
   /**
    * Void order item (Management/Admin only)
    */
+  // Marks one order item voided without removing the record so fulfillment and receipt history stay auditable.
   async voidOrderItem(orderId: number, itemId: number) {
     const orderItem = await prisma.orderItem.findFirst({
       where: { id: itemId, orderId }
@@ -949,6 +1006,7 @@ export class OrderService {
   /**
    * Delete order item (Management/Admin only)
    */
+  // Deletes one order item permanently after validation when the editing flow requires full removal instead of voiding.
   async deleteOrderItem(orderId: number, itemId: number) {
     logger.info('Deleting order item', { orderId, itemId });
 
@@ -1022,6 +1080,7 @@ export class OrderService {
   /**
    * Delete entire order (Admin only)
    */
+  // Deletes an order and restores reserved stock so cancelled or test orders do not keep inventory locked.
   async deleteOrder(orderId: number) {
     logger.info('Deleting order', { orderId });
 
@@ -1050,7 +1109,7 @@ export class OrderService {
       });
 
       // Auto-refund credit if this was a credit-paid order
-      if (order.paymentMethod === 'CREDIT') {
+      if (order.paymentMethod === PaymentMethod.CREDIT) {
         logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
         await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
       }
@@ -1060,6 +1119,20 @@ export class OrderService {
       logger.error('Failed to delete order', error, { orderId });
       throw error;
     }
+  }
+
+  // Builds and dispatches a manual reprint request while preserving actor metadata for audit history.
+  async printOrderReceipt(orderId: number, data: PrintOrderReceiptData = {}) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true },
+    });
+
+    if (!order) {
+      throw new AppError('Order not found', 404);
+    }
+
+    return thermalPrinterService.dispatchReceipt(orderId, 'MANUAL_REPRINT', data.actor);
   }
 }
 

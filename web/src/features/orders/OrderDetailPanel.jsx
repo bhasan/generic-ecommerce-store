@@ -20,11 +20,13 @@ import {
   User,
   CreditCard,
   Phone,
-  MapPin
+  MapPin,
+  Printer
 } from 'lucide-react';
 import './OrderDetailPanel.css';
+import { OrderStatus } from '../../constants/orderStatuses';
 
-const STATUSES = ['PENDING', 'APPROVED', 'NOT_FULFILLING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'DELIVERED'];
+const STATUSES = Object.values(OrderStatus);
 
 function OrderDetailPanel({
   order,
@@ -53,6 +55,7 @@ function OrderDetailPanel({
   onVoidItem,
   onDeleteItem,
   onDeleteOrder,
+  onPrintReceipt,
   showConfirmDialog,
   getProductName,
   getStatusIcon,
@@ -65,9 +68,18 @@ function OrderDetailPanel({
 }) {
   if (!order) return null;
 
-  const nextActions = canModifyOrders ? getNextStatusActions(order.status) : [];
-  const canEdit = canModifyOrders && order.status !== 'DELIVERED';
+  const nextActions = canModifyOrders ? getNextStatusActions(order) : [];
+  const canEdit = canModifyOrders && order.status !== OrderStatus.DELIVERED && order.status !== OrderStatus.PICKED_UP;
   const isAddingItem = addingItemToOrderId === order.id;
+  const deliveryAddress = order.deliveryAddress || order.user?.address;
+  const deliveryCheckSummary = [
+    order.deliveryDistanceMiles !== null && order.deliveryDistanceMiles !== undefined
+      ? `${order.deliveryDistanceMiles.toFixed(2)} miles`
+      : null,
+    order.deliveryEligibilitySource === 'ZIP_FALLBACK'
+      ? 'ZIP fallback'
+      : null,
+  ].filter(Boolean).join(' | ');
 
   return (
     <>
@@ -88,6 +100,9 @@ function OrderDetailPanel({
         <div className="order-detail-panel-body">
           <div className="order-detail-meta">
             <span className="order-detail-date">{formatOrderDate(order.createdAt)}</span>
+            <span className={`order-detail-method-badge ${order.deliveryMethod === 'PICKUP' ? 'method-pickup' : 'method-delivery'}`}>
+              {order.deliveryMethod === 'PICKUP' ? 'Pickup' : 'Delivery'}
+            </span>
             <span className="order-detail-total">${order.total.toFixed(2)}</span>
           </div>
 
@@ -163,8 +178,19 @@ function OrderDetailPanel({
                 <div className="customer-info-row">
                   <CreditCard size={14} className="customer-info-icon" />
                   <span className="customer-info-label">Payment:</span>
-                  <span className={`customer-info-value ${order.user.cashapp ? 'payment-cashapp' : 'payment-none'}`}>
-                    {order.user.cashapp || 'No payment method'}
+                  <span className={`customer-info-value ${
+                    order.paymentMethod === 'IN_STORE' 
+                      ? 'payment-store' 
+                      : (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING')
+                        ? 'payment-verify'
+                        : (order.paymentMethod === 'CREDIT' || order.paymentMethod === 'EXTERNAL')
+                          ? 'payment-paid'
+                          : 'payment-none'
+                  }`}>
+                    {order.paymentMethod === 'IN_STORE' ? 'Pay In Store' :
+                     (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING') ? 'Verify External Payment' :
+                     (order.paymentMethod === 'EXTERNAL' ? 'External Payment (Paid)' : 
+                      order.paymentMethod === 'CREDIT' ? 'Store Credit (Paid)' : 'No payment method')}
                   </span>
                 </div>
                 {order.user.phoneNumber && (
@@ -174,11 +200,18 @@ function OrderDetailPanel({
                     <span className="customer-info-value">{order.user.phoneNumber}</span>
                   </div>
                 )}
-                {order.user.address && (
+                {deliveryAddress && (
                   <div className="customer-info-row">
                     <MapPin size={14} className="customer-info-icon" />
                     <span className="customer-info-label">Address:</span>
-                    <span className="customer-info-value">{order.user.address}</span>
+                    <span className="customer-info-value">{deliveryAddress}</span>
+                  </div>
+                )}
+                {deliveryCheckSummary && (
+                  <div className="customer-info-row">
+                    <MapPin size={14} className="customer-info-icon" />
+                    <span className="customer-info-label">Delivery check:</span>
+                    <span className="customer-info-value">{deliveryCheckSummary}</span>
                   </div>
                 )}
               </div>
@@ -290,6 +323,17 @@ function OrderDetailPanel({
               <HelpCircle size={16} />
               Need Help?
             </button>
+
+            {canModifyOrders && (
+              <button
+                type="button"
+                onClick={() => onPrintReceipt(order.id)}
+                className="btn-order-help btn-order-print"
+              >
+                <Printer size={16} />
+                Print Receipt
+              </button>
+            )}
 
             {canEdit && (
               <div className="order-edit-section">

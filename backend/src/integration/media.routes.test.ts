@@ -244,4 +244,33 @@ describe('media routes integration', () => {
     });
     expect(productService.createProduct).toHaveBeenCalledWith(payload);
   });
+
+  it('allows management users to create products without an image field when no gallery image exists', async () => {
+    verifyToken.mockReturnValue({ userId: 3, username: 'manager-one', roles: ['MANAGEMENT'] });
+    productService.createProduct.mockResolvedValue({ id: 89, name: 'Thumbnail Only Product' });
+
+    const payload = {
+      name: 'Thumbnail Only Product',
+      categoryId: 2,
+      price: 12,
+      thumbnail: '/api/uploads/thumb.webp',
+      images: [],
+    };
+
+    const { response, body } = await requestJson(server, '/api/products', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer manager-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    expect(response.status).toBe(201);
+    expect(body).toEqual({
+      message: 'Product created successfully',
+      product: { id: 89, name: 'Thumbnail Only Product' },
+    });
+    expect(productService.createProduct).toHaveBeenCalledWith(payload);
+  });
 });

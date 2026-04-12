@@ -20,6 +20,15 @@ import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
 import { formatQuantityDiscounts, getCategoryLabel, getProductCategoryLabel, getProductImageSrc, parseQuantityDiscounts } from './productsHelpers';
+import {
+  IMAGE_INPUT_ACCEPT,
+  MEDIA_INPUT_ACCEPT,
+  UNSUPPORTED_IMAGE_MESSAGE,
+  UNSUPPORTED_MEDIA_MESSAGE,
+  isSupportedImageFile,
+  isSupportedMediaFile,
+  normalizeImageList,
+} from '../../utils/mediaUpload';
 
 function SortableProductCard({
   product,
@@ -314,12 +323,14 @@ function ManageProductsPanel() {
     stock: '',
     stockEnabled: false,
     hidden: false,
+    vipOnly: false,
     quantityDiscountsOverride: ''
   });
   const [viewMode, setViewMode] = useState(() => {
-    if (typeof window === 'undefined') return 'list';
+    // Default to grid for first-time product managers; only use list when a user has explicitly saved it.
+    if (typeof window === 'undefined') return 'grid';
     const savedView = localStorage.getItem('manageProductsViewMode');
-    return savedView === 'grid' || savedView === 'list' ? savedView : 'list';
+    return savedView === 'grid' || savedView === 'list' ? savedView : 'grid';
   });
   const [manageTab, setManageTab] = useState('products'); // 'products' | 'categories'
   const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', price: '', stock: '' });
@@ -377,16 +388,19 @@ function ManageProductsPanel() {
       ...product,
       categoryId: selectedCategoryId,
       thumbnail: product.thumbnail || '',
-      images: product.images || [product.image],
+      images: normalizeImageList(
+        product.images?.length > 0 ? product.images : product.image ? [product.image] : []
+      ),
       stockEnabled: product.stockEnabled !== false,
       hidden: product.hidden || false,
+      vipOnly: product.vipOnly || false,
       quantityDiscountsOverride: formatQuantityDiscounts(product.quantityDiscountsOverride || [])
     });
     setCategoryQuery(selectedCategoryLabel);
     setShowAddForm(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const errors = {
       name: !formData.name || !String(formData.name).trim() ? 'Product name is required' : '',
       categoryId: !formData.categoryId ? 'Please select a category' : '',
@@ -396,24 +410,34 @@ function ManageProductsPanel() {
     setFormErrors(errors);
     if (errors.name || errors.categoryId || errors.price || errors.stock) return;
 
+    const normalizedImages = normalizeImageList(formData.images).filter(Boolean);
     const productData = {
       ...formData,
       categoryId: parseInt(formData.categoryId, 10),
       price: parseFloat(formData.price),
       stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
       thumbnail: formData.thumbnail || null,
-      images: formData.images.filter(img => img.trim() !== ''),
-      image: formData.images[0],
+      images: normalizedImages,
       quantityDiscountsOverride: parseQuantityDiscounts(formData.quantityDiscountsOverride)
     };
 
-    if (editingId) {
-      updateProduct(editingId, productData);
-      setEditingId(null);
-    } else {
-      addProduct(productData);
-      setShowAddForm(false);
+    // Keep `image` omitted when empty; backend validation accepts optional strings here, but `image: null` breaks product create/update.
+    if (normalizedImages[0]) {
+      productData.image = normalizedImages[0];
     }
+
+    try {
+      if (editingId) {
+        await updateProduct(editingId, productData);
+        setEditingId(null);
+      } else {
+        await addProduct(productData);
+        setShowAddForm(false);
+      }
+    } catch {
+      return;
+    }
+
     setFormData({
       name: '',
       categoryId: '',
@@ -535,13 +559,13 @@ function ManageProductsPanel() {
 
   const removeImageField = (index) => {
     const newImages = formData.images.filter((_, i) => i !== index);
-    setFormData({ ...formData, images: newImages.length > 0 ? newImages : [''] });
+    setFormData({ ...formData, images: normalizeImageList(newImages) });
   };
 
   const updateImageField = (index, value) => {
     const newImages = [...formData.images];
     newImages[index] = value;
-    setFormData({ ...formData, images: newImages });
+    setFormData({ ...formData, images: normalizeImageList(newImages) });
   };
 
   const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
@@ -556,11 +580,21 @@ function ManageProductsPanel() {
 
     if (index === 'thumbnail') {
       const file = files[0];
+      if (!isSupportedImageFile(file)) {
+        showNotification(UNSUPPORTED_IMAGE_MESSAGE, 'error');
+        return;
+      }
       if (isVideo(file)) {
         performUpload('thumbnail', file);
       } else {
         setCropState({ file, index: 'thumbnail' });
       }
+      return;
+    }
+
+    const unsupportedFile = files.find((file) => !isSupportedMediaFile(file));
+    if (unsupportedFile) {
+      showNotification(UNSUPPORTED_MEDIA_MESSAGE, 'error');
       return;
     }
 
@@ -583,12 +617,12 @@ function ManageProductsPanel() {
       const { urls } = await uploadApi.uploadFiles(files);
       // Replace startIndex slot with first URL, append rest
       setFormData(prev => {
-        const newImages = [...prev.images];
+        const newImages = [...normalizeImageList(prev.images)];
         newImages[startIndex] = urls[0];
-        if (urls.length > 1) newImages.push(...urls.slice(1));
-        return { ...prev, images: newImages.filter(img => img.trim() !== '').length > 0
-          ? newImages.filter(img => img !== '' || newImages.indexOf(img) === 0)
-          : [''] };
+        if (urls.length > 1) {
+          newImages.push(...urls.slice(1));
+        }
+        return { ...prev, images: normalizeImageList(newImages) };
       });
       showNotification(`${urls.length} image${urls.length > 1 ? 's' : ''} uploaded successfully`, 'success');
     } catch (err) {
@@ -605,7 +639,11 @@ function ManageProductsPanel() {
       if (index === 'thumbnail') {
         setFormData(prev => ({ ...prev, thumbnail: url }));
       } else {
-        updateImageField(index, url);
+        setFormData(prev => {
+          const newImages = [...normalizeImageList(prev.images)];
+          newImages[index] = url;
+          return { ...prev, images: normalizeImageList(newImages) };
+        });
       }
       showNotification('Image uploaded successfully', 'success');
     } catch (err) {
@@ -677,6 +715,7 @@ function ManageProductsPanel() {
         subtitle="Add, edit, or remove products from your inventory"
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        // TODO(mobile): Rework admin header actions for phones so Media Library and Add Product remain visible and easy to tap without crowding.
         rightContent={
           canManageProducts ? (
             <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -749,6 +788,8 @@ function ManageProductsPanel() {
               handleImageUpload={handleImageUpload}
               uploadingImageIndex={uploadingImageIndex}
               formErrors={formErrors}
+              imageInputAccept={IMAGE_INPUT_ACCEPT}
+              mediaInputAccept={MEDIA_INPUT_ACCEPT}
             />
           )}
 

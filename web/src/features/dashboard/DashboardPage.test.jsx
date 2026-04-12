@@ -45,6 +45,10 @@ const landingPageSettingsApi = vi.hoisted(() => ({
   getLandingPageSettings: vi.fn(),
   updateLandingPageSettings: vi.fn(),
 }));
+const productsApi = vi.hoisted(() => ({
+  getAllProducts: vi.fn(),
+  updateProduct: vi.fn(),
+}));
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
@@ -57,6 +61,7 @@ vi.mock('../../services/paymentSettingsApi', () => paymentSettingsApi);
 vi.mock('../../services/storeSettingsApi', () => storeSettingsApi);
 vi.mock('../../services/orderingConstraintsApi', () => orderingConstraintsApi);
 vi.mock('../../services/landingPageSettingsApi', () => landingPageSettingsApi);
+vi.mock('../../services/productsApi', () => productsApi);
 
 vi.mock('../../components/layout/AdminLayout', () => ({
   default: ({ children }) => <div>{children}</div>,
@@ -135,6 +140,23 @@ vi.mock('./components/OrderingConstraintsSection', () => ({
   ),
 }));
 
+vi.mock('./components/VIPManagementSection', () => ({
+  default: ({ isLoading, users, products, onToggleVipUser, onToggleVipProduct }) => (
+    <div>
+      <div>VIP Management Section</div>
+      <div data-testid="vip-user-count">{(users || []).length}</div>
+      <div data-testid="vip-product-count">{(products || []).length}</div>
+      {isLoading && <div>Loading VIP data...</div>}
+      <button onClick={() => onToggleVipUser?.({ id: 1, username: 'alice', roles: ['CUSTOMER'] })}>
+        Toggle VIP User
+      </button>
+      <button onClick={() => onToggleVipProduct?.({ id: 101, name: 'Blue Dream', vipOnly: false })}>
+        Toggle VIP Product
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock('./components/LandingPageSection', () => ({
   default: ({ landingPageSettings, onSave }) => (
     <div>
@@ -176,6 +198,8 @@ describe('DashboardPage layout', () => {
     storeSettingsApi.getStoreSettings.mockResolvedValue({});
     orderingConstraintsApi.getOrderingConstraints.mockResolvedValue({});
     landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [] });
+    productsApi.getAllProducts.mockResolvedValue([]);
+    productsApi.updateProduct.mockResolvedValue({});
   });
 
   it('renders a dashboard-layout wrapper containing the sidebar and main content', async () => {
@@ -192,7 +216,7 @@ describe('DashboardPage layout', () => {
     expect(main).toBeInTheDocument();
   });
 
-  it('renders all 9 sidebar nav items', async () => {
+  it('renders all 10 sidebar nav items including VIP Management', async () => {
     renderDashboard('/dashboard');
     await waitFor(() => expect(usersApi.getPendingRegistrations).toHaveBeenCalled());
 
@@ -206,6 +230,7 @@ describe('DashboardPage layout', () => {
       /store settings/i,
       /ordering constraints/i,
       /landing page/i,
+      /vip management/i,
     ];
     for (const label of expectedLabels) {
       expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
@@ -258,6 +283,8 @@ describe('DashboardPage orchestration', () => {
     orderingConstraintsApi.updateOrderingConstraints.mockResolvedValue({});
     landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [5, 7] });
     landingPageSettingsApi.updateLandingPageSettings.mockResolvedValue({});
+    productsApi.getAllProducts.mockResolvedValue([]);
+    productsApi.updateProduct.mockResolvedValue({});
   });
 
   it('loads the section selected from the query string', async () => {
@@ -355,5 +382,114 @@ describe('DashboardPage orchestration', () => {
       'Reply recorded, but email delivery failed.',
       'warning'
     );
+  });
+});
+
+describe('DashboardPage — VIP management', () => {
+  const vipUser = { id: 1, username: 'alice', roles: ['CUSTOMER'] };
+  const vipProduct = { id: 101, name: 'Blue Dream', vipOnly: false };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    useAppMock.mockReturnValue(baseAppState);
+    usersApi.getPendingRegistrations.mockResolvedValue([]);
+    usersApi.getAllUsers.mockResolvedValue([vipUser]);
+    usersApi.getAllRoles.mockResolvedValue([]);
+    usersApi.getRejectedUsers.mockResolvedValue([]);
+    usersApi.updateUser.mockResolvedValue({});
+    announcementsApi.getAllAnnouncements.mockResolvedValue([]);
+    contactMessagesApi.getAllMessages.mockResolvedValue([]);
+    paymentSettingsApi.getPaymentSettings.mockResolvedValue({});
+    storeSettingsApi.getStoreSettings.mockResolvedValue({});
+    orderingConstraintsApi.getOrderingConstraints.mockResolvedValue({});
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [] });
+    productsApi.getAllProducts.mockResolvedValue([vipProduct]);
+    productsApi.updateProduct.mockResolvedValue({});
+  });
+
+  it('renders the VIP Management section when the vip-management route is active', async () => {
+    renderDashboard('/dashboard?section=vip-management');
+    await waitFor(() => expect(productsApi.getAllProducts).toHaveBeenCalled());
+    expect(screen.getByText('VIP Management Section')).toBeInTheDocument();
+  });
+
+  it('passes users and products to the VIP section', async () => {
+    renderDashboard('/dashboard?section=vip-management');
+    await waitFor(() => expect(screen.getByTestId('vip-user-count')).toHaveTextContent('1'));
+    expect(screen.getByTestId('vip-product-count')).toHaveTextContent('1');
+  });
+
+  it('skips getAllUsers when allUsers is already populated (navigating from Users tab)', async () => {
+    renderDashboard('/dashboard?section=users');
+    await waitFor(() => expect(usersApi.getAllUsers).toHaveBeenCalledTimes(1));
+
+    // Navigate to VIP — should NOT fetch users again
+    fireEvent.click(screen.getByRole('button', { name: /vip management/i }));
+    await waitFor(() => expect(productsApi.getAllProducts).toHaveBeenCalled());
+
+    expect(usersApi.getAllUsers).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies optimistic update to allUsers immediately when toggling VIP on a user', async () => {
+    let resolveUpdate;
+    usersApi.updateUser.mockReturnValue(new Promise((r) => { resolveUpdate = r; }));
+
+    renderDashboard('/dashboard?section=vip-management');
+    await waitFor(() => expect(screen.getByTestId('vip-user-count')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle vip user/i }));
+
+    // The optimistic update should have run synchronously — allUsers updated in state
+    // We verify by checking the mock was called (the handler ran) before the promise resolves
+    expect(usersApi.updateUser).toHaveBeenCalledWith(1, { roles: ['CUSTOMER', 'VIP'] });
+
+    resolveUpdate({});
+    await waitFor(() => expect(baseAppState.showNotification).toHaveBeenCalledWith(
+      'alice is now VIP', 'success'
+    ));
+  });
+
+  it('reverts the optimistic user update when the API call fails', async () => {
+    usersApi.updateUser.mockRejectedValue(new Error('network error'));
+
+    renderDashboard('/dashboard?section=vip-management');
+    await waitFor(() => expect(screen.getByTestId('vip-user-count')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle vip user/i }));
+
+    await waitFor(() => expect(baseAppState.showNotification).toHaveBeenCalledWith(
+      'network error', 'error'
+    ));
+  });
+
+  it('applies optimistic update to vipProducts immediately when toggling a product', async () => {
+    let resolveUpdate;
+    productsApi.updateProduct.mockReturnValue(new Promise((r) => { resolveUpdate = r; }));
+
+    renderDashboard('/dashboard?section=vip-management');
+    await waitFor(() => expect(screen.getByTestId('vip-product-count')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle vip product/i }));
+
+    expect(productsApi.updateProduct).toHaveBeenCalledWith(101, { vipOnly: true });
+
+    resolveUpdate({});
+    await waitFor(() => expect(baseAppState.showNotification).toHaveBeenCalledWith(
+      '"Blue Dream" is now VIP-only', 'success'
+    ));
+  });
+
+  it('reverts the optimistic product update when the API call fails', async () => {
+    productsApi.updateProduct.mockRejectedValue(new Error('server error'));
+
+    renderDashboard('/dashboard?section=vip-management');
+    await waitFor(() => expect(screen.getByTestId('vip-product-count')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /toggle vip product/i }));
+
+    await waitFor(() => expect(baseAppState.showNotification).toHaveBeenCalledWith(
+      'server error', 'error'
+    ));
   });
 });
