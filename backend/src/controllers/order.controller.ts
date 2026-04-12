@@ -20,7 +20,9 @@ export class OrderController {
         return;
       }
 
-      const orders = await orderService.getAllOrders(req.user.userId, req.user.roles);
+      const limit = req.query.limit !== undefined ? parseInt(req.query.limit as string, 10) : undefined;
+      const offset = req.query.offset !== undefined ? parseInt(req.query.offset as string, 10) : undefined;
+      const orders = await orderService.getAllOrders(req.user.userId, req.user.roles, limit, offset);
       res.status(200).json(orders);
     } catch (error) {
       next(error);

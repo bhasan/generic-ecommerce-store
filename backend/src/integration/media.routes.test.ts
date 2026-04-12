@@ -111,7 +111,16 @@ describe('media routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual([{ id: 1, name: 'Visible Product' }]);
-    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined);
+    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, undefined, undefined);
+  });
+
+  it('forwards limit and offset query params to the product service', async () => {
+    productService.getAllProducts.mockResolvedValue([]);
+
+    const { response } = await requestJson(server, '/api/products?limit=10&offset=20');
+
+    expect(response.status).toBe(200);
+    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, 10, 20);
   });
 
   it('ignores invalid optional auth tokens on product routes and still serves public data', async () => {

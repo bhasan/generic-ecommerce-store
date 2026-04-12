@@ -157,12 +157,12 @@ describe('ProductsPage', () => {
       expect(screen.queryByTestId('product-modal')).not.toBeInTheDocument();
     });
 
-    it('calls loadCategories on mount', () => {
+    it('does not call loadCategories on mount (loaded centrally in AppContext)', () => {
       const state = makeAppState({ id: 1, username: 'customer', roles: [ROLES.CUSTOMER] });
       useAppMock.mockReturnValue(state);
       renderProductsPage();
 
-      expect(state.loadCategories).toHaveBeenCalled();
+      expect(state.loadCategories).not.toHaveBeenCalled();
     });
   });
 

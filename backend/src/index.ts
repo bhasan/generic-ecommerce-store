@@ -183,7 +183,10 @@ app.get('/api/config', async (_req, res) => {
 });
 
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
-app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads')));
+app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
+  maxAge: '30d',
+  immutable: true, // filename includes timestamp, so content never changes
+}));
 
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);

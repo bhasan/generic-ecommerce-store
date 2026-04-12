@@ -116,6 +116,52 @@ describe('VIP product filtering', () => {
         expect.objectContaining({ where: {} })
       );
     });
+
+    it('does not query reviews (feature disabled)', async () => {
+      prismaMock.productItem.findMany.mockResolvedValue([]);
+      const { ProductService } = await import('./product.service');
+      const service = new ProductService();
+
+      await service.getAllProducts([]);
+
+      expect(prismaMock.review.findMany).not.toHaveBeenCalled();
+    });
+
+    it('returns empty reviews array per product while feature is disabled', async () => {
+      prismaMock.productItem.findMany.mockResolvedValue([
+        { id: 1, name: 'Cola', categoryId: 1, category: { id: 1, sortOrder: 0, parent: null } },
+      ]);
+      const { ProductService } = await import('./product.service');
+      const service = new ProductService();
+
+      const products = await service.getAllProducts([]);
+
+      expect(products[0].reviews).toEqual([]);
+    });
+
+    it('passes limit and offset to Prisma when provided', async () => {
+      prismaMock.productItem.findMany.mockResolvedValue([]);
+      const { ProductService } = await import('./product.service');
+      const service = new ProductService();
+
+      await service.getAllProducts([], 10, 20);
+
+      expect(prismaMock.productItem.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 10, skip: 20 })
+      );
+    });
+
+    it('omits take/skip from Prisma query when limit and offset are not provided', async () => {
+      prismaMock.productItem.findMany.mockResolvedValue([]);
+      const { ProductService } = await import('./product.service');
+      const service = new ProductService();
+
+      await service.getAllProducts([]);
+
+      const call = prismaMock.productItem.findMany.mock.calls[0][0];
+      expect(call).not.toHaveProperty('take');
+      expect(call).not.toHaveProperty('skip');
+    });
   });
 
   describe('getProductById', () => {
