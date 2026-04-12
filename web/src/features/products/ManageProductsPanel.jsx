@@ -8,7 +8,7 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as productsApi from '../../services/productsApi';
 import * as categoriesApi from '../../services/categoriesApi';
 import * as uploadApi from '../../services/uploadApi';
-import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical, Download, FileDown, Upload } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -16,6 +16,8 @@ import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
 import MediaLibraryModal from '../../components/common/MediaLibraryModal';
 import ImageCropModal from '../../components/common/ImageCropModal';
+import CsvImportModal from './CsvImportModal';
+import { exportProductsToCsv, getCsvTemplate } from './csvHelpers';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
@@ -326,6 +328,7 @@ function ManageProductsPanel() {
     vipOnly: false,
     quantityDiscountsOverride: ''
   });
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [viewMode, setViewMode] = useState(() => {
     // Default to grid for first-time product managers; only use list when a user has explicitly saved it.
     if (typeof window === 'undefined') return 'grid';
@@ -720,6 +723,33 @@ function ManageProductsPanel() {
           canManageProducts ? (
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
+                onClick={() => exportProductsToCsv(products, categories)}
+                className="btn-add-product"
+                disabled={showAddForm || !!editingId}
+                title="Export products to CSV"
+              >
+                <Download size={20} />
+                <span className="hide-on-mobile">Export CSV</span>
+              </button>
+              <button
+                onClick={() => getCsvTemplate()}
+                className="btn-add-product"
+                disabled={showAddForm || !!editingId}
+                title="Download CSV template"
+              >
+                <FileDown size={20} />
+                <span className="hide-on-mobile">CSV Template</span>
+              </button>
+              <button
+                onClick={() => setShowCsvImport(true)}
+                className="btn-add-product"
+                disabled={showAddForm || !!editingId}
+                title="Import products from CSV"
+              >
+                <Upload size={20} />
+                <span className="hide-on-mobile">Import CSV</span>
+              </button>
+              <button
                 onClick={() => setShowMediaLibrary(true)}
                 className="btn-add-product"
                 disabled={showAddForm || editingId}
@@ -880,6 +910,12 @@ function ManageProductsPanel() {
           onCancel={() => setCropState(null)}
         />
       )}
+
+      <CsvImportModal
+        isOpen={showCsvImport}
+        onClose={() => { setShowCsvImport(false); loadProducts(); }}
+        categories={categories}
+      />
     </div>
   );
 }

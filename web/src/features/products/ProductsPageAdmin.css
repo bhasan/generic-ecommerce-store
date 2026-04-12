@@ -758,3 +758,429 @@
     justify-content: flex-start;
   }
 }
+
+/* ============================================================
+   CSV Import Modal
+   ============================================================ */
+
+.csv-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.csv-modal-content {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.csv-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.csv-modal-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.csv-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: var(--transition-all);
+}
+
+.csv-modal-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+/* Step indicator */
+.csv-modal-steps {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color);
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.csv-modal-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-muted, var(--text-secondary));
+  position: relative;
+}
+
+.csv-modal-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: calc(50% + 12px);
+  right: calc(-50% + 12px);
+  height: 1px;
+  background: var(--border-color);
+}
+
+.csv-modal-step-circle {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  z-index: 1;
+}
+
+.csv-modal-step-active .csv-modal-step-circle {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.csv-modal-step-done {
+  color: var(--color-secondary, #10b981);
+}
+
+.csv-modal-step-done .csv-modal-step-circle {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: var(--color-secondary, #10b981);
+  color: var(--color-secondary, #10b981);
+}
+
+/* Modal body */
+.csv-modal-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.csv-modal-body-centered {
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.csv-modal-description {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.csv-modal-note {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.csv-modal-template-row {
+  display: flex;
+}
+
+/* Parse errors */
+.csv-parse-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.csv-parse-error {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--color-danger, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+}
+
+/* Drop zone */
+.csv-dropzone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: var(--transition-all);
+  text-align: center;
+}
+
+.csv-dropzone:hover,
+.csv-dropzone-active {
+  border-color: var(--color-primary);
+  background: rgba(124, 58, 237, 0.04);
+}
+
+.csv-dropzone-icon {
+  color: var(--text-muted, var(--text-secondary));
+}
+
+.csv-dropzone-label {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.csv-dropzone-hint {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Summary cards */
+.csv-summary-cards {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.csv-summary-card {
+  flex: 1;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.csv-summary-card-create {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.csv-summary-card-update {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.csv-summary-card-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.csv-summary-card-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.csv-summary-card-label {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+/* Preview table */
+.csv-preview-table-wrapper {
+  overflow: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  max-height: 320px;
+}
+
+.csv-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.csv-preview-table th {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.csv-preview-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  vertical-align: top;
+}
+
+.csv-preview-table tr:last-child td {
+  border-bottom: none;
+}
+
+.csv-row-error td:first-child {
+  border-left: 3px solid var(--color-danger, #ef4444);
+}
+
+.csv-row-error {
+  background: rgba(239, 68, 68, 0.04);
+}
+
+.csv-row-warning td:first-child {
+  border-left: 3px solid #f59e0b;
+}
+
+/* Action chips */
+.csv-chip-create,
+.csv-chip-update,
+.csv-chip-error {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.csv-chip-create {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.csv-chip-update {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.csv-chip-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* Issues cell */
+.csv-issues-cell {
+  min-width: 160px;
+}
+
+.csv-error-text,
+.csv-warning-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin-bottom: 0.2rem;
+}
+
+.csv-error-text {
+  color: var(--color-danger, #ef4444);
+}
+
+.csv-warning-text {
+  color: #f59e0b;
+}
+
+/* Confirm step */
+.csv-modal-confirm-text {
+  font-size: 0.9375rem;
+  color: var(--text-primary);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.csv-skip-note {
+  color: var(--color-danger, #ef4444);
+}
+
+/* Processing step */
+.csv-modal-processing-label {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.csv-progress-bar-track {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.csv-progress-bar-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+/* Results step */
+.csv-row-errors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.csv-row-error-item {
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.csv-modal-success {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  color: #10b981;
+  margin: 0;
+}
+
+/* Modal footer */
+.csv-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
