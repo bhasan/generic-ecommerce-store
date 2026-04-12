@@ -114,27 +114,27 @@ function SortableProductCard({
               </button>
             )}
             <button
-              onClick={() => onToggleHidden(product.id, product.hidden)}
-              className="btn-visibility"
-              title={product.hidden ? 'Show product' : 'Hide product'}
-            >
-              {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
-            </button>
-            <button
               onClick={() => onEdit(product)}
               className="btn-edit"
               disabled={editingDisabled}
             >
-              <Edit size={16} />
+              <Edit size={14} />
               <span>Edit</span>
+            </button>
+            <button
+              onClick={() => onToggleHidden(product.id, product.hidden)}
+              className="btn-visibility"
+              title={product.hidden ? 'Show product' : 'Hide product'}
+            >
+              {product.hidden ? <Eye size={14} /> : <EyeOff size={14} />}
             </button>
             {canDelete && (
               <button
                 onClick={() => onDeleteClick(product.id, product.name)}
                 className="btn-delete"
+                title="Delete product"
               >
-                <Trash2 size={16} />
-                <span>Delete</span>
+                <Trash2 size={14} />
               </button>
             )}
           </div>
