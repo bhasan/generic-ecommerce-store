@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 
-const CSV_FIELDS = ['name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled'];
+const CSV_FIELDS = ['id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled'];
 
 /**
  * Trigger a browser file download.
@@ -27,6 +27,7 @@ export function exportProductsToCsv(products, categories) {
   }
 
   const rows = products.map(p => ({
+    id: p.id,
     name: p.name,
     categoryName: categoryMap[p.categoryId ?? p.category?.id] ?? '',
     price: p.price,
@@ -41,12 +42,13 @@ export function exportProductsToCsv(products, categories) {
 }
 
 /**
- * Download a header-only CSV template (no product rows).
+ * Download a CSV template with sample rows.
  */
 export function getCsvTemplate() {
   const sampleRows = [
     {
-      name: 'Example Product',
+      id: '',
+      name: 'New Product (leave id blank to create)',
       categoryName: 'Your Category Name',
       price: '9.99',
       description: 'Optional product description',
@@ -54,7 +56,8 @@ export function getCsvTemplate() {
       stockEnabled: 'true',
     },
     {
-      name: 'Another Product',
+      id: '123',
+      name: 'Existing Product (fill in id to update)',
       categoryName: 'Your Category Name',
       price: '4.99',
       description: '',
@@ -96,19 +99,23 @@ export function normaliseBooleanCell(value, defaultValue = false) {
 
 /**
  * Validate and transform parsed CSV rows into ready-to-submit payloads.
- * categoryName is matched case-insensitively against loaded categories.
- * All rows are creates (no update support).
+ * - Rows with an id matching an existing product → action: 'update'
+ * - Rows with no id (or blank id) → action: 'create'
+ * - categoryName is matched case-insensitively against loaded categories.
  *
  * @param {object[]} rows - Raw rows from PapaParse
+ * @param {object[]} existingProducts - Current products from app context
  * @param {object[]} categories - Current categories from app context
  * @returns {{ valid: TransformedRow[], invalid: InvalidRow[] }}
  */
-export function validateAndTransformRows(rows, categories) {
-  // Build a case-insensitive name → category lookup
+export function validateAndTransformRows(rows, existingProducts, categories) {
   const categoryByName = {};
   for (const cat of categories) {
     categoryByName[cat.name.toLowerCase()] = cat;
   }
+
+  const existingProductIds = new Set(existingProducts.map(p => p.id));
+  const seenIds = new Set();
 
   const valid = [];
   const invalid = [];
@@ -116,6 +123,26 @@ export function validateAndTransformRows(rows, categories) {
   rows.forEach((row, index) => {
     const rowNumber = index + 1;
     const errors = [];
+    const warnings = [];
+
+    // id (optional) — determines create vs update
+    let action = 'create';
+    let resolvedId;
+    const rawId = String(row.id ?? '').trim();
+    if (rawId !== '') {
+      const parsedId = parseInt(rawId, 10);
+      if (isNaN(parsedId) || parsedId < 1) {
+        errors.push('id must be a positive integer when provided');
+      } else if (seenIds.has(parsedId)) {
+        warnings.push(`Duplicate id ${parsedId} in CSV — treating as create`);
+      } else if (!existingProductIds.has(parsedId)) {
+        warnings.push(`id ${parsedId} does not match any existing product — treating as create`);
+      } else {
+        action = 'update';
+        resolvedId = parsedId;
+        seenIds.add(parsedId);
+      }
+    }
 
     // name
     const name = String(row.name ?? '').trim();
@@ -157,7 +184,8 @@ export function validateAndTransformRows(rows, categories) {
     } else {
       valid.push({
         rowNumber,
-        action: 'create',
+        action,
+        id: resolvedId,
         payload: {
           name,
           categoryId: matchedCategory.id,
@@ -166,6 +194,7 @@ export function validateAndTransformRows(rows, categories) {
           stock,
           stockEnabled,
         },
+        warnings,
       });
     }
   });

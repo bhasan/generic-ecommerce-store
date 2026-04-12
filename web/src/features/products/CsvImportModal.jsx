@@ -25,13 +25,19 @@ function StepIndicator({ step }) {
   );
 }
 
-function SummaryCards({ createCount, errorCount }) {
+function SummaryCards({ createCount, updateCount, errorCount }) {
   return (
     <div className="csv-summary-cards">
       <div className="csv-summary-card csv-summary-card-create">
         <div className="csv-summary-card-number">{createCount}</div>
         <div className="csv-summary-card-label">to create</div>
       </div>
+      {updateCount > 0 && (
+        <div className="csv-summary-card csv-summary-card-update">
+          <div className="csv-summary-card-number">{updateCount}</div>
+          <div className="csv-summary-card-label">to update</div>
+        </div>
+      )}
       {errorCount > 0 && (
         <div className="csv-summary-card csv-summary-card-error">
           <div className="csv-summary-card-number">{errorCount}</div>
@@ -42,7 +48,7 @@ function SummaryCards({ createCount, errorCount }) {
   );
 }
 
-export default function CsvImportModal({ isOpen, onClose, categories }) {
+export default function CsvImportModal({ isOpen, onClose, products, categories }) {
   const [step, setStep] = useState('upload');
   const [isDragging, setIsDragging] = useState(false);
   const [parseErrors, setParseErrors] = useState([]);
@@ -50,7 +56,7 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
   const [invalidRows, setInvalidRows] = useState([]);
   const [processedCount, setProcessedCount] = useState(0);
   const [rowErrors, setRowErrors] = useState([]);
-  const [importSummary, setImportSummary] = useState({ created: 0, failed: 0 });
+  const [importSummary, setImportSummary] = useState({ created: 0, updated: 0, failed: 0 });
   const fileInputRef = useRef(null);
 
   if (!isOpen) return null;
@@ -63,7 +69,7 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
     setInvalidRows([]);
     setProcessedCount(0);
     setRowErrors([]);
-    setImportSummary({ created: 0, failed: 0 });
+    setImportSummary({ created: 0, updated: 0, failed: 0 });
     onClose();
   };
 
@@ -79,7 +85,7 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
       setParseErrors(errors);
       return;
     }
-    const { valid, invalid } = validateAndTransformRows(data, categories);
+    const { valid, invalid } = validateAndTransformRows(data, products, categories);
     setValidRows(valid);
     setInvalidRows(invalid);
     setStep('preview');
@@ -99,13 +105,18 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
   const runImport = async () => {
     setStep('processing');
     setProcessedCount(0);
-    let created = 0, failed = 0;
+    let created = 0, updated = 0, failed = 0;
     const errors = [];
 
     for (const row of validRows) {
       try {
-        await productsApi.createProduct(row.payload);
-        created++;
+        if (row.action === 'update') {
+          await productsApi.updateProduct(row.id, row.payload);
+          updated++;
+        } else {
+          await productsApi.createProduct(row.payload);
+          created++;
+        }
       } catch (err) {
         failed++;
         errors.push({ rowNumber: row.rowNumber, message: err.message || 'Unknown error' });
@@ -113,11 +124,13 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
       setProcessedCount(prev => prev + 1);
     }
 
-    setImportSummary({ created, failed });
+    setImportSummary({ created, updated, failed });
     setRowErrors(errors);
     setStep('results');
   };
 
+  const createCount = validRows.filter(r => r.action === 'create').length;
+  const updateCount = validRows.filter(r => r.action === 'update').length;
   const canDismiss = step !== 'processing';
 
   // --- Render step content ---
@@ -164,7 +177,7 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
 
   const renderPreview = () => (
     <div className="csv-modal-body">
-      <SummaryCards createCount={validRows.length} errorCount={invalidRows.length} />
+      <SummaryCards createCount={createCount} updateCount={updateCount} errorCount={invalidRows.length} />
       {invalidRows.length > 0 && (
         <p className="csv-modal-note">
           <AlertTriangle size={14} /> Rows with errors will be skipped. Fix them in your CSV and re-upload if needed.
@@ -175,6 +188,7 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
           <thead>
             <tr>
               <th>Row</th>
+              <th>Action</th>
               <th>Name</th>
               <th>Category</th>
               <th>Price</th>
@@ -183,17 +197,25 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
           </thead>
           <tbody>
             {validRows.map(row => (
-              <tr key={row.rowNumber}>
+              <tr key={row.rowNumber} className={row.warnings?.length > 0 ? 'csv-row-warning' : ''}>
                 <td>{row.rowNumber}</td>
+                <td>
+                  <span className={row.action === 'update' ? 'csv-chip-update' : 'csv-chip-create'}>
+                    {row.action === 'update' ? 'Update' : 'Create'}
+                  </span>
+                </td>
                 <td>{row.payload.name}</td>
                 <td>{row.payload.categoryId}</td>
                 <td>${row.payload.price}</td>
-                <td />
+                <td className="csv-issues-cell">
+                  {row.warnings?.map((w, i) => <div key={i} className="csv-warning-text"><AlertTriangle size={12} /> {w}</div>)}
+                </td>
               </tr>
             ))}
             {invalidRows.map(row => (
               <tr key={`invalid-${row.rowNumber}`} className="csv-row-error">
                 <td>{row.rowNumber}</td>
+                <td><span className="csv-chip-error">Error</span></td>
                 <td>{row.rawData.name || '—'}</td>
                 <td>{row.rawData.categoryName || '—'}</td>
                 <td>{row.rawData.price || '—'}</td>
@@ -211,7 +233,8 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
   const renderConfirm = () => (
     <div className="csv-modal-body">
       <p className="csv-modal-confirm-text">
-        You are about to <strong>create {validRows.length} product{validRows.length !== 1 ? 's' : ''}</strong>.
+        You are about to <strong>create {createCount} product{createCount !== 1 ? 's' : ''}</strong>
+        {updateCount > 0 && <> and <strong>update {updateCount} product{updateCount !== 1 ? 's' : ''}</strong></>}.
         {invalidRows.length > 0 && (
           <> <span className="csv-skip-note">{invalidRows.length} row{invalidRows.length !== 1 ? 's' : ''} with errors will be skipped.</span></>
         )}
@@ -233,7 +256,7 @@ export default function CsvImportModal({ isOpen, onClose, categories }) {
 
   const renderResults = () => (
     <div className="csv-modal-body">
-      <SummaryCards createCount={importSummary.created} errorCount={importSummary.failed} />
+      <SummaryCards createCount={importSummary.created} updateCount={importSummary.updated} errorCount={importSummary.failed} />
       {rowErrors.length > 0 && (
         <div className="csv-row-errors-list">
           <p className="csv-modal-note"><AlertCircle size={14} /> The following rows failed during import:</p>

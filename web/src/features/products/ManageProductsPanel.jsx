@@ -723,13 +723,13 @@ function ManageProductsPanel() {
           canManageProducts ? (
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
-                onClick={() => exportProductsToCsv(products, categories)}
+                onClick={() => setShowCsvImport(true)}
                 className="btn-add-product"
                 disabled={showAddForm || !!editingId}
-                title="Export products to CSV"
+                title="Import products from CSV"
               >
-                <Download size={20} />
-                <span className="hide-on-mobile">Export CSV</span>
+                <Upload size={20} />
+                <span className="hide-on-mobile">Import CSV</span>
               </button>
               <button
                 onClick={() => getCsvTemplate()}
@@ -741,13 +741,13 @@ function ManageProductsPanel() {
                 <span className="hide-on-mobile">CSV Template</span>
               </button>
               <button
-                onClick={() => setShowCsvImport(true)}
+                onClick={() => exportProductsToCsv(products, categories)}
                 className="btn-add-product"
                 disabled={showAddForm || !!editingId}
-                title="Import products from CSV"
+                title="Export products to CSV"
               >
-                <Upload size={20} />
-                <span className="hide-on-mobile">Import CSV</span>
+                <Download size={20} />
+                <span className="hide-on-mobile">Export CSV</span>
               </button>
               <button
                 onClick={() => setShowMediaLibrary(true)}
@@ -914,6 +914,7 @@ function ManageProductsPanel() {
       <CsvImportModal
         isOpen={showCsvImport}
         onClose={() => { setShowCsvImport(false); loadProducts(); }}
+        products={products}
         categories={categories}
       />
     </div>

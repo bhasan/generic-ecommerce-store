@@ -20,9 +20,12 @@ import * as productsApi from '../../services/productsApi';
 
 const CATEGORIES = [{ id: 1, name: 'Drinks' }];
 
+const PRODUCTS = [{ id: 10, name: 'Cola' }];
+
 const DEFAULT_PROPS = {
   isOpen: true,
   onClose: vi.fn(),
+  products: PRODUCTS,
   categories: CATEGORIES,
 };
 
@@ -35,6 +38,17 @@ const VALID_ROWS = [
     rowNumber: 1,
     action: 'create',
     payload: { name: 'New', categoryId: 1, price: 5, stock: 0, stockEnabled: false },
+    warnings: [],
+  },
+];
+
+const UPDATE_ROWS = [
+  {
+    rowNumber: 1,
+    action: 'update',
+    id: 10,
+    payload: { name: 'Cola Updated', categoryId: 1, price: 8, stock: 10, stockEnabled: true },
+    warnings: [],
   },
 ];
 
@@ -148,15 +162,27 @@ describe('preview step', () => {
     expect(screen.getByText('to create')).toBeInTheDocument();
   });
 
+  it('shows update count summary card for update rows', async () => {
+    validateAndTransformRows.mockReturnValue({ valid: UPDATE_ROWS, invalid: [] });
+    await goToPreview();
+    expect(screen.getByText('to update')).toBeInTheDocument();
+  });
+
+  it('shows a Create chip for create rows', async () => {
+    await goToPreview();
+    expect(screen.getByText('Create')).toBeInTheDocument();
+  });
+
+  it('shows an Update chip for update rows', async () => {
+    validateAndTransformRows.mockReturnValue({ valid: UPDATE_ROWS, invalid: [] });
+    await goToPreview();
+    expect(screen.getByText('Update')).toBeInTheDocument();
+  });
+
   it('shows error rows in the table', async () => {
     validateAndTransformRows.mockReturnValue({ valid: VALID_ROWS, invalid: INVALID_ROWS });
     await goToPreview();
     expect(screen.getByText('Name is required')).toBeInTheDocument();
-  });
-
-  it('does not show an update summary card', async () => {
-    await goToPreview();
-    expect(screen.queryByText('to update')).not.toBeInTheDocument();
   });
 
   it('disables Continue button when there are no valid rows', async () => {
@@ -193,9 +219,12 @@ describe('confirm step', () => {
     expect(screen.getByText(/create 1 product/i)).toBeInTheDocument();
   });
 
-  it('does not mention "update" in the confirm text', async () => {
-    await goToConfirm();
-    expect(screen.queryByText(/update \d+ product/i)).not.toBeInTheDocument();
+  it('mentions update count when update rows are present', async () => {
+    validateAndTransformRows.mockReturnValue({ valid: UPDATE_ROWS, invalid: [] });
+    await goToPreview();
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await waitFor(() => screen.getByText(/confirm import/i));
+    expect(screen.getByText(/update 1 product/i)).toBeInTheDocument();
   });
 
   it('returns to preview when Back is clicked', async () => {
@@ -207,27 +236,33 @@ describe('confirm step', () => {
 
 // ─── Processing + Results ─────────────────────────────────────────────────────
 
-async function goToResults({ createResult = 'success' } = {}) {
+async function goToResults({ createResult = 'success', rows = VALID_ROWS } = {}) {
+  validateAndTransformRows.mockReturnValue({ valid: rows, invalid: [] });
   productsApi.createProduct.mockImplementation(() =>
     createResult === 'success'
       ? Promise.resolve({ id: 99, name: 'New' })
       : Promise.reject(new Error('Server error'))
   );
+  productsApi.updateProduct.mockResolvedValue({ id: 10 });
 
-  await goToConfirm();
+  await goToPreview();
+  fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+  await waitFor(() => screen.getByText(/confirm import/i));
   fireEvent.click(screen.getByRole('button', { name: /start import/i }));
   await waitFor(() => screen.getByRole('heading', { name: /import complete/i }), { timeout: 3000 });
 }
 
 describe('processing & results', () => {
-  it('calls createProduct for each valid row', async () => {
+  it('calls createProduct for create rows', async () => {
     await goToResults();
     expect(productsApi.createProduct).toHaveBeenCalledWith(VALID_ROWS[0].payload);
+    expect(productsApi.updateProduct).not.toHaveBeenCalled();
   });
 
-  it('never calls updateProduct', async () => {
-    await goToResults();
-    expect(productsApi.updateProduct).not.toHaveBeenCalled();
+  it('calls updateProduct for update rows', async () => {
+    await goToResults({ rows: UPDATE_ROWS });
+    expect(productsApi.updateProduct).toHaveBeenCalledWith(10, UPDATE_ROWS[0].payload);
+    expect(productsApi.createProduct).not.toHaveBeenCalled();
   });
 
   it('shows success message when all rows succeed', async () => {
@@ -247,8 +282,11 @@ describe('processing & results', () => {
   });
 
   it('does not show X or allow overlay click during processing', async () => {
-    productsApi.createProduct.mockImplementation(() => new Promise(() => {}));
-    await goToConfirm();
+    productsApi.createProduct.mockImplementation(() => new Promise(() => {})); // never resolves
+    productsApi.updateProduct.mockImplementation(() => new Promise(() => {}));
+    await goToPreview();
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await waitFor(() => screen.getByText(/confirm import/i));
     fireEvent.click(screen.getByRole('button', { name: /start import/i }));
 
     await waitFor(() => screen.getByText(/importing/i));
