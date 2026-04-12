@@ -131,9 +131,12 @@ export function validateAndTransformRows(rows, categories) {
     }
 
     // price
-    const price = parseFloat(row.price);
-    if (isNaN(price) || price < 0) {
-      errors.push('price must be a non-negative number (e.g. 9.99)');
+    const rawPrice = String(row.price ?? '').trim();
+    const price = parseFloat(rawPrice);
+    if (!rawPrice) {
+      errors.push('Price is required');
+    } else if (isNaN(price) || price < 0) {
+      errors.push('Price must be a non-negative number (e.g. 9.99)');
     }
 
     // stock

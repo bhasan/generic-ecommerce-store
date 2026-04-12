@@ -134,6 +134,13 @@ describe('validateAndTransformRows', () => {
       expect(invalid[0].errors.some(e => e.includes('Electronics'))).toBe(true);
     });
 
+    it('rejects a row with an empty price', () => {
+      const row = { ...VALID_ROW, price: '' };
+      const { valid, invalid } = validateAndTransformRows([row], CATEGORIES);
+      expect(valid).toHaveLength(0);
+      expect(invalid[0].errors).toContain('Price is required');
+    });
+
     it('rejects a row with a price that has a currency prefix', () => {
       const row = { ...VALID_ROW, price: '$9.99' };
       const { valid, invalid } = validateAndTransformRows([row], CATEGORIES);
