@@ -102,9 +102,11 @@ export class OrderService {
 
   /**
    * Get all orders (with user filtering for customers)
+   * @param limit  Optional max number of orders to return
+   * @param offset Optional number of orders to skip (for pagination)
    */
   // Returns all visible orders, scoped to the current user unless the caller has staff or driver roles.
-  async getAllOrders(userId: number, userRoles: RoleName[]) {
+  async getAllOrders(userId: number, userRoles: RoleName[], limit?: number, offset?: number) {
     const isCustomerScoped = !hasAnyRole(userRoles, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN, ROLES.DELIVERY_DRIVER]);
     const where = isCustomerScoped ? { userId } : {};
 
@@ -120,7 +122,9 @@ export class OrderService {
         where,
         orderBy: {
           createdAt: 'desc'
-        }
+        },
+        ...(limit !== undefined && { take: limit }),
+        ...(offset !== undefined && { skip: offset }),
       });
 
       logger.info('Orders retrieved from database', {

@@ -11,7 +11,9 @@ export class ProductController {
    */
   async getAllProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const products = await productService.getAllProducts(req.user?.roles);
+      const limit = req.query.limit !== undefined ? parseInt(req.query.limit as string, 10) : undefined;
+      const offset = req.query.offset !== undefined ? parseInt(req.query.offset as string, 10) : undefined;
+      const products = await productService.getAllProducts(req.user?.roles, limit, offset);
       res.status(200).json(products);
     } catch (error) {
       next(error);

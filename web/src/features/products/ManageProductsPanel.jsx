@@ -301,10 +301,6 @@ function ManageProductsPanel() {
     loadProducts();
   }, [loadProducts]);
 
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [categoryQuery, setCategoryQuery] = useState('');

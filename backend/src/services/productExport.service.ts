@@ -98,9 +98,20 @@ export async function streamProductsExportZip(res: Response): Promise<void> {
 
   archive.append(csvContent, { name: 'products.csv' });
 
-  for (const filename of uniqueFilenames) {
-    const filePath = path.join(UPLOADS_DIR, filename);
-    if (fs.existsSync(filePath)) {
+  const imageChecks = await Promise.all(
+    uniqueFilenames.map(async (filename) => {
+      const filePath = path.join(UPLOADS_DIR, filename);
+      try {
+        await fs.promises.access(filePath);
+        return { filename, filePath, exists: true };
+      } catch {
+        return { filename, filePath, exists: false };
+      }
+    })
+  );
+
+  for (const { filePath, filename, exists } of imageChecks) {
+    if (exists) {
       archive.file(filePath, { name: `images/${filename}` });
     }
   }

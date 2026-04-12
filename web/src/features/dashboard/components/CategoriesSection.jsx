@@ -69,10 +69,6 @@ function CategoriesSection() {
   const [childOrderByParent, setChildOrderByParent] = useState({});
 
   useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
-  useEffect(() => {
     const topLevel = categories
       .filter(category => !category.parentId)
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
