@@ -18,6 +18,7 @@ import MediaLibraryModal from '../../components/common/MediaLibraryModal';
 import ImageCropModal from '../../components/common/ImageCropModal';
 import CsvImportModal from './CsvImportModal';
 import { exportProductsToCsv, getCsvTemplate } from './csvHelpers';
+import { downloadProductsZip } from '../../services/productsApi';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
@@ -329,6 +330,7 @@ function ManageProductsPanel() {
     quantityDiscountsOverride: ''
   });
   const [showCsvImport, setShowCsvImport] = useState(false);
+  const [isExportingZip, setIsExportingZip] = useState(false);
   const [viewMode, setViewMode] = useState(() => {
     // Default to grid for first-time product managers; only use list when a user has explicitly saved it.
     if (typeof window === 'undefined') return 'grid';
@@ -748,6 +750,22 @@ function ManageProductsPanel() {
               >
                 <Download size={20} />
                 <span className="hide-on-mobile">Export CSV</span>
+              </button>
+              <button
+                onClick={async () => {
+                  setIsExportingZip(true);
+                  try {
+                    await downloadProductsZip();
+                  } finally {
+                    setIsExportingZip(false);
+                  }
+                }}
+                className="btn-add-product"
+                disabled={showAddForm || !!editingId || isExportingZip}
+                title="Export products with images as ZIP"
+              >
+                <Download size={20} />
+                <span className="hide-on-mobile">{isExportingZip ? 'Exporting…' : 'Export ZIP'}</span>
               </button>
               <button
                 onClick={() => setShowMediaLibrary(true)}

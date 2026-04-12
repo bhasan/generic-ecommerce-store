@@ -14,6 +14,14 @@ const router = Router();
 router.get('/', optionalAuthenticate, productController.getAllProducts);
 
 /**
+ * @route   GET /api/products/export-zip
+ * @desc    Export all products + images as a ZIP archive
+ * @access  Private (Management/Admin only)
+ * NOTE: Must be registered before /:id to avoid route capture.
+ */
+router.get('/export-zip', authenticate, authorizeManagement, productController.exportZip);
+
+/**
  * @route   GET /api/products/:id
  * @desc    Get product by ID
  * @access  Public (but filtered based on auth)

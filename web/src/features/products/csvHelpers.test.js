@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { normaliseBooleanCell, validateAndTransformRows, exportProductsToCsv, getCsvTemplate } from './csvHelpers';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
@@ -238,14 +238,28 @@ describe('exportProductsToCsv', () => {
       createObjectURL: vi.fn(() => 'blob:mock-url'),
       revokeObjectURL: vi.fn(),
     });
+    vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
+    vi.spyOn(document.body, 'removeChild').mockImplementation(() => {});
   });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function captureExportCsv(products, categories) {
+    let content = '';
+    vi.spyOn(globalThis, 'Blob').mockImplementation(function (parts) {
+      content = parts[0];
+      return { size: content.length, type: '' };
+    });
+    vi.spyOn(document, 'createElement').mockReturnValue({ href: '', download: '', click: vi.fn() });
+    exportProductsToCsv(products, categories);
+    return content;
+  }
 
   it('triggers a download', () => {
     const clickSpy = vi.fn();
     vi.spyOn(document, 'createElement').mockReturnValue({ href: '', download: '', click: clickSpy });
-    vi.spyOn(document.body, 'appendChild').mockImplementation(() => {});
-    vi.spyOn(document.body, 'removeChild').mockImplementation(() => {});
-
     exportProductsToCsv([], CATEGORIES);
     expect(clickSpy).toHaveBeenCalled();
   });
@@ -266,6 +280,51 @@ describe('exportProductsToCsv', () => {
 
     const today = new Date().toISOString().slice(0, 10);
     expect(capturedAnchor.download).toBe(`products-export-${today}.csv`);
+  });
+
+  it('export header includes all 10 columns including image fields', () => {
+    // PapaParse omits the header when data is empty, so pass one product to force header generation
+    const products = [
+      { id: 1, name: 'Cola', categoryId: 1, price: 2.5, stock: 10, stockEnabled: true,
+        thumbnail: null, image: null, images: [] },
+    ];
+    const csv = captureExportCsv(products, CATEGORIES);
+    const header = csv.split('\n')[0].replace(/\r$/, '');
+    expect(header.split(',')).toEqual([
+      'id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled',
+      'thumbnail', 'image', 'images',
+    ]);
+  });
+
+  it('extracts bare filename from thumbnail URL', () => {
+    const products = [
+      { id: 1, name: 'Cola', categoryId: 1, price: 2.5, stock: 10, stockEnabled: true,
+        thumbnail: '/api/uploads/thumb-abc.webp', image: null, images: [] },
+    ];
+    const csv = captureExportCsv(products, CATEGORIES);
+    expect(csv).toContain('thumb-abc.webp');
+    expect(csv).not.toContain('/api/uploads/');
+  });
+
+  it('joins multiple images with semicolons', () => {
+    const products = [
+      { id: 2, name: 'Chips', categoryId: 2, price: 1.5, stock: 5, stockEnabled: false,
+        thumbnail: null, image: null,
+        images: ['/api/uploads/a.webp', '/api/uploads/b.webp'] },
+    ];
+    const csv = captureExportCsv(products, CATEGORIES);
+    expect(csv).toContain('a.webp;b.webp');
+  });
+
+  it('outputs empty strings for image columns when product has no images', () => {
+    const products = [
+      { id: 3, name: 'Water', categoryId: 1, price: 1.0, stock: 0, stockEnabled: false,
+        thumbnail: null, image: null, images: [] },
+    ];
+    const csv = captureExportCsv(products, CATEGORIES);
+    // Data row should end with ,,, (thumbnail, image, images all empty)
+    const dataRow = csv.split('\n')[1]?.replace(/\r$/, '') ?? '';
+    expect(dataRow).toMatch(/,,,$/);
   });
 });
 

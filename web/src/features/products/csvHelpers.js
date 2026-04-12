@@ -1,6 +1,10 @@
 import Papa from 'papaparse';
 
-const CSV_FIELDS = ['id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled'];
+// Columns written to the full product export (includes image filenames)
+const EXPORT_FIELDS = ['id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled', 'thumbnail', 'image', 'images'];
+
+// Columns used for the import template (image import is not supported)
+const TEMPLATE_FIELDS = ['id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled'];
 
 /**
  * Trigger a browser file download.
@@ -26,6 +30,8 @@ export function exportProductsToCsv(products, categories) {
     categoryMap[cat.id] = cat.name;
   }
 
+  const urlToFilename = (url) => url?.split('/').pop() ?? '';
+
   const rows = products.map(p => ({
     id: p.id,
     name: p.name,
@@ -34,9 +40,12 @@ export function exportProductsToCsv(products, categories) {
     description: p.description ?? '',
     stock: p.stock ?? 0,
     stockEnabled: p.stockEnabled ?? false,
+    thumbnail: urlToFilename(p.thumbnail),
+    image: urlToFilename(p.image),
+    images: (p.images ?? []).map(urlToFilename).filter(Boolean).join(';'),
   }));
 
-  const csv = Papa.unparse(rows, { columns: CSV_FIELDS });
+  const csv = Papa.unparse(rows, { columns: EXPORT_FIELDS });
   const date = new Date().toISOString().slice(0, 10);
   downloadCsv(csv, `products-export-${date}.csv`);
 }
@@ -65,7 +74,7 @@ export function getCsvTemplate() {
       stockEnabled: 'false',
     },
   ];
-  const csv = Papa.unparse({ fields: CSV_FIELDS, data: sampleRows });
+  const csv = Papa.unparse({ fields: TEMPLATE_FIELDS, data: sampleRows });
   downloadCsv(csv, 'products-template.csv');
 }
 

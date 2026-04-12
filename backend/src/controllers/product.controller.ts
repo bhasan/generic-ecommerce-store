@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import productService from '../services/product.service';
+import { streamProductsExportZip } from '../services/productExport.service';
 import { logger } from '../utils/logger';
 
 export class ProductController {
@@ -104,6 +105,18 @@ export class ProductController {
         message: 'Product updated successfully',
         product
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export all products + images as a ZIP archive
+   * GET /api/products/export-zip
+   */
+  async exportZip(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await streamProductsExportZip(res);
     } catch (error) {
       next(error);
     }
