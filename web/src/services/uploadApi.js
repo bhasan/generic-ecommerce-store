@@ -122,6 +122,41 @@ export const getImages = async () => {
 };
 
 /**
+ * Import images from a ZIP archive. Files are written with their original names,
+ * bypassing the server's rename logic, so export→import round-trips are lossless.
+ * @param {File} file - The ZIP file to import
+ * @returns {Promise<{imported: number, skipped: number}>}
+ */
+export const importImagesZip = async (file) => {
+  const token = getAuthToken();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/upload/import-zip`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let errorMessage = 'Import failed';
+    try {
+      const data = await response.json();
+      errorMessage = data?.error?.message ?? errorMessage;
+    } catch (_e) {
+      errorMessage = response.statusText || errorMessage;
+    }
+    const error = new Error(errorMessage);
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.json();
+};
+
+/**
  * Delete an uploaded image
  * @param {string} filename - The filename of the image to delete
  * @returns {Promise<{message: string}>}

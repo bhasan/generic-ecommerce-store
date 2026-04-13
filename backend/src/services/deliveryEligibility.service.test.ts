@@ -1,3 +1,17 @@
+vi.mock('../../generated/prisma', () => ({
+  DeliveryEligibilitySource: {
+    NONE: 'NONE',
+    ADDRESS_CACHE: 'ADDRESS_CACHE',
+    GOOGLE_GEOCODING: 'GOOGLE_GEOCODING',
+    ZIP_FALLBACK: 'ZIP_FALLBACK',
+  },
+  DeliveryZoneStatus: {
+    IN_ZONE: 'IN_ZONE',
+    OUT_OF_ZONE: 'OUT_OF_ZONE',
+    UNVERIFIED: 'UNVERIFIED',
+  },
+}));
+
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
     findUnique: vi.fn(),

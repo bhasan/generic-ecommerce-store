@@ -19,6 +19,7 @@ import ImageCropModal from '../../components/common/ImageCropModal';
 import CsvImportModal from './CsvImportModal';
 import { exportProductsToCsv, getCsvTemplate } from './csvHelpers';
 import { downloadProductsZip } from '../../services/productsApi';
+import { importImagesZip } from '../../services/uploadApi';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
@@ -282,7 +283,7 @@ function SortableCategoryGroup({ category, isChild, onEdit, onDelete, children }
   );
 }
 
-function CsvActionsDropdown({ disabled, products, categories, isExportingZip, onExportZip, onImport }) {
+function CsvActionsDropdown({ disabled, products, categories, isExportingZip, onExportZip, onImport, isImportingZip, onImportZip }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -321,6 +322,9 @@ function CsvActionsDropdown({ disabled, products, categories, isExportingZip, on
           </button>
           <button disabled={isExportingZip} onClick={() => { onExportZip(); close(); }}>
             <Download size={16} /> {isExportingZip ? 'Exporting…' : 'Export Images ZIP'}
+          </button>
+          <button disabled={isImportingZip} onClick={() => { onImportZip(); close(); }}>
+            <Upload size={16} /> {isImportingZip ? 'Importing…' : 'Import Images ZIP'}
           </button>
         </div>
       )}
@@ -373,6 +377,8 @@ function ManageProductsPanel() {
   });
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
+  const [isImportingZip, setIsImportingZip] = useState(false);
+  const zipImportInputRef = useRef(null);
   const [viewMode, setViewMode] = useState(() => {
     // Default to grid for first-time product managers; only use list when a user has explicitly saved it.
     if (typeof window === 'undefined') return 'grid';
@@ -766,6 +772,26 @@ function ManageProductsPanel() {
         rightContent={
           canManageProducts ? (
             <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                ref={zipImportInputRef}
+                type="file"
+                accept=".zip"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setIsImportingZip(true);
+                  try {
+                    const { imported, skipped } = await importImagesZip(file);
+                    alert(`Import complete: ${imported} image(s) added, ${skipped} already existed.`);
+                  } catch (err) {
+                    alert(`Import failed: ${err.message}`);
+                  } finally {
+                    setIsImportingZip(false);
+                    zipImportInputRef.current.value = '';
+                  }
+                }}
+              />
               <CsvActionsDropdown
                 disabled={showAddForm || !!editingId}
                 products={products}
@@ -780,6 +806,8 @@ function ManageProductsPanel() {
                   }
                 }}
                 onImport={() => setShowCsvImport(true)}
+                isImportingZip={isImportingZip}
+                onImportZip={() => zipImportInputRef.current?.click()}
               />
               <button
                 onClick={() => setShowMediaLibrary(true)}
