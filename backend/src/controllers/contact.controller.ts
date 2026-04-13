@@ -316,6 +316,8 @@ export class ContactController {
         requestId: req.requestId,
       });
 
+      // This in-app notification updates the customer's support inbox state.
+      // Outbound customer email delivery is handled separately by emailService below.
       await notificationEventsService.notifyContactReplySent(
         parseInt(id, 10),
         originalMessage.userId,

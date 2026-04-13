@@ -1,9 +1,15 @@
 const notificationService = {
   createNotifications: vi.fn(),
+  updateDeliveryStatus: vi.fn(),
+  getRecipientRolesForUsers: vi.fn(),
 };
 
 const notificationDeliveryService = {
   deliver: vi.fn(),
+};
+
+const storeSettingsService = {
+  getNotificationEmailRouting: vi.fn(),
 };
 
 vi.mock('./notification.service', () => ({
@@ -14,9 +20,19 @@ vi.mock('./notificationDelivery.service', () => ({
   notificationDeliveryService,
 }));
 
+vi.mock('./storeSettings.service', () => ({
+  StoreSettingsService: vi.fn(() => storeSettingsService),
+}));
+
 describe('notification events service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    storeSettingsService.getNotificationEmailRouting.mockResolvedValue({
+      adminEmail: 'admin@example.com',
+      managementEmail: 'manager@example.com',
+      employeeEmail: 'employee@example.com',
+    });
+    notificationService.getRecipientRolesForUsers.mockResolvedValue(new Map());
   });
 
   it('delivers created notification records through the delivery service', async () => {
@@ -38,6 +54,7 @@ describe('notification events service', () => {
 
     const { NotificationEventsService } = await import('./notificationEvents.service');
     const service = new NotificationEventsService();
+    notificationService.getRecipientRolesForUsers.mockResolvedValue(new Map([[21, ['ADMIN']]]));
 
     await service.notifyOrderCreated(44, 99);
 
@@ -57,6 +74,10 @@ describe('notification events service', () => {
         actor: { userId: 99, username: null },
         path: '/orders?status=PENDING',
         requiresAttention: true,
+        metadata: expect.objectContaining({
+          recipientRole: 'ADMIN',
+          destinationEmail: 'admin@example.com',
+        }),
       }),
     ], 'ORDERS');
   });
@@ -110,7 +131,7 @@ describe('notification events service', () => {
     }));
   });
 
-  it('marks rejection and support-reply notifications as urgent while only sending replies to make', async () => {
+  it('marks rejection and support-reply notifications as urgent while keeping replies in-app only', async () => {
     const { NotificationEventsService } = await import('./notificationEvents.service');
     const service = new NotificationEventsService();
     const emitSpy = vi.spyOn(service, 'emit').mockResolvedValue([]);
@@ -128,8 +149,8 @@ describe('notification events service', () => {
       type: 'CONTACT_REPLY_SENT',
       recipientUserIds: [31],
       requiresAttention: true,
-      channelIntent: 'email',
-      sendToMake: true,
+      channelIntent: 'in_app_sync',
+      sendToMake: false,
       metadata: expect.objectContaining({
         path: '/help',
       }),
@@ -152,5 +173,172 @@ describe('notification events service', () => {
         path: '/orders',
       }),
     }));
+  });
+
+  it('skips make delivery for email-intent payloads missing a destination email and marks them disabled', async () => {
+    notificationService.createNotifications.mockResolvedValue([
+      {
+        id: 91,
+        type: 'CONTACT_REPLY_SENT',
+        category: 'CONTACT',
+        createdAt: new Date('2026-04-12T00:00:00.000Z'),
+        recipientUserId: 45,
+        sourceEntityType: 'CONTACT_MESSAGE',
+        sourceEntityId: 5001,
+        title: 'Support replied',
+        message: 'We replied to your support message.',
+        metadata: { path: '/help' },
+        requiresAttention: true,
+      },
+    ]);
+
+    const { NotificationEventsService } = await import('./notificationEvents.service');
+    const service = new NotificationEventsService();
+
+    await service.emit({
+      type: 'CONTACT_REPLY_SENT',
+      category: 'CONTACT',
+      title: 'Support replied',
+      message: 'We replied to your support message.',
+      recipientUserIds: [45],
+      sourceEntityType: 'CONTACT_MESSAGE',
+      sourceEntityId: 5001,
+      channelIntent: 'email',
+      sendToMake: true,
+      metadata: { path: '/help' },
+    });
+
+    expect(notificationDeliveryService.deliver).not.toHaveBeenCalled();
+    expect(notificationService.updateDeliveryStatus).toHaveBeenCalledWith([91], 'DISABLED');
+  });
+
+  it('delivers email-intent payloads when metadata contains userEmail', async () => {
+    notificationService.createNotifications.mockResolvedValue([
+      {
+        id: 92,
+        type: 'CONTACT_REPLY_SENT',
+        category: 'CONTACT',
+        createdAt: new Date('2026-04-12T00:00:00.000Z'),
+        recipientUserId: 45,
+        sourceEntityType: 'CONTACT_MESSAGE',
+        sourceEntityId: 5002,
+        title: 'Support replied',
+        message: 'We replied to your support message.',
+        metadata: { path: '/help', userEmail: 'customer@example.com' },
+        requiresAttention: true,
+      },
+    ]);
+
+    const { NotificationEventsService } = await import('./notificationEvents.service');
+    const service = new NotificationEventsService();
+
+    await service.emit({
+      type: 'CONTACT_REPLY_SENT',
+      category: 'CONTACT',
+      title: 'Support replied',
+      message: 'We replied to your support message.',
+      recipientUserIds: [45],
+      sourceEntityType: 'CONTACT_MESSAGE',
+      sourceEntityId: 5002,
+      channelIntent: 'email',
+      sendToMake: true,
+      metadata: { path: '/help', userEmail: 'customer@example.com' },
+    });
+
+    expect(notificationDeliveryService.deliver).toHaveBeenCalledWith([
+      expect.objectContaining({
+        eventType: 'CONTACT_REPLY_SENT',
+        category: 'CONTACT',
+        channelIntent: 'email',
+        notificationId: 92,
+        metadata: expect.objectContaining({
+          userEmail: 'customer@example.com',
+        }),
+      }),
+    ], 'CONTACT');
+    expect(notificationService.updateDeliveryStatus).not.toHaveBeenCalled();
+  });
+
+  it('keeps fanout notifications in-app while only delivering ops alerts for configured role emails', async () => {
+    notificationService.createNotifications.mockResolvedValue([
+      {
+        id: 301,
+        type: 'ORDER_CREATED',
+        category: 'ORDERS',
+        createdAt: new Date('2026-04-12T00:00:00.000Z'),
+        recipientUserId: 42,
+        sourceEntityType: 'ORDER',
+        sourceEntityId: 999,
+        title: 'New order submitted',
+        message: 'Order #999 is waiting for review.',
+        metadata: { path: '/orders?status=PENDING' },
+        requiresAttention: true,
+      },
+      {
+        id: 302,
+        type: 'ORDER_CREATED',
+        category: 'ORDERS',
+        createdAt: new Date('2026-04-12T00:00:00.000Z'),
+        recipientUserId: 43,
+        sourceEntityType: 'ORDER',
+        sourceEntityId: 999,
+        title: 'New order submitted',
+        message: 'Order #999 is waiting for review.',
+        metadata: { path: '/orders?status=PENDING' },
+        requiresAttention: true,
+      },
+      {
+        id: 303,
+        type: 'ORDER_CREATED',
+        category: 'ORDERS',
+        createdAt: new Date('2026-04-12T00:00:00.000Z'),
+        recipientUserId: 44,
+        sourceEntityType: 'ORDER',
+        sourceEntityId: 999,
+        title: 'New order submitted',
+        message: 'Order #999 is waiting for review.',
+        metadata: { path: '/orders?status=PENDING' },
+        requiresAttention: true,
+      },
+    ]);
+
+    storeSettingsService.getNotificationEmailRouting.mockResolvedValue({
+      adminEmail: 'admin@example.com',
+      managementEmail: '',
+      employeeEmail: '',
+    });
+    notificationService.getRecipientRolesForUsers.mockResolvedValue(new Map([
+      [42, ['ADMIN']],
+      [43, ['MANAGEMENT']],
+      [44, ['EMPLOYEE']],
+    ]));
+
+    const { NotificationEventsService } = await import('./notificationEvents.service');
+    const service = new NotificationEventsService();
+
+    await service.emit({
+      type: 'ORDER_CREATED',
+      category: 'ORDERS',
+      title: 'New order submitted',
+      message: 'Order #999 is waiting for review.',
+      recipientRoles: ['EMPLOYEE', 'MANAGEMENT', 'ADMIN'],
+      sourceEntityType: 'ORDER',
+      sourceEntityId: 999,
+      channelIntent: 'ops_alert',
+      sendToMake: true,
+      metadata: { path: '/orders?status=PENDING', label: 'Review order' },
+    });
+
+    expect(notificationDeliveryService.deliver).toHaveBeenCalledWith([
+      expect.objectContaining({
+        notificationId: 301,
+        metadata: expect.objectContaining({
+          recipientRole: 'ADMIN',
+          destinationEmail: 'admin@example.com',
+        }),
+      }),
+    ], 'ORDERS');
+
+    expect(notificationService.updateDeliveryStatus).toHaveBeenCalledWith([302, 303], 'DISABLED');
   });
 });

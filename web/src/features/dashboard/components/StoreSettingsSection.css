@@ -11,6 +11,12 @@
   margin-bottom: 2rem;
 }
 
+.store-settings-email-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
 .store-settings-save-btn {
   display: flex;
   align-items: center;

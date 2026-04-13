@@ -21,6 +21,10 @@ vi.mock('./deliveryEligibility.service', () => ({
 describe('store settings service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.STORE_SUPPORT_EMAIL;
+    delete process.env.SUPPORT_EMAIL;
+    delete process.env.ADMIN_ALERT_EMAIL;
+    delete process.env.ADMIN_EMAIL;
   });
 
   it('returns defaults when no persisted settings exist', async () => {
@@ -33,6 +37,11 @@ describe('store settings service', () => {
       name: 'Smoke Station',
       address: '9400 S Texas 6 Suite C, Houston, TX 77083',
       phoneNumber: '',
+      notificationEmails: {
+        adminEmail: '',
+        managementEmail: '',
+        employeeEmail: '',
+      },
     });
   });
 
@@ -41,6 +50,11 @@ describe('store settings service', () => {
       name: 'Smoke Station West',
       address: '101 Example Ave',
       phoneNumber: '555-0100',
+      notificationEmails: {
+        adminEmail: 'admin@example.com',
+        managementEmail: 'manager@example.com',
+        employeeEmail: '',
+      },
     };
     prismaMock.uiSetting.upsert.mockResolvedValue({ value: settings });
     const { StoreSettingsService } = await import('./storeSettings.service');
@@ -72,6 +86,11 @@ describe('store settings service', () => {
         name: 'Smoke Station',
         address: '101 Example Ave',
         phoneNumber: '555-0100',
+        notificationEmails: {
+          adminEmail: '',
+          managementEmail: '',
+          employeeEmail: '',
+        },
       },
     });
     prismaMock.uiSetting.upsert.mockResolvedValue({
@@ -79,6 +98,11 @@ describe('store settings service', () => {
         name: 'Smoke Station West',
         address: '101 Example Ave',
         phoneNumber: '555-0100',
+        notificationEmails: {
+          adminEmail: 'admin@example.com',
+          managementEmail: '',
+          employeeEmail: '',
+        },
       },
     });
     const { StoreSettingsService } = await import('./storeSettings.service');
@@ -87,8 +111,42 @@ describe('store settings service', () => {
       name: 'Smoke Station West',
       address: '101 Example Ave',
       phoneNumber: '555-0100',
+      notificationEmails: {
+        adminEmail: 'admin@example.com',
+        managementEmail: '',
+        employeeEmail: '',
+      },
     });
 
     expect(deliveryEligibilityService.verifyStoreAddress).not.toHaveBeenCalled();
+  });
+
+  it('uses STORE_SUPPORT_EMAIL as default admin alert email when settings are missing', async () => {
+    process.env.STORE_SUPPORT_EMAIL = 'ops@example.com';
+    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    const { StoreSettingsService } = await import('./storeSettings.service');
+
+    const result = await new StoreSettingsService().getStoreSettings();
+
+    expect(result.notificationEmails).toEqual({
+      adminEmail: 'ops@example.com',
+      managementEmail: '',
+      employeeEmail: '',
+    });
+  });
+
+  it('rejects invalid notification email formats', async () => {
+    const { StoreSettingsService } = await import('./storeSettings.service');
+
+    await expect(new StoreSettingsService().updateStoreSettings({
+      name: 'Smoke Station West',
+      address: '101 Example Ave',
+      phoneNumber: '555-0100',
+      notificationEmails: {
+        adminEmail: 'invalid-email',
+        managementEmail: '',
+        employeeEmail: '',
+      },
+    })).rejects.toEqual(expect.any(AppError));
   });
 });
