@@ -204,6 +204,49 @@ export class NotificationService {
     });
   }
 
+  async getRecipientRolesForUsers(userIds: number[], candidateRoles: RoleName[]) {
+    const rolesByUser = new Map<number, RoleName[]>();
+    if (userIds.length === 0 || candidateRoles.length === 0) {
+      return rolesByUser;
+    }
+
+    const roles = await prisma.role.findMany({
+      where: {
+        name: {
+          in: candidateRoles,
+        },
+      },
+    });
+
+    if (roles.length === 0) {
+      return rolesByUser;
+    }
+
+    const roleIdToName = new Map<number, RoleName>(roles.map((role) => [role.id, role.name as RoleName]));
+    const assignments = await prisma.userRole.findMany({
+      where: {
+        userId: { in: userIds },
+        roleId: { in: roles.map((role) => role.id) },
+      },
+      select: {
+        userId: true,
+        roleId: true,
+      },
+    });
+
+    for (const assignment of assignments) {
+      const roleName = roleIdToName.get(assignment.roleId);
+      if (!roleName) continue;
+      const currentRoles = rolesByUser.get(assignment.userId) ?? [];
+      if (!currentRoles.includes(roleName)) {
+        currentRoles.push(roleName);
+      }
+      rolesByUser.set(assignment.userId, currentRoles);
+    }
+
+    return rolesByUser;
+  }
+
   private async resolveRecipientUserIds(
     directRecipientUserIds: number[],
     recipientRoles: RoleName[],

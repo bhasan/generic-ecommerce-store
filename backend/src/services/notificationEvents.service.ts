@@ -1,12 +1,14 @@
 import {
   NotificationCategory,
+  NotificationDeliveryStatus,
   NotificationEntityType,
   NotificationType,
   OrderStatus,
 } from '../../generated/prisma';
-import { ROLES } from '../constants/roles';
+import { RoleName, ROLES } from '../constants/roles';
 import { notificationDeliveryService } from './notificationDelivery.service';
 import { NotificationInput, notificationService } from './notification.service';
+import { NotificationEmailRouting, StoreSettingsService } from './storeSettings.service';
 
 interface ActorContext {
   userId?: number | null;
@@ -26,8 +28,66 @@ const getMetadataString = (metadata: unknown, key: string) => {
     return null;
   }
 
-  return String((metadata as Record<string, unknown>)[key]);
+  const value = (metadata as Record<string, unknown>)[key];
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  return String(value);
 };
+
+const resolveEmailDestination = (metadata: Record<string, unknown> | null): string | null => {
+  if (!metadata) return null;
+
+  const userEmail = getMetadataString(metadata, 'userEmail');
+  const toEmail = getMetadataString(metadata, 'toEmail');
+  return userEmail || toEmail || null;
+};
+
+const resolveOpsDestination = (metadata: Record<string, unknown> | null): string | null => {
+  if (!metadata) return null;
+  return getMetadataString(metadata, 'destinationEmail');
+};
+
+const ROLE_PRIORITY: RoleName[] = [
+  ROLES.ADMIN,
+  ROLES.MANAGEMENT,
+  ROLES.EMPLOYEE,
+  ROLES.DELIVERY_DRIVER,
+  ROLES.VIP,
+  ROLES.CUSTOMER,
+  ROLES.GUEST,
+];
+
+const pickRecipientRole = (recipientRoles: RoleName[], targetRoles: RoleName[]) => {
+  const targetRoleSet = new Set(targetRoles);
+  for (const role of ROLE_PRIORITY) {
+    if (targetRoleSet.has(role) && recipientRoles.includes(role)) {
+      return role;
+    }
+  }
+
+  return recipientRoles.find((role) => targetRoleSet.has(role)) ?? null;
+};
+
+const resolveOpsDestinationEmail = (
+  recipientRole: RoleName | null,
+  notificationEmails: NotificationEmailRouting,
+) => {
+  if (!recipientRole) return null;
+
+  if (recipientRole === ROLES.ADMIN) return notificationEmails.adminEmail || null;
+  if (recipientRole === ROLES.MANAGEMENT) return notificationEmails.managementEmail || null;
+  if (recipientRole === ROLES.EMPLOYEE) return notificationEmails.employeeEmail || null;
+  return null;
+};
+
+const storeSettingsService = new StoreSettingsService();
 
 export class NotificationEventsService {
   async emit(input: EmitNotificationInput) {
@@ -41,8 +101,7 @@ export class NotificationEventsService {
       return notifications;
     }
 
-    await notificationDeliveryService.deliver(
-      notifications.map((notification) => ({
+    const deliveryPayloads = notifications.map((notification) => ({
         eventType: notification.type,
         category: notification.category,
         channelIntent: input.channelIntent ?? 'in_app_sync',
@@ -68,9 +127,59 @@ export class NotificationEventsService {
         path: getMetadataString(notification.metadata, 'path'),
         requiresAttention: notification.requiresAttention,
         metadata: notification.metadata as Record<string, unknown> | null,
-      })),
-      input.category,
+      }));
+
+    const targetRoles = input.recipientRoles ?? [];
+    const notificationEmailRouting = await storeSettingsService.getNotificationEmailRouting();
+    const opsAlertRecipientIds = [...new Set(
+      deliveryPayloads
+        .filter((payload) => payload.channelIntent === 'ops_alert')
+        .map((payload) => payload.recipient.userId),
+    )];
+    const recipientRolesByUser = await notificationService.getRecipientRolesForUsers(
+      opsAlertRecipientIds,
+      targetRoles,
     );
+    const routedPayloads = deliveryPayloads.map((payload) => {
+      if (payload.channelIntent !== 'ops_alert') return payload;
+
+      const recipientRoles = recipientRolesByUser.get(payload.recipient.userId) ?? [];
+      const recipientRole = pickRecipientRole(recipientRoles, targetRoles);
+      const destinationEmail = resolveOpsDestinationEmail(recipientRole, notificationEmailRouting);
+      return {
+        ...payload,
+        metadata: {
+          ...(payload.metadata ?? {}),
+          recipientRole,
+          destinationEmail,
+        },
+      };
+    });
+
+    // Only forward email-intent payloads when a concrete destination address exists.
+    // This keeps Make routing predictable and marks unroutable rows as DISABLED instead
+    // of pushing ambiguous payloads into fallback branches.
+    const deliverablePayloads = routedPayloads.filter((payload) => {
+      if (payload.channelIntent === 'email') {
+        return Boolean(resolveEmailDestination(payload.metadata ?? null));
+      }
+      if (payload.channelIntent === 'ops_alert') {
+        return Boolean(resolveOpsDestination(payload.metadata ?? null));
+      }
+      return true;
+    });
+
+    const skippedPayloads = routedPayloads.filter((payload) => !deliverablePayloads.includes(payload));
+    if (skippedPayloads.length > 0) {
+      await notificationService.updateDeliveryStatus(
+        skippedPayloads.map((payload) => payload.notificationId),
+        NotificationDeliveryStatus.DISABLED,
+      );
+    }
+
+    if (deliverablePayloads.length > 0) {
+      await notificationDeliveryService.deliver(deliverablePayloads, input.category);
+    }
 
     return notifications;
   }
@@ -260,6 +369,9 @@ export class NotificationEventsService {
   }
 
   async notifyContactReplySent(contactMessageId: number, recipientUserId: number, actor: ActorContext) {
+    // Keep CONTACT_REPLY_SENT as an in-app notification only. The actual customer
+    // outbound email is sent via emailService.sendReplyEmail in contact.controller,
+    // which carries the destination email directly from the contact message record.
     return this.emit({
       type: NotificationType.CONTACT_REPLY_SENT,
       category: NotificationCategory.CONTACT,
@@ -274,8 +386,8 @@ export class NotificationEventsService {
         label: 'View support',
       },
       requiresAttention: true,
-      channelIntent: 'email',
-      sendToMake: true,
+      channelIntent: 'in_app_sync',
+      sendToMake: false,
       actor,
     });
   }

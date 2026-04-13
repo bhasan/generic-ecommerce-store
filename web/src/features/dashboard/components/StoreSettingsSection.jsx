@@ -6,20 +6,46 @@ const DEFAULT_SETTINGS = {
   name: '',
   address: '',
   phoneNumber: '',
+  notificationEmails: {
+    adminEmail: '',
+    managementEmail: '',
+    employeeEmail: '',
+  },
 };
 
 function StoreSettingsSection({ isLoading, storeSettings, onSave }) {
   const [draft, setDraft] = useState(DEFAULT_SETTINGS);
   const [isSaving, setIsSaving] = useState(false);
 
+  const normalizeSettings = (settings = DEFAULT_SETTINGS) => ({
+    name: settings.name || '',
+    address: settings.address || '',
+    phoneNumber: settings.phoneNumber || '',
+    notificationEmails: {
+      adminEmail: settings.notificationEmails?.adminEmail || '',
+      managementEmail: settings.notificationEmails?.managementEmail || '',
+      employeeEmail: settings.notificationEmails?.employeeEmail || '',
+    },
+  });
+
   useEffect(() => {
     if (storeSettings) {
-      setDraft(storeSettings);
+      setDraft(normalizeSettings(storeSettings));
     }
   }, [storeSettings]);
 
   const handleChange = (field, value) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleEmailChange = (field, value) => {
+    setDraft((prev) => ({
+      ...prev,
+      notificationEmails: {
+        ...prev.notificationEmails,
+        [field]: value,
+      },
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -55,6 +81,10 @@ function StoreSettingsSection({ isLoading, storeSettings, onSave }) {
       <p className="store-settings-description">
         Update the store's display name, address, and contact phone number. These are shown to
         customers during registration and checkout.
+      </p>
+      <p className="store-settings-description">
+        Configure outbound ops alert destinations per role. Leave management/employee blank to
+        only send outbound ops emails to the admin email.
       </p>
 
       <form onSubmit={handleSubmit}>
@@ -103,6 +133,53 @@ function StoreSettingsSection({ isLoading, storeSettings, onSave }) {
               placeholder="(555) 123-4567"
               maxLength={32}
             />
+          </div>
+
+          <div className="store-settings-email-grid">
+            <div className="form-group">
+              <label className="form-label" htmlFor="store-admin-email">
+                Admin Alert Email
+              </label>
+              <input
+                id="store-admin-email"
+                type="email"
+                className="form-input"
+                value={draft.notificationEmails.adminEmail}
+                onChange={(e) => handleEmailChange('adminEmail', e.target.value)}
+                placeholder="admin@store.com"
+                maxLength={254}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="store-management-email">
+                Management Alert Email (Optional)
+              </label>
+              <input
+                id="store-management-email"
+                type="email"
+                className="form-input"
+                value={draft.notificationEmails.managementEmail}
+                onChange={(e) => handleEmailChange('managementEmail', e.target.value)}
+                placeholder="manager@store.com"
+                maxLength={254}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="store-employee-email">
+                Employee Alert Email (Optional)
+              </label>
+              <input
+                id="store-employee-email"
+                type="email"
+                className="form-input"
+                value={draft.notificationEmails.employeeEmail}
+                onChange={(e) => handleEmailChange('employeeEmail', e.target.value)}
+                placeholder="employee@store.com"
+                maxLength={254}
+              />
+            </div>
           </div>
         </div>
 
