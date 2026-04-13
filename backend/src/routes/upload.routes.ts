@@ -1,10 +1,30 @@
 import { Router } from 'express';
+import multer from 'multer';
 import uploadController from '../controllers/upload.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeManagement } from '../middleware/role.middleware';
 import { upload } from '../config/multer';
 
 const router = Router();
+
+// Memory-storage multer for ZIP imports — file stays as a Buffer, no rename.
+const memUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
+});
+
+/**
+ * @route   POST /api/upload/import-zip
+ * @desc    Import images from a ZIP archive, preserving original filenames (bypasses rename)
+ * @access  Private (Management/Admin only)
+ */
+router.post(
+  '/import-zip',
+  authenticate,
+  authorizeManagement,
+  memUpload.single('file'),
+  uploadController.importZip
+);
 
 // Product image uploads enter here before media URLs are attached to products in admin flows.
 /**
