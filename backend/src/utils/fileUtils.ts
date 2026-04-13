@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+export const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 /**
  * Delete an uploaded file from disk given its URL path (e.g. /api/uploads/filename.jpg).

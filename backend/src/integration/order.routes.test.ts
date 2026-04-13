@@ -98,7 +98,19 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual([{ id: 501, total: 22 }]);
-    expect(orderService.getAllOrders).toHaveBeenCalledWith(10, ['CUSTOMER']);
+    expect(orderService.getAllOrders).toHaveBeenCalledWith(10, ['CUSTOMER'], undefined, undefined);
+  });
+
+  it('forwards limit and offset query params to the order service', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'admin', roles: ['ADMIN'] });
+    orderService.getAllOrders.mockResolvedValue([]);
+
+    const { response } = await requestJson(server, '/api/orders?limit=50&offset=100', {
+      headers: { Authorization: 'Bearer admin-token' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(orderService.getAllOrders).toHaveBeenCalledWith(10, ['ADMIN'], 50, 100);
   });
 
   it('rejects invalid checkout payloads before hitting order creation', async () => {

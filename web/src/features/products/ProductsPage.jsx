@@ -23,7 +23,6 @@ function ProductsPage({ mode = 'browse' }) {
     isLoadingProducts,
     categories,
     isLoadingCategories,
-    loadCategories
   } = useApp();
 
   const [viewMode, setViewMode] = useState(() => {
@@ -32,10 +31,6 @@ function ProductsPage({ mode = 'browse' }) {
     return savedView === 'grid' || savedView === 'list' ? savedView : 'list';
   });
   const [selectedProductId, setSelectedProductId] = useState(null);
-
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
 
   useEffect(() => {
     localStorage.setItem('productsViewMode', viewMode);

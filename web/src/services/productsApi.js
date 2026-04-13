@@ -47,3 +47,22 @@ export const deleteProduct = async (id) => {
   return del(`/products/${id}`);
 };
 
+/**
+ * Download all products + images as a ZIP archive.
+ * Triggers a browser file download.
+ */
+export const downloadProductsZip = async () => {
+  // apiClient returns the raw Response for non-JSON content types
+  const response = await get('/products/export-zip', { retries: 0 });
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const today = new Date().toISOString().slice(0, 10);
+  a.download = `products-export-${today}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+

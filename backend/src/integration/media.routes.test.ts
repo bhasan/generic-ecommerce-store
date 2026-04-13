@@ -28,6 +28,7 @@ const uploadController = vi.hoisted(() => ({
   ),
   getImages: vi.fn((_req, res) => res.status(200).json({ images: [{ filename: 'existing.webp', url: '/api/uploads/existing.webp' }] })),
   deleteImage: vi.fn((_req, res) => res.status(200).json({ message: 'Image deleted successfully' })),
+  importZip: vi.fn((_req, res) => res.status(200).json({ imported: 2, skipped: 1 })),
 }));
 const upload = vi.hoisted(() => ({
   single: vi.fn(() => (req: any, _res: any, next: any) => {
@@ -42,6 +43,19 @@ const upload = vi.hoisted(() => ({
     next();
   }),
 }));
+
+// memUpload mock — used by the import-zip route (multer.memoryStorage())
+const multerMock = vi.hoisted(() => {
+  const instance = {
+    single: vi.fn(() => (req: any, _res: any, next: any) => {
+      req.file = { buffer: Buffer.from('fake-zip'), originalname: 'export.zip', mimetype: 'application/zip' };
+      next();
+    }),
+  };
+  const fn = vi.fn(() => instance) as any;
+  fn.memoryStorage = vi.fn(() => ({}));
+  return fn;
+});
 
 vi.mock('../utils/jwt.util', () => ({
   verifyToken,
@@ -62,6 +76,10 @@ vi.mock('../controllers/upload.controller', () => ({
 
 vi.mock('../config/multer', () => ({
   upload,
+}));
+
+vi.mock('multer', () => ({
+  default: multerMock,
 }));
 
 const createServer = async () => {
@@ -111,7 +129,16 @@ describe('media routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual([{ id: 1, name: 'Visible Product' }]);
-    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined);
+    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, undefined, undefined);
+  });
+
+  it('forwards limit and offset query params to the product service', async () => {
+    productService.getAllProducts.mockResolvedValue([]);
+
+    const { response } = await requestJson(server, '/api/products?limit=10&offset=20');
+
+    expect(response.status).toBe(200);
+    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, 10, 20);
   });
 
   it('ignores invalid optional auth tokens on product routes and still serves public data', async () => {
@@ -272,5 +299,35 @@ describe('media routes integration', () => {
       product: { id: 89, name: 'Thumbnail Only Product' },
     });
     expect(productService.createProduct).toHaveBeenCalledWith(payload);
+  });
+
+  it('requires management-or-admin access for ZIP import', async () => {
+    verifyToken.mockReturnValue({ userId: 10, username: 'employee-one', roles: ['EMPLOYEE'] });
+
+    const { response, body } = await requestJson(server, '/api/upload/import-zip', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer employee-token' },
+    });
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      error: 'Access denied. Insufficient permissions.',
+      required: ['MANAGEMENT', 'ADMIN'],
+      current: ['EMPLOYEE'],
+    });
+    expect(uploadController.importZip).not.toHaveBeenCalled();
+  });
+
+  it('imports images from a ZIP file and returns imported/skipped counts', async () => {
+    verifyToken.mockReturnValue({ userId: 3, username: 'manager-one', roles: ['MANAGEMENT'] });
+
+    const { response, body } = await requestJson(server, '/api/upload/import-zip', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer manager-token' },
+    });
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ imported: 2, skipped: 1 });
+    expect(uploadController.importZip).toHaveBeenCalled();
   });
 });

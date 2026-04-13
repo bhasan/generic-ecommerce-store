@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
 import productService from '../services/product.service';
+import { streamProductsExportZip } from '../services/productExport.service';
 import { logger } from '../utils/logger';
 
 export class ProductController {
@@ -10,7 +11,9 @@ export class ProductController {
    */
   async getAllProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const products = await productService.getAllProducts(req.user?.roles);
+      const limit = req.query.limit !== undefined ? parseInt(req.query.limit as string, 10) : undefined;
+      const offset = req.query.offset !== undefined ? parseInt(req.query.offset as string, 10) : undefined;
+      const products = await productService.getAllProducts(req.user?.roles, limit, offset);
       res.status(200).json(products);
     } catch (error) {
       next(error);
@@ -104,6 +107,18 @@ export class ProductController {
         message: 'Product updated successfully',
         product
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Export all products + images as a ZIP archive
+   * GET /api/products/export-zip
+   */
+  async exportZip(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await streamProductsExportZip(res);
     } catch (error) {
       next(error);
     }

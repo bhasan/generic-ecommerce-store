@@ -2,7 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
+import unzipper from 'unzipper';
 import { AppError } from '../middleware/error.middleware';
+import { UPLOADS_DIR } from '../utils/fileUtils';
 
 const MAX_IMAGE_DIMENSION = 1920;
 const WEBP_QUALITY = 85;
@@ -109,6 +111,50 @@ export class UploadController {
       res.status(200).json({ images });
     } catch (error) {
       next(error);
+    }
+  }
+
+  /**
+   * Import images from a ZIP archive (bypasses rename — preserves original filenames).
+   * Only processes entries under images/ to match the export-zip structure.
+   * POST /api/upload/import-zip
+   */
+  async importZip(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.file) {
+        throw new AppError('No ZIP file provided', 400, 'VALIDATION_ERROR');
+      }
+
+      const directory = await unzipper.Open.buffer(req.file.buffer);
+      let imported = 0;
+      let skipped = 0;
+
+      for (const entry of directory.files) {
+        if (!entry.path.startsWith('images/') || entry.type !== 'File') continue;
+
+        const filename = entry.path.slice('images/'.length);
+        if (!filename) continue;
+
+        // Prevent directory traversal
+        const safeFilename = path.basename(filename);
+        const dest = path.join(UPLOADS_DIR, safeFilename);
+
+        try {
+          await fs.promises.access(dest);
+          skipped++;
+          continue;
+        } catch {
+          // File doesn't exist — write it
+        }
+
+        const content = await entry.buffer();
+        await fs.promises.writeFile(dest, content);
+        imported++;
+      }
+
+      res.json({ imported, skipped });
+    } catch (err) {
+      next(err);
     }
   }
 

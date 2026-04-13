@@ -12,6 +12,7 @@ const prismaMock = {
   },
   order: {
     create: vi.fn(),
+    findMany: vi.fn(),
     findUnique: vi.fn(),
     update: vi.fn(),
   },
@@ -78,6 +79,65 @@ vi.mock('./orderingConstraints.service', () => ({
 vi.mock('./deliveryEligibility.service', () => ({
   DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
 }));
+
+describe('getAllOrders', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const setupOrderMocks = () => {
+    prismaMock.order.findMany.mockResolvedValue([]);
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.orderItem.findMany.mockResolvedValue([]);
+    prismaMock.productItem.findMany.mockResolvedValue([]);
+  };
+
+  it('scopes query to the requesting user when role is CUSTOMER', async () => {
+    setupOrderMocks();
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.getAllOrders(42, ['CUSTOMER']);
+
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 42 } })
+    );
+  });
+
+  it('returns all orders (no userId filter) for ADMIN role', async () => {
+    setupOrderMocks();
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.getAllOrders(1, ['ADMIN']);
+
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: {} })
+    );
+  });
+
+  it('passes limit and offset to Prisma when provided', async () => {
+    setupOrderMocks();
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.getAllOrders(1, ['ADMIN'], 50, 100);
+
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 50, skip: 100 })
+    );
+  });
+
+  it('omits take/skip from Prisma query when limit and offset are not provided', async () => {
+    setupOrderMocks();
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.getAllOrders(1, ['ADMIN']);
+
+    const call = prismaMock.order.findMany.mock.calls[0][0];
+    expect(call).not.toHaveProperty('take');
+    expect(call).not.toHaveProperty('skip');
+  });
+});
 
 describe('order service notifications', () => {
   beforeEach(() => {

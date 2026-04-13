@@ -83,8 +83,10 @@ export class ProductService {
 
   /**
    * Get all products (filters hidden products for non-admin users)
+   * @param limit  Optional max number of products to return
+   * @param offset Optional number of products to skip (for pagination)
    */
-  async getAllProducts(userRoles?: RoleName[]) {
+  async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {
     const canViewHidden = hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT']);
     const isVip = hasAnyRole(userRoles, ['VIP']);
 
@@ -108,37 +110,39 @@ export class ProductService {
         { category: { sortOrder: 'asc' } },
         { sortOrder: 'asc' },
         { createdAt: 'desc' }
-      ]
+      ],
+      ...(limit !== undefined && { take: limit }),
+      ...(offset !== undefined && { skip: offset }),
     });
 
-    const productIds = products.map(p => p.id);
-    const reviews = await prisma.review.findMany({
-      where: { productId: { in: productIds } },
-      orderBy: { createdAt: 'desc' }
-    });
-
-    const userIds = [...new Set(reviews.map(r => r.userId))];
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, username: true }
-    });
-
-    const userMap = new Map(users.map(u => [u.id, u]));
-    const reviewsByProduct = new Map<number, any[]>();
-
-    for (const review of reviews) {
-      if (!reviewsByProduct.has(review.productId)) {
-        reviewsByProduct.set(review.productId, []);
-      }
-      reviewsByProduct.get(review.productId)!.push({
-        ...review,
-        user: userMap.get(review.userId) || null
-      });
-    }
+    // Reviews feature is currently disabled — queries commented out to avoid
+    // fetching all reviews + users on every product list load.
+    //
+    // const productIds = products.map(p => p.id);
+    // const reviews = await prisma.review.findMany({
+    //   where: { productId: { in: productIds } },
+    //   orderBy: { createdAt: 'desc' }
+    // });
+    // const userIds = [...new Set(reviews.map(r => r.userId))];
+    // const users = await prisma.user.findMany({
+    //   where: { id: { in: userIds } },
+    //   select: { id: true, username: true }
+    // });
+    // const userMap = new Map(users.map(u => [u.id, u]));
+    // const reviewsByProduct = new Map<number, any[]>();
+    // for (const review of reviews) {
+    //   if (!reviewsByProduct.has(review.productId)) {
+    //     reviewsByProduct.set(review.productId, []);
+    //   }
+    //   reviewsByProduct.get(review.productId)!.push({
+    //     ...review,
+    //     user: userMap.get(review.userId) || null
+    //   });
+    // }
 
     return products.map(product => ({
       ...product,
-      reviews: reviewsByProduct.get(product.id) || []
+      reviews: [] // Populated by getProductById when reviews feature is re-enabled
     }));
   }
 

@@ -30,6 +30,7 @@ export default defineConfig({
     },
   },
   server: {
+    port: 5843,
     proxy: {
       '/api': {
         target: devProxyTarget,

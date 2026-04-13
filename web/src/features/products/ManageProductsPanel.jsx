@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './ProductCard.css';
 import './ProductsShared.css';
 import './ProductsPageAdmin.css';
@@ -8,7 +8,7 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as productsApi from '../../services/productsApi';
 import * as categoriesApi from '../../services/categoriesApi';
 import * as uploadApi from '../../services/uploadApi';
-import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical, Download, FileDown, Upload, ChevronDown } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -16,6 +16,10 @@ import ProductsHeader from './ProductsHeader';
 import ProductFormModal from './ProductFormModal';
 import MediaLibraryModal from '../../components/common/MediaLibraryModal';
 import ImageCropModal from '../../components/common/ImageCropModal';
+import CsvImportModal from './CsvImportModal';
+import { exportProductsToCsv, getCsvTemplate } from './csvHelpers';
+import { downloadProductsZip } from '../../services/productsApi';
+import { importImagesZip } from '../../services/uploadApi';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
@@ -111,27 +115,27 @@ function SortableProductCard({
               </button>
             )}
             <button
-              onClick={() => onToggleHidden(product.id, product.hidden)}
-              className="btn-visibility"
-              title={product.hidden ? 'Show product' : 'Hide product'}
-            >
-              {product.hidden ? <Eye size={16} /> : <EyeOff size={16} />}
-            </button>
-            <button
               onClick={() => onEdit(product)}
               className="btn-edit"
               disabled={editingDisabled}
             >
-              <Edit size={16} />
+              <Edit size={14} />
               <span>Edit</span>
+            </button>
+            <button
+              onClick={() => onToggleHidden(product.id, product.hidden)}
+              className="btn-visibility"
+              title={product.hidden ? 'Show product' : 'Hide product'}
+            >
+              {product.hidden ? <Eye size={14} /> : <EyeOff size={14} />}
             </button>
             {canDelete && (
               <button
                 onClick={() => onDeleteClick(product.id, product.name)}
                 className="btn-delete"
+                title="Delete product"
               >
-                <Trash2 size={16} />
-                <span>Delete</span>
+                <Trash2 size={14} />
               </button>
             )}
           </div>
@@ -279,6 +283,55 @@ function SortableCategoryGroup({ category, isChild, onEdit, onDelete, children }
   );
 }
 
+function CsvActionsDropdown({ disabled, products, categories, isExportingZip, onExportZip, onImport, isImportingZip, onImportZip }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  const close = () => setOpen(false);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        className="btn-add-product"
+        disabled={disabled}
+        onClick={() => setOpen(o => !o)}
+        title="Bulk management actions"
+      >
+        <FileDown size={20} />
+        <span className="hide-on-mobile">Bulk Management</span>
+        <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div className="csv-dropdown-menu">
+          <button onClick={() => { onImport(); close(); }}>
+            <Upload size={16} /> Import CSV
+          </button>
+          <button onClick={() => { getCsvTemplate(); close(); }}>
+            <FileDown size={16} /> CSV Template
+          </button>
+          <button onClick={() => { exportProductsToCsv(products, categories); close(); }}>
+            <Download size={16} /> Export CSV
+          </button>
+          <button disabled={isExportingZip} onClick={() => { onExportZip(); close(); }}>
+            <Download size={16} /> {isExportingZip ? 'Exporting…' : 'Export Images ZIP'}
+          </button>
+          <button disabled={isImportingZip} onClick={() => { onImportZip(); close(); }}>
+            <Upload size={16} /> {isImportingZip ? 'Importing…' : 'Import Images ZIP'}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ManageProductsPanel() {
   const {
     currentUser,
@@ -297,10 +350,6 @@ function ManageProductsPanel() {
   useEffect(() => {
     loadProducts();
   }, [loadProducts]);
-
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
 
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -326,6 +375,10 @@ function ManageProductsPanel() {
     vipOnly: false,
     quantityDiscountsOverride: ''
   });
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [isExportingZip, setIsExportingZip] = useState(false);
+  const [isImportingZip, setIsImportingZip] = useState(false);
+  const zipImportInputRef = useRef(null);
   const [viewMode, setViewMode] = useState(() => {
     // Default to grid for first-time product managers; only use list when a user has explicitly saved it.
     if (typeof window === 'undefined') return 'grid';
@@ -719,6 +772,43 @@ function ManageProductsPanel() {
         rightContent={
           canManageProducts ? (
             <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                ref={zipImportInputRef}
+                type="file"
+                accept=".zip"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setIsImportingZip(true);
+                  try {
+                    const { imported, skipped } = await importImagesZip(file);
+                    alert(`Import complete: ${imported} image(s) added, ${skipped} already existed.`);
+                  } catch (err) {
+                    alert(`Import failed: ${err.message}`);
+                  } finally {
+                    setIsImportingZip(false);
+                    zipImportInputRef.current.value = '';
+                  }
+                }}
+              />
+              <CsvActionsDropdown
+                disabled={showAddForm || !!editingId}
+                products={products}
+                categories={categories}
+                isExportingZip={isExportingZip}
+                onExportZip={async () => {
+                  setIsExportingZip(true);
+                  try {
+                    await downloadProductsZip();
+                  } finally {
+                    setIsExportingZip(false);
+                  }
+                }}
+                onImport={() => setShowCsvImport(true)}
+                isImportingZip={isImportingZip}
+                onImportZip={() => zipImportInputRef.current?.click()}
+              />
               <button
                 onClick={() => setShowMediaLibrary(true)}
                 className="btn-add-product"
@@ -880,6 +970,13 @@ function ManageProductsPanel() {
           onCancel={() => setCropState(null)}
         />
       )}
+
+      <CsvImportModal
+        isOpen={showCsvImport}
+        onClose={() => { setShowCsvImport(false); loadProducts(); }}
+        products={products}
+        categories={categories}
+      />
     </div>
   );
 }
