@@ -11,6 +11,7 @@ Use these files as the authoritative source of truth before making changes:
 - `src/routes/*.ts`
 - `src/services/*.ts`
 - `prisma/schema.prisma`
+- `MAKE_OUTBOUND_NOTIFICATION_FLOW.md`
 - `../CODEBASE_WORKING_DOCUMENT.md`
 
 Current auth behavior to keep in mind:
