@@ -3,9 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Response } from 'express';
 import prisma from '../config/database';
-import { collectProductImageUrls } from '../utils/fileUtils';
-
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+import { collectProductImageUrls, UPLOADS_DIR } from '../utils/fileUtils';
 
 /**
  * Escape a value for inclusion in a CSV cell.
