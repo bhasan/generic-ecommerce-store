@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './OrderSuccessPage.css';
 import { useApp } from '../../context/AppContext';
-import { PaymentMethod } from '../../constants/orderMethods';
-import { CheckCircle, Package, MapPin, DollarSign, MessageCircle, ShoppingBag, Eye } from 'lucide-react';
+import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
+import { CheckCircle, Package, MapPin, DollarSign, ShoppingBag, Eye } from 'lucide-react';
 import { getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 
@@ -34,9 +34,6 @@ function OrderSuccessPage() {
     month: 'long',
     day: 'numeric'
   });
-
-  // Placeholder for WhatsApp number (to be populated later)
-  const whatsappNumber = 'XXXXXXXXXX'; // Will be populated later
 
   return (
     <div className="order-success-container">
@@ -111,7 +108,7 @@ function OrderSuccessPage() {
           <div className="detail-card surface-card">
             <div className="detail-header">
               <MapPin size={20} />
-              <h3>Delivery Address</h3>
+              <h3>{orderData.deliveryMethod === DeliveryMethod.PICKUP ? 'Pickup Location' : 'Delivery Address'}</h3>
             </div>
             <p className="detail-text">{orderData.deliveryAddress}</p>
           </div>
@@ -178,34 +175,59 @@ function OrderSuccessPage() {
                   </div>
                 </div>
               </>
-            ) : (
+            ) : orderData.deliveryMethod === DeliveryMethod.PICKUP ? (
               <>
-                <div className="next-step">
-                  <div className="step-number">1</div>
-                  <div className="step-content">
-                    <h4>Send Payment</h4>
-                    <p>Please send ${orderData.total.toFixed(2)} to <strong>{orderData.cashAppUsername}</strong> via CashApp</p>
-                  </div>
-                </div>
-
-                <div className="next-step">
-                  <div className="step-number">2</div>
-                  <div className="step-content">
-                    <h4>Contact Us on WhatsApp</h4>
-                    <p>Message us on WhatsApp to confirm your payment and order</p>
-                    <div className="whatsapp-contact">
-                      <MessageCircle size={18} />
-                      <span className="whatsapp-number">{whatsappNumber}</span>
-                      <span className="coming-soon">(Number will be added soon)</span>
+                {orderData.paymentMethod === PaymentMethod.EXTERNAL && (
+                  <div className="next-step">
+                    <div className="step-number">1</div>
+                    <div className="step-content">
+                      <h4>Send Payment</h4>
+                      <p>Please send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{orderData.cashAppUsername}</strong> via CashApp.</p>
                     </div>
                   </div>
+                )}
+
+                <div className="next-step">
+                  <div className="step-number">{orderData.paymentMethod === PaymentMethod.EXTERNAL ? 2 : 1}</div>
+                  <div className="step-content">
+                    <h4>Wait for Pickup Notification</h4>
+                    <p>We'll notify you when your order is ready for pickup.</p>
+                  </div>
                 </div>
 
                 <div className="next-step">
-                  <div className="step-number">3</div>
+                  <div className="step-number">{orderData.paymentMethod === PaymentMethod.EXTERNAL ? 3 : 2}</div>
                   <div className="step-content">
-                    <h4>Track Your Order</h4>
-                    <p>Once your payment is confirmed, we'll process your order and keep you updated on its status</p>
+                    <h4>Come Pick Up Your Order</h4>
+                    <p>Head to the store at <strong>{orderData.pickupLocation}</strong> to collect your order.</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {orderData.paymentMethod === PaymentMethod.EXTERNAL && (
+                  <div className="next-step">
+                    <div className="step-number">1</div>
+                    <div className="step-content">
+                      <h4>Send Payment</h4>
+                      <p>Please send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{orderData.cashAppUsername}</strong> via CashApp.</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="next-step">
+                  <div className="step-number">{orderData.paymentMethod === PaymentMethod.EXTERNAL ? 2 : 1}</div>
+                  <div className="step-content">
+                    <h4>Check Your Orders Page</h4>
+                    <p>Visit your Orders page for the latest status on your order.</p>
+                  </div>
+                </div>
+
+                <div className="next-step">
+                  <div className="step-number">{orderData.paymentMethod === PaymentMethod.EXTERNAL ? 3 : 2}</div>
+                  <div className="step-content">
+                    <h4>Track Your Delivery</h4>
+                    <p>Once confirmed, we'll prepare your order and arrange delivery to <strong>{orderData.deliveryAddress}</strong>.</p>
                   </div>
                 </div>
               </>
