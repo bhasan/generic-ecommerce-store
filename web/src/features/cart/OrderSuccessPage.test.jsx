@@ -150,12 +150,15 @@ describe('OrderSuccessPage', () => {
   it('shows delivery "What\'s Next" steps for DELIVERY with EXTERNAL payment', () => {
     renderSuccessPage();
     expect(screen.getByText(/send payment/i)).toBeInTheDocument();
+    expect(screen.getByText(/check your orders page/i)).toBeInTheDocument();
     expect(screen.getByText(/track your delivery/i)).toBeInTheDocument();
+    expect(screen.queryByText(/whatsapp/i)).not.toBeInTheDocument();
   });
 
   it('shows delivery "What\'s Next" steps for DELIVERY with CREDIT payment', () => {
     renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.CREDIT });
     expect(screen.queryByText(/send payment/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/check your orders page/i)).toBeInTheDocument();
     expect(screen.getByText(/track your delivery/i)).toBeInTheDocument();
   });
 
