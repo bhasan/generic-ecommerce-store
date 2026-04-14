@@ -285,6 +285,7 @@ function CheckoutPage() {
       };
 
       if (!isExternalPayment) {
+        setOrderCompleted(true);
         navigate('/order-success', { state: orderState });
       } else {
         setPendingOrderState(orderState);
