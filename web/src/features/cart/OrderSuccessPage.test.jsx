@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import OrderSuccessPage from './OrderSuccessPage';
-import { PaymentMethod } from '../../constants/orderMethods';
+import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 
 const useAppMock = vi.fn();
 
@@ -24,6 +24,7 @@ const baseOrderData = {
   subtotal: 20,
   tax: 2,
   total: 22,
+  deliveryMethod: DeliveryMethod.DELIVERY,
   deliveryAddress: '123 Main St',
   cashAppUsername: '$customer',
   paymentMethod: PaymentMethod.EXTERNAL,
@@ -70,7 +71,7 @@ describe('OrderSuccessPage', () => {
 
   it('displays the total correctly', () => {
     renderSuccessPage();
-    expect(screen.getByText('$22.00')).toBeInTheDocument();
+    expect(screen.getAllByText('$22.00').length).toBeGreaterThan(0);
   });
 
   it('shows CashApp payment info for EXTERNAL payment', () => {
@@ -107,6 +108,55 @@ describe('OrderSuccessPage', () => {
   it('does not show special instructions section when empty', () => {
     renderSuccessPage({ ...baseOrderData, specialInstructions: '' });
     expect(screen.queryByText(/special instructions/i)).not.toBeInTheDocument();
+  });
+
+  it('shows "Pickup Location" heading for pickup orders', () => {
+    renderSuccessPage({ ...baseOrderData, deliveryMethod: DeliveryMethod.PICKUP, deliveryAddress: 'Store Pickup' });
+    expect(screen.getByText('Pickup Location')).toBeInTheDocument();
+    expect(screen.queryByText('Delivery Address')).not.toBeInTheDocument();
+  });
+
+  it('shows "Delivery Address" heading for delivery orders', () => {
+    renderSuccessPage();
+    expect(screen.getByText('Delivery Address')).toBeInTheDocument();
+  });
+
+  it('shows pickup "What\'s Next" steps for PICKUP with EXTERNAL payment', () => {
+    renderSuccessPage({
+      ...baseOrderData,
+      deliveryMethod: DeliveryMethod.PICKUP,
+      deliveryAddress: 'Store Pickup',
+      pickupLocation: '101 Example Ave',
+      paymentMethod: PaymentMethod.EXTERNAL,
+    });
+    expect(screen.getByText(/send payment/i)).toBeInTheDocument();
+    expect(screen.getByText(/wait for pickup notification/i)).toBeInTheDocument();
+    expect(screen.getByText(/come pick up your order/i)).toBeInTheDocument();
+  });
+
+  it('shows pickup "What\'s Next" steps for PICKUP with CREDIT payment', () => {
+    renderSuccessPage({
+      ...baseOrderData,
+      deliveryMethod: DeliveryMethod.PICKUP,
+      deliveryAddress: 'Store Pickup',
+      pickupLocation: '101 Example Ave',
+      paymentMethod: PaymentMethod.CREDIT,
+    });
+    expect(screen.queryByText(/send payment/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/wait for pickup notification/i)).toBeInTheDocument();
+    expect(screen.getByText(/come pick up your order/i)).toBeInTheDocument();
+  });
+
+  it('shows delivery "What\'s Next" steps for DELIVERY with EXTERNAL payment', () => {
+    renderSuccessPage();
+    expect(screen.getByText(/send payment/i)).toBeInTheDocument();
+    expect(screen.getByText(/track your delivery/i)).toBeInTheDocument();
+  });
+
+  it('shows delivery "What\'s Next" steps for DELIVERY with CREDIT payment', () => {
+    renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.CREDIT });
+    expect(screen.queryByText(/send payment/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/track your delivery/i)).toBeInTheDocument();
   });
 
   it('calls setCart to clear cart on mount', () => {
