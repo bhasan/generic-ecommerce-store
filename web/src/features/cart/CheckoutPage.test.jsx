@@ -76,6 +76,23 @@ describe('CheckoutPage', () => {
     expect(await screen.findByText('Order success page')).toBeInTheDocument();
   });
 
+  it('does not bounce to cart when checkout empties the cart for credit payment', async () => {
+    let cartItems = [...baseAppState.cart];
+    checkoutMock.mockImplementation(async () => {
+      cartItems = [];
+      return { id: 401, status: 'PLACED' };
+    });
+    useAppMock.mockImplementation(() => ({ ...baseAppState, cart: cartItems }));
+
+    renderCheckout();
+    fireEvent.click(screen.getByLabelText(/store credit/i));
+    fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalled());
+    expect(await screen.findByText('Order success page')).toBeInTheDocument();
+    expect(screen.queryByText('Cart page')).not.toBeInTheDocument();
+  });
+
   it('validates external payments before submitting when cashapp is enabled', async () => {
     useAppMock.mockReturnValue({
       ...baseAppState,
@@ -257,6 +274,23 @@ describe('CheckoutPage', () => {
       // SendPaymentModal should NOT appear — go directly to success page
       expect(screen.queryByText(/payment instructions/i)).not.toBeInTheDocument();
       expect(await screen.findByText('Order success page')).toBeInTheDocument();
+    });
+
+    it('navigates to order-success and does not bounce to cart when checkout empties the cart', async () => {
+      let cartItems = [...baseAppState.cart];
+      checkoutMock.mockImplementation(async () => {
+        cartItems = [];
+        return { id: 401, status: 'PLACED' };
+      });
+      useAppMock.mockImplementation(() => ({ ...baseAppState, cart: cartItems }));
+
+      renderCheckout();
+      fireEvent.click(screen.getByRole('radio', { name: /pay in store/i }));
+      fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+      await waitFor(() => expect(checkoutMock).toHaveBeenCalled());
+      expect(await screen.findByText('Order success page')).toBeInTheDocument();
+      expect(screen.queryByText('Cart page')).not.toBeInTheDocument();
     });
 
     it('skips CashApp validation when IN_STORE is selected', async () => {

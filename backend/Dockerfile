@@ -27,9 +27,6 @@ COPY package*.json ./
 # Install production dependencies only (alpine with wget for health checks)
 RUN apk add --no-cache wget && npm ci --omit=dev
 
-# Install prisma for migrations
-RUN npm install prisma@6.19.0 --save-prod
-
 # Copy Prisma schema from builder (for migrations)
 COPY --from=builder /app/prisma ./prisma
 RUN npx prisma generate
