@@ -259,7 +259,7 @@ describe('notification events service', () => {
     expect(notificationService.updateDeliveryStatus).not.toHaveBeenCalled();
   });
 
-  it('keeps fanout notifications in-app while only delivering ops alerts for configured role emails', async () => {
+  it('keeps fanout notifications in-app while deduping ops alerts that resolve to the same destination inbox', async () => {
     notificationService.createNotifications.mockResolvedValue([
       {
         id: 301,
@@ -332,6 +332,7 @@ describe('notification events service', () => {
     expect(notificationDeliveryService.deliver).toHaveBeenCalledWith([
       expect.objectContaining({
         notificationId: 301,
+        notificationIds: [301, 302, 303],
         metadata: expect.objectContaining({
           recipientRole: 'ADMIN',
           destinationEmail: 'admin@example.com',
@@ -339,6 +340,6 @@ describe('notification events service', () => {
       }),
     ], 'ORDERS');
 
-    expect(notificationService.updateDeliveryStatus).toHaveBeenCalledWith([302, 303], 'DISABLED');
+    expect(notificationService.updateDeliveryStatus).not.toHaveBeenCalled();
   });
 });
