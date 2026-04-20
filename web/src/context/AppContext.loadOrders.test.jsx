@@ -15,7 +15,13 @@ vi.mock('../services/authApi', () => ({
 }));
 vi.mock('../services/productsApi', () => ({ getAllProducts: vi.fn().mockResolvedValue([]) }));
 vi.mock('../services/categoriesApi', () => ({ getAllCategories: vi.fn().mockResolvedValue([]) }));
-vi.mock('../services/notificationsApi', () => ({ getNotificationCount: vi.fn().mockResolvedValue(0) }));
+vi.mock('../services/notificationsApi', () => ({
+  getNotifications: vi.fn().mockResolvedValue([]),
+  getUnreadNotificationCount: vi.fn().mockResolvedValue({ count: 0 }),
+  getStaffNotificationCounts: vi.fn().mockResolvedValue({ ordersByStatus: {}, pendingRegistrations: 0 }),
+  markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
+}));
 vi.mock('../services/configApi', () => ({ getConfig: vi.fn().mockResolvedValue({}) }));
 // AppContext calls getUserCredit(userId), not getMyCredit
 vi.mock('../services/creditApi', () => ({ getUserCredit: vi.fn().mockResolvedValue({ balance: 0 }) }));

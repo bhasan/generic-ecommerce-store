@@ -328,7 +328,7 @@ describe('DashboardPage orchestration', () => {
     await waitFor(() => expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(1));
     expect(intervalSpy).toHaveBeenCalled();
 
-    const refreshCall = intervalSpy.mock.calls.find(([, delay]) => delay === 50000);
+    const refreshCall = intervalSpy.mock.calls.find(([, delay]) => delay === 60000);
     expect(refreshCall).toBeTruthy();
 
     const refreshFn = refreshCall?.[0];

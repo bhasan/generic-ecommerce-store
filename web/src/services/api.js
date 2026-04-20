@@ -113,7 +113,7 @@ const handleError = async (response, requestOptions = {}) => {
  */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const isRetryableStatus = (status) => status === 429 || (status >= 500 && status <= 599);
+const isRetryableStatus = (status) => status >= 500 && status <= 599;
 
 const apiClient = async (url, options = {}) => {
   const token = getAuthToken();
@@ -176,6 +176,7 @@ const apiClient = async (url, options = {}) => {
 
       const isAbortError = error?.name === 'AbortError';
       const isNetworkError = error?.name === 'TypeError' && `${error?.message}`.includes('fetch');
+      const isRateLimited = error?.status === 429;
       const retryableStatus = error?.status && isRetryableStatus(error.status);
       const shouldRetry = attempt < maxRetries && (isAbortError || isNetworkError || retryableStatus);
       debugClient('request:error', {
@@ -183,6 +184,7 @@ const apiClient = async (url, options = {}) => {
         method: config.method || 'GET',
         attempt: attempt + 1,
         shouldRetry,
+        isRateLimited,
         requestId: error?.requestId,
         code: error?.code,
         status: error?.status,
@@ -190,6 +192,15 @@ const apiClient = async (url, options = {}) => {
       });
 
       if (!shouldRetry) {
+        if (isRateLimited) {
+          debugClient('request:rate-limited', {
+            url,
+            method: config.method || 'GET',
+            requestId: error?.requestId,
+            status: error?.status,
+            message: error?.message,
+          });
+        }
         if (retryableStatus || isNetworkError || isAbortError) {
           const message = retryableStatus
             ? 'Our servers are having trouble right now. Please try again shortly.'

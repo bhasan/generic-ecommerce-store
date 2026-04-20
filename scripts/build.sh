@@ -11,18 +11,22 @@ mkdir -p "$DOCKER_DIR"
 
 # --- Web pre-build (Vite) ---
 echo ""
-echo "==> [1/5] Building web (npm run build)..."
+echo "==> [1/6] Installing web dependencies (npm ci)..."
 cd "$PROJECT_ROOT/web"
+npm ci
+
+echo ""
+echo "==> [2/6] Building web (npm run build)..."
 npm run build
 cd "$PROJECT_ROOT"
 
 # --- Docker image builds ---
 echo ""
-echo "==> [2/5] Building backend Docker image..."
+echo "==> [3/6] Building backend Docker image..."
 docker build -t smoke-station-delivery/backend:latest -f backend/Dockerfile ./backend
 
 echo ""
-echo "==> [3/5] Building web Docker image..."
+echo "==> [4/6] Building web Docker image..."
 docker build -t smoke-station-delivery/web:latest -f nginx/Dockerfile .
 
 # --- Save images ---
@@ -30,10 +34,10 @@ BACKEND_TAR="$DOCKER_DIR/backend.tar"
 WEB_TAR="$DOCKER_DIR/web.tar"
 
 echo ""
-echo "==> [4/5] Saving backend image to $BACKEND_TAR..."
+echo "==> [5/6] Saving backend image to $BACKEND_TAR..."
 docker save smoke-station-delivery/backend:latest -o "$BACKEND_TAR"
 
-echo "==> [5/5] Saving web image to $WEB_TAR..."
+echo "==> [6/6] Saving web image to $WEB_TAR..."
 docker save smoke-station-delivery/web:latest -o "$WEB_TAR"
 
 # --- Summary ---

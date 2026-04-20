@@ -91,6 +91,14 @@ describe('OrdersPage integration', () => {
     await waitFor(() => expect(baseAppState.loadOrders).toHaveBeenCalled());
   });
 
+  it('does not create an extra OrdersPage polling interval', () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+    renderOrdersPage();
+    const orderPollingIntervals = setIntervalSpy.mock.calls.filter(([, delay]) => delay === 60000);
+    expect(orderPollingIntervals).toHaveLength(0);
+    setIntervalSpy.mockRestore();
+  });
+
   it('updates selected status filters and hides unchecked columns', () => {
     renderOrdersPage();
 

@@ -282,3 +282,33 @@
   color: var(--text-tertiary);
   text-align: center;
 }
+
+@media (max-width: 768px) {
+  .navbar-right-auth .notification-button {
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-primary-dark);
+    border-radius: var(--radius-md);
+    background: var(--bg-hover);
+    color: var(--text-secondary);
+    transition: var(--transition-all);
+    flex-shrink: 0;
+  }
+
+  .navbar-right-auth .notification-button:hover {
+    background: var(--bg-active);
+    border-color: var(--color-primary);
+    color: var(--color-primary-light);
+  }
+
+  .navbar-right-auth .notification-badge {
+    top: -6px;
+    right: -6px;
+  }
+}

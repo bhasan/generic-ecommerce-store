@@ -45,4 +45,33 @@ describe('api service', () => {
       code: 'NETWORK_ERROR',
     });
   });
+
+  it('does not retry HTTP 429 responses', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 429,
+      statusText: 'Too Many Requests',
+      url: 'http://localhost/api/test',
+      headers: {
+        get: () => 'application/json',
+      },
+      json: async () => ({
+        error: {
+          message: 'Too many requests, please slow down.',
+          code: 'RATE_LIMITED',
+          requestId: 'req-429',
+        },
+      }),
+    });
+
+    const { get } = await import('./api.js');
+
+    await expect(get('/test', { retries: 2 })).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+      requestId: 'req-429',
+      message: 'Too many requests, please slow down.',
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
 });

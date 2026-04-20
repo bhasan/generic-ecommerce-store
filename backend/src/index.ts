@@ -2,9 +2,9 @@ import express, { Application } from 'express';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import prisma from './config/database';
+import { logger } from './utils/logger';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -21,16 +21,22 @@ import storeSettingsRoutes from './routes/storeSettings.routes';
 import orderingConstraintsRoutes from './routes/orderingConstraints.routes';
 import landingPageSettingsRoutes from './routes/landingPageSettings.routes';
 import creditRoutes from './routes/credit.routes';
+import { DEFAULT_TAX_RATE } from './constants/settings';
+import { PaymentSettingsService } from './services/paymentSettings.service';
+import { StoreSettingsService } from './services/storeSettings.service';
+import { OrderingConstraintsService } from './services/orderingConstraints.service';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
+import { authLimiter, generalLimiter, readWriteLimiter } from './middleware/rateLimit.middleware';
 
 // Load environment variables
 dotenv.config();
 
 const app: Application = express();
-app.set('trust proxy', 1); // Trust Nginx reverse proxy so rate limiter uses real client IPs
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS || '1', 10);
+app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : 1);
 const PORT = process.env.PORT || 3000;
 const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10);
 
@@ -55,31 +61,6 @@ app.use(cors({
   origin: corsOrigin || '*',
   credentials: true,
 }));
-
-// Rate limiting for authentication routes
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.AUTH_RATE_LIMIT_MAX || '20', 10), // Limit each IP to 20 requests per windowMs (configurable via env)
-  message: 'Too many authentication attempts, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (_req) => {
-    // Skip rate limiting in development mode
-    return process.env.NODE_ENV === 'development';
-  },
-});
-
-// General rate limiter
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (_req) => {
-    // Skip rate limiting in development mode
-    return process.env.NODE_ENV === 'development';
-  },
-});
 
 // ========================================
 // BODY PARSING MIDDLEWARE
@@ -152,11 +133,6 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-import { DEFAULT_TAX_RATE } from './constants/settings';
-import { PaymentSettingsService } from './services/paymentSettings.service';
-import { StoreSettingsService } from './services/storeSettings.service';
-import { OrderingConstraintsService } from './services/orderingConstraints.service';
-
 const paymentSettingsService = new PaymentSettingsService();
 const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
@@ -193,11 +169,11 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/upload', generalLimiter, uploadRoutes);
 app.use('/api/products', generalLimiter, productRoutes);
 app.use('/api/categories', generalLimiter, categoryRoutes);
-app.use('/api/orders', generalLimiter, orderRoutes);
+app.use('/api/orders', readWriteLimiter, orderRoutes);
 app.use('/api/users', generalLimiter, userRoutes);
 app.use('/api/announcements', generalLimiter, announcementRoutes);
-app.use('/api/contact', generalLimiter, contactRoutes);
-app.use('/api/notifications', generalLimiter, notificationRoutes);
+app.use('/api/contact', readWriteLimiter, contactRoutes);
+app.use('/api/notifications', readWriteLimiter, notificationRoutes);
 app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
@@ -235,14 +211,15 @@ validateProductionEnv();
 
 // Starts the Express app with the configured port, which defaults to 3000 when PORT is unset.
 app.listen(PORT, () => {
+  logger.info('Proxy trust configured', {
+    trustProxyHops: app.get('trust proxy'),
+  });
   console.log('========================================');
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
   console.log('========================================');
 });
-
-import { logger } from './utils/logger';
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
