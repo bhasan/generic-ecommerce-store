@@ -21,6 +21,7 @@ import storeSettingsRoutes from './routes/storeSettings.routes';
 import orderingConstraintsRoutes from './routes/orderingConstraints.routes';
 import landingPageSettingsRoutes from './routes/landingPageSettings.routes';
 import creditRoutes from './routes/credit.routes';
+import printJobRoutes from './routes/printJob.routes';
 import { DEFAULT_TAX_RATE } from './constants/settings';
 import { PaymentSettingsService } from './services/paymentSettings.service';
 import { StoreSettingsService } from './services/storeSettings.service';
@@ -179,6 +180,7 @@ app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
 app.use('/api/landing-page-settings', generalLimiter, landingPageSettingsRoutes);
 app.use('/api/credits', generalLimiter, creditRoutes);
+app.use('/api/print-jobs', readWriteLimiter, printJobRoutes);
 
 // ========================================
 // ERROR HANDLING
