@@ -95,11 +95,19 @@ const handleError = async (response, requestOptions = {}) => {
     error.requestId = errorData?.error?.requestId;
     error.responseUrl = response.url;
 
-    // Handle 401 Unauthorized - clear token and notify app to redirect
+    // Handle 401 Unauthorized - only expire the current session when the
+    // response still matches the active token. Late 401s from an older session
+    // must not clear a newer login in the same tab.
     // skipAutoLogout allows callers to handle auth errors themselves (e.g. password change form)
     if (response.status === 401 && !requestOptions.skipAutoLogout) {
-      clearAuthToken();
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      const currentToken = getAuthToken();
+      const requestToken = requestOptions.authToken ?? null;
+      const belongsToActiveSession = Boolean(requestToken) && currentToken === requestToken;
+
+      if (belongsToActiveSession) {
+        clearAuthToken();
+        window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      }
     }
 
     throw error;
@@ -161,7 +169,10 @@ const apiClient = async (url, options = {}) => {
         requestId: response.headers.get('x-request-id') || undefined,
       });
 
-      const processedResponse = await handleError(response, { skipAutoLogout });
+      const processedResponse = await handleError(response, {
+        skipAutoLogout,
+        authToken: token,
+      });
       
       // Handle empty responses
       const contentType = processedResponse.headers.get('content-type');
