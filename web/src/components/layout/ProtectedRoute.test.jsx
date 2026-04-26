@@ -20,6 +20,7 @@ describe('ProtectedRoute', () => {
     const { useApp } = await import('../../context/AppContext');
     useApp.mockReturnValue({
       currentUser: GUEST_USER,
+      isLoading: false,
       setReturnPath: vi.fn(),
     });
     const { default: ProtectedRoute } = await import('./ProtectedRoute');
@@ -34,6 +35,7 @@ describe('ProtectedRoute', () => {
     const setReturnPath = vi.fn();
     useApp.mockReturnValue({
       currentUser: GUEST_USER,
+      isLoading: false,
       setReturnPath,
     });
     const { default: ProtectedRoute } = await import('./ProtectedRoute');
@@ -47,6 +49,7 @@ describe('ProtectedRoute', () => {
     const { useApp } = await import('../../context/AppContext');
     useApp.mockReturnValue({
       currentUser: { id: 4, username: 'admin-one', role: 'ADMIN' },
+      isLoading: false,
       setReturnPath: vi.fn(),
     });
     const { default: ProtectedRoute } = await import('./ProtectedRoute');
@@ -54,5 +57,22 @@ describe('ProtectedRoute', () => {
     render(<ProtectedRoute roles={['ADMIN']}><div>Secret</div></ProtectedRoute>);
 
     expect(screen.getByText('Secret')).toBeInTheDocument();
+  });
+
+  it('waits for auth bootstrap before redirecting guests', async () => {
+    const { useApp } = await import('../../context/AppContext');
+    const setReturnPath = vi.fn();
+    useApp.mockReturnValue({
+      currentUser: GUEST_USER,
+      isLoading: true,
+      setReturnPath,
+    });
+    const { default: ProtectedRoute } = await import('./ProtectedRoute');
+
+    const { container } = render(<ProtectedRoute roles={['ADMIN']}><div>Secret</div></ProtectedRoute>);
+
+    expect(screen.queryByTestId('navigate')).not.toBeInTheDocument();
+    expect(setReturnPath).not.toHaveBeenCalled();
+    expect(container).toBeEmptyDOMElement();
   });
 });
