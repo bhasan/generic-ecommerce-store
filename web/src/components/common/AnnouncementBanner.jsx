@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import './AnnouncementBanner.css';
 import { X, Megaphone } from 'lucide-react';
 import * as announcementsApi from '../../services/announcementsApi';
@@ -7,6 +8,7 @@ import { isGuest } from '../../utils/roles';
 
 function AnnouncementBanner() {
   const { currentUser } = useApp();
+  const location = useLocation();
   const [isVisible, setIsVisible] = useState(true);
   const [announcement, setAnnouncement] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,10 +37,21 @@ function AnnouncementBanner() {
   }, []);
 
   useEffect(() => {
+    // Only load announcements for authenticated users
+    if (isLoading || !currentUser || isGuest(currentUser)) {
+      return;
+    }
     loadAnnouncements();
-  }, [loadAnnouncements]);
+  }, [loadAnnouncements, currentUser, isLoading]);
 
-  if (isGuest(currentUser) || isLoading || !isVisible || !announcement || !announcement.message) return null;
+  if (
+    isLoading || 
+    !currentUser || 
+    isGuest(currentUser) || 
+    !isVisible || 
+    !announcement || 
+    !announcement.message
+  ) return null;
 
   // Map backend type (INFO, WARNING, SUCCESS) to CSS class (info, warning, success)
   const typeClass = announcement.type ? announcement.type.toLowerCase() : 'info';

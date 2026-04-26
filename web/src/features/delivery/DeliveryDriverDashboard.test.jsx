@@ -12,6 +12,7 @@ const ordersApi = vi.hoisted(() => ({
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../services/ordersApi', () => ordersApi);

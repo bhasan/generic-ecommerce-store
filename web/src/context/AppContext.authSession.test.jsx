@@ -87,13 +87,14 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
+import { MemoryRouter } from 'react-router-dom';
+import { AppProvider, useApp } from './AppContext';
+
 describe('AppContext auth session recovery', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
-    vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 0);
-    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
     apiModule.getAuthToken.mockReturnValue('token-123');
     authApi.getProfile.mockResolvedValue(users.customer);
     authApi.login.mockResolvedValue({ user: users.customer });
@@ -114,8 +115,13 @@ describe('AppContext auth session recovery', () => {
   });
 
   it('recovers in the same tab after a forced logout when the user signs back in again', async () => {
-    const { AppProvider, useApp } = await import('./AppContext');
-    const wrapper = ({ children }) => <AppProvider>{children}</AppProvider>;
+    const wrapper = ({ children }) => (
+      <MemoryRouter initialEntries={['/orders']}>
+        <AppProvider>
+          {children}
+        </AppProvider>
+      </MemoryRouter>
+    );
     const { result } = renderHook(() => useApp(), { wrapper });
 
     await waitFor(() => {

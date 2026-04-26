@@ -13,6 +13,7 @@ window.scrollTo = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../components/common/HeaderDivider', () => ({

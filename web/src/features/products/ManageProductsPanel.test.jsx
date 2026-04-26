@@ -11,6 +11,7 @@ const uploadFilesMock = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../services/uploadApi', () => ({
