@@ -1,40 +1,47 @@
 import React, { useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest, getUserRoles } from '../../utils/roles';
 
 function ProtectedRoute({ children, roles }) {
   const { currentUser, setReturnPath, isLoading } = useApp();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const isGuest = checkIsGuest(currentUser);
 
   useEffect(() => {
-    if (!isLoading && isGuest) {
-      setReturnPath(location.pathname);
+    if (!isLoading) {
+      if (isGuest || !currentUser) {
+        setReturnPath(location.pathname);
+        navigate('/login', { replace: true });
+      } else if (roles) {
+        const userRoles = getUserRoles(currentUser);
+        const hasRequiredRole = roles.some(role => userRoles.includes(role));
+        if (!hasRequiredRole) {
+          navigate('/products', { replace: true });
+        }
+      }
     }
-  }, [isLoading, isGuest, location.pathname, setReturnPath]);
+  }, [isLoading, isGuest, currentUser, roles, navigate, setReturnPath, location.pathname]);
 
   if (isLoading) {
+    return (
+      <div className="loading-indicator-placeholder" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+        Loading...
+      </div>
+    );
+  }
+
+  if (isGuest || !currentUser) {
     return null;
   }
 
-  if (isGuest) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
-  }
-
   if (roles) {
-    // Use the shared helper so ProtectedRoute stays compatible with both the
-    // legacy role field and the newer roles array/user-role normalization path.
     const userRoles = getUserRoles(currentUser);
     const hasRequiredRole = roles.some(role => userRoles.includes(role));
-
     if (!hasRequiredRole) {
-      return <Navigate to="/products" replace />;
+      return null;
     }
   }
 

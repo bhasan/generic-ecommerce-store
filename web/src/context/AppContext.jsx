@@ -121,8 +121,12 @@ export function AppProvider({ children }) {
   }, [cart]);
 
   // Check authentication on mount
+  const authCheckedRef = useRef(false);
   useEffect(() => {
     // Revalidates the saved token on mount and keeps credit state defaulted to 0 if credit lookup fails.
+    if (authCheckedRef.current) return;
+    authCheckedRef.current = true;
+
     const checkAuth = async () => {
       const token = getAuthToken();
       if (token) {
@@ -259,10 +263,6 @@ export function AppProvider({ children }) {
   // Refreshes notification state and optionally re-loads full inbox payloads.
   const refreshNotifications = useCallback(async ({ includeList = true } = {}) => {
     if (!isAuthenticated) {
-      setInboxNotifications([]);
-      setUnreadNotificationCount(0);
-      hasLoadedNotificationsRef.current = false;
-      knownAttentionNotificationIdsRef.current = new Set();
       return { notifications: [], unreadCount: 0 };
     }
 
@@ -270,7 +270,7 @@ export function AppProvider({ children }) {
 
     if (!includeList) {
       return {
-        notifications: inboxNotifications,
+        notifications: [], // We don't need to return the list if includeList is false
         unreadCount: unread.count ?? 0,
       };
     }
@@ -307,7 +307,6 @@ export function AppProvider({ children }) {
     return { notifications, unreadCount: unread.count ?? 0 };
   }, [
     currentUser,
-    inboxNotifications,
     isAuthenticated,
     loadNotifications,
     loadUnreadNotificationCount,
@@ -336,7 +335,15 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     void loadStaffNotificationCounts();
-    if (!isAuthenticated) return;
+    if (!isAuthenticated) {
+      // Clear staff/notification state when logging out
+      setStaffNotificationCounts(null);
+      setInboxNotifications([]);
+      setUnreadNotificationCount(0);
+      hasLoadedNotificationsRef.current = false;
+      knownAttentionNotificationIdsRef.current = new Set();
+      return;
+    }
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
     // Staff polling keeps dashboard badges fresh without forcing a full route reload.
