@@ -6,6 +6,8 @@ import { toNotificationMessage } from '../../utils/notificationMessage';
 import { isGuest, ROLES } from '../../utils/roles';
 import { LogIn, User, Lock } from 'lucide-react';
 
+import SpaceTravelerGraphic from './SpaceTravelerGraphic';
+
 function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading, currentUser } = useApp();
   const navigate = useNavigate();
@@ -14,14 +16,8 @@ function LoginPage() {
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
-  // Tracks whether the user just submitted the login form. AppContext.login()
-  // already calls navigate() in that path, so the effect below must not fire
-  // a second time or it causes a double-navigate to the same route.
   const justLoggedInRef = useRef(false);
 
-  // Redirect authenticated users who visit /login while already logged in
-  // (e.g. via the browser back button). Skipped for fresh logins because
-  // AppContext.login() already handles post-login navigation.
   useEffect(() => {
     if (!authLoading && isAuthenticated && !isGuest(currentUser) && !justLoggedInRef.current) {
       const primaryRole = currentUser.roles?.[0] || currentUser.role || ROLES.CUSTOMER;
@@ -65,80 +61,96 @@ function LoginPage() {
   };
   
   return (
-    <div className="login-page-container">
-      <div className="login-card">
-        <div className="login-header">
-          <div className="login-logo">
-            <LogIn size={48} />
-          </div>
-          <h1 className="login-title">Welcome</h1>
-          <p className="login-subtitle">Sign in to your account to continue</p>
+    <div className="login-page-wrapper">
+      {/* Hero Section */}
+      <section className="login-landing-hero">
+        <h1 className="login-landing-headline animate-in" style={{ '--index': 1 }}>
+          Welcome, Login or Register to enter
+        </h1>
+      </section>
+
+      {/* Content Grid */}
+      <div className="login-content-grid">
+        {/* Left Side: Graphic */}
+        <div className="animate-in" style={{ '--index': 2 }}>
+          <SpaceTravelerGraphic />
         </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username" className="form-label">
-              <User size={16} />
-              <span>Username</span>
-            </label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }));
-              }}
-              className={`form-input ${fieldErrors.username ? 'form-input-error' : ''}`}
-              placeholder="Enter your Username"
-              required
-              aria-invalid={!!fieldErrors.username}
-              aria-describedby={fieldErrors.username ? 'username-error' : undefined}
-            />
-            {fieldErrors.username && (
-              <span id="username-error" className="form-error-message" role="alert">{fieldErrors.username}</span>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">
-              <Lock size={16} />
-              <span>Password</span>
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
-              }}
-              className={`form-input ${fieldErrors.password ? 'form-input-error' : ''}`}
-              placeholder="Enter your password"
-              required
-              aria-invalid={!!fieldErrors.password}
-              aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-            />
-            {fieldErrors.password && (
-              <span id="password-error" className="form-error-message" role="alert">{fieldErrors.password}</span>
-            )}
-          </div>
-
-          {error && (
-            <div className="login-error">
-              {error}
+        {/* Right Side: Login Card */}
+        <div className="animate-in" style={{ '--index': 3 }}>
+          <div className="login-card">
+            <div className="login-header">
+              <div className="login-logo">
+                <LogIn size={32} />
+              </div>
+              <h2 className="login-title">Sign In</h2>
+              <p className="login-subtitle">Access your account and start ordering</p>
             </div>
-          )}
 
-          <button type="submit" className="btn-login" disabled={isLoading}>
-            <LogIn size={18} />
-            <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
-          </button>
-        </form>
+            <form onSubmit={handleSubmit} className="login-form">
+              <div className="form-group">
+                <label htmlFor="username" className="form-label">
+                  <User size={16} />
+                  <span>Username</span>
+                </label>
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }));
+                  }}
+                  className={`form-input ${fieldErrors.username ? 'form-input-error' : ''}`}
+                  placeholder="Username"
+                  required
+                  aria-invalid={!!fieldErrors.username}
+                />
+                {fieldErrors.username && (
+                  <span className="form-error-message" role="alert">{fieldErrors.username}</span>
+                )}
+              </div>
 
-        <div className="login-footer">
-          <p>Don't have an account?</p>
-          <Link to="/register" className="btn-signup">Create an Account</Link>
+              <div className="form-group">
+                <label htmlFor="password" className="form-label">
+                  <Lock size={16} />
+                  <span>Password</span>
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
+                  }}
+                  className={`form-input ${fieldErrors.password ? 'form-input-error' : ''}`}
+                  placeholder="Password"
+                  required
+                  aria-invalid={!!fieldErrors.password}
+                />
+                {fieldErrors.password && (
+                  <span className="form-error-message" role="alert">{fieldErrors.password}</span>
+                )}
+              </div>
+
+              {error && (
+                <div className="login-error">
+                  {error}
+                </div>
+              )}
+
+              <button type="submit" className="btn-login" disabled={isLoading}>
+                <LogIn size={18} />
+                <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
+              </button>
+            </form>
+
+            <div className="login-footer">
+              <p>Don't have an account yet?</p>
+              <Link to="/register" className="btn-signup">Create an Account</Link>
+            </div>
+          </div>
         </div>
       </div>
     </div>
