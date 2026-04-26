@@ -1,7 +1,10 @@
 import React from 'react';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useLocation } from 'react-router-dom';
+import { AppProvider, useApp } from './AppContext';
 import { sampleCategories, sampleConfig, sampleOrders, sampleProducts, users } from '../test/appFixtures';
+import { renderWithProviders } from '../test/renderWithProviders';
 
 const authApi = vi.hoisted(() => ({
   getProfile: vi.fn(),
@@ -60,8 +63,6 @@ const apiModule = vi.hoisted(() => ({
   getAuthToken: vi.fn(),
 }));
 
-const navigateSpy = vi.hoisted(() => vi.fn());
-
 vi.mock('../services/authApi', () => authApi);
 vi.mock('../services/usersApi', () => usersApi);
 vi.mock('../services/productsApi', () => productsApi);
@@ -78,14 +79,26 @@ vi.mock('../services/api', async () => {
   };
 });
 
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => navigateSpy,
-    useLocation: () => ({ pathname: '/orders' }),
-  };
-});
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{location.pathname}</div>;
+}
+
+function AuthHarness() {
+  const { isLoading, isAuthenticated, currentUser, notification, login } = useApp();
+
+  return (
+    <div>
+      <div data-testid="loading">{String(isLoading)}</div>
+      <div data-testid="authenticated">{String(isAuthenticated)}</div>
+      <div data-testid="username">{currentUser?.username || 'guest'}</div>
+      <div data-testid="notification">{notification?.message || ''}</div>
+      <button type="button" onClick={() => login('customer-one', 'password123')}>
+        Trigger Login
+      </button>
+    </div>
+  );
+}
 
 describe('AppContext auth session recovery', () => {
   beforeEach(() => {
@@ -114,13 +127,17 @@ describe('AppContext auth session recovery', () => {
   });
 
   it('recovers in the same tab after a forced logout when the user signs back in again', async () => {
-    const { AppProvider, useApp } = await import('./AppContext');
-    const wrapper = ({ children }) => <AppProvider>{children}</AppProvider>;
-    const { result } = renderHook(() => useApp(), { wrapper });
+    renderWithProviders(
+      <AppProvider>
+        <LocationProbe />
+        <AuthHarness />
+      </AppProvider>,
+      { route: '/orders' }
+    );
 
     await waitFor(() => {
-      expect(result.current.isLoading).toBe(false);
-      expect(result.current.isAuthenticated).toBe(true);
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
     });
 
     await act(async () => {
@@ -128,20 +145,20 @@ describe('AppContext auth session recovery', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(false);
-      expect(result.current.notification?.message).toBe('Your session has expired. Please log in again.');
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+      expect(screen.getByTestId('notification')).toHaveTextContent('Your session has expired. Please log in again.');
     });
-    expect(navigateSpy).toHaveBeenCalledWith('/login');
+    expect(screen.getByTestId('location')).toHaveTextContent('/login');
 
     await act(async () => {
-      await result.current.login('customer-one', 'password123');
+      fireEvent.click(screen.getByText('Trigger Login'));
     });
 
     await waitFor(() => {
-      expect(result.current.isAuthenticated).toBe(true);
-      expect(result.current.currentUser?.username).toBe('customer-one');
-      expect(result.current.notification?.message).toBe('Login successful!');
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+      expect(screen.getByTestId('username')).toHaveTextContent('customer-one');
+      expect(screen.getByTestId('notification')).toHaveTextContent('Login successful!');
     });
-    expect(navigateSpy).toHaveBeenCalledWith('/products');
+    expect(screen.getByTestId('location')).toHaveTextContent('/products');
   });
 });
