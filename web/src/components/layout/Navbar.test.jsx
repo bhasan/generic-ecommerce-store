@@ -32,6 +32,7 @@ let appState;
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => appState,
+  AppProvider: ({ children }) => children,
 }));
 
 describe('Navbar', () => {

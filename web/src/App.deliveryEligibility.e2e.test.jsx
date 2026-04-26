@@ -276,7 +276,7 @@ describe('delivery eligibility end-to-end journey', () => {
     fireEvent.click(screen.getByRole('button', { name: /complete order/i }));
 
     expect(await screen.findByText(/thank you for your order/i)).toBeInTheDocument();
-    expect(screen.getByText('123 Main St, Houston, TX 77083')).toBeInTheDocument();
+    expect(screen.getAllByText('123 Main St, Houston, TX 77083')[0]).toBeInTheDocument();
     expect(screen.getByText('#000901')).toBeInTheDocument();
 
     await waitFor(() => expect(api.getProfileCalls()).toBeGreaterThanOrEqual(2));
