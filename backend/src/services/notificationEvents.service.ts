@@ -23,6 +23,35 @@ interface EmitNotificationInput extends NotificationInput {
   sendToMake?: boolean;
 }
 
+interface DeliveryPayload {
+  eventType: NotificationType;
+  category: NotificationCategory;
+  channelIntent: ChannelIntent;
+  notificationId: number;
+  notificationIds?: number[];
+  occurredAt: string;
+  recipient: {
+    userId: number;
+  };
+  targetRoles: RoleName[] | null;
+  actor: {
+    userId: number | null;
+    username: string | null;
+  };
+  entity: {
+    type: NotificationEntityType | null;
+    id: number | null;
+  };
+  message: {
+    title: string;
+    body: string;
+  };
+  status: string | null;
+  path: string | null;
+  requiresAttention: boolean;
+  metadata: Record<string, unknown> | null;
+}
+
 const getMetadataString = (metadata: unknown, key: string) => {
   if (!metadata || typeof metadata !== 'object' || !(key in metadata)) {
     return null;
@@ -81,9 +110,10 @@ const resolveOpsDestinationEmail = (
 ) => {
   if (!recipientRole) return null;
 
-  if (recipientRole === ROLES.ADMIN) return notificationEmails.adminEmail || null;
-  if (recipientRole === ROLES.MANAGEMENT) return notificationEmails.managementEmail || null;
-  if (recipientRole === ROLES.EMPLOYEE) return notificationEmails.employeeEmail || null;
+  const adminFallback = notificationEmails.adminEmail || null;
+  if (recipientRole === ROLES.ADMIN) return adminFallback;
+  if (recipientRole === ROLES.MANAGEMENT) return notificationEmails.managementEmail || adminFallback;
+  if (recipientRole === ROLES.EMPLOYEE) return notificationEmails.employeeEmail || adminFallback;
   return null;
 };
 
@@ -101,7 +131,7 @@ export class NotificationEventsService {
       return notifications;
     }
 
-    const deliveryPayloads = notifications.map((notification) => ({
+    const deliveryPayloads: DeliveryPayload[] = notifications.map((notification) => ({
         eventType: notification.type,
         category: notification.category,
         channelIntent: input.channelIntent ?? 'in_app_sync',
@@ -177,8 +207,43 @@ export class NotificationEventsService {
       );
     }
 
-    if (deliverablePayloads.length > 0) {
-      await notificationDeliveryService.deliver(deliverablePayloads, input.category);
+    const dedupedDeliverablePayloads: DeliveryPayload[] = [];
+    const opsAlertByDestination = new Map<string, number>();
+
+    for (const payload of deliverablePayloads) {
+      if (payload.channelIntent !== 'ops_alert') {
+        dedupedDeliverablePayloads.push(payload);
+        continue;
+      }
+
+      const destinationEmail = resolveOpsDestination(payload.metadata ?? null);
+      if (!destinationEmail) {
+        dedupedDeliverablePayloads.push(payload);
+        continue;
+      }
+
+      const key = destinationEmail.toLowerCase();
+      const existingIndex = opsAlertByDestination.get(key);
+      if (existingIndex === undefined) {
+        dedupedDeliverablePayloads.push({
+          ...payload,
+          notificationIds: [payload.notificationId],
+        });
+        opsAlertByDestination.set(key, dedupedDeliverablePayloads.length - 1);
+        continue;
+      }
+
+      const existingPayload = dedupedDeliverablePayloads[existingIndex];
+      existingPayload.notificationIds = [...new Set([
+        ...(existingPayload.notificationIds?.length
+          ? existingPayload.notificationIds
+          : [existingPayload.notificationId]),
+        payload.notificationId,
+      ])];
+    }
+
+    if (dedupedDeliverablePayloads.length > 0) {
+      await notificationDeliveryService.deliver(dedupedDeliverablePayloads, input.category);
     }
 
     return notifications;

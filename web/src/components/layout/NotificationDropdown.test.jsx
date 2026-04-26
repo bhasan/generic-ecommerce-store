@@ -108,12 +108,44 @@ describe('NotificationDropdown', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Notifications' }));
-    
+
     expect(screen.getByText('Action Required')).toBeInTheDocument();
     expect(screen.getByText('Order Ready for Pickup!')).toBeInTheDocument();
     expect(screen.getByText(/You have 2 orders waiting for you at the store/i)).toBeInTheDocument();
-    
+
     fireEvent.click(screen.getByText('Order Ready for Pickup!'));
     expect(navigate).toHaveBeenCalledWith('/orders');
+  });
+
+  it('calls onOpen only when the dropdown transitions to open', () => {
+    const onOpen = vi.fn();
+
+    render(
+      <NotificationDropdown
+        counts={{ ordersByStatus: {}, pendingRegistrations: 0 }}
+        canAccessDashboard={false}
+        notifications={[]}
+        unreadCount={0}
+        onMarkRead={vi.fn()}
+        onMarkAllRead={vi.fn()}
+        onOpen={onOpen}
+        notificationsMuted={false}
+        onToggleMuted={vi.fn()}
+        canManageOrders={false}
+        orders={[]}
+      />
+    );
+
+    const button = screen.getByLabelText('Notifications');
+    expect(onOpen).not.toHaveBeenCalled();
+
+    fireEvent.click(button);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(button);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(button);
+    expect(onOpen).toHaveBeenCalledTimes(2);
   });
 });

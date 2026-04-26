@@ -1,9 +1,10 @@
 import React from 'react';
 import { fireEvent, screen } from '@testing-library/react';
-import { describe, beforeEach, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import Navbar from './Navbar';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { users } from '../../test/appFixtures';
+import { getNewMessageCount } from '../../services/contactMessagesApi';
 
 vi.mock('../../services/contactMessagesApi', () => ({
   getNewMessageCount: vi.fn().mockResolvedValue({ count: 0 }),
@@ -34,7 +35,28 @@ vi.mock('../../context/AppContext', () => ({
 }));
 
 describe('Navbar', () => {
-  describe('mobile menu — hamburger button', () => {
+  it('does not poll contact message count from navbar anymore', () => {
+    appState = makeAppState(users.management);
+    renderWithProviders(<Navbar />, { route: '/orders' });
+
+    expect(getNewMessageCount).not.toHaveBeenCalled();
+  });
+
+  describe('mobile menu - hamburger button', () => {
+    it('does not render the hamburger button on /login for guests', () => {
+      appState = makeAppState(users.guest);
+      renderWithProviders(<Navbar />, { route: '/login' });
+
+      expect(screen.queryByLabelText('Toggle menu')).not.toBeInTheDocument();
+    });
+
+    it('renders the hamburger button for guests on non-login routes', () => {
+      appState = makeAppState(users.guest);
+      renderWithProviders(<Navbar />, { route: '/register' });
+
+      expect(screen.getByLabelText('Toggle menu')).toBeInTheDocument();
+    });
+
     it('shows the hamburger button and hides nav links by default (CSS handles visibility)', () => {
       appState = makeAppState(users.customer);
       renderWithProviders(<Navbar />);
@@ -135,6 +157,19 @@ describe('Navbar', () => {
       renderWithProviders(<Navbar />);
 
       expect(screen.getAllByText('Delivery').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('authenticated action controls', () => {
+    it('renders expected top-bar actions for authenticated users', () => {
+      appState = makeAppState(users.customer);
+      renderWithProviders(<Navbar />, { route: '/orders' });
+
+      expect(screen.getByLabelText('Toggle menu')).toBeInTheDocument();
+      expect(screen.getByText('NotificationDropdown')).toBeInTheDocument();
+      expect(screen.getByText('CartPreview')).toBeInTheDocument();
+      expect(screen.getByLabelText('User menu')).toBeInTheDocument();
+      expect(screen.getByTitle('Help & Support')).toBeInTheDocument();
     });
   });
 });

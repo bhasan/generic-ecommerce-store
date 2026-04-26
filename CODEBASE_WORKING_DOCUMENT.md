@@ -114,6 +114,14 @@ The following merge-sensitive behaviors were rechecked and should be preserved i
   - The default offline ZIP allowlist now starts with the store ZIP `77083` so delivery checks have a safe fallback when live geocoding is unavailable.
 - Customer-facing delivery verification copy was simplified on purpose.
   - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\deliveryEligibility.service.ts`](D:\projects\smoke-station-delivery\smoke-station-delivery\backend\src\services\deliveryEligibility.service.ts) should keep human-readable messages rather than internal/provider-style error wording.
+- Same-tab session recovery now depends on request-scoped auth-token matching in the frontend API client.
+  - A real bug was reproduced where the app auto-logged out, the user signed back in in the same browser tab, and the UI became effectively stuck on the login layout with a `Login successful!` toast still visible.
+  - The confirmed root cause was stale in-flight requests from the older session returning `401` after the new login completed.
+  - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\services\api.js`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\services\api.js) now snapshots the auth token at request start and only performs forced logout when the response `401` still belongs to the currently active token.
+  - Future auth/client refactors must preserve this rule:
+    - active-session `401` should still clear auth and dispatch `auth:unauthorized`
+    - stale old-session `401` must remain a normal request error and must not clear a newer token in the same tab
+  - [`/D:/projects\smoke-station-delivery\smoke-station-delivery\web\src\services\api.test.js`](D:\projects\smoke-station-delivery\smoke-station-delivery\web\src\services\api.test.js) now contains the focused stale-session regression coverage and should stay green.
 - Full verification that last passed on this merged branch:
   - backend tests: `139/139`
   - web tests: `264/264`

@@ -2,17 +2,41 @@
 set -euo pipefail
 
 SKIP_UPLOAD=false
+SKIP_CHECKLIST=false
 SERVER_IP=""
 
-for arg in "$@"; do
-  case "$arg" in
-    --skip-upload) SKIP_UPLOAD=true ;;
-    *) SERVER_IP="$arg" ;;
+usage() {
+  echo "Usage: $0 <server-ip> [--skip-upload] [--skip-checklist]"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --skip-upload)
+      SKIP_UPLOAD=true
+      shift
+      ;;
+    --skip-checklist)
+      SKIP_CHECKLIST=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      if [[ -n "$SERVER_IP" ]]; then
+        echo "Error: unexpected extra argument '$1'."
+        usage
+        exit 1
+      fi
+      SERVER_IP="$1"
+      shift
+      ;;
   esac
 done
 
 if [[ -z "$SERVER_IP" ]]; then
-  echo "Usage: $0 <server-ip> [--skip-upload]"
+  usage
   exit 1
 fi
 SSH_SOCKET="/tmp/ssd_ssh_mux_${SERVER_IP}_$$"
@@ -60,12 +84,12 @@ SSH_OPTS=(-o ControlMaster=no -o ControlPath="$SSH_SOCKET")
 
 if [[ "$SKIP_UPLOAD" == "false" ]]; then
   echo ""
-  echo "==> [1/3] Uploading images to root@$SERVER_IP:/docker/images/..."
+  echo "==> [1/4] Uploading images to root@$SERVER_IP:/docker/images/..."
   scp "${SSH_OPTS[@]}" "$BACKEND_TAR" "root@$SERVER_IP:/docker/images/"
   scp "${SSH_OPTS[@]}" "$WEB_TAR" "root@$SERVER_IP:/docker/images/"
 
   echo ""
-  echo "==> [2/3] Loading images on server..."
+  echo "==> [2/4] Loading images on server..."
   ssh "${SSH_OPTS[@]}" "root@$SERVER_IP" "docker load -i /docker/images/backend.tar && docker load -i /docker/images/web.tar"
 
   echo ""
@@ -82,8 +106,16 @@ if [[ "$confirm_up" != "y" && "$confirm_up" != "Y" ]]; then
 fi
 
 echo ""
-echo "==> [3/3] Starting services on server..."
+echo "==> [3/4] Starting services on server..."
 ssh "${SSH_OPTS[@]}" "root@$SERVER_IP" "cd /docker/smoke-station && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend web"
+
+echo ""
+if [[ "$SKIP_CHECKLIST" == "true" ]]; then
+  echo "==> [4/4] Hardening checklist skipped (--skip-checklist)."
+else
+  echo "==> [4/4] Running post-deploy hardening checklist..."
+  bash "$SCRIPT_DIR/post-deploy-hardening-check.sh" "$SERVER_IP" --control-path "$SSH_SOCKET"
+fi
 
 echo ""
 echo "==> Deploy complete."

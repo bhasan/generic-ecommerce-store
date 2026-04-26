@@ -122,6 +122,18 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.
 curl -s http://localhost/api/health
 ```
 
+Post-deploy hardening check (limiter/proxy runtime snapshot):
+
+```bash
+bash scripts/post-deploy-hardening-check.sh <server-ip>
+```
+
+If you are already on the production server:
+
+```bash
+bash scripts/post-deploy-hardening-check.sh --run-local
+```
+
 Expected health response:
 
 ```json
@@ -134,6 +146,7 @@ Expected health response:
 - Production should not rely on bind mounts or Vite.
 - `docker-compose.dev.yml` and `backend/Dockerfile.dev` are local development only.
 - Notification delivery can reuse the shared Make scenario via payload routing fields such as `eventType`, `category`, and `channelIntent`.
+- `scripts/deploy.sh` now runs the post-deploy hardening checklist automatically (use `--skip-checklist` to bypass).
 
 ## Related Docs
 

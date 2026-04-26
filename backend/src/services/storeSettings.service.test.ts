@@ -135,6 +135,31 @@ describe('store settings service', () => {
     });
   });
 
+  it('sanitizes invalid persisted notification routing emails and falls back safely', async () => {
+    process.env.STORE_SUPPORT_EMAIL = 'ops@example.com';
+    prismaMock.uiSetting.findUnique.mockResolvedValue({
+      value: {
+        name: 'Smoke Station',
+        address: '9400 S Texas 6 Suite C, Houston, TX 77083',
+        phoneNumber: '',
+        notificationEmails: {
+          adminEmail: 'not-an-email',
+          managementEmail: '3',
+          employeeEmail: '   ',
+        },
+      },
+    });
+    const { StoreSettingsService } = await import('./storeSettings.service');
+
+    const result = await new StoreSettingsService().getStoreSettings();
+
+    expect(result.notificationEmails).toEqual({
+      adminEmail: 'ops@example.com',
+      managementEmail: '',
+      employeeEmail: '',
+    });
+  });
+
   it('rejects invalid notification email formats', async () => {
     const { StoreSettingsService } = await import('./storeSettings.service');
 

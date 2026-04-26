@@ -6,7 +6,7 @@ import { Truck, Package, MapPin, CheckCircle, Edit, X, Plus } from 'lucide-react
 import HeaderDivider from '../../components/common/HeaderDivider';
 
 const MAX_ROUTE_ORDERS = 5;
-const DELIVERY_REFRESH_INTERVAL_MS = 50000;
+const DELIVERY_REFRESH_INTERVAL_MS = 60000;
 
 function DeliveryDriverDashboard() {
   const { showNotification } = useApp();

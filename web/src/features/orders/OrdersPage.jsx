@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
 import {
@@ -63,8 +63,6 @@ const COLUMN_LABELS = {
   READY_FOR_PICKUP: 'Ready for Pickup',
   PICKED_UP: 'Picked Up'
 };
-
-const ORDER_POLL_INTERVAL_MS = Number(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS || 60000);
 
 function OrdersPage() {
   const navigate = useNavigate();
@@ -198,21 +196,12 @@ function OrdersPage() {
       viewStartAtRef.current = Date.now();
       setNewOrderIds([]);
       knownOrderIdsRef.current = new Set(ordersRef.current.map((o) => o.id));
-      // Silent refresh on focus — no loading spinner, avoids disrupting the current view.
+      // Silent refresh on focus â€” no loading spinner, avoids disrupting the current view.
       loadOrders(true);
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
   }, [loadOrders]);
-
-  useEffect(() => {
-    if (!canModifyOrders && !isCustomerOnly) return undefined;
-    // Background poll for both staff and customers — silent so the UI is never disrupted.
-    const intervalId = setInterval(() => {
-      if (!document.hidden) loadOrders(true);
-    }, ORDER_POLL_INTERVAL_MS);
-    return () => clearInterval(intervalId);
-  }, [loadOrders, canModifyOrders, isCustomerOnly]);
 
   useEffect(() => {
     if (isLoadingOrders) return;
@@ -236,7 +225,7 @@ function OrdersPage() {
   }, [orders, isLoadingOrders]);
 
   const formatOrderDate = (dateString) => {
-    if (!dateString) return '—';
+    if (!dateString) return 'â€”';
     const date = new Date(dateString);
     return Number.isNaN(date.getTime()) ? dateString : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   };
@@ -302,7 +291,7 @@ function OrdersPage() {
       const isPayInStore = order?.paymentMethod === 'IN_STORE';
       setConfirmDialog({
         title: 'Take Payment in Store',
-        message: `Order Total: $${order.total.toFixed(2)}\n\n⚠️ REMINDER: Please ensure payment has been collected before proceeding.`,
+        message: `Order Total: $${order.total.toFixed(2)}\n\nâš ï¸ REMINDER: Please ensure payment has been collected before proceeding.`,
         confirmLabel: 'Paid',
         confirmVariant: 'success',
         onConfirm: () => performStatusUpdate(orderId, newStatus)
@@ -432,7 +421,7 @@ function OrdersPage() {
 
   const selectedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
 
-  // Customers get a dedicated list view — no kanban, no staff-only controls.
+  // Customers get a dedicated list view â€” no kanban, no staff-only controls.
   if (isCustomerOnly) {
     const myOrders = orders.filter((o) => o.userId === currentUser.id);
     return (
@@ -640,7 +629,7 @@ function OrdersPage() {
                         <div className="kanban-card-date">{formatOrderDate(order.createdAt)}</div>
                         <div className="kanban-card-customer">{order.user?.username ?? 'N/A'}</div>
                         <div className="kanban-card-meta">
-                          ${order.total.toFixed(2)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
+                          ${order.total.toFixed(2)} Â· {itemCount} item{itemCount !== 1 ? 's' : ''}
                         </div>
                         <div className={`kanban-card-payment-info ${order.user?.cashapp ? 'has' : 'none'}`}>
                           {order.user?.cashapp ? `@${order.user.cashapp}` : (isPayInStore ? 'Payment in Store' : 'No payment username')}

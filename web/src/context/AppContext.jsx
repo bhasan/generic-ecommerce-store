@@ -17,6 +17,15 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 const AppContext = createContext();
 const CART_STORAGE_KEY = 'cartData';
 
+const parsePollingInterval = (rawValue, fallback) => {
+  const parsed = Number.parseInt(rawValue ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const NOTIFICATION_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_NOTIFICATION_POLL_INTERVAL_MS, 60000);
+const STAFF_COUNTS_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_STAFF_COUNTS_POLL_INTERVAL_MS, 60000);
+const ORDER_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS, 60000);
+
 // Returns the shared app context and throws early if a consumer renders outside AppProvider.
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -247,8 +256,8 @@ export function AppProvider({ children }) {
     }
   }, [isAuthenticated]);
 
-  // Refreshes inbox state, unread counts, and staff attention tracking without double-playing old alerts.
-  const refreshNotifications = useCallback(async () => {
+  // Refreshes notification state and optionally re-loads full inbox payloads.
+  const refreshNotifications = useCallback(async ({ includeList = true } = {}) => {
     if (!isAuthenticated) {
       setInboxNotifications([]);
       setUnreadNotificationCount(0);
@@ -257,10 +266,16 @@ export function AppProvider({ children }) {
       return { notifications: [], unreadCount: 0 };
     }
 
-    const [notifications, unread] = await Promise.all([
-      loadNotifications(),
-      loadUnreadNotificationCount(),
-    ]);
+    const unread = await loadUnreadNotificationCount();
+
+    if (!includeList) {
+      return {
+        notifications: inboxNotifications,
+        unreadCount: unread.count ?? 0,
+      };
+    }
+
+    const notifications = await loadNotifications();
 
     const isStaffUser = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     const attentionIds = new Set(
@@ -292,6 +307,7 @@ export function AppProvider({ children }) {
     return { notifications, unreadCount: unread.count ?? 0 };
   }, [
     currentUser,
+    inboxNotifications,
     isAuthenticated,
     loadNotifications,
     loadUnreadNotificationCount,
@@ -319,19 +335,23 @@ export function AppProvider({ children }) {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    loadStaffNotificationCounts();
+    void loadStaffNotificationCounts();
     if (!isAuthenticated) return;
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
     // Staff polling keeps dashboard badges fresh without forcing a full route reload.
-    const interval = setInterval(loadStaffNotificationCounts, 50000);
+    const interval = setInterval(() => {
+      void loadStaffNotificationCounts();
+    }, STAFF_COUNTS_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
 
   useEffect(() => {
-    refreshNotifications();
+    void refreshNotifications({ includeList: true });
     if (!isAuthenticated) return;
-    const interval = setInterval(refreshNotifications, 50000);
+    const interval = setInterval(() => {
+      void refreshNotifications({ includeList: false });
+    }, NOTIFICATION_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refreshNotifications, isAuthenticated]);
 
@@ -361,14 +381,19 @@ export function AppProvider({ children }) {
     try {
       await notificationsApi.markNotificationRead(notificationId);
     } finally {
-      await refreshNotifications();
+      await refreshNotifications({ includeList: true });
     }
   }, [refreshNotifications]);
 
   // Marks the full inbox read in one call and then refreshes counts so badges stay accurate.
   const markAllNotificationsRead = useCallback(async () => {
     await notificationsApi.markAllNotificationsRead();
-    await refreshNotifications();
+    await refreshNotifications({ includeList: true });
+  }, [refreshNotifications]);
+
+  // Fetches full notification payloads when the dropdown is opened.
+  const handleNotificationsPanelOpen = useCallback(async () => {
+    await refreshNotifications({ includeList: true });
   }, [refreshNotifications]);
 
   // Loads shared storefront config and keeps landing arrays defaulted to [] if config omits them.
@@ -436,7 +461,7 @@ export function AppProvider({ children }) {
     if (!isAuthenticated || isLoading) return;
     
     // Background polling for orders keeps the UI (like pickup notices) fresh without full reloads.
-    const interval = setInterval(() => loadOrders(true), 50000);
+    const interval = setInterval(() => loadOrders(true), ORDER_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isAuthenticated, isLoading, loadOrders]);
 
@@ -1152,6 +1177,7 @@ export function AppProvider({ children }) {
     inboxNotifications,
     unreadNotificationCount,
     refreshNotifications,
+    handleNotificationsPanelOpen,
     markNotificationRead,
     markAllNotificationsRead,
     notificationsMuted,

@@ -52,18 +52,46 @@ const getDefaultStoreSettings = (): StoreSettings => ({
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
 
+const normalizeEmailField = (
+  value: unknown,
+  fallback: string,
+  sanitizeInvalid: boolean,
+) => {
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (EMAIL_PATTERN.test(trimmed)) return trimmed;
+  return sanitizeInvalid ? fallback : trimmed;
+};
+
 export class StoreSettingsService {
-  private normalize(data: Partial<StoreSettings> | null | undefined): StoreSettings {
+  private normalize(
+    data: Partial<StoreSettings> | null | undefined,
+    options: { sanitizeInvalidEmails: boolean } = { sanitizeInvalidEmails: true },
+  ): StoreSettings {
     const defaults = getDefaultStoreSettings();
+    const { sanitizeInvalidEmails } = options;
 
     return {
       name: typeof data?.name === 'string' ? data.name : defaults.name,
       address: typeof data?.address === 'string' ? data.address : defaults.address,
       phoneNumber: typeof data?.phoneNumber === 'string' ? data.phoneNumber : defaults.phoneNumber,
       notificationEmails: {
-        adminEmail: typeof data?.notificationEmails?.adminEmail === 'string' ? data.notificationEmails.adminEmail.trim() : defaults.notificationEmails.adminEmail,
-        managementEmail: typeof data?.notificationEmails?.managementEmail === 'string' ? data.notificationEmails.managementEmail.trim() : defaults.notificationEmails.managementEmail,
-        employeeEmail: typeof data?.notificationEmails?.employeeEmail === 'string' ? data.notificationEmails.employeeEmail.trim() : defaults.notificationEmails.employeeEmail,
+        adminEmail: normalizeEmailField(
+          data?.notificationEmails?.adminEmail,
+          defaults.notificationEmails.adminEmail,
+          sanitizeInvalidEmails,
+        ),
+        managementEmail: normalizeEmailField(
+          data?.notificationEmails?.managementEmail,
+          defaults.notificationEmails.managementEmail,
+          sanitizeInvalidEmails,
+        ),
+        employeeEmail: normalizeEmailField(
+          data?.notificationEmails?.employeeEmail,
+          defaults.notificationEmails.employeeEmail,
+          sanitizeInvalidEmails,
+        ),
       },
     };
   }
@@ -86,7 +114,7 @@ export class StoreSettingsService {
   }
 
   async updateStoreSettings(data: StoreSettings): Promise<StoreSettings> {
-    const normalized = this.normalize(data);
+    const normalized = this.normalize(data, { sanitizeInvalidEmails: false });
     this.validate(normalized);
     const currentSettings = await this.getStoreSettings();
     if (currentSettings.address.trim() !== normalized.address.trim()) {

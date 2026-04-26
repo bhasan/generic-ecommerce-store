@@ -3,11 +3,10 @@ import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest } from '../../utils/roles';
-import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare, Wallet, Home } from 'lucide-react';
+import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
-import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
   const {
@@ -22,18 +21,19 @@ function Navbar() {
     markAllNotificationsRead,
     notificationsMuted,
     toggleNotificationsMuted,
+    handleNotificationsPanelOpen,
     orders,
   } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [newMessageCount, setNewMessageCount] = useState(0);
   const profileRef = useRef(null);
   const adminRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const cartCount = cart.length;
   const isGuest = checkIsGuest(currentUser);
+  const isLoginRoute = location.pathname === '/login';
 
   const isCustomer = hasRole(currentUser, ROLES.CUSTOMER)
     && !hasRole(currentUser, ROLES.EMPLOYEE)
@@ -68,28 +68,6 @@ function Navbar() {
     setShowAdminMenu(false);
     setShowMobileMenu(false);
   }, [location.pathname]);
-
-  // Fetch new message count for admins/managers
-  useEffect(() => {
-    const fetchMessageCount = async () => {
-      if (!isManagement || isGuest) return;
-
-      try {
-        const { count } = await contactMessagesApi.getNewMessageCount();
-        setNewMessageCount(count);
-      } catch (error) {
-        // Silently fail - don't show error for badge count
-        console.warn('Failed to fetch message count:', error);
-      }
-    };
-
-    fetchMessageCount();
-
-    // Refresh count every 60 seconds
-    const interval = setInterval(fetchMessageCount, 60000);
-
-    return () => clearInterval(interval);
-  }, [isManagement, isGuest]);
 
   const handleLogout = () => {
     setShowProfileMenu(false);
@@ -245,17 +223,19 @@ function Navbar() {
             </div>
           </div>
 
-          <div className="navbar-right">
-            {/* Hamburger Menu Button (mobile only) */}
-            <button
-              className={`hamburger-btn ${showMobileMenu ? 'open' : ''}`}
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              aria-label="Toggle menu"
-            >
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-            </button>
+          <div className={`navbar-right ${isGuest ? 'navbar-right-guest' : 'navbar-right-auth'}`}>
+            {/* Hamburger Menu Button (mobile only, hidden on login route) */}
+            {!isLoginRoute && (
+              <button
+                className={`hamburger-btn ${showMobileMenu ? 'open' : ''}`}
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                aria-label="Toggle menu"
+              >
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+              </button>
+            )}
 
             {!isGuest && (
               <NotificationDropdown
@@ -267,6 +247,7 @@ function Navbar() {
                 onMarkAllRead={markAllNotificationsRead}
                 notificationsMuted={notificationsMuted}
                 onToggleMuted={toggleNotificationsMuted}
+                onOpen={handleNotificationsPanelOpen}
                 canManageOrders={canManageOrders}
                 orders={orders}
               />
