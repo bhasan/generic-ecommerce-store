@@ -4,22 +4,17 @@ import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest, getUserRoles } from '../../utils/roles';
 
 function ProtectedRoute({ children, roles }) {
-  const { currentUser, isLoading, setReturnPath } = useApp();
+  const { currentUser, setReturnPath, isLoading } = useApp();
   const location = useLocation();
 
   const isGuest = checkIsGuest(currentUser);
 
   useEffect(() => {
-    if (isLoading) {
-      return;
-    }
-    if (isGuest) {
+    if (!isLoading && isGuest) {
       setReturnPath(location.pathname);
     }
-  }, [isGuest, isLoading, location.pathname, setReturnPath]);
+  }, [isLoading, isGuest, location.pathname, setReturnPath]);
 
-  // Wait for auth bootstrap before redirecting so a saved session can keep its
-  // initial route instead of bouncing through /login on first load.
   if (isLoading) {
     return null;
   }

@@ -6,7 +6,6 @@ function ScrollToTop() {
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 }
-import { AppProvider } from './context/AppContext';
 import AnnouncementBanner from './components/common/AnnouncementBanner';
 import OrderPickupNotice from './components/common/OrderPickupNotice';
 import Navbar from './components/layout/Navbar';
@@ -37,10 +36,9 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <AppProvider>
-        <TawkToWidget />
-        <ScrollToTop />
-        <div className="app-wrapper">
+      <TawkToWidget />
+      <ScrollToTop />
+      <div className="app-wrapper">
           <AnnouncementBanner />
           <OrderPickupNotice />
           <Navbar />
@@ -146,7 +144,6 @@ function App() {
             </Routes>
           </main>
         </div>
-      </AppProvider>
     </ErrorBoundary>
   );
 }
