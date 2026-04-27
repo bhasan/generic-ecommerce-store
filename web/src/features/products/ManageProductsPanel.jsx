@@ -477,6 +477,8 @@ function ManageProductsPanel() {
     // Keep `image` omitted when empty; backend validation accepts optional strings here, but `image: null` breaks product create/update.
     if (normalizedImages[0]) {
       productData.image = normalizedImages[0];
+    } else if (typeof productData.image !== 'string' || productData.image.trim() === '') {
+      delete productData.image;
     }
 
     try {
