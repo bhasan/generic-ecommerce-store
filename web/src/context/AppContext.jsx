@@ -121,43 +121,75 @@ export function AppProvider({ children }) {
   }, [cart]);
 
   // Check authentication on mount
-  const authCheckedRef = useRef(false);
   useEffect(() => {
     // Revalidates the saved token on mount and keeps credit state defaulted to 0 if credit lookup fails.
-    if (authCheckedRef.current) return;
-    authCheckedRef.current = true;
 
     const checkAuth = async () => {
-      const token = getAuthToken();
-      if (token) {
-        try {
-          const user = await authApi.getProfile();
-          // Ensure roles array exists so profile responses stay compatible with current role checks.
-          if (!user.roles && user.role) {
-            user.roles = [user.role];
-          }
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
+      try {
+        const token = getAuthToken();
+        if (token) {
           try {
-            const creditData = await creditApi.getUserCredit(user.id);
-            setCreditBalance(creditData.balance ?? 0);
-          } catch {
-            // Non-fatal: credit balance defaults to 0
+            const user = await authApi.getProfile();
+            // Ensure roles array exists so profile responses stay compatible with current role checks.
+            if (!user.roles && user.role) {
+              user.roles = [user.role];
+            }
+            setCurrentUser(user);
+            setIsAuthenticated(true);
+            // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
+            try {
+              const creditData = await creditApi.getUserCredit(user.id);
+              setCreditBalance(creditData.balance ?? 0);
+            } catch {
+              // Non-fatal: credit balance defaults to 0
+            }
+          } catch (error) {
+            // Token invalid or expired
+            console.error('Auth check failed:', error);
+            setCurrentUser(GUEST_USER);
+            setIsAuthenticated(false);
           }
-        } catch (error) {
-          // Token invalid or expired
-          console.error('Auth check failed:', error);
-          setCurrentUser(GUEST_USER);
+        } else {
           setIsAuthenticated(false);
         }
-      } else {
-        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkAuth();
+  }, []);
+
+  // Loads shared storefront config and keeps landing arrays defaulted to [] if config omits them.
+  const loadConfig = useCallback(async () => {
+    try {
+      const config = await configApi.getConfig();
+      if (config) {
+        // Central config hydration keeps checkout, store info, and admin settings reading one shared source.
+        if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
+        if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
+        if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
+        if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
+        if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
+        if (typeof config.deliveryRadiusMiles === 'number') setDeliveryRadiusMiles(config.deliveryRadiusMiles);
+        if (Array.isArray(config.featuredProductIds)) setFeaturedProductIds(config.featuredProductIds);
+        if (Array.isArray(config.promotions)) setPromotions(config.promotions);
+        if (config.storeSettings) {
+          setStoreSettings(config.storeSettings);
+          if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
+        } else if (typeof config.pickupLocation === 'string') {
+          setPickupLocation(config.pickupLocation);
+        }
+        if (config.paymentSettings) {
+          setPaymentSettings(config.paymentSettings);
+          setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
+        } else if (typeof config.storeCashappUsername === 'string') {
+          setStoreCashappUsername(config.storeCashappUsername);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load remote config, using default tax rate.', e);
+    }
   }, []);
 
   // Load products function (can be called manually)
@@ -189,15 +221,27 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  // Load products on mount (after auth check)
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+  // Refreshes the core storefront data (products and categories) only when a session is active.
+  const refreshStorefrontData = useCallback(async () => {
+    if (isLoading || !isAuthenticated) return;
+    await Promise.allSettled([loadProducts(), loadCategories()]);
+  }, [isLoading, isAuthenticated, loadProducts, loadCategories]);
 
-  // Load categories on mount
+  // Fetches the shared store configuration only when authenticated or on the registration page where it is required.
   useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
+    const isRegisterPage = location.pathname === '/register';
+    if (isLoading) return;
+    if (!isAuthenticated && !isRegisterPage) return;
+
+    loadConfig();
+  }, [loadConfig, isAuthenticated, isLoading, location.pathname]);
+
+  // Triggers storefront data refreshes once the auth check completes and a valid user is detected.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      refreshStorefrontData();
+    }
+  }, [refreshStorefrontData, isAuthenticated, isLoading]);
 
   useEffect(() => {
     // Marks the session as user-interacted once so staff alert sounds do not autoplay before interaction.
@@ -403,41 +447,10 @@ export function AppProvider({ children }) {
     await refreshNotifications({ includeList: true });
   }, [refreshNotifications]);
 
-  // Loads shared storefront config and keeps landing arrays defaulted to [] if config omits them.
-  const loadConfig = useCallback(async () => {
-    try {
-      const config = await configApi.getConfig();
-      if (config) {
-        // Central config hydration keeps checkout, store info, and admin settings reading one shared source.
-        if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
-        if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
-        if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
-        if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
-        if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
-        if (typeof config.deliveryRadiusMiles === 'number') setDeliveryRadiusMiles(config.deliveryRadiusMiles);
-        if (Array.isArray(config.featuredProductIds)) setFeaturedProductIds(config.featuredProductIds);
-        if (Array.isArray(config.promotions)) setPromotions(config.promotions);
-        if (config.storeSettings) {
-          setStoreSettings(config.storeSettings);
-          if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
-        } else if (typeof config.pickupLocation === 'string') {
-          setPickupLocation(config.pickupLocation);
-        }
-        if (config.paymentSettings) {
-          setPaymentSettings(config.paymentSettings);
-          setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
-        } else if (typeof config.storeCashappUsername === 'string') {
-          setStoreCashappUsername(config.storeCashappUsername);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load remote config, using default tax rate.', e);
-    }
-  }, []);
+  // loadConfig() is now strictly governed by route and auth state (managed in the effect at the top of this file) to prevent guest-triggered 500 errors.
 
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
+  // Centralized data loading for authenticated users is managed via the refreshStorefrontData effect above.
+  // loadConfig() is now strictly governed by route and auth state to prevent guest-triggered 500 errors.
 
   // Loads orders for authenticated users only, clears signed-out state, and supports silent background refreshes.
   const loadOrders = useCallback(async (silent = false) => {

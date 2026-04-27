@@ -9,6 +9,7 @@ const navigate = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => appState,
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => {

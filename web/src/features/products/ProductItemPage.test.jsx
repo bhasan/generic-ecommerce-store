@@ -13,6 +13,7 @@ const useAppMock = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../components/product/ProductReviews', () => ({

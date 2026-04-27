@@ -52,6 +52,7 @@ const productsApi = vi.hoisted(() => ({
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../services/usersApi', () => usersApi);

@@ -105,8 +105,6 @@ describe('AppContext auth session recovery', () => {
     vi.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
-    vi.spyOn(globalThis, 'setInterval').mockImplementation(() => 0);
-    vi.spyOn(globalThis, 'clearInterval').mockImplementation(() => {});
     apiModule.getAuthToken.mockReturnValue('token-123');
     authApi.getProfile.mockResolvedValue(users.customer);
     authApi.login.mockResolvedValue({ user: users.customer });
