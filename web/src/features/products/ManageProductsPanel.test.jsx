@@ -272,4 +272,50 @@ describe('ManageProductsPanel upload handling', () => {
       })
     );
   });
+
+  it('omits null primary image when editing a product that only has thumbnail', async () => {
+    const appState = createAppState({
+      products: [
+        {
+          id: 128,
+          name: 'Habit OG Lemonade',
+          categoryId: 1,
+          price: 12.99,
+          description: '',
+          thumbnail: '/api/uploads/existing-thumb.webp',
+          image: null,
+          images: [],
+          stock: 0,
+          stockEnabled: false,
+          hidden: false,
+          vipOnly: false,
+          quantityDiscountsOverride: [],
+        },
+      ],
+    });
+    useAppMock.mockReturnValue(appState);
+
+    render(<ManageProductsPanel />);
+
+    fireEvent.click(screen.getByText('Edit'));
+    await screen.findByTestId('product-form-modal');
+    fireEvent.click(screen.getByText('Save Product'));
+
+    await waitFor(() => {
+      expect(appState.updateProduct).toHaveBeenCalledWith(
+        128,
+        expect.objectContaining({
+          thumbnail: '/api/uploads/existing-thumb.webp',
+          images: [],
+        })
+      );
+    });
+
+    expect(appState.updateProduct).toHaveBeenCalledWith(
+      128,
+      expect.not.objectContaining({
+        image: null,
+      })
+    );
+  });
 });

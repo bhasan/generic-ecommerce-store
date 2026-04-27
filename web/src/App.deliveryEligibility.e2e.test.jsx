@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import { AppProvider } from './context/AppContext';
 import { renderWithProviders } from './test/renderWithProviders';
 
 const journeyProduct = vi.hoisted(() => ({
@@ -202,7 +203,12 @@ describe('delivery eligibility end-to-end journey', () => {
       },
     });
 
-    renderWithProviders(<App />, { route: '/products' });
+    renderWithProviders(
+      <AppProvider>
+        <App />
+      </AppProvider>,
+      { route: '/products' }
+    );
 
     fireEvent.click(await screen.findByRole('button', { name: /start delivery checkout/i }));
 
@@ -244,7 +250,12 @@ describe('delivery eligibility end-to-end journey', () => {
       },
     });
 
-    renderWithProviders(<App />, { route: '/products' });
+    renderWithProviders(
+      <AppProvider>
+        <App />
+      </AppProvider>,
+      { route: '/products' }
+    );
 
     fireEvent.click(await screen.findByRole('button', { name: /start delivery checkout/i }));
 
@@ -276,7 +287,7 @@ describe('delivery eligibility end-to-end journey', () => {
     fireEvent.click(screen.getByRole('button', { name: /complete order/i }));
 
     expect(await screen.findByText(/thank you for your order/i)).toBeInTheDocument();
-    expect(screen.getAllByText('123 Main St, Houston, TX 77083')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('123 Main St, Houston, TX 77083').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('#000901')).toBeInTheDocument();
 
     await waitFor(() => expect(api.getProfileCalls()).toBeGreaterThanOrEqual(2));
