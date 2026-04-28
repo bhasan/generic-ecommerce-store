@@ -9,13 +9,12 @@ export default function SpaceTravelerGraphic() {
       {!isLoaded && <div className="space-traveler-shimmer" />}
       <div className={`space-traveler-container ${isLoaded ? 'visible' : 'hidden'}`}>
         <img
-          src="/images/login-hero-bg.jpg"
-          alt="Space Traveler Welcome"
+          src="/images/space_traveler_3d.png"
+          alt="Space Traveler 3D CGI"
           className="space-traveler-graphic"
           onLoad={() => setIsLoaded(true)}
           fetchPriority="high"
         />
-        <div className="space-traveler-overlay" />
       </div>
     </div>
   );

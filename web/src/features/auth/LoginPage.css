@@ -95,7 +95,7 @@
   width: 100%;
   max-width: 500px;
   margin-right: auto;
-  margin-left: 8%; /* Push to the left side */
+  margin-left: 20%; /* Controls how far the card is from the left edge */
   padding: 2rem;
 }
 
