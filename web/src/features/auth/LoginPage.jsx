@@ -4,24 +4,21 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
 import { isGuest, ROLES } from '../../utils/roles';
-import { LogIn, User, Lock } from 'lucide-react';
+import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react';
+
+import SpaceTravelerGraphic from './SpaceTravelerGraphic';
 
 function LoginPage() {
   const { login, isAuthenticated, isLoading: authLoading, currentUser } = useApp();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
-  // Tracks whether the user just submitted the login form. AppContext.login()
-  // already calls navigate() in that path, so the effect below must not fire
-  // a second time or it causes a double-navigate to the same route.
   const justLoggedInRef = useRef(false);
 
-  // Redirect authenticated users who visit /login while already logged in
-  // (e.g. via the browser back button). Skipped for fresh logins because
-  // AppContext.login() already handles post-login navigation.
   useEffect(() => {
     if (!authLoading && isAuthenticated && !isGuest(currentUser) && !justLoggedInRef.current) {
       const primaryRole = currentUser.roles?.[0] || currentUser.role || ROLES.CUSTOMER;
@@ -63,82 +60,103 @@ function LoginPage() {
       setIsLoading(false);
     }
   };
-  
+
   return (
-    <div className="login-page-container">
-      <div className="login-card">
-        <div className="login-header">
-          <div className="login-logo">
-            <LogIn size={48} />
-          </div>
-          <h1 className="login-title">Welcome</h1>
-          <p className="login-subtitle">Sign in to your account to continue</p>
-        </div>
+    <div className="login-page-wrapper glass-layout">
+      {/* Immersive Background */}
+      <div className="login-background">
+        <SpaceTravelerGraphic />
+      </div>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <div className="form-group">
-            <label htmlFor="username" className="form-label">
-              <User size={16} />
-              <span>Username</span>
-            </label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }));
-              }}
-              className={`form-input ${fieldErrors.username ? 'form-input-error' : ''}`}
-              placeholder="Enter your Username"
-              required
-              aria-invalid={!!fieldErrors.username}
-              aria-describedby={fieldErrors.username ? 'username-error' : undefined}
-            />
-            {fieldErrors.username && (
-              <span id="username-error" className="form-error-message" role="alert">{fieldErrors.username}</span>
-            )}
+      {/* Glassmorphism Card Container */}
+      <div className="login-content-container animate-in" style={{ '--index': 1 }}>
+        <div className="login-glass-card">
+          <div className="login-header">
+            <h1 className="login-glass-headline">Welcome!</h1>
+            <p className="login-glass-subtitle">Login or register to get started!</p>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password" className="form-label">
-              <Lock size={16} />
-              <span>Password</span>
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
-              }}
-              className={`form-input ${fieldErrors.password ? 'form-input-error' : ''}`}
-              placeholder="Enter your password"
-              required
-              aria-invalid={!!fieldErrors.password}
-              aria-describedby={fieldErrors.password ? 'password-error' : undefined}
-            />
-            {fieldErrors.password && (
-              <span id="password-error" className="form-error-message" role="alert">{fieldErrors.password}</span>
-            )}
-          </div>
-
-          {error && (
-            <div className="login-error">
-              {error}
+          <form onSubmit={handleSubmit} className="login-form">
+            <div className="form-group">
+              <label htmlFor="username" className="form-label">
+                <User size={16} />
+                <span>Username</span>
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }));
+                }}
+                className={`form-input glass-input ${fieldErrors.username ? 'form-input-error' : ''}`}
+                placeholder="Username"
+                required
+                aria-invalid={!!fieldErrors.username}
+              />
+              {fieldErrors.username && (
+                <span className="form-error-message" role="alert">{fieldErrors.username}</span>
+              )}
             </div>
-          )}
 
-          <button type="submit" className="btn-login" disabled={isLoading}>
-            <LogIn size={18} />
-            <span>{isLoading ? 'Signing in...' : 'Sign In'}</span>
-          </button>
-        </form>
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">
+                <Lock size={16} />
+                <span>Password</span>
+              </label>
+              <div className="password-input-wrapper">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
+                  }}
+                  className={`form-input glass-input ${fieldErrors.password ? 'form-input-error' : ''}`}
+                  placeholder="Password"
+                  required
+                  aria-invalid={!!fieldErrors.password}
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+              {fieldErrors.password && (
+                <span className="form-error-message" role="alert">{fieldErrors.password}</span>
+              )}
+            </div>
 
-        <div className="login-footer">
-          <p>Don't have an account?</p>
-          <Link to="/register" className="btn-signup">Create an Account</Link>
+            <div aria-live="polite">
+              {error && (
+                <div className="login-error glass-error">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            <button type="submit" className="btn-login" disabled={isLoading}>
+              {isLoading ? (
+                <span className="loading-spinner-small" />
+              ) : (
+                <>
+                  <LogIn size={18} />
+                  <span>Sign In</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="login-footer">
+            <p>Don't have an account yet?</p>
+            <Link to="/register" className="btn-signup-glass">Create an Account</Link>
+          </div>
         </div>
       </div>
     </div>
