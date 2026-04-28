@@ -72,10 +72,7 @@ function LoginPage() {
       <div className="login-content-container animate-in" style={{ '--index': 1 }}>
         <div className="login-glass-card">
           <div className="login-header">
-            <div className="login-logo">
-              <LogIn size={32} />
-            </div>
-            <h1 className="login-glass-headline">Welcome</h1>
+            <h1 className="login-glass-headline">Welcome!</h1>
             <p className="login-glass-subtitle">Login or register to get started!</p>
           </div>
 
