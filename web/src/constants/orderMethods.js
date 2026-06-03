@@ -1,6 +1,7 @@
 export const DeliveryMethod = {
   DELIVERY: 'DELIVERY',
   PICKUP: 'PICKUP',
+  CURBSIDE: 'CURBSIDE',
 };
 
 export const PaymentMethod = {

@@ -2,13 +2,14 @@ import { DeliveryMethod, PaymentMethod } from './orderMethods';
 
 describe('orderMethods constants', () => {
   describe('DeliveryMethod', () => {
-    it('contains DELIVERY and PICKUP', () => {
+    it('contains DELIVERY, PICKUP, and CURBSIDE', () => {
       expect(DeliveryMethod.DELIVERY).toBe('DELIVERY');
       expect(DeliveryMethod.PICKUP).toBe('PICKUP');
+      expect(DeliveryMethod.CURBSIDE).toBe('CURBSIDE');
     });
 
     it('covers all expected delivery method values', () => {
-      expect(Object.values(DeliveryMethod)).toEqual(['DELIVERY', 'PICKUP']);
+      expect(Object.values(DeliveryMethod)).toEqual(['DELIVERY', 'PICKUP', 'CURBSIDE']);
     });
   });
 

@@ -49,7 +49,7 @@ describe('order service — IN_STORE payment', () => {
         paymentMethod: PaymentMethod.IN_STORE,
       })
     ).rejects.toMatchObject({
-      message: 'Pay in store is only available for pickup orders',
+      message: 'Pay in store is only available for pickup and curbside orders',
       statusCode: 400,
     });
 

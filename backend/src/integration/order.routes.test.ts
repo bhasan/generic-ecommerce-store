@@ -28,6 +28,7 @@ const orderService = vi.hoisted(() => ({
   deleteOrderItem: vi.fn(),
   deleteOrder: vi.fn(),
   printOrderReceipt: vi.fn(),
+  customerArrive: vi.fn(),
 }));
 const deliveryEligibilityService = vi.hoisted(() => ({
   checkDeliveryEligibility: vi.fn(),
@@ -431,6 +432,56 @@ describe('order routes integration', () => {
         code: 'INTERNAL_ERROR',
         requestId: 'req-orders',
       },
+    });
+  });
+
+  describe('POST /api/orders/:id/arrive', () => {
+    it('successfully updates order status to ARRIVED and forwards parameters', async () => {
+      verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+      orderService.customerArrive.mockResolvedValue({
+        id: 701,
+        status: 'ARRIVED',
+        deliveryMethod: 'CURBSIDE',
+        deliveryAddress: 'CURBSIDE: Blue Civic | SPOT: Space 3',
+      });
+
+      const { response, body } = await requestJson(server, '/api/orders/701/arrive', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer customer-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ parkingSpot: 'Space 3' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({
+        message: 'Arrival notification sent successfully',
+        order: {
+          id: 701,
+          status: 'ARRIVED',
+          deliveryMethod: 'CURBSIDE',
+          deliveryAddress: 'CURBSIDE: Blue Civic | SPOT: Space 3',
+        },
+      });
+      expect(orderService.customerArrive).toHaveBeenCalledWith(701, 10, 'Space 3');
+    });
+
+    it('rejects validation check when parkingSpot is missing', async () => {
+      verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+
+      const { response, body } = await requestJson(server, '/api/orders/701/arrive', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer customer-token',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      expect(response.status).toBe(400);
+      expect(body.errors[0].msg).toBe('Parking spot details are required');
+      expect(orderService.customerArrive).not.toHaveBeenCalled();
     });
   });
 });
