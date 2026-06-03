@@ -39,7 +39,7 @@ export const createOrder = async (items, cashAppUsername, deliveryMethod, paymen
   if (cashAppUsername) payload.cashAppUsername = cashAppUsername;
   if (deliveryMethod) payload.deliveryMethod = deliveryMethod;
   if (paymentMethod) payload.paymentMethod = paymentMethod;
-  if (deliveryMethod === 'DELIVERY' && deliveryAddress) {
+  if ((deliveryMethod === 'DELIVERY' || deliveryMethod === 'CURBSIDE') && deliveryAddress) {
     payload.deliveryAddress = deliveryAddress;
   }
   const response = await post('/orders', payload);
@@ -133,3 +133,15 @@ export const getDeliveredOrders = async () => {
 export const getOutForDeliveryOrders = async () => {
   return get('/orders/out-for-delivery');
 };
+
+/**
+ * Notify staff of customer arrival for curbside pickup
+ * @param {number} id - Order ID
+ * @param {string} parkingSpot - Parking spot details
+ * @returns {Promise<object>} Response with order details
+ */
+export const notifyArrival = async (id, parkingSpot) => {
+  const response = await post(`/orders/${id}/arrive`, { parkingSpot });
+  return response.order || response;
+};
+

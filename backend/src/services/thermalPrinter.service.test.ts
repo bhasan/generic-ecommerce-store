@@ -185,6 +185,42 @@ TOTAL                               $21.64
     expect(body.receipt.text).toContain('DELIVERY ADDRESS');
   });
 
+  it('prints curbside pickup orders with vehicle info section', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 95,
+      userId: 8,
+      status: 'APPROVED',
+      total: 15.0,
+      createdAt: new Date('2026-04-09T19:00:00.000Z'),
+      updatedAt: new Date('2026-04-09T19:00:00.000Z'),
+      deliveryMethod: 'CURBSIDE',
+      paymentMethod: 'EXTERNAL',
+      deliveryAddress: 'CURBSIDE: Silver Camry',
+    });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 8,
+      username: 'customer-two',
+      cashapp: '$customer-two',
+      phoneNumber: '555-222-3333',
+      address: '456 Side St',
+    });
+    prismaMock.orderItem.findMany.mockResolvedValue([
+      { id: 5, orderId: 95, productId: 2, quantity: 1, price: 15.0, voided: false, addedAfterSubmission: false },
+    ]);
+    prismaMock.productItem.findMany.mockResolvedValue([
+      { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
+    ]);
+
+    const { thermalPrinterService } = await import('./thermalPrinter.service');
+    await thermalPrinterService.dispatchReceipt(95, 'ORDER_CREATED');
+
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
+    expect(body.receipt.text).toContain('*** CURBSIDE PICKUP ***');
+    expect(body.receipt.text).toContain('CURBSIDE VEHICLE INFO');
+    expect(body.receipt.text).toContain('CURBSIDE: SILVER CAMRY');
+  });
+
+
   it('marks manual reprints clearly', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([

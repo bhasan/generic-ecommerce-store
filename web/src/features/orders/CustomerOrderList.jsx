@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import './CustomerOrderList.css';
-import { Package, RefreshCw, ChevronRight, ShoppingBag } from 'lucide-react';
+import { Package, RefreshCw, ChevronRight, ShoppingBag, Clock } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { useNavigate } from 'react-router-dom';
+import { useApp } from '../../context/AppContext';
 
-const ACTIVE_STATUSES = ['PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'READY_FOR_PICKUP'];
+const ACTIVE_STATUSES = ['PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'READY_FOR_PICKUP', 'ARRIVED'];
 
 // Stepper definitions per delivery method
 const DELIVERY_STEPS = [
@@ -18,6 +19,7 @@ const PICKUP_STEPS = [
   { key: 'PENDING', label: 'Pending' },
   { key: 'APPROVED', label: 'Preparing' },
   { key: 'READY_FOR_PICKUP', label: 'Ready for Pickup' },
+  { key: 'ARRIVED', label: 'Arrived' },
   { key: 'PICKED_UP', label: 'Picked Up' }
 ];
 
@@ -34,7 +36,8 @@ const PICKUP_STATUS_INDEX = {
   PENDING: 0,
   APPROVED: 1,
   READY_FOR_PICKUP: 2,
-  PICKED_UP: 3
+  ARRIVED: 3,
+  PICKED_UP: 4
 };
 
 function StatusStepper({ status, isPickup }) {
@@ -89,7 +92,20 @@ function getItemsSummary(order, products) {
 
 function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder, products, formatOrderDate }) {
   const navigate = useNavigate();
+  const { notifyArrival } = useApp();
   const [activeTab, setActiveTab] = useState('active');
+  const [arrivingOrderId, setArrivingOrderId] = useState(null);
+
+  const handleArriveClick = async (orderId) => {
+    setArrivingOrderId(orderId);
+    try {
+      await notifyArrival(orderId, 'Arrived');
+    } catch {
+      // Notification is handled globally by AppContext/apiClient
+    } finally {
+      setArrivingOrderId(null);
+    }
+  };
 
   const myOrders = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const activeOrders = myOrders.filter((o) => ACTIVE_STATUSES.includes(o.status));
@@ -157,7 +173,7 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
       ) : (
         <div className="customer-orders-list">
           {displayedOrders.map((order) => {
-            const isPickup = order.deliveryMethod === 'PICKUP';
+            const isPickup = order.deliveryMethod === 'PICKUP' || order.deliveryMethod === 'CURBSIDE';
             const isRejected = order.status === 'NOT_FULFILLING';
             const itemCount = order.items?.filter((i) => !i.voided).length ?? 0;
             const itemsSummary = getItemsSummary(order, products);
@@ -169,8 +185,8 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
                     <span className="order-card-id">Order #{order.id}</span>
                     <span className="order-card-date">{formatOrderDate(order.createdAt)}</span>
                   </div>
-                  <span className={`order-method-badge ${isPickup ? 'method-pickup' : 'method-delivery'}`}>
-                    {isPickup ? 'Pickup' : 'Delivery'}
+                  <span className={`order-method-badge ${order.deliveryMethod === 'CURBSIDE' ? 'method-pickup' : isPickup ? 'method-pickup' : 'method-delivery'}`}>
+                    {order.deliveryMethod === 'CURBSIDE' ? 'Curbside Pickup' : isPickup ? 'Pickup' : 'Delivery'}
                   </span>
                 </div>
 
@@ -182,7 +198,27 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
                   <StatusStepper status={order.status} isPickup={isPickup} />
                 )}
 
+                {!isRejected && order.deliveryMethod === 'CURBSIDE' && order.status === 'ARRIVED' && (
+                  <div className="order-arrived-banner">
+                    <Clock size={16} className="banner-icon" />
+                    <span>Check-in confirmed! Staff is bringing your order out now.</span>
+                  </div>
+                )}
+
                 <p className="order-items-summary">{itemsSummary}</p>
+
+                {!isRejected && order.deliveryMethod === 'CURBSIDE' && order.status === 'READY_FOR_PICKUP' && (
+                  <div className="customer-order-actions">
+                    <button
+                      type="button"
+                      className="btn-arrive-here"
+                      onClick={() => handleArriveClick(order.id)}
+                      disabled={arrivingOrderId === order.id}
+                    >
+                      {arrivingOrderId === order.id ? 'Checking in...' : "I'm Here"}
+                    </button>
+                  </div>
+                )}
 
                 <div className="order-card-footer">
                   <span className="order-card-total">

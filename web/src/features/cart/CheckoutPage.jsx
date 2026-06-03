@@ -45,6 +45,7 @@ function CheckoutPage() {
     creditBalance,
   } = useApp();
   const [deliveryMethod, setDeliveryMethod] = useState(location.state?.deliveryMethod || DeliveryMethod.PICKUP);
+  const [vehicleDetails, setVehicleDetails] = useState({ makeModel: '', color: '' });
   const [address, setAddress] = useState({
     street: '',
     city: '',
@@ -66,12 +67,19 @@ function CheckoutPage() {
   const prefilledAddressKeyRef = useRef('');
   const hasUsedImmediatePrefillCheckRef = useRef(false);
 
-  const isPickup = deliveryMethod === DeliveryMethod.PICKUP;
+  const isPickup = deliveryMethod === DeliveryMethod.PICKUP || deliveryMethod === DeliveryMethod.CURBSIDE;
   const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
   const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
   const isInStorePayment = selectedPaymentMethod === PaymentMethod.IN_STORE;
   const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
   const showPaymentSelector = creditBalance > 0 || isPickup;
+
+  const clearVehicleError = (fieldName) => {
+    setErrors((prev) => ({
+      ...prev,
+      [fieldName]: '',
+    }));
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -211,6 +219,15 @@ function CheckoutPage() {
   const validateForm = () => {
     const newErrors = {};
 
+    if (deliveryMethod === DeliveryMethod.CURBSIDE) {
+      if (!vehicleDetails.makeModel.trim()) {
+        newErrors.makeModel = 'Vehicle make and model is required';
+      }
+      if (!vehicleDetails.color.trim()) {
+        newErrors.color = 'Vehicle color is required';
+      }
+    }
+
     if (isDelivery) {
       if (!normalizedAddress.street) newErrors.street = 'Street address is required';
       if (!normalizedAddress.city) newErrors.city = 'City is required';
@@ -260,11 +277,15 @@ function CheckoutPage() {
 
     try {
       const itemsForSuccess = [...cart];
+      const curbsideDetails = deliveryMethod === DeliveryMethod.CURBSIDE
+        ? `CURBSIDE: ${vehicleDetails.color.trim()} ${vehicleDetails.makeModel.trim()}`
+        : undefined;
+
       const newOrder = await checkout(
         cashAppUsername,
         deliveryMethod,
         selectedPaymentMethod,
-        isDelivery ? normalizedAddress : undefined
+        isDelivery ? normalizedAddress : curbsideDetails
       );
 
       const orderState = {
@@ -272,7 +293,9 @@ function CheckoutPage() {
         deliveryMethod,
         deliveryAddress: isDelivery
           ? (newOrder.deliveryAddress || formatDeliveryAddress(normalizedAddress))
-          : 'Store Pickup',
+          : deliveryMethod === DeliveryMethod.CURBSIDE
+            ? curbsideDetails
+            : 'Store Pickup',
         pickupLocation: isPickup ? pickupLocation : null,
         addressDetails: normalizedAddress,
         specialInstructions,
@@ -719,7 +742,79 @@ function CheckoutPage() {
               <div className="pickup-location-info">
                 <h4>Store Pickup Location</h4>
                 <p className="pickup-address">{pickupLocation || '123 Smoke Station Ave, Dallas, TX 75001'}</p>
-                <p className="pickup-note">We'll email you when your order is ready for pickup.</p>
+                
+                <div className="pickup-sub-method">
+                  <div className="pickup-sub-toggle">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeliveryMethod(DeliveryMethod.PICKUP);
+                        setErrors(prev => ({ ...prev, makeModel: '', color: '' }));
+                      }}
+                      className={`pickup-sub-btn ${deliveryMethod === DeliveryMethod.PICKUP ? 'active' : ''}`}
+                    >
+                      In-Store Pickup
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMethod(DeliveryMethod.CURBSIDE)}
+                      className={`pickup-sub-btn ${deliveryMethod === DeliveryMethod.CURBSIDE ? 'active' : ''}`}
+                    >
+                      Curbside Pickup
+                    </button>
+                  </div>
+                </div>
+
+                {deliveryMethod === DeliveryMethod.CURBSIDE ? (
+                  <div className="curbside-form">
+                    <p className="pickup-note" style={{ marginBottom: '1rem' }}>Please provide vehicle details so we can bring your order out to you.</p>
+                    <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                      <div className="form-group">
+                        <label htmlFor="vehicleMakeModel" style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', fontWeight: 500 }}>Vehicle Make & Model *</label>
+                        <input
+                          id="vehicleMakeModel"
+                          type="text"
+                          value={vehicleDetails.makeModel}
+                          onChange={(e) => {
+                            setVehicleDetails(prev => ({ ...prev, makeModel: e.target.value }));
+                            clearVehicleError('makeModel');
+                          }}
+                          placeholder="e.g. Toyota Camry"
+                          className={`form-input ${errors.makeModel ? 'form-error' : ''}`}
+                        />
+                        {errors.makeModel && (
+                          <span className="error-message">
+                            <AlertCircle size={14} />
+                            {errors.makeModel}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="form-group">
+                        <label htmlFor="vehicleColor" style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', fontWeight: 500 }}>Vehicle Color *</label>
+                        <input
+                          id="vehicleColor"
+                          type="text"
+                          value={vehicleDetails.color}
+                          onChange={(e) => {
+                            setVehicleDetails(prev => ({ ...prev, color: e.target.value }));
+                            clearVehicleError('color');
+                          }}
+                          placeholder="e.g. Silver"
+                          className={`form-input ${errors.color ? 'form-error' : ''}`}
+                        />
+                        {errors.color && (
+                          <span className="error-message">
+                            <AlertCircle size={14} />
+                            {errors.color}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="pickup-note">We'll email you when your order is ready for pickup.</p>
+                )}
               </div>
             )}
           </div>

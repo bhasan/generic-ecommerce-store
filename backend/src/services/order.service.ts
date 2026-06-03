@@ -493,7 +493,7 @@ export class OrderService {
         userId,
         deliveryMethod,
       });
-      throw new AppError('Delivery method must be DELIVERY or PICKUP', 400);
+      throw new AppError('Delivery method must be DELIVERY, PICKUP, or CURBSIDE', 400);
     }
 
     if (!items || items.length === 0) {
@@ -501,8 +501,8 @@ export class OrderService {
       throw new AppError('Order must contain at least one item', 400);
     }
 
-    if (effectivePaymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP) {
-      throw new AppError('Pay in store is only available for pickup orders', 400);
+    if (effectivePaymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP && deliveryMethod !== DeliveryMethod.CURBSIDE) {
+      throw new AppError('Pay in store is only available for pickup and curbside orders', 400);
     }
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
@@ -623,6 +623,9 @@ export class OrderService {
               deliveryDistanceMiles: deliveryEligibility.distanceMiles,
               deliveryThresholdMiles: deliveryEligibility.thresholdMiles,
               deliveryZoneCheckedAt: deliveryEligibility.checkedAt,
+            } : {}),
+            ...(deliveryMethod === DeliveryMethod.CURBSIDE && typeof deliveryAddress === 'string' ? {
+              deliveryAddress: deliveryAddress,
             } : {}),
           }
         });
@@ -1137,6 +1140,87 @@ export class OrderService {
     }
 
     return thermalPrinterService.dispatchReceipt(orderId, 'MANUAL_REPRINT', data.actor);
+  }
+
+  /**
+   * Mark order as arrived (Customer check-in for Curbside)
+   */
+  async customerArrive(orderId: number, userId: number, parkingSpot: string) {
+    logger.info('Customer notifying arrival for curbside order', {
+      orderId,
+      userId,
+      parkingSpot,
+    });
+
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId }
+      });
+
+      if (!order) {
+        throw new AppError('Order not found', 404);
+      }
+
+      if (order.userId !== userId) {
+        throw new AppError('Access denied', 403);
+      }
+
+      if (order.deliveryMethod !== DeliveryMethod.CURBSIDE) {
+        throw new AppError('Arrival notification is only available for curbside orders', 400);
+      }
+
+      if (order.status !== OrderStatus.READY_FOR_PICKUP) {
+        throw new AppError('Order must be in READY_FOR_PICKUP status to check in', 400);
+      }
+
+      // Update order status to ARRIVED and append parking spot to deliveryAddress
+      const baseAddress = order.deliveryAddress || 'CURBSIDE';
+      const updatedAddress = `${baseAddress} | SPOT: ${parkingSpot.trim()}`;
+
+      logger.info('Updating order status to ARRIVED in database', {
+        orderId,
+        updatedAddress,
+      });
+
+      const updatedOrder = await prisma.order.update({
+        where: { id: orderId },
+        data: {
+          status: OrderStatus.ARRIVED,
+          deliveryAddress: updatedAddress,
+        }
+      });
+
+      // Fetch order items with products
+      const orderItems = await prisma.orderItem.findMany({
+        where: { orderId }
+      });
+
+      const productIds = [...new Set(orderItems.map(item => item.productId))];
+      const products = await prisma.productItem.findMany({
+        where: { id: { in: productIds } }
+      });
+      const productMap = new Map(products.map(p => [p.id, p]));
+      const itemsWithProducts = orderItems.map(item => ({
+        ...item,
+        product: productMap.get(item.productId) || null
+      }));
+
+      // Trigger notification updates
+      await notificationEventsService.notifyOrderStatusUpdated(
+        orderId,
+        order.userId,
+        OrderStatus.ARRIVED,
+        order.status,
+      );
+
+      return {
+        ...updatedOrder,
+        items: itemsWithProducts
+      };
+    } catch (error) {
+      logger.error('Failed customer arrive update', error, { orderId, userId });
+      throw error;
+    }
   }
 }
 

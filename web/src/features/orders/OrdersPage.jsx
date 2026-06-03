@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './OrdersPage.css';
 import { useApp } from '../../context/AppContext';
 import {
@@ -40,7 +40,8 @@ const DEFAULT_SELECTED_STATUSES = [
   OrderStatus.APPROVED,
   OrderStatus.READY_FOR_DELIVERY,
   OrderStatus.OUT_FOR_DELIVERY,
-  OrderStatus.READY_FOR_PICKUP
+  OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.ARRIVED
 ];
 const STATUS_LABELS = {
   PENDING: 'Pending',
@@ -50,6 +51,7 @@ const STATUS_LABELS = {
   OUT_FOR_DELIVERY: 'In Delivery',
   DELIVERED: 'Delivered',
   READY_FOR_PICKUP: 'Ready for Pickup',
+  ARRIVED: 'Customer Arrived',
   PICKED_UP: 'Picked Up'
 };
 
@@ -61,6 +63,7 @@ const COLUMN_LABELS = {
   OUT_FOR_DELIVERY: 'Out for Delivery',
   DELIVERED: 'Delivered',
   READY_FOR_PICKUP: 'Ready for Pickup',
+  ARRIVED: 'Customer Arrived',
   PICKED_UP: 'Picked Up'
 };
 
@@ -104,6 +107,40 @@ function OrdersPage() {
   const viewStartAtRef = useRef(Date.now());
   const hasInitializedOrdersRef = useRef(false);
   const ordersRef = useRef(orders);
+  const previousStatusesRef = useRef({});
+
+  const playArrivalChime = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const now = ctx.currentTime;
+      
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(783.99, now); // G5
+      gain1.gain.setValueAtTime(0.1, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.3);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1046.50, now + 0.15); // C6
+      gain2.gain.setValueAtTime(0.1, now + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.15);
+      osc2.stop(now + 0.5);
+    } catch (err) {
+      console.error('Failed to play arrival chime:', err);
+    }
+  };
 
   const isCustomerOnly =
     hasRole(currentUser, ROLES.CUSTOMER) &&
@@ -207,20 +244,42 @@ function OrdersPage() {
     if (isLoadingOrders) return;
     if (!hasInitializedOrdersRef.current) {
       knownOrderIdsRef.current = new Set(orders.map((o) => o.id));
+      const statuses = {};
+      orders.forEach((o) => {
+        statuses[o.id] = o.status;
+      });
+      previousStatusesRef.current = statuses;
       hasInitializedOrdersRef.current = true;
       return;
     }
     const viewStartAt = viewStartAtRef.current;
     const knownOrderIds = knownOrderIdsRef.current;
     const newIds = [];
+    
+    let shouldPlayChime = false;
+    const nextStatuses = {};
+
     // New badges are limited to orders created while this board view has been open.
     orders.forEach((o) => {
+      nextStatuses[o.id] = o.status;
+      
+      const prevStatus = previousStatusesRef.current[o.id];
+      if (o.status === 'ARRIVED' && prevStatus !== 'ARRIVED') {
+        shouldPlayChime = true;
+      }
+
       if (!knownOrderIds.has(o.id)) {
         const createdAt = new Date(o.createdAt).getTime();
         if (Number.isFinite(createdAt) && createdAt >= viewStartAt) newIds.push(o.id);
       }
       knownOrderIds.add(o.id);
     });
+
+    previousStatusesRef.current = nextStatuses;
+    if (shouldPlayChime) {
+      playArrivalChime();
+    }
+
     if (newIds.length > 0) setNewOrderIds((prev) => Array.from(new Set([...prev, ...newIds])));
   }, [orders, isLoadingOrders]);
 
@@ -242,6 +301,7 @@ function OrdersPage() {
       case 'NOT_FULFILLING': return <XCircle size={18} />;
       case 'READY_FOR_DELIVERY': return <Package size={18} />;
       case 'READY_FOR_PICKUP': return <Package size={18} />;
+      case 'ARRIVED': return <Package size={18} />;
       case 'OUT_FOR_DELIVERY': return <Truck size={18} />;
       case 'DELIVERED': return <CheckCircle size={18} />;
       case 'PICKED_UP': return <CheckCircle size={18} />;
@@ -256,6 +316,7 @@ function OrdersPage() {
       NOT_FULFILLING: 'status-not-fulfilling',
       READY_FOR_DELIVERY: 'status-ready',
       READY_FOR_PICKUP: 'status-ready',
+      ARRIVED: 'status-arrived',
       OUT_FOR_DELIVERY: 'status-out-for-delivery',
       DELIVERED: 'status-delivered',
       PICKED_UP: 'status-picked-up'
@@ -303,7 +364,7 @@ function OrdersPage() {
 
   const getNextStatusActions = (order) => {
     const currentStatus = order.status;
-    const isPickup = order.deliveryMethod === 'PICKUP';
+    const isPickup = order.deliveryMethod === 'PICKUP' || order.deliveryMethod === 'CURBSIDE';
 
     switch (currentStatus) {
       case 'PENDING':
@@ -320,6 +381,8 @@ function OrdersPage() {
       case 'OUT_FOR_DELIVERY':
         return [{ status: 'DELIVERED', label: STATUS_LABELS.DELIVERED, icon: <CheckCheck size={16} />, className: 'btn-quick-action-complete' }];
       case 'READY_FOR_PICKUP':
+        return [{ status: 'PICKED_UP', label: STATUS_LABELS.PICKED_UP, icon: <CheckCheck size={16} />, className: 'btn-quick-action-complete' }];
+      case 'ARRIVED':
         return [{ status: 'PICKED_UP', label: STATUS_LABELS.PICKED_UP, icon: <CheckCheck size={16} />, className: 'btn-quick-action-complete' }];
       default:
         return [];
@@ -594,16 +657,17 @@ function OrdersPage() {
                     const nextActions = canModifyOrders ? getNextStatusActions(order) : [];
                     const isNew = newOrderIds.includes(order.id);
                     const itemCount = order.items?.filter((i) => !i.voided).length ?? 0;
-                    const isPickup = order.deliveryMethod === 'PICKUP';
+                    const isPickup = order.deliveryMethod === 'PICKUP' || order.deliveryMethod === 'CURBSIDE';
                     const isPayInStore = order.paymentMethod === 'IN_STORE';
                     const isExternal = order.paymentMethod === 'EXTERNAL';
                     const isPaid = order.paymentMethod === 'CREDIT' || (isExternal && order.status !== 'PENDING');
                     const needsVerification = isExternal && order.status === 'PENDING';
 
+                    const isArrived = order.status === 'ARRIVED';
                     return (
                       <div
                         key={order.id}
-                        className={`kanban-card surface-card ${isNew ? 'kanban-card-new' : ''} ${canModifyOrders ? 'kanban-card-draggable' : ''}`}
+                        className={`kanban-card surface-card ${isNew ? 'kanban-card-new' : ''} ${isArrived ? 'kanban-card-arrived' : ''} ${canModifyOrders ? 'kanban-card-draggable' : ''}`}
                         draggable={canModifyOrders}
                         onDragStart={(e) => handleDragStart(e, order)}
                         onDragEnd={handleDragEnd}
@@ -613,7 +677,7 @@ function OrdersPage() {
                           <div className="kanban-card-badges">
                             {isNew && <span className="kanban-card-new-badge">New</span>}
                             <span className={`kanban-card-method-badge ${isPickup ? 'method-pickup' : 'method-delivery'}`}>
-                              {isPickup ? 'Pickup' : 'Delivery'}
+                              {order.deliveryMethod === 'CURBSIDE' ? 'Curbside' : (isPickup ? 'Pickup' : 'Delivery')}
                             </span>
                             {isPayInStore && (
                               <span className="kanban-card-payment-badge payment-store">Pay in Store</span>
@@ -628,6 +692,12 @@ function OrdersPage() {
                         </div>
                         <div className="kanban-card-date">{formatOrderDate(order.createdAt)}</div>
                         <div className="kanban-card-customer">{order.user?.username ?? 'N/A'}</div>
+                        {order.deliveryMethod === 'CURBSIDE' && order.deliveryAddress && (
+                          <div className="kanban-card-vehicle">
+                            <MapPin size={12} className="vehicle-icon" />
+                            <span className="vehicle-info-text">{order.deliveryAddress.replace(/^CURBSIDE(:\s*|\s*\|\s*|$)/i, '') || 'CURBSIDE'}</span>
+                          </div>
+                        )}
                         <div className="kanban-card-meta">
                           ${order.total.toFixed(2)} Â· {itemCount} item{itemCount !== 1 ? 's' : ''}
                         </div>

@@ -12,6 +12,13 @@ vi.mock('react-router-dom', async () => {
 // HeaderDivider has no meaningful output to assert on
 vi.mock('../../components/common/HeaderDivider', () => ({ default: () => null }));
 
+const mockNotifyArrival = vi.fn();
+vi.mock('../../context/AppContext', () => ({
+  useApp: () => ({
+    notifyArrival: mockNotifyArrival
+  })
+}));
+
 const PRODUCTS = [
   { id: 1, name: 'Blue Dream', price: 15 },
   { id: 2, name: 'OG Kush', price: 20 },
@@ -229,9 +236,22 @@ describe('CustomerOrderList', () => {
   it('renders pickup stepper labels for a pickup order', async () => {
     await renderList({ orders: [makeOrder({ deliveryMethod: 'PICKUP', status: 'APPROVED' })] });
     expect(screen.getByText('Ready for Pickup')).toBeInTheDocument();
+    expect(screen.getByText('Arrived')).toBeInTheDocument();
     expect(screen.getByText('Picked Up')).toBeInTheDocument();
     // Should NOT show delivery-only steps
     expect(screen.queryByText('Out for Delivery')).not.toBeInTheDocument();
+  });
+
+  it('marks the correct stepper step as active when ARRIVED', async () => {
+    await renderList({ orders: [makeOrder({ deliveryMethod: 'PICKUP', status: 'ARRIVED' })] });
+    const arrivedStep = screen.getByText('Arrived').closest('.stepper-step');
+    expect(arrivedStep.className).toContain('active');
+  });
+
+  it('marks preceding steps as done when ARRIVED', async () => {
+    await renderList({ orders: [makeOrder({ deliveryMethod: 'PICKUP', status: 'ARRIVED' })] });
+    const readyStep = screen.getByText('Ready for Pickup').closest('.stepper-step');
+    expect(readyStep.className).toContain('done');
   });
 
   it('marks the correct stepper step as active', async () => {
@@ -253,5 +273,54 @@ describe('CustomerOrderList', () => {
     await renderList({ orders: [makeOrder({ total: 42.5 })] });
     expect(screen.getByText(/\$42\.50/)).toBeInTheDocument();
     expect(screen.getByText(/2 items/i)).toBeInTheDocument();
+  });
+
+  // ── Curbside Arrival Check-In ─────────────────────────────────────────────
+  describe('Curbside Arrival Check-In', () => {
+    beforeEach(() => {
+      mockNotifyArrival.mockReset();
+    });
+
+    it('shows the "I\'m Here" button for curbside orders when ready for pickup', async () => {
+      const order = makeOrder({ deliveryMethod: 'CURBSIDE', status: 'READY_FOR_PICKUP' });
+      await renderList({ orders: [order] });
+      expect(screen.getByRole('button', { name: /i'm here/i })).toBeInTheDocument();
+    });
+
+    it('hides the "I\'m Here" button for in-store pickup orders', async () => {
+      const order = makeOrder({ deliveryMethod: 'PICKUP', status: 'READY_FOR_PICKUP' });
+      await renderList({ orders: [order] });
+      expect(screen.queryByRole('button', { name: /i'm here/i })).not.toBeInTheDocument();
+    });
+
+    it('hides the "I\'m Here" button for other statuses', async () => {
+      const order = makeOrder({ deliveryMethod: 'CURBSIDE', status: 'PENDING' });
+      await renderList({ orders: [order] });
+      expect(screen.queryByRole('button', { name: /i'm here/i })).not.toBeInTheDocument();
+    });
+
+    it('calls notifyArrival context action immediately when clicked', async () => {
+      const order = makeOrder({ id: 123, deliveryMethod: 'CURBSIDE', status: 'READY_FOR_PICKUP' });
+      await renderList({ orders: [order] });
+      
+      fireEvent.click(screen.getByRole('button', { name: /i'm here/i }));
+      
+      expect(mockNotifyArrival).toHaveBeenCalledWith(123, 'Arrived');
+    });
+
+    it('shows the "Check-in confirmed" banner for curbside orders when status is ARRIVED', async () => {
+      const order = makeOrder({ deliveryMethod: 'CURBSIDE', status: 'ARRIVED' });
+      await renderList({ orders: [order] });
+      
+      expect(screen.getByText(/check-in confirmed/i)).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /i'm here/i })).not.toBeInTheDocument();
+    });
+
+    it('hides the "Check-in confirmed" banner for other status values', async () => {
+      const order = makeOrder({ deliveryMethod: 'CURBSIDE', status: 'READY_FOR_PICKUP' });
+      await renderList({ orders: [order] });
+      
+      expect(screen.queryByText(/check-in confirmed/i)).not.toBeInTheDocument();
+    });
   });
 });
