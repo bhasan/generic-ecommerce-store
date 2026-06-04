@@ -106,6 +106,13 @@ export class ThermalPrinterService {
       timeStyle: 'short',
     });
     const isDelivery = snapshot.deliveryMethod === 'DELIVERY';
+    const isCurbside = snapshot.deliveryMethod === 'CURBSIDE';
+    const methodText = isDelivery 
+      ? '*** DELIVERY ***' 
+      : isCurbside 
+        ? '*** CURBSIDE PICKUP ***' 
+        : '*** PICKUP ***';
+
     const lines = [
       this.centerText(this.storeName.toUpperCase()),
       this.centerText(reason === 'MANUAL_REPRINT' ? 'REPRINT' : 'NEW ORDER'),
@@ -113,7 +120,7 @@ export class ThermalPrinterService {
       `ORDER #${snapshot.id}`,
       `CREATED ${createdLabel}`,
       strongDivider,
-      this.centerText(isDelivery ? '*** DELIVERY ***' : '*** PICKUP ***'),
+      this.centerText(methodText),
     ];
 
     if (isDelivery) {
@@ -124,6 +131,16 @@ export class ThermalPrinterService {
         lines.push(...this.wrapText(snapshot.deliveryAddress.toUpperCase()));
       } else {
         lines.push('ADDRESS NOT PROVIDED');
+      }
+      lines.push(divider);
+    } else if (isCurbside) {
+      lines.push('');
+      lines.push(divider);
+      lines.push('CURBSIDE VEHICLE INFO');
+      if (snapshot.deliveryAddress) {
+        lines.push(...this.wrapText(snapshot.deliveryAddress.toUpperCase()));
+      } else {
+        lines.push('VEHICLE INFO NOT PROVIDED');
       }
       lines.push(divider);
     }

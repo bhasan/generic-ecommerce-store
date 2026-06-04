@@ -881,6 +881,24 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Notifies the staff of customer arrival for curbside pickup and refreshes orders.
+  const notifyArrival = async (orderId, parkingSpot) => {
+    try {
+      const updatedOrder = await ordersApi.notifyArrival(orderId, parkingSpot);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      showNotification('Arrival notification sent successfully', 'success');
+      return updatedOrder;
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to send arrival notification. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
+  };
+
   // Restores the cart from a saved snapshot, which is used by external-payment cancel flows.
   const restoreCart = (items) => {
     setCart(items);
@@ -1182,6 +1200,7 @@ export function AppProvider({ children }) {
     updateCategory,
     deleteCategory,
     updateOrderStatus, 
+    notifyArrival,
     deleteOrder,
     printOrderReceipt,
     addItemToOrder,

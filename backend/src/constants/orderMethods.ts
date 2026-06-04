@@ -1,6 +1,7 @@
 export const DeliveryMethod = {
   DELIVERY: 'DELIVERY',
   PICKUP: 'PICKUP',
+  CURBSIDE: 'CURBSIDE',
 } as const;
 
 export type DeliveryMethodValue = (typeof DeliveryMethod)[keyof typeof DeliveryMethod];

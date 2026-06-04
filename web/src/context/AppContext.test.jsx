@@ -29,6 +29,7 @@ const ordersApi = vi.hoisted(() => ({
   createOrder: vi.fn(),
   checkDeliveryEligibility: vi.fn(),
   updateOrderStatus: vi.fn(),
+  notifyArrival: vi.fn(),
   deleteOrder: vi.fn(),
   addItemToOrder: vi.fn(),
   voidOrderItem: vi.fn(),
@@ -108,6 +109,7 @@ function ContextHarness() {
       <button onClick={() => app.checkout('', 'PICKUP', 'CREDIT')}>Checkout With Credit</button>
       <button onClick={() => app.markNotificationRead(11)}>Mark Notification Read</button>
       <button onClick={() => app.login('driver', 'driver123')}>Trigger Login</button>
+      <button onClick={() => app.notifyArrival(111, 'Spot X')}>Notify Arrival</button>
     </div>
   );
 }
@@ -328,5 +330,31 @@ describe('AppContext', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/delivery-dashboard'));
+  });
+
+  it('calls ordersApi.notifyArrival and refreshes the order list', async () => {
+    apiModule.getAuthToken.mockReturnValue('token-123');
+    authApi.getProfile.mockResolvedValue(users.customer);
+    ordersApi.getAllOrders
+      .mockResolvedValueOnce(sampleOrders)
+      .mockResolvedValueOnce(sampleOrders)
+      .mockResolvedValue([...sampleOrders, { id: 111, status: 'ARRIVED', items: [] }]);
+    ordersApi.notifyArrival.mockResolvedValue({ id: 111, status: 'ARRIVED' });
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/orders' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Notify Arrival'));
+    });
+
+    expect(ordersApi.notifyArrival).toHaveBeenCalledWith(111, 'Spot X');
+    await waitFor(() => expect(screen.getByTestId('orders-count')).toHaveTextContent('2'));
   });
 });

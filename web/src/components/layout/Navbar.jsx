@@ -46,6 +46,7 @@ function Navbar() {
   const isDeliveryDriver = hasRole(currentUser, ROLES.DELIVERY_DRIVER);
   // Can manage orders: employees, managers, and admins
   const canManageOrders = isEmployee || isManagement;
+  const hasArrivedOrders = orders && orders.some(order => order.status === 'ARRIVED');
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -114,7 +115,7 @@ function Navbar() {
       {/* Customer-specific links */}
       {isCustomer && !isGuest && (
         <NavLink
-          to="/orders"
+          to="/my-orders"
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
         >
           <Package size={18} />
@@ -124,13 +125,23 @@ function Navbar() {
 
       {/* Employee/Manager/Admin - Orders */}
       {canManageOrders && (
-        <NavLink
-          to="/orders"
-          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-        >
-          <Package size={18} />
-          <span>Orders</span>
-        </NavLink>
+        <>
+          <NavLink
+            to="/orders"
+            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+          >
+            <Package size={18} />
+            <span>Orders</span>
+            {hasArrivedOrders && <span className="nav-dot" aria-label="Customer arrived notification" />}
+          </NavLink>
+          <NavLink
+            to="/my-orders"
+            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+          >
+            <Package size={18} />
+            <span>My Orders</span>
+          </NavLink>
+        </>
       )}
 
       {/* Manager/Admin only - Manage Products */}

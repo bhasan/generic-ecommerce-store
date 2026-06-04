@@ -301,3 +301,67 @@
     min-width: 1.125rem;
   }
 }
+
+/* ── Customer Arrive Action ── */
+.customer-order-actions {
+  display: flex;
+  margin-top: 0.5rem;
+}
+
+.customer-order-actions .btn-arrive-here {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  width: 100%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.customer-order-actions .btn-arrive-here:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45);
+}
+
+.customer-order-actions .btn-arrive-here:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Arrived Notice Banner ── */
+.order-arrived-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 0.5rem;
+  color: var(--color-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: pulseOpacity 2s infinite ease-in-out;
+  margin-top: 0.25rem;
+}
+
+.order-arrived-banner .banner-icon {
+  animation: spinSlow 8s infinite linear;
+}
+
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

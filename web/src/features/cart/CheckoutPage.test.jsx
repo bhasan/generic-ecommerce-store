@@ -312,4 +312,60 @@ describe('CheckoutPage', () => {
       expect(screen.queryByText(/cashapp username is required/i)).not.toBeInTheDocument();
     });
   });
+
+  describe('Curbside Pickup option', () => {
+    it('reveals curbside vehicle make/model and color inputs when Curbside is toggled', () => {
+      renderCheckout();
+
+      // Curbside form should not be visible initially
+      expect(screen.queryByLabelText(/vehicle make & model/i)).not.toBeInTheDocument();
+
+      // Click Curbside toggle
+      fireEvent.click(screen.getByRole('button', { name: /curbside pickup/i }));
+
+      // Now inputs should be visible
+      expect(screen.getByLabelText(/vehicle make & model/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/vehicle color/i)).toBeInTheDocument();
+    });
+
+    it('validates curbside details before placing order', async () => {
+      renderCheckout();
+
+      // Toggle Curbside
+      fireEvent.click(screen.getByRole('button', { name: /curbside pickup/i }));
+
+      // Leave fields empty and click submit
+      fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+      expect(await screen.findByText('Vehicle make and model is required')).toBeInTheDocument();
+      expect(screen.getByText('Vehicle color is required')).toBeInTheDocument();
+      expect(checkoutMock).not.toHaveBeenCalled();
+    });
+
+    it('formats vehicle details in deliveryAddress payload on successful checkout', async () => {
+      renderCheckout();
+
+      // Toggle Curbside
+      fireEvent.click(screen.getByRole('button', { name: /curbside pickup/i }));
+
+      // Fill in fields
+      fireEvent.change(screen.getByLabelText(/vehicle make & model/i), {
+        target: { value: 'Toyota Camry' },
+      });
+      fireEvent.change(screen.getByLabelText(/vehicle color/i), {
+        target: { value: 'Silver' },
+      });
+
+      // Submit
+      fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+      await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith(
+        '$customer-one',
+        'CURBSIDE',
+        PaymentMethod.EXTERNAL,
+        'CURBSIDE: Silver Toyota Camry'
+      ));
+    });
+  });
 });
+
