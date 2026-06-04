@@ -50,7 +50,9 @@ services:
     networks:
       - sshtx_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      # Use 127.0.0.1 (not localhost) so the check forces IPv4 and never depends
+      # on nginx listening on IPv6 ::1. Hit the dedicated /health endpoint.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3

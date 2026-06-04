@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
   cat <<'USAGE'
 Usage:
-  scripts/post-deploy-hardening-check.sh <server-ip> [--control-path <ssh-socket>]
+  scripts/post-deploy-hardening-check.sh <server-ip> [--control-path <ssh-socket>] [--ssh-user <user>]
   scripts/post-deploy-hardening-check.sh --run-local
 
 Description:
@@ -121,6 +121,7 @@ run_local_check() {
 run_local="false"
 server_ip=""
 ssh_control_path=""
+ssh_user="${SSH_USER:-root}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -134,6 +135,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       ssh_control_path="$2"
+      shift 2
+      ;;
+    --ssh-user)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --ssh-user requires a value."
+        exit 1
+      fi
+      ssh_user="$2"
       shift 2
       ;;
     -h|--help)
@@ -167,5 +176,5 @@ if [[ -n "$ssh_control_path" ]]; then
   ssh_opts=(-o ControlMaster=no -o ControlPath="$ssh_control_path")
 fi
 
-echo "==> Running post-deploy hardening checklist on root@$server_ip..."
-ssh "${ssh_opts[@]}" "root@$server_ip" "bash -s -- --run-local" < "$0"
+echo "==> Running post-deploy hardening checklist on $ssh_user@$server_ip..."
+ssh "${ssh_opts[@]}" "$ssh_user@$server_ip" "bash -s -- --run-local" < "$0"
