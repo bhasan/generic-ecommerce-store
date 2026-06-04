@@ -67,7 +67,7 @@ const COLUMN_LABELS = {
   PICKED_UP: 'Picked Up'
 };
 
-function OrdersPage() {
+function OrdersPage({ forceCustomerView = false }) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlStatus = searchParams.get('status');
@@ -143,10 +143,12 @@ function OrdersPage() {
   };
 
   const isCustomerOnly =
-    hasRole(currentUser, ROLES.CUSTOMER) &&
-    !hasRole(currentUser, ROLES.EMPLOYEE) &&
-    !hasRole(currentUser, ROLES.MANAGEMENT) &&
-    !hasRole(currentUser, ROLES.ADMIN);
+    forceCustomerView || (
+      hasRole(currentUser, ROLES.CUSTOMER) &&
+      !hasRole(currentUser, ROLES.EMPLOYEE) &&
+      !hasRole(currentUser, ROLES.MANAGEMENT) &&
+      !hasRole(currentUser, ROLES.ADMIN)
+    );
   const canModifyOrders =
     hasRole(currentUser, ROLES.EMPLOYEE) || hasRole(currentUser, ROLES.MANAGEMENT) || hasRole(currentUser, ROLES.ADMIN);
 
