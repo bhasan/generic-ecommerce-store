@@ -1,15 +1,18 @@
 .customer-arrived-notice {
-  width: 100%;
+  width: min(560px, calc(100vw - 2rem));
   background: linear-gradient(90deg, #b91c1c 0%, #ef4444 50%, #b91c1c 100%);
   background-size: 200% auto;
   color: white;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md) calc(var(--spacing-xl) + 1.5rem) var(--spacing-md) var(--spacing-md);
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
   gap: var(--spacing-md);
-  position: relative;
-  z-index: var(--z-sticky);
+  position: fixed;
+  right: var(--spacing-lg);
+  bottom: var(--spacing-lg);
+  z-index: var(--z-toast, 1080);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   animation: shimmer-arrived 3s linear infinite, slideDown-arrived 0.5s ease-out;
   overflow: hidden;
@@ -22,7 +25,7 @@
 }
 
 @keyframes slideDown-arrived {
-  from { transform: translateY(-100%); opacity: 0; }
+  from { transform: translateY(1rem); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
 
@@ -52,6 +55,7 @@
   font-size: var(--font-size-sm);
   letter-spacing: 0.025em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  min-width: 0;
 }
 
 .customer-arrived-notice-icon {
@@ -68,6 +72,7 @@
 }
 
 .customer-arrived-notice-btn {
+  flex-shrink: 0;
   background: white;
   color: #b91c1c;
   border: none;
@@ -109,14 +114,26 @@
 
 @media (max-width: 768px) {
   .customer-arrived-notice {
-    flex-direction: column;
+    right: var(--spacing-sm);
+    bottom: var(--spacing-sm);
+    width: calc(100vw - (2 * var(--spacing-sm)));
+    flex-direction: row;
     gap: var(--spacing-sm);
-    text-align: center;
-    padding: var(--spacing-sm);
+    text-align: left;
+    padding: var(--spacing-sm) calc(var(--spacing-xl) + 1.25rem) var(--spacing-sm) var(--spacing-sm);
   }
   
   .customer-arrived-notice-close {
     top: 50%;
     transform: translateY(-50%);
+  }
+
+  .customer-arrived-notice-content {
+    font-size: var(--font-size-xs);
+  }
+
+  .customer-arrived-notice-btn {
+    padding: 4px 8px;
+    font-size: 0.65rem;
   }
 }

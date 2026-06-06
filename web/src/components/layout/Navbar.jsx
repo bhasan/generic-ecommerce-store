@@ -76,7 +76,7 @@ function Navbar() {
   };
 
   // Render navigation links (reusable for both desktop and mobile)
-  const renderNavLinks = () => (
+  const renderNavLinks = ({ includeStaffMyOrders = false } = {}) => (
     <>
       {/* Start Here - link to home for all logged in users */}
       {!isGuest && (
@@ -125,23 +125,24 @@ function Navbar() {
 
       {/* Employee/Manager/Admin - Orders */}
       {canManageOrders && (
-        <>
-          <NavLink
-            to="/orders"
-            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          >
-            <Package size={18} />
-            <span>Orders</span>
-            {hasArrivedOrders && <span className="nav-dot" aria-label="Customer arrived notification" />}
-          </NavLink>
-          <NavLink
-            to="/my-orders"
-            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          >
-            <Package size={18} />
-            <span>My Orders</span>
-          </NavLink>
-        </>
+        <NavLink
+          to="/orders"
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Package size={18} />
+          <span>Orders</span>
+          {hasArrivedOrders && <span className="nav-dot" aria-label="Customer arrived notification" />}
+        </NavLink>
+      )}
+
+      {canManageOrders && includeStaffMyOrders && (
+        <NavLink
+          to="/my-orders"
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Package size={18} />
+          <span>My Orders</span>
+        </NavLink>
       )}
 
       {/* Manager/Admin only - Manage Products */}
@@ -149,6 +150,7 @@ function Navbar() {
         <NavLink
           to="/manage-products"
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+          title="Manage Products"
         >
           <Users size={18} />
           <span>Manage Products</span>
@@ -302,6 +304,18 @@ function Navbar() {
                       <Settings size={16} />
                       <span>Change Profile</span>
                     </button>
+                    {canManageOrders && (
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          navigate('/my-orders');
+                        }}
+                        className="profile-menu-item"
+                      >
+                        <Package size={16} />
+                        <span>My Orders</span>
+                      </button>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="profile-menu-item profile-menu-logout"
@@ -342,7 +356,7 @@ function Navbar() {
         className={`mobile-menu ${showMobileMenu ? 'open' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {renderNavLinks()}
+        {renderNavLinks({ includeStaffMyOrders: true })}
 
         {/* Help link in mobile menu */}
         {!isGuest && (
