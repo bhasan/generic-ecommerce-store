@@ -502,16 +502,6 @@
   background: rgba(124, 58, 237, 0.1);
 }
 
-.btn-delete-order {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: var(--color-danger);
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-
 .edit-actions {
   display: flex;
   gap: 0.5rem;
