@@ -8,6 +8,16 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Runs synchronously before CSS is applied to avoid flash-of-wrong-theme -->
+    <script>
+      (function () {
+        var p = localStorage.getItem('theme-preference') || 'system';
+        var r = p === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : p;
+        document.documentElement.setAttribute('data-theme', r);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

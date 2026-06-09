@@ -94,6 +94,12 @@
   color: var(--text-primary);
 }
 
+button.nav-link-icon {
+  background: transparent;
+  border: none;
+  padding: var(--spacing-sm);
+}
+
 /* Nav link with badge (for messages) */
 .nav-link-messages {
   position: relative;

@@ -155,13 +155,49 @@
 }
 
 /* ============================================
-   THEME OVERRIDES (for future theme switching)
+   THEME OVERRIDES
    ============================================ */
-/* Example: Light theme
-[data-theme="light"] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --text-primary: #111827;
-  ... 
+
+/* Dark theme — explicit declaration matches the :root defaults above */
+[data-theme="dark"] {
+  color-scheme: dark;
 }
-*/
+
+/* Light theme — overrides only the surface/text/border tokens.
+   Brand colors (primary, secondary, semantic) are intentionally unchanged —
+   they're designed to work on both backgrounds. The navbar stays dark in
+   light mode for visual contrast and brand consistency. */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-primary: #f3f4f6;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e5e7eb;
+  --bg-card: #ffffff;
+  --bg-overlay: rgba(243, 244, 246, 0.95);
+  --bg-hover: rgba(124, 58, 237, 0.08);
+  --bg-active: rgba(124, 58, 237, 0.14);
+
+  /* Navbar stays dark for brand contrast */
+  --bg-navbar: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  --bg-navbar-mobile: linear-gradient(135deg, #0f0e26 0%, #1e1b4b 100%);
+
+  --bg-dashboard-sidebar: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
+  --bg-dashboard-content: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --text-disabled: #d1d5db;
+  --text-link: var(--color-primary);
+  --text-link-hover: var(--color-primary-dark);
+
+  --border-color: #e5e7eb;
+  --border-color-light: #d1d5db;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
