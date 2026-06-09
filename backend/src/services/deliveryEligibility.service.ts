@@ -15,6 +15,15 @@ import { OrderingConstraints, OrderingConstraintsService } from './orderingConst
 
 const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const DEFAULT_GEOCODING_TIMEOUT_MS = 5000;
+const STORE_ADDRESS_TTL_MS = 5 * 60 * 1000;
+
+// Module-level so all service instances share one cache (multiple singletons exist in the codebase).
+let _cachedStoreAddress: string | null = null;
+let _storeAddressCacheExpiresAt = 0;
+
+export function invalidateStoreAddressCache(): void {
+  _cachedStoreAddress = null;
+}
 
 const orderingConstraintsService = new OrderingConstraintsService();
 
@@ -99,14 +108,10 @@ const haversineMiles = (
 };
 
 export class DeliveryEligibilityService {
-  private cachedStoreAddress: string | null = null;
-  private storeAddressCacheExpiresAt = 0;
-  private readonly STORE_ADDRESS_TTL_MS = 5 * 60 * 1000;
-
   private async getStoreAddress(): Promise<string> {
     const now = Date.now();
-    if (this.cachedStoreAddress !== null && now < this.storeAddressCacheExpiresAt) {
-      return this.cachedStoreAddress;
+    if (_cachedStoreAddress !== null && now < _storeAddressCacheExpiresAt) {
+      return _cachedStoreAddress;
     }
     const row = await prisma.uiSetting.findUnique({ where: { key: 'store_settings' } });
     const address = (
@@ -117,8 +122,8 @@ export class DeliveryEligibilityService {
     )
       ? (row.value as { address: string }).address
       : '';
-    this.cachedStoreAddress = address;
-    this.storeAddressCacheExpiresAt = now + this.STORE_ADDRESS_TTL_MS;
+    _cachedStoreAddress = address;
+    _storeAddressCacheExpiresAt = now + STORE_ADDRESS_TTL_MS;
     return address;
   }
 

@@ -16,6 +16,17 @@ vi.mock('../config/database', () => ({
 
 vi.mock('./deliveryEligibility.service', () => ({
   DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
+  invalidateStoreAddressCache: vi.fn(),
+}));
+
+vi.mock('./orderingConstraints.service', () => ({
+  OrderingConstraintsService: vi.fn(),
+  invalidateOfflineZipsCache: vi.fn(),
+}));
+
+vi.mock('./thermalPrinter.service', () => ({
+  invalidateStoreNameCache: vi.fn(),
+  thermalPrinterService: {},
 }));
 
 describe('store settings service', () => {

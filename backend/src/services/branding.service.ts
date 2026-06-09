@@ -38,7 +38,7 @@ const DEFAULT_BRANDING: BrandingSettings = {
 export class BrandingService {
   async getBranding(): Promise<BrandingSettings> {
     const row = await prisma.uiSetting.findUnique({ where: { key: 'branding' } });
-    if (!row) return DEFAULT_BRANDING;
+    if (!row) return { ...DEFAULT_BRANDING, faviconUrls: { ...DEFAULT_BRANDING.faviconUrls } };
     return { ...DEFAULT_BRANDING, ...(row.value as Partial<BrandingSettings>) };
   }
 
@@ -73,8 +73,11 @@ export class BrandingService {
     if (!c) return ':root {}';
 
     const HEX = /^#[0-9a-f]{6}$/i;
-    const RGB = /^\d{1,3} \d{1,3} \d{1,3}$/;
-    const isSafe = (k: string, v: string) => k.endsWith('-rgb') ? RGB.test(v) : HEX.test(v);
+    const isValidRgb = (v: string) => {
+      const parts = v.split(' ');
+      return parts.length === 3 && parts.every(p => /^\d{1,3}$/.test(p) && Number(p) <= 255);
+    };
+    const isSafe = (k: string, v: string) => k.endsWith('-rgb') ? isValidRgb(v) : HEX.test(v);
 
     const entries: Array<[string, string | undefined]> = [
       ['--color-primary', c.primary],

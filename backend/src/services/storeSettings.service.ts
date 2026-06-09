@@ -1,6 +1,8 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { DeliveryEligibilityService } from './deliveryEligibility.service';
+import { DeliveryEligibilityService, invalidateStoreAddressCache } from './deliveryEligibility.service';
+import { invalidateOfflineZipsCache } from './orderingConstraints.service';
+import { invalidateStoreNameCache } from './thermalPrinter.service';
 
 export interface NotificationEmailRouting {
   adminEmail: string;
@@ -129,6 +131,10 @@ export class StoreSettingsService {
       update: { value: normalized as object },
       create: { key: 'store_settings', value: normalized as object },
     });
+
+    invalidateStoreAddressCache();
+    invalidateOfflineZipsCache();
+    invalidateStoreNameCache();
 
     return this.normalize(row.value as Partial<StoreSettings>);
   }

@@ -165,7 +165,7 @@ app.get('/api/config', async (_req, res) => {
   });
 });
 
-app.get('/api/branding/css', brandingController.getCss);
+app.get('/api/branding/css', generalLimiter, brandingController.getCss);
 
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
 app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {

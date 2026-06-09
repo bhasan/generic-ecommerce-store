@@ -42,22 +42,26 @@ interface ReceiptOrderSnapshot {
   }>;
 }
 
-export class ThermalPrinterService {
-  private cachedStoreName: string | null = null;
-  private storeNameCacheExpiresAt = 0;
-  private readonly STORE_NAME_TTL_MS = 5 * 60 * 1000;
+const STORE_NAME_TTL_MS = 5 * 60 * 1000;
+let _cachedStoreName: string | null = null;
+let _storeNameCacheExpiresAt = 0;
 
+export function invalidateStoreNameCache(): void {
+  _cachedStoreName = null;
+}
+
+export class ThermalPrinterService {
   private async getStoreName(): Promise<string> {
     const envName = process.env.THERMAL_PRINTER_STORE_NAME;
     if (envName) return envName;
     const now = Date.now();
-    if (this.cachedStoreName !== null && now < this.storeNameCacheExpiresAt) {
-      return this.cachedStoreName;
+    if (_cachedStoreName !== null && now < _storeNameCacheExpiresAt) {
+      return _cachedStoreName;
     }
     const settings = await new StoreSettingsService().getStoreSettings();
-    this.cachedStoreName = settings.name || 'Store';
-    this.storeNameCacheExpiresAt = now + this.STORE_NAME_TTL_MS;
-    return this.cachedStoreName;
+    _cachedStoreName = settings.name || 'Store';
+    _storeNameCacheExpiresAt = now + STORE_NAME_TTL_MS;
+    return _cachedStoreName;
   }
 
   isConfigured() {

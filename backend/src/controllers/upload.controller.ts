@@ -177,6 +177,7 @@ export class UploadController {
       const inputPath = path.join(uploadsDir, req.file.filename);
       const faviconUrls: { '16': string; '32': string; '180': string } = { '16': '', '32': '', '180': '' };
 
+      const version = Date.now();
       for (const { key, size } of sizes) {
         const outFilename = `favicon-${size}.png`;
         const outPath = path.join(uploadsDir, outFilename);
@@ -184,7 +185,7 @@ export class UploadController {
           .resize(size, size, { fit: 'cover' })
           .png()
           .toFile(outPath);
-        faviconUrls[key] = `/api/uploads/${outFilename}`;
+        faviconUrls[key] = `/api/uploads/${outFilename}?v=${version}`;
       }
 
       await fs.promises.unlink(inputPath);

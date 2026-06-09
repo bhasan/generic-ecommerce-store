@@ -22,24 +22,30 @@ const DEFAULT_ORDERING_CONSTRAINTS: OrderingConstraints = {
   offlineDeliveryZipCodes: [],
 };
 
-export class OrderingConstraintsService {
-  private cachedOfflineZips: string[] | null = null;
-  private offlineZipsCacheExpiresAt = 0;
-  private readonly OFFLINE_ZIPS_TTL_MS = 5 * 60 * 1000;
+const OFFLINE_ZIPS_TTL_MS = 5 * 60 * 1000;
 
+// Module-level so all service instances share one cache.
+let _cachedOfflineZips: string[] | null = null;
+let _offlineZipsCacheExpiresAt = 0;
+
+export function invalidateOfflineZipsCache(): void {
+  _cachedOfflineZips = null;
+}
+
+export class OrderingConstraintsService {
   private async getOfflineZips(): Promise<string[]> {
     const now = Date.now();
-    if (this.cachedOfflineZips !== null && now < this.offlineZipsCacheExpiresAt) {
-      return this.cachedOfflineZips;
+    if (_cachedOfflineZips !== null && now < _offlineZipsCacheExpiresAt) {
+      return _cachedOfflineZips;
     }
     const row = await prisma.uiSetting.findUnique({ where: { key: 'store_settings' } });
     const address = row && row.value && typeof (row.value as Record<string, unknown>).address === 'string'
       ? (row.value as Record<string, unknown>).address as string
       : null;
     const zip = extractZipCodeFromFreeformAddress(address);
-    this.cachedOfflineZips = zip ? [zip] : [];
-    this.offlineZipsCacheExpiresAt = now + this.OFFLINE_ZIPS_TTL_MS;
-    return this.cachedOfflineZips;
+    _cachedOfflineZips = zip ? [zip] : [];
+    _offlineZipsCacheExpiresAt = now + OFFLINE_ZIPS_TTL_MS;
+    return _cachedOfflineZips;
   }
 
   async getOrderingConstraints(): Promise<OrderingConstraints> {
