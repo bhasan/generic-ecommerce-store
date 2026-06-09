@@ -29,18 +29,6 @@ const contactMessagesApi = vi.hoisted(() => ({
   deleteMessage: vi.fn(),
   replyToMessage: vi.fn(),
 }));
-const paymentSettingsApi = vi.hoisted(() => ({
-  getPaymentSettings: vi.fn(),
-  updatePaymentSettings: vi.fn(),
-}));
-const storeSettingsApi = vi.hoisted(() => ({
-  getStoreSettings: vi.fn(),
-  updateStoreSettings: vi.fn(),
-}));
-const orderingConstraintsApi = vi.hoisted(() => ({
-  getOrderingConstraints: vi.fn(),
-  updateOrderingConstraints: vi.fn(),
-}));
 const landingPageSettingsApi = vi.hoisted(() => ({
   getLandingPageSettings: vi.fn(),
   updateLandingPageSettings: vi.fn(),
@@ -58,9 +46,6 @@ vi.mock('../../context/AppContext', () => ({
 vi.mock('../../services/usersApi', () => usersApi);
 vi.mock('../../services/announcementsApi', () => announcementsApi);
 vi.mock('../../services/contactMessagesApi', () => contactMessagesApi);
-vi.mock('../../services/paymentSettingsApi', () => paymentSettingsApi);
-vi.mock('../../services/storeSettingsApi', () => storeSettingsApi);
-vi.mock('../../services/orderingConstraintsApi', () => orderingConstraintsApi);
 vi.mock('../../services/landingPageSettingsApi', () => landingPageSettingsApi);
 vi.mock('../../services/productsApi', () => productsApi);
 
@@ -105,42 +90,6 @@ vi.mock('./components/MessagesSection', () => ({
   ),
 }));
 
-vi.mock('./components/PaymentSettingsSection', () => ({
-  default: ({ paymentSettings, onSave }) => (
-    <div>
-      <div>Payment Settings Section</div>
-      <div data-testid="payment-handle">{paymentSettings?.cashapp?.handle || ''}</div>
-      <button onClick={() => onSave({ cashapp: { enabled: true, handle: '$Updated' }, zelle: { enabled: false, handle: '' }, venmo: { enabled: false, handle: '' } })}>
-        Save Payment Settings
-      </button>
-    </div>
-  ),
-}));
-
-vi.mock('./components/StoreSettingsSection', () => ({
-  default: ({ storeSettings, onSave }) => (
-    <div>
-      <div>Store Settings Section</div>
-      <div data-testid="store-name">{storeSettings?.name || ''}</div>
-      <button onClick={() => onSave({ name: 'Updated Store', address: '202 New Ave', phoneNumber: '555-0200' })}>
-        Save Store Settings
-      </button>
-    </div>
-  ),
-}));
-
-vi.mock('./components/OrderingConstraintsSection', () => ({
-  default: ({ orderingConstraints, onSave }) => (
-    <div>
-      <div>Ordering Constraints Section</div>
-      <div data-testid="minimum-order">{orderingConstraints?.minimumDeliveryOrder ?? ''}</div>
-      <button onClick={() => onSave({ minimumDeliveryOrder: 40, minimumDeliveryOrderEnabled: true })}>
-        Save Ordering Constraints
-      </button>
-    </div>
-  ),
-}));
-
 vi.mock('./components/VIPManagementSection', () => ({
   default: ({ isLoading, users, products, onToggleVipUser, onToggleVipProduct }) => (
     <div>
@@ -176,7 +125,7 @@ const baseAppState = {
   loadConfig: vi.fn(),
 };
 
-const renderDashboard = (route = '/dashboard?section=payment-settings') =>
+const renderDashboard = (route = '/dashboard?section=landing-page') =>
   render(
     <MemoryRouter initialEntries={[route]}>
       <Routes>
@@ -195,17 +144,14 @@ describe('DashboardPage layout', () => {
     usersApi.getRejectedUsers.mockResolvedValue([]);
     announcementsApi.getAllAnnouncements.mockResolvedValue([]);
     contactMessagesApi.getAllMessages.mockResolvedValue([]);
-    paymentSettingsApi.getPaymentSettings.mockResolvedValue({});
-    storeSettingsApi.getStoreSettings.mockResolvedValue({});
-    orderingConstraintsApi.getOrderingConstraints.mockResolvedValue({});
     landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [] });
     productsApi.getAllProducts.mockResolvedValue([]);
     productsApi.updateProduct.mockResolvedValue({});
   });
 
   it('renders a dashboard-layout wrapper containing the sidebar and main content', async () => {
-    const { container } = renderDashboard('/dashboard?section=payment-settings');
-    await waitFor(() => expect(paymentSettingsApi.getPaymentSettings).toHaveBeenCalled());
+    const { container } = renderDashboard('/dashboard?section=landing-page');
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
 
     const layout = container.querySelector('.dashboard-layout');
     expect(layout).toBeInTheDocument();
@@ -245,12 +191,12 @@ describe('DashboardPage layout', () => {
   });
 
   it('marks the active sidebar item based on the current section', async () => {
-    const { container } = renderDashboard('/dashboard?section=store-settings');
-    await waitFor(() => expect(storeSettingsApi.getStoreSettings).toHaveBeenCalled());
+    const { container } = renderDashboard('/dashboard?section=landing-page');
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
 
     const activeButtons = container.querySelectorAll('button.sidebar-nav-item.active');
     expect(activeButtons).toHaveLength(1);
-    expect(activeButtons[0]).toHaveAccessibleName(/store settings/i);
+    expect(activeButtons[0]).toHaveAccessibleName(/landing page/i);
   });
 });
 
@@ -265,23 +211,6 @@ describe('DashboardPage orchestration', () => {
     usersApi.getRejectedUsers.mockResolvedValue([]);
     announcementsApi.getAllAnnouncements.mockResolvedValue([]);
     contactMessagesApi.getAllMessages.mockResolvedValue([]);
-    paymentSettingsApi.getPaymentSettings.mockResolvedValue({
-      cashapp: { enabled: true, handle: '$SmokeStationHQ' },
-      zelle: { enabled: false, handle: '' },
-      venmo: { enabled: false, handle: '' },
-    });
-    storeSettingsApi.getStoreSettings.mockResolvedValue({
-      name: 'Smoke Station',
-      address: '101 Example Ave',
-      phoneNumber: '555-0100',
-    });
-    orderingConstraintsApi.getOrderingConstraints.mockResolvedValue({
-      minimumDeliveryOrder: 35,
-      minimumDeliveryOrderEnabled: true,
-    });
-    paymentSettingsApi.updatePaymentSettings.mockResolvedValue({});
-    storeSettingsApi.updateStoreSettings.mockResolvedValue({});
-    orderingConstraintsApi.updateOrderingConstraints.mockResolvedValue({});
     landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [5, 7] });
     landingPageSettingsApi.updateLandingPageSettings.mockResolvedValue({});
     productsApi.getAllProducts.mockResolvedValue([]);
@@ -289,35 +218,33 @@ describe('DashboardPage orchestration', () => {
   });
 
   it('loads the section selected from the query string', async () => {
-    renderDashboard('/dashboard?section=payment-settings');
+    renderDashboard('/dashboard?section=landing-page');
 
-    await waitFor(() => expect(paymentSettingsApi.getPaymentSettings).toHaveBeenCalled());
-    expect(screen.getByText('Payment Settings Section')).toBeInTheDocument();
-    expect(screen.getByTestId('payment-handle')).toHaveTextContent('$SmokeStationHQ');
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
+    expect(screen.getByText('Landing Page Section')).toBeInTheDocument();
+    expect(screen.getByTestId('featured-ids')).toHaveTextContent('[5,7]');
   });
 
   it('switches sections and loads the matching dashboard data source', async () => {
-    renderDashboard('/dashboard?section=payment-settings');
+    renderDashboard('/dashboard?section=landing-page');
 
-    await waitFor(() => expect(paymentSettingsApi.getPaymentSettings).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole('button', { name: /store settings/i }));
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /announcements/i }));
 
-    await waitFor(() => expect(storeSettingsApi.getStoreSettings).toHaveBeenCalled());
-    expect(screen.getByText('Store Settings Section')).toBeInTheDocument();
-    expect(screen.getByTestId('store-name')).toHaveTextContent('Smoke Station');
+    await waitFor(() => expect(announcementsApi.getAllAnnouncements).toHaveBeenCalled());
+    expect(screen.getByText(/^Announcements:/)).toBeInTheDocument();
   });
 
   it('saves section data, shows a success notification, and refreshes shared config', async () => {
-    renderDashboard('/dashboard?section=ordering-constraints');
+    renderDashboard('/dashboard?section=landing-page');
 
-    await waitFor(() => expect(orderingConstraintsApi.getOrderingConstraints).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole('button', { name: /save ordering constraints/i }));
+    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: /save landing page/i }));
 
-    await waitFor(() => expect(orderingConstraintsApi.updateOrderingConstraints).toHaveBeenCalledWith({
-      minimumDeliveryOrder: 40,
-      minimumDeliveryOrderEnabled: true,
+    await waitFor(() => expect(landingPageSettingsApi.updateLandingPageSettings).toHaveBeenCalledWith({
+      featuredProductIds: [1, 2, 3],
     }));
-    expect(baseAppState.showNotification).toHaveBeenCalledWith('Ordering constraints updated successfully', 'success');
+    expect(baseAppState.showNotification).toHaveBeenCalledWith('Landing page settings updated successfully', 'success');
     expect(baseAppState.loadConfig).toHaveBeenCalled();
   });
 
@@ -342,27 +269,6 @@ describe('DashboardPage orchestration', () => {
     expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(2);
 
     intervalSpy.mockRestore();
-  });
-
-  it('loads landing page settings when the landing-page section is selected', async () => {
-    renderDashboard('/dashboard?section=landing-page');
-
-    await waitFor(() => expect(screen.getByTestId('featured-ids')).toHaveTextContent('[5,7]'));
-    expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled();
-    expect(screen.getByText('Landing Page Section')).toBeInTheDocument();
-  });
-
-  it('saves landing page settings, shows a success notification, and refreshes shared config', async () => {
-    renderDashboard('/dashboard?section=landing-page');
-
-    await waitFor(() => expect(landingPageSettingsApi.getLandingPageSettings).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole('button', { name: /save landing page/i }));
-
-    await waitFor(() => expect(landingPageSettingsApi.updateLandingPageSettings).toHaveBeenCalledWith({
-      featuredProductIds: [1, 2, 3],
-    }));
-    expect(baseAppState.showNotification).toHaveBeenCalledWith('Landing page settings updated successfully', 'success');
-    expect(baseAppState.loadConfig).toHaveBeenCalled();
   });
 
   it('shows a warning when reply persistence succeeds but email delivery fails', async () => {
@@ -401,9 +307,6 @@ describe('DashboardPage — VIP management', () => {
     usersApi.updateUser.mockResolvedValue({});
     announcementsApi.getAllAnnouncements.mockResolvedValue([]);
     contactMessagesApi.getAllMessages.mockResolvedValue([]);
-    paymentSettingsApi.getPaymentSettings.mockResolvedValue({});
-    storeSettingsApi.getStoreSettings.mockResolvedValue({});
-    orderingConstraintsApi.getOrderingConstraints.mockResolvedValue({});
     landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({ featuredProductIds: [] });
     productsApi.getAllProducts.mockResolvedValue([vipProduct]);
     productsApi.updateProduct.mockResolvedValue({});
