@@ -298,7 +298,7 @@
 }
 
 .badge-voided {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--color-warning-bg-strong);
   color: var(--color-warning);
 }
 
@@ -412,7 +412,7 @@
 }
 
 .btn-toggle-add-item:hover {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-secondary-bg);
 }
 
 .order-detail-actions {
@@ -499,7 +499,7 @@
 }
 
 .btn-edit-order:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
 }
 
 .edit-actions {
@@ -555,7 +555,7 @@
 }
 
 .btn-edit-order:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
 }
 
 .btn-delete-order {
@@ -593,12 +593,12 @@
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
 }
 
 .btn-arrive-here:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45);
+  box-shadow: 0 6px 18px var(--color-primary-shadow);
 }
 
 .btn-arrive-here:disabled {
@@ -613,7 +613,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid var(--color-secondary-bg-strong);
   border-radius: 0.5rem;
   color: var(--color-secondary);
   font-size: 0.875rem;
@@ -633,4 +633,27 @@
 @keyframes spinSlow {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .order-detail-total,
+[data-theme="light"] .order-item-price,
+[data-theme="light"] .btn-change-status:hover,
+[data-theme="light"] .btn-item-action:hover,
+[data-theme="light"] .btn-order-help:hover {
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .payment-cashapp,
+[data-theme="light"] .badge-added,
+[data-theme="light"] .btn-order-print:hover {
+  color: var(--color-secondary-dark);
+  border-color: var(--color-secondary-dark);
+}
+
+[data-theme="light"] .badge-voided,
+[data-theme="light"] .order-item-voided .order-item-name,
+[data-theme="light"] .btn-item-action.btn-item-void:hover {
+  color: var(--color-warning-dark);
+  border-color: rgba(180, 83, 9, 0.4);
 }

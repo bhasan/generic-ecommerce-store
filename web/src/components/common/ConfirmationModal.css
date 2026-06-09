@@ -154,7 +154,7 @@
 .btn-modal-success:hover {
   opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 12px var(--color-secondary-border);
 }
 
 .btn-modal-warning,
@@ -166,7 +166,7 @@
 .btn-modal-danger:hover {
   opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 12px var(--color-danger-border);
 }
 
 /* Responsive */

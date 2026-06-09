@@ -84,8 +84,8 @@ export default function BrandColorsSection({ branding, onSave }) {
         </div>
       )}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <button type="button" className="save-btn" style={{ background: 'var(--bg-secondary)' }} onClick={handlePreview}>Apply Preview</button>
-        <button type="button" className="save-btn" style={{ background: 'var(--bg-secondary)' }} onClick={handleResetPreview}>Reset Preview</button>
+        <button type="button" className="save-btn save-btn-ghost" onClick={handlePreview}>Apply Preview</button>
+        <button type="button" className="save-btn save-btn-ghost" onClick={handleResetPreview}>Reset Preview</button>
         <button className="save-btn" onClick={handleSave} disabled={isSaving}>
           {isSaving ? 'Saving...' : 'Save Colors'}
         </button>

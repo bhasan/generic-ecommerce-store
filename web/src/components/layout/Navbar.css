@@ -55,7 +55,7 @@
   align-items: center;
   gap: 0.375rem;
   padding: var(--spacing-sm) 0.875rem;
-  color: var(--text-secondary);
+  color: var(--nav-item-color);
   border-radius: var(--radius-md);
   transition: var(--transition-all);
   font-weight: var(--font-weight-medium);
@@ -64,8 +64,8 @@
 }
 
 .nav-link:hover {
-  background: var(--bg-hover);
-  color: var(--color-primary-light);
+  background: var(--nav-item-hover-bg);
+  color: var(--nav-item-hover-color);
 }
 
 .nav-link-active {
@@ -79,14 +79,14 @@
   align-items: center;
   justify-content: center;
   padding: var(--spacing-sm);
-  color: var(--text-secondary);
+  color: var(--nav-item-color);
   border-radius: var(--radius-md);
   transition: var(--transition-all);
 }
 
 .nav-link-icon:hover {
-  background: var(--bg-hover);
-  color: var(--color-primary-light);
+  background: var(--nav-item-hover-bg);
+  color: var(--nav-item-hover-color);
 }
 
 .nav-link-icon-active {
@@ -411,7 +411,7 @@ button.nav-link-icon {
   margin-top: 0.5rem;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--color-secondary-bg);
   background: color-mix(in srgb, var(--color-secondary, #10b981) 12%, transparent);
   color: var(--color-secondary, #10b981);
   font-size: 0.75rem;
@@ -426,7 +426,7 @@ button.nav-link-icon {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.25);
+  background: var(--color-secondary-bg-strong);
   background: color-mix(in srgb, var(--color-secondary, #10b981) 25%, transparent);
   font-size: 0.65rem;
   font-weight: 700;
@@ -493,7 +493,7 @@ button.nav-link-icon {
 }
 
 .profile-menu-logout:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
@@ -716,4 +716,44 @@ button.nav-link-icon {
     padding: 0.625rem 0.75rem;
     font-size: 0.9375rem;
   }
+}
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .admin-menu-item:hover,
+[data-theme="light"] .admin-menu-item-active,
+[data-theme="light"] .profile-menu-item:hover {
+  color: var(--color-primary);
+}
+
+/* Navbar stays dark in light mode — .nav-link and .nav-link-icon colors are
+   handled by --nav-item-color / --nav-item-hover-* tokens in theme.css. */
+[data-theme="light"] .nav-link-active {
+  color: #fff;
+}
+[data-theme="light"] .profile-button {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+[data-theme="light"] .profile-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+[data-theme="light"] .user-name {
+  color: #fff;
+}
+[data-theme="light"] .user-greeting {
+  color: rgba(255, 255, 255, 0.55);
+}
+[data-theme="light"] .hamburger-line {
+  background: #fff;
+}
+[data-theme="light"] .hamburger-btn {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+[data-theme="light"] .hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] button.nav-link {
+  background: transparent;
+  border: none;
 }

@@ -170,7 +170,7 @@
 
 .product-category {
   background: var(--color-primary-dark);
-  color: var(--text-primary);
+  color: var(--text-on-primary);
   padding: var(--spacing-xs) var(--spacing-lg);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);

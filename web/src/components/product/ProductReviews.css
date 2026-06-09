@@ -344,22 +344,22 @@
 .vote-button-helpful.vote-button-active {
   border-color: var(--color-secondary);
   color: var(--color-secondary);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-secondary-bg);
 }
 
 .vote-button-helpful.vote-button-active:hover {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--color-secondary-bg-strong);
   border-color: var(--color-secondary-dark);
 }
 
 .vote-button-not-helpful.vote-button-active {
   border-color: var(--color-danger);
   color: var(--color-danger);
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
 }
 
 .vote-button-not-helpful.vote-button-active:hover {
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--color-danger-bg-strong);
   border-color: var(--color-danger-dark);
 }
 
@@ -395,13 +395,13 @@
 
 .btn-flag-active {
   border-color: var(--color-warning);
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-warning-bg);
   color: var(--color-warning);
   font-weight: var(--font-weight-semibold);
 }
 
 .btn-flag-active:hover {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--color-warning-bg-strong);
 }
 
 .btn-delete-review {
@@ -544,4 +544,22 @@
   line-height: var(--line-height-normal);
   margin: 0;
   font-size: var(--font-size-sm);
+}
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .rating-number,
+[data-theme="light"] .vote-button:hover:not(:disabled),
+[data-theme="light"] .btn-reply:hover,
+[data-theme="light"] .btn-delete-review:hover {
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .vote-button-helpful.vote-button-active {
+  color: var(--color-secondary-dark);
+  border-color: var(--color-secondary-dark);
+}
+
+[data-theme="light"] .btn-flag:hover,
+[data-theme="light"] .btn-flag-active {
+  color: var(--color-warning-dark);
+  border-color: rgba(180, 83, 9, 0.4);
 }

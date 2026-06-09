@@ -33,6 +33,37 @@
   --color-info-dark: #2563eb;
 
   /* ============================================
+     COLOR OPACITY VARIANTS
+     Use these instead of inline rgba() so the
+     palette stays consistent and white-label
+     color overrides propagate automatically.
+     ============================================ */
+  --color-primary-bg:          color-mix(in srgb, var(--color-primary)    10%, transparent);
+  --color-primary-bg-strong:   color-mix(in srgb, var(--color-primary)    15%, transparent);
+  --color-primary-border:      color-mix(in srgb, var(--color-primary)    30%, transparent);
+
+  --color-secondary-bg:        color-mix(in srgb, var(--color-secondary)  10%, transparent);
+  --color-secondary-bg-strong: color-mix(in srgb, var(--color-secondary)  15%, transparent);
+  --color-secondary-border:    color-mix(in srgb, var(--color-secondary)  30%, transparent);
+
+  --color-danger-bg:           color-mix(in srgb, var(--color-danger)     10%, transparent);
+  --color-danger-bg-strong:    color-mix(in srgb, var(--color-danger)     15%, transparent);
+  --color-danger-border:       color-mix(in srgb, var(--color-danger)     30%, transparent);
+
+  --color-warning-bg:          color-mix(in srgb, var(--color-warning)    10%, transparent);
+  --color-warning-bg-strong:   color-mix(in srgb, var(--color-warning)    15%, transparent);
+  --color-warning-border:      color-mix(in srgb, var(--color-warning)    30%, transparent);
+
+  --color-info-bg:             color-mix(in srgb, var(--color-info)       10%, transparent);
+  --color-info-bg-strong:      color-mix(in srgb, var(--color-info)       15%, transparent);
+  --color-info-border:         color-mix(in srgb, var(--color-info)       30%, transparent);
+
+  /* Shadow variants for colored glows */
+  --color-primary-shadow:      color-mix(in srgb, var(--color-primary)    40%, transparent);
+  --color-secondary-shadow:    color-mix(in srgb, var(--color-secondary)  40%, transparent);
+  --color-danger-shadow:       color-mix(in srgb, var(--color-danger)     40%, transparent);
+
+  /* ============================================
      BACKGROUND COLORS
      ============================================ */
   --bg-primary: #0f1419;
@@ -46,6 +77,12 @@
   /* Navbar Background */
   --bg-navbar: linear-gradient(135deg, var(--bg-primary) 0%, #1a1a2e 100%);
   --bg-navbar-mobile: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+
+  /* Navbar item surface tokens — navbar is always dark; these tokens flip in
+     [data-theme="light"] so components need no per-theme overrides of their own. */
+  --nav-item-color:       var(--text-secondary);
+  --nav-item-hover-color: var(--color-primary-light);
+  --nav-item-hover-bg:    var(--bg-hover);
   
   /* Dashboard Backgrounds */
   --bg-dashboard-sidebar: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
@@ -182,6 +219,11 @@
   --bg-navbar: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
   --bg-navbar-mobile: linear-gradient(135deg, #0f0e26 0%, #1e1b4b 100%);
 
+  /* Navbar items need white-family colors on the always-dark navbar surface */
+  --nav-item-color:       rgba(255, 255, 255, 0.78);
+  --nav-item-hover-color: #ffffff;
+  --nav-item-hover-bg:    rgba(255, 255, 255, 0.12);
+
   --bg-dashboard-sidebar: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%);
   --bg-dashboard-content: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
 
@@ -194,6 +236,14 @@
 
   --border-color: #e5e7eb;
   --border-color-light: #d1d5db;
+
+  /* Semantic text/badge colors must be darker for WCAG AA on white backgrounds.
+     Overriding these here means individual components can keep using the semantic
+     variable names — no per-file [data-theme="light"] override needed. */
+  --color-primary-light:   var(--color-primary);  /* #a855f7 → #7c3aed (5.3:1 on white ✓) */
+  --color-warning-dark:    #b45309;               /* #d97706 → amber-700 (4.56:1 on white ✓) */
+  --color-secondary-dark:  #0a7350;               /* #059669 → emerald-800 (5.21:1 on white ✓) */
+  --color-info-dark:       #1d4ed8;               /* #2563eb → blue-700 (4.7:1 on white ✓) */
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);

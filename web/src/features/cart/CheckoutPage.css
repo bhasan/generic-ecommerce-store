@@ -201,7 +201,7 @@
 
 /* Payment Section */
 .payment-info-box {
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--color-primary-bg);
   border: 1px solid var(--color-primary-dark);
   border-radius: 0.75rem;
   padding: 1.5rem;
@@ -238,7 +238,7 @@
 .payment-preview {
   margin-top: 0.5rem;
   padding: 0.75rem;
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-secondary-bg);
   border: 1px solid var(--color-secondary);
   border-radius: 0.5rem;
   color: var(--color-secondary);
@@ -270,7 +270,7 @@
   gap: 0.75rem;
   margin-top: 1.5rem;
   padding: 1rem;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   border: 1px solid var(--color-danger);
   border-radius: 0.5rem;
   color: var(--color-danger);
@@ -372,7 +372,7 @@
 
 .btn-place-order:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 10px 30px var(--color-primary-shadow);
 }
 
 .btn-place-order:disabled {
@@ -513,7 +513,7 @@
 
 .delivery-blocked-hint {
   font-size: 0.85rem;
-  color: #b45309;
+  color: var(--color-warning-dark);
   text-align: left;
   margin: 0;
   padding: 0.875rem 1rem;
@@ -570,24 +570,24 @@
 .delivery-eligibility-banner-fallback {
   background: rgba(59, 130, 246, 0.11);
   border-color: rgba(59, 130, 246, 0.22);
-  color: #1d4ed8;
+  color: var(--color-info-dark);
 }
 
 .delivery-method-toggle .toggle-btn:hover:not(.active) {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
   color: var(--color-primary-light);
 }
 
 .delivery-method-toggle .toggle-btn.active {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
   transform: scale(1.02);
 }
 
 /* Pickup Location Info */
 .pickup-location-info {
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--color-primary-bg);
   border: 1px solid var(--color-primary-dark);
   border-radius: 0.75rem;
   padding: 2rem;
@@ -638,7 +638,7 @@
 
 .payment-method-option.selected {
   border-color: var(--color-primary);
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--color-primary-bg);
 }
 
 .payment-method-option input[type="radio"] {
@@ -682,14 +682,14 @@
 }
 
 .pickup-sub-btn:hover:not(.active) {
-  background: rgba(124, 58, 237, 0.08);
+  background: var(--color-primary-bg);
   color: var(--color-primary-light);
 }
 
 .pickup-sub-btn.active {
   background: var(--color-primary);
   color: white;
-  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 2px 6px var(--color-primary-bg-strong);
 }
 
 .curbside-form {
@@ -705,3 +705,19 @@
   margin-bottom: 1rem;
 }
 
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .btn-back:hover,
+[data-theme="light"] .progress-step-active,
+[data-theme="light"] .section-header,
+[data-theme="light"] .checkout-item-total,
+[data-theme="light"] .summary-total span:last-child,
+[data-theme="light"] .pickup-location-info h4,
+[data-theme="light"] .delivery-method-toggle .toggle-btn:hover:not(.active),
+[data-theme="light"] .pickup-sub-btn:hover:not(.active) {
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .shipping-free {
+  color: var(--color-secondary-dark) !important;
+}
