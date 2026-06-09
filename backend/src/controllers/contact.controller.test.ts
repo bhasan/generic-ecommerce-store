@@ -99,6 +99,7 @@ describe('contact controller logging', () => {
     });
     prismaMock.user.findUnique.mockResolvedValue({ name: 'Customer', phoneNumber: '555' });
     contactMessageServiceMock.createMessage.mockResolvedValue({ id: 44 });
+    notificationEventsServiceMock.notifyContactMessageReceived.mockResolvedValue(undefined);
     const controller = new ContactController();
     const req: any = {
       requestId: 'req-2',
@@ -236,5 +237,30 @@ describe('contact controller logging', () => {
       repliedBy: 3,
       requestId: 'req-4',
     }));
+  });
+
+  it('returns 200 even when notification service throws', async () => {
+    validationResultMock.mockReturnValue({ isEmpty: () => true, array: () => [] });
+    prismaMock.user.findUnique.mockResolvedValue({ phoneNumber: null });
+    contactMessageServiceMock.createMessage.mockResolvedValue({ id: 99 });
+    notificationEventsServiceMock.notifyContactMessageReceived.mockRejectedValue(new Error('webhook failed'));
+
+    const controller = new ContactController();
+    const req: any = {
+      requestId: 'req-fail',
+      body: { subject: 'Test', orderId: null, message: 'Hi' },
+      user: { userId: 5, username: 'user@test.com' },
+    };
+    const res = createResponse();
+
+    await controller.submitContactForm(req, res as any, vi.fn());
+    await Promise.resolve(); // flush microtask queue for .catch() handler
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(logger.error).toHaveBeenCalledWith(
+      'notifyContactMessageReceived failed',
+      expect.any(Error),
+      expect.objectContaining({ userId: 5, messageId: 99 })
+    );
   });
 });
