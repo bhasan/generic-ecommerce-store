@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { normalizeZipCode } from '../utils/address.util';
+import { normalizeZipCode, extractZipCodeFromFreeformAddress } from '../utils/address.util';
 
 export interface OrderingConstraints {
   minimumDeliveryOrder: number;
@@ -19,17 +19,37 @@ const DEFAULT_ORDERING_CONSTRAINTS: OrderingConstraints = {
   deliveryDisabledMessage: '',
   deliveryRadiusMiles: 5,
   offlineZipFallbackEnabled: true,
-  offlineDeliveryZipCodes: ['77083'],
+  offlineDeliveryZipCodes: [],
 };
 
 export class OrderingConstraintsService {
+  private cachedOfflineZips: string[] | null = null;
+  private offlineZipsCacheExpiresAt = 0;
+  private readonly OFFLINE_ZIPS_TTL_MS = 5 * 60 * 1000;
+
+  private async getOfflineZips(): Promise<string[]> {
+    const now = Date.now();
+    if (this.cachedOfflineZips !== null && now < this.offlineZipsCacheExpiresAt) {
+      return this.cachedOfflineZips;
+    }
+    const row = await prisma.uiSetting.findUnique({ where: { key: 'store_settings' } });
+    const address = row && row.value && typeof (row.value as Record<string, unknown>).address === 'string'
+      ? (row.value as Record<string, unknown>).address as string
+      : null;
+    const zip = extractZipCodeFromFreeformAddress(address);
+    this.cachedOfflineZips = zip ? [zip] : [];
+    this.offlineZipsCacheExpiresAt = now + this.OFFLINE_ZIPS_TTL_MS;
+    return this.cachedOfflineZips;
+  }
+
   async getOrderingConstraints(): Promise<OrderingConstraints> {
     const row = await prisma.uiSetting.findUnique({
       where: { key: 'ordering_constraints' },
     });
 
     if (!row) {
-      return DEFAULT_ORDERING_CONSTRAINTS;
+      const offlineZips = await this.getOfflineZips();
+      return { ...DEFAULT_ORDERING_CONSTRAINTS, offlineDeliveryZipCodes: offlineZips };
     }
 
     return this.normalize(row.value);

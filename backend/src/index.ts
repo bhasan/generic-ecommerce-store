@@ -112,7 +112,7 @@ app.get('/api/health', async (req, res) => {
     await prisma.$queryRaw`SELECT 1`;
     res.json({
       status: 'ok',
-      message: 'Smoke Station Backend API is running!',
+      message: 'Backend API is running!',
       timestamp,
       environment: process.env.NODE_ENV || 'development',
       checks: {
@@ -123,7 +123,7 @@ app.get('/api/health', async (req, res) => {
   } catch (error) {
     res.status(503).json({
       status: 'degraded',
-      message: 'Smoke Station Backend API is running with degraded dependencies.',
+      message: 'Backend API is running with degraded dependencies.',
       timestamp,
       environment: process.env.NODE_ENV || 'development',
       checks: {
