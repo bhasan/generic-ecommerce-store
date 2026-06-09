@@ -55,8 +55,8 @@ export class NotificationService {
     ordersByStatus: Record<string, number>;
     pendingRegistrations: number;
   }> {
-    // Dynamic import breaks the circular dependency chain:
-    // notification.service → user.service → notificationEvents.service → notification.service
+    // Dynamic import defers user.service loading to avoid static initialization issues
+    // with the existing user.service → notificationEvents.service → notification.service chain.
     const userServiceModule = await import('./user.service');
     const userSvc = userServiceModule.default;
 
