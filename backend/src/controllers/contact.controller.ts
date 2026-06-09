@@ -67,11 +67,13 @@ export class ContactController {
         subject,
       });
 
-      await notificationEventsService.notifyContactMessageReceived(savedMessage.id, {
+      notificationEventsService.notifyContactMessageReceived(savedMessage.id, {
         userId,
         username,
-      });
-
+      }).catch(err => logger.error('notifyContactMessageReceived failed', err as Error, {
+        userId,
+        messageId: savedMessage.id,
+      }));
 
       res.status(200).json({
         success: true,

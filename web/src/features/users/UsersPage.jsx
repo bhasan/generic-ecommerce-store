@@ -6,6 +6,7 @@ import * as usersApi from '../../services/usersApi';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
+import AdminLayout from '../../components/layout/AdminLayout';
 
 function UsersPage() {
   const { currentUser, showNotification } = useApp();
@@ -142,15 +143,17 @@ function UsersPage() {
 
   if (isLoading) {
     return (
-      <div className="users-page-container">
-        <div className="users-header section-header-surface">
-          <div>
-            <h2 className="page-title">Users Management</h2>
-            <p className="page-subtitle">Loading users...</p>
+      <AdminLayout>
+        <div className="users-page-container">
+          <div className="users-header section-header-surface">
+            <div>
+              <h2 className="page-title">Users Management</h2>
+              <p className="page-subtitle">Loading users...</p>
+            </div>
           </div>
+          <HeaderDivider />
         </div>
-        <HeaderDivider />
-      </div>
+      </AdminLayout>
     );
   }
 
@@ -323,6 +326,7 @@ function UsersPage() {
         type="danger"
       />
     </div>
+    </AdminLayout>
   );
 }
 

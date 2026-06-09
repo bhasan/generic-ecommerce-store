@@ -10,6 +10,7 @@ const {
       findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      count: vi.fn(),
     },
     userRole: {
       findMany: vi.fn(),
@@ -204,5 +205,19 @@ describe('user service logging', () => {
     await service.rejectUser(15, 'note');
 
     expect(notificationEventsService.notifyAccountRejected).toHaveBeenCalledWith(15);
+  });
+
+  it('getPendingRegistrationCount queries only unapproved non-rejected users', async () => {
+    prismaMock.user.count.mockResolvedValue(5);
+
+    const { UserService } = await import('./user.service');
+    const service = new UserService();
+
+    const result = await service.getPendingRegistrationCount();
+
+    expect(prismaMock.user.count).toHaveBeenCalledWith({
+      where: { approved: false, rejected: false },
+    });
+    expect(result).toBe(5);
   });
 });

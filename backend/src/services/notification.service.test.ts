@@ -35,6 +35,13 @@ vi.mock('../utils/logger', () => ({
   logger,
 }));
 
+vi.mock('./notificationEvents.service', () => ({
+  notificationEventsService: {
+    notifyAccountApproved: vi.fn(),
+    notifyAccountRejected: vi.fn(),
+  },
+}));
+
 describe('notification service logging', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -113,6 +120,25 @@ describe('notification service logging', () => {
       }),
     }));
     expect(result).toHaveLength(1);
+  });
+
+  it('getStaffNotificationCounts returns same pending count as userService.getPendingRegistrationCount', async () => {
+    prismaMock.order.groupBy.mockResolvedValue([]);
+    prismaMock.user.count.mockResolvedValue(7);
+
+    const { NotificationService } = await import('./notification.service');
+    const { UserService } = await import('./user.service');
+    const notifService = new NotificationService();
+    const userSvc = new UserService();
+
+    const [notifResult, userCount] = await Promise.all([
+      notifService.getStaffNotificationCounts(),
+      userSvc.getPendingRegistrationCount(),
+    ]);
+
+    expect(notifResult.pendingRegistrations).toBe(7);
+    expect(userCount).toBe(7);
+    expect(notifResult.pendingRegistrations).toBe(userCount);
   });
 
   it('lists unread notifications for a user', async () => {

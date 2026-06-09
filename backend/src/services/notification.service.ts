@@ -55,15 +55,18 @@ export class NotificationService {
     ordersByStatus: Record<string, number>;
     pendingRegistrations: number;
   }> {
+    // Dynamic import defers user.service loading to avoid static initialization issues
+    // with the existing user.service → notificationEvents.service → notification.service chain.
+    const userServiceModule = await import('./user.service');
+    const userSvc = userServiceModule.default;
+
     const [orderGroups, pendingRegistrations] = await Promise.all([
       prisma.order.groupBy({
         by: ['status'],
         _count: { status: true },
         where: { status: { in: UNFULFILLED_STATUSES } }
       }),
-      prisma.user.count({
-        where: { approved: false, rejected: false }
-      })
+      userSvc.getPendingRegistrationCount(),
     ]);
 
     const ordersByStatus: Record<string, number> = {};
