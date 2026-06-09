@@ -52,6 +52,7 @@ const productsApi = vi.hoisted(() => ({
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../services/usersApi', () => usersApi);
@@ -328,7 +329,7 @@ describe('DashboardPage orchestration', () => {
     await waitFor(() => expect(contactMessagesApi.getAllMessages).toHaveBeenCalledTimes(1));
     expect(intervalSpy).toHaveBeenCalled();
 
-    const refreshCall = intervalSpy.mock.calls.find(([, delay]) => delay === 50000);
+    const refreshCall = intervalSpy.mock.calls.find(([, delay]) => delay === 60000);
     expect(refreshCall).toBeTruthy();
 
     const refreshFn = refreshCall?.[0];

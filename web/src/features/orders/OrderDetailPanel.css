@@ -502,6 +502,62 @@
   background: rgba(124, 58, 237, 0.1);
 }
 
+.edit-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-save-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-secondary);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.btn-cancel-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.btn-cancel-edit:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.btn-edit-order {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary-light);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.btn-edit-order:hover {
+  background: rgba(124, 58, 237, 0.1);
+}
+
 .btn-delete-order {
   display: inline-flex;
   align-items: center;
@@ -518,4 +574,63 @@
 
 .btn-delete-order:hover {
   opacity: 0.9;
+}
+
+
+
+/* Arrive Button in Details Panel */
+.btn-arrive-here {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.btn-arrive-here:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45);
+}
+
+.btn-arrive-here:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── Arrived Notice Banner ── */
+.order-arrived-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  border-radius: 0.5rem;
+  color: var(--color-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: pulseOpacity 2s infinite ease-in-out;
+}
+
+.order-arrived-banner .banner-icon {
+  animation: spinSlow 8s infinite linear;
+}
+
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.95; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

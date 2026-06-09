@@ -42,7 +42,7 @@ const DASHBOARD_SECTIONS = {
 };
 
 function DashboardPage() {
-  const MESSAGES_REFRESH_INTERVAL_MS = 50000;
+  const MESSAGES_REFRESH_INTERVAL_MS = 60000;
   const { showNotification, currentUser, loadConfig } = useApp();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState(() => {

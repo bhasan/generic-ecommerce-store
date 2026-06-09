@@ -246,6 +246,27 @@ model Notification {
   @@map("notifications")
 }
 
+model PrintJob {
+  id               Int            @id @default(autoincrement())
+  orderId          Int            @map("order_id")
+  reason           PrintJobReason
+  status           PrintJobStatus @default(PENDING)
+  payloadJson      Json           @map("payload_json")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  claimedAt        DateTime?      @map("claimed_at")
+  completedAt      DateTime?      @map("completed_at")
+  failedAt         DateTime?      @map("failed_at")
+  claimedByAgentId String?        @map("claimed_by_agent_id")
+  nativeJobId      String?        @map("native_job_id")
+  attemptCount     Int            @default(0) @map("attempt_count")
+  lastErrorCode    String?        @map("last_error_code")
+  lastErrorMessage String?        @map("last_error_message")
+
+  @@index([status, createdAt])
+  @@index([claimedByAgentId])
+  @@map("print_jobs")
+}
+
 enum OrderStatus {
   PENDING
   APPROVED
@@ -254,6 +275,7 @@ enum OrderStatus {
   OUT_FOR_DELIVERY
   DELIVERED
   READY_FOR_PICKUP
+  ARRIVED
   PICKED_UP
 }
 
@@ -318,4 +340,16 @@ enum DeliveryEligibilitySource {
   ADDRESS_CACHE
   ZIP_FALLBACK
   NONE
+}
+
+enum PrintJobReason {
+  ORDER_CREATED
+  MANUAL_REPRINT
+}
+
+enum PrintJobStatus {
+  PENDING
+  CLAIMED
+  PRINTED
+  FAILED
 }

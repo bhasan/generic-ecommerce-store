@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { logger } from '../utils/logger';
+import { printJobService } from './printJob.service';
 
 export type ReceiptDispatchReason = 'ORDER_CREATED' | 'MANUAL_REPRINT';
 
@@ -41,73 +42,34 @@ interface ReceiptOrderSnapshot {
 }
 
 export class ThermalPrinterService {
-  private webhookUrl = process.env.THERMAL_PRINTER_WEBHOOK_URL || '';
-  private apiKey = process.env.THERMAL_PRINTER_API_KEY || '';
   private storeName = process.env.THERMAL_PRINTER_STORE_NAME || 'Smoke Station';
 
   isConfigured() {
-    return Boolean(this.webhookUrl);
+    return true;
   }
 
   async dispatchReceipt(orderId: number, reason: ReceiptDispatchReason, actor?: ReceiptActor) {
-    if (!this.isConfigured()) {
-      logger.warn('Thermal printer dispatch skipped because printer webhook is not configured', {
-        orderId,
-        reason,
-      });
-      return {
-        queued: false,
-        reason,
-        orderId,
-      };
-    }
-
     const snapshot = await this.buildReceiptOrderSnapshot(orderId);
     const payload = this.buildPayload(snapshot, reason, actor);
 
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
+    const job = await printJobService.createPrintJob({
+      orderId,
+      reason,
+      payload,
+    });
 
-      if (this.apiKey) {
-        headers['x-printer-apikey'] = this.apiKey;
-      }
+    logger.info('Thermal printer receipt queued', {
+      orderId,
+      reason,
+      printJobId: job.id,
+      itemCount: snapshot.items.length,
+    });
 
-      const response = await fetch(this.webhookUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new AppError(errorText || 'Thermal printer webhook failed', response.status, 'THERMAL_PRINTER_ERROR');
-      }
-
-      logger.info('Thermal printer receipt dispatched', {
-        orderId,
-        reason,
-        itemCount: snapshot.items.length,
-      });
-
-      return {
-        queued: true,
-        reason,
-        orderId,
-      };
-    } catch (error) {
-      logger.error('Thermal printer receipt dispatch failed', error, {
-        orderId,
-        reason,
-      });
-
-      return {
-        queued: false,
-        reason,
-        orderId,
-      };
-    }
+    return {
+      queued: true,
+      reason,
+      orderId,
+    };
   }
 
   private buildPayload(snapshot: ReceiptOrderSnapshot, reason: ReceiptDispatchReason, actor?: ReceiptActor) {
@@ -144,6 +106,13 @@ export class ThermalPrinterService {
       timeStyle: 'short',
     });
     const isDelivery = snapshot.deliveryMethod === 'DELIVERY';
+    const isCurbside = snapshot.deliveryMethod === 'CURBSIDE';
+    const methodText = isDelivery 
+      ? '*** DELIVERY ***' 
+      : isCurbside 
+        ? '*** CURBSIDE PICKUP ***' 
+        : '*** PICKUP ***';
+
     const lines = [
       this.centerText(this.storeName.toUpperCase()),
       this.centerText(reason === 'MANUAL_REPRINT' ? 'REPRINT' : 'NEW ORDER'),
@@ -151,7 +120,7 @@ export class ThermalPrinterService {
       `ORDER #${snapshot.id}`,
       `CREATED ${createdLabel}`,
       strongDivider,
-      this.centerText(isDelivery ? '*** DELIVERY ***' : '*** PICKUP ***'),
+      this.centerText(methodText),
     ];
 
     if (isDelivery) {
@@ -162,6 +131,16 @@ export class ThermalPrinterService {
         lines.push(...this.wrapText(snapshot.deliveryAddress.toUpperCase()));
       } else {
         lines.push('ADDRESS NOT PROVIDED');
+      }
+      lines.push(divider);
+    } else if (isCurbside) {
+      lines.push('');
+      lines.push(divider);
+      lines.push('CURBSIDE VEHICLE INFO');
+      if (snapshot.deliveryAddress) {
+        lines.push(...this.wrapText(snapshot.deliveryAddress.toUpperCase()));
+      } else {
+        lines.push('VEHICLE INFO NOT PROVIDED');
       }
       lines.push(divider);
     }

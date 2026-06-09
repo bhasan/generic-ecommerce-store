@@ -370,4 +370,111 @@ describe('order service notifications', () => {
       statusCode: 404,
     });
   });
+
+  describe('customerArrive', () => {
+    it('successfully updates order status to ARRIVED and appends parking spot', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.READY_FOR_PICKUP,
+        deliveryMethod: 'CURBSIDE',
+        deliveryAddress: 'CURBSIDE: Silver Camry',
+      });
+      prismaMock.order.update.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.ARRIVED,
+        deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+        updatedAt: new Date(),
+      });
+      prismaMock.orderItem.findMany.mockResolvedValue([]);
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      const result = await service.customerArrive(101, 5, 'Space 4');
+
+      expect(result).toMatchObject({
+        id: 101,
+        status: OrderStatus.ARRIVED,
+        deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+      });
+      expect(prismaMock.order.update).toHaveBeenCalledWith({
+        where: { id: 101 },
+        data: {
+          status: OrderStatus.ARRIVED,
+          deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+        },
+      });
+      expect(notificationEventsService.notifyOrderStatusUpdated).toHaveBeenCalledWith(
+        101,
+        5,
+        OrderStatus.ARRIVED,
+        OrderStatus.READY_FOR_PICKUP,
+      );
+    });
+
+    it('rejects with 404 if order does not exist', async () => {
+      prismaMock.order.findUnique.mockResolvedValue(null);
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await expect(service.customerArrive(999, 5, 'Space 4')).rejects.toMatchObject({
+        message: 'Order not found',
+        statusCode: 404,
+      });
+    });
+
+    it('rejects with 403 if order does not belong to user', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 10,
+        status: OrderStatus.READY_FOR_PICKUP,
+        deliveryMethod: 'CURBSIDE',
+      });
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await expect(service.customerArrive(101, 5, 'Space 4')).rejects.toMatchObject({
+        message: 'Access denied',
+        statusCode: 403,
+      });
+    });
+
+    it('rejects with 400 if order is not a curbside pickup', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.READY_FOR_PICKUP,
+        deliveryMethod: 'PICKUP',
+      });
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await expect(service.customerArrive(101, 5, 'Space 4')).rejects.toMatchObject({
+        message: 'Arrival notification is only available for curbside orders',
+        statusCode: 400,
+      });
+    });
+
+    it('rejects with 400 if order is not in READY_FOR_PICKUP status', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.PENDING,
+        deliveryMethod: 'CURBSIDE',
+      });
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await expect(service.customerArrive(101, 5, 'Space 4')).rejects.toMatchObject({
+        message: 'Order must be in READY_FOR_PICKUP status to check in',
+        statusCode: 400,
+      });
+    });
+  });
 });

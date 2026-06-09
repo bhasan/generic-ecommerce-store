@@ -18,6 +18,7 @@ function NotificationDropdown({
   unreadCount = 0,
   onMarkRead,
   onMarkAllRead,
+  onOpen,
   notificationsMuted,
   onToggleMuted,
   canManageOrders,
@@ -93,7 +94,13 @@ function NotificationDropdown({
         className="notification-button"
         onClick={(e) => {
           e.stopPropagation();
-          setOpen((prev) => !prev);
+          setOpen((prev) => {
+            const next = !prev;
+            if (next && onOpen) {
+              void onOpen();
+            }
+            return next;
+          });
         }}
         aria-label="Notifications"
       >

@@ -8,7 +8,10 @@ import { ROLES } from '../../utils/roles';
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
 const useAppMock = vi.fn();
-vi.mock('../../context/AppContext', () => ({ useApp: () => useAppMock() }));
+vi.mock('../../context/AppContext', () => ({
+  useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
+}));
 
 // Capture the products prop passed to ProductsGrid so we can assert on it.
 const capturedGridProps = { products: null };

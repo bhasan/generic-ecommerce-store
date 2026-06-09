@@ -7,6 +7,7 @@ import LandingPage from './LandingPage';
 const useAppMock = vi.fn();
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 const ProductsGridMock = vi.fn(({ products }) => (

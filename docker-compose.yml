@@ -26,6 +26,9 @@ services:
     environment:
       DATABASE_URL: "postgresql://${DB_USER:-backend_user}:${DB_PASSWORD:-change-me}@db:5432/${DB_NAME:-smoke-station-delivery-db}"
       PORT: 3000
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
     depends_on:
       db:
         condition: service_healthy
@@ -47,7 +50,9 @@ services:
     networks:
       - sshtx_network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      # Use 127.0.0.1 (not localhost) so the check forces IPv4 and never depends
+      # on nginx listening on IPv6 ::1. Hit the dedicated /health endpoint.
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3

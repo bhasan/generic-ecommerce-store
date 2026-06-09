@@ -9,6 +9,7 @@ const useAppMock = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 // Suppress lucide-react SVG rendering issues in jsdom

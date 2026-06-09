@@ -17,6 +17,15 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 const AppContext = createContext();
 const CART_STORAGE_KEY = 'cartData';
 
+const parsePollingInterval = (rawValue, fallback) => {
+  const parsed = Number.parseInt(rawValue ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const NOTIFICATION_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_NOTIFICATION_POLL_INTERVAL_MS, 60000);
+const STAFF_COUNTS_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_STAFF_COUNTS_POLL_INTERVAL_MS, 60000);
+const ORDER_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS, 60000);
+
 // Returns the shared app context and throws early if a consumer renders outside AppProvider.
 export const useApp = () => {
   const context = useContext(AppContext);
@@ -114,37 +123,73 @@ export function AppProvider({ children }) {
   // Check authentication on mount
   useEffect(() => {
     // Revalidates the saved token on mount and keeps credit state defaulted to 0 if credit lookup fails.
+
     const checkAuth = async () => {
-      const token = getAuthToken();
-      if (token) {
-        try {
-          const user = await authApi.getProfile();
-          // Ensure roles array exists so profile responses stay compatible with current role checks.
-          if (!user.roles && user.role) {
-            user.roles = [user.role];
-          }
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
+      try {
+        const token = getAuthToken();
+        if (token) {
           try {
-            const creditData = await creditApi.getUserCredit(user.id);
-            setCreditBalance(creditData.balance ?? 0);
-          } catch {
-            // Non-fatal: credit balance defaults to 0
+            const user = await authApi.getProfile();
+            // Ensure roles array exists so profile responses stay compatible with current role checks.
+            if (!user.roles && user.role) {
+              user.roles = [user.role];
+            }
+            setCurrentUser(user);
+            setIsAuthenticated(true);
+            // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
+            try {
+              const creditData = await creditApi.getUserCredit(user.id);
+              setCreditBalance(creditData.balance ?? 0);
+            } catch {
+              // Non-fatal: credit balance defaults to 0
+            }
+          } catch (error) {
+            // Token invalid or expired
+            console.error('Auth check failed:', error);
+            setCurrentUser(GUEST_USER);
+            setIsAuthenticated(false);
           }
-        } catch (error) {
-          // Token invalid or expired
-          console.error('Auth check failed:', error);
-          setCurrentUser(GUEST_USER);
+        } else {
           setIsAuthenticated(false);
         }
-      } else {
-        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     checkAuth();
+  }, []);
+
+  // Loads shared storefront config and keeps landing arrays defaulted to [] if config omits them.
+  const loadConfig = useCallback(async () => {
+    try {
+      const config = await configApi.getConfig();
+      if (config) {
+        // Central config hydration keeps checkout, store info, and admin settings reading one shared source.
+        if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
+        if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
+        if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
+        if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
+        if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
+        if (typeof config.deliveryRadiusMiles === 'number') setDeliveryRadiusMiles(config.deliveryRadiusMiles);
+        if (Array.isArray(config.featuredProductIds)) setFeaturedProductIds(config.featuredProductIds);
+        if (Array.isArray(config.promotions)) setPromotions(config.promotions);
+        if (config.storeSettings) {
+          setStoreSettings(config.storeSettings);
+          if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
+        } else if (typeof config.pickupLocation === 'string') {
+          setPickupLocation(config.pickupLocation);
+        }
+        if (config.paymentSettings) {
+          setPaymentSettings(config.paymentSettings);
+          setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
+        } else if (typeof config.storeCashappUsername === 'string') {
+          setStoreCashappUsername(config.storeCashappUsername);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load remote config, using default tax rate.', e);
+    }
   }, []);
 
   // Load products function (can be called manually)
@@ -176,15 +221,27 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  // Load products on mount (after auth check)
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+  // Refreshes the core storefront data (products and categories) only when a session is active.
+  const refreshStorefrontData = useCallback(async () => {
+    if (isLoading || !isAuthenticated) return;
+    await Promise.allSettled([loadProducts(), loadCategories()]);
+  }, [isLoading, isAuthenticated, loadProducts, loadCategories]);
 
-  // Load categories on mount
+  // Fetches the shared store configuration only when authenticated or on the registration page where it is required.
   useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
+    const isRegisterPage = location.pathname === '/register';
+    if (isLoading) return;
+    if (!isAuthenticated && !isRegisterPage) return;
+
+    loadConfig();
+  }, [loadConfig, isAuthenticated, isLoading, location.pathname]);
+
+  // Triggers storefront data refreshes once the auth check completes and a valid user is detected.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      refreshStorefrontData();
+    }
+  }, [refreshStorefrontData, isAuthenticated, isLoading]);
 
   useEffect(() => {
     // Marks the session as user-interacted once so staff alert sounds do not autoplay before interaction.
@@ -247,20 +304,22 @@ export function AppProvider({ children }) {
     }
   }, [isAuthenticated]);
 
-  // Refreshes inbox state, unread counts, and staff attention tracking without double-playing old alerts.
-  const refreshNotifications = useCallback(async () => {
+  // Refreshes notification state and optionally re-loads full inbox payloads.
+  const refreshNotifications = useCallback(async ({ includeList = true } = {}) => {
     if (!isAuthenticated) {
-      setInboxNotifications([]);
-      setUnreadNotificationCount(0);
-      hasLoadedNotificationsRef.current = false;
-      knownAttentionNotificationIdsRef.current = new Set();
       return { notifications: [], unreadCount: 0 };
     }
 
-    const [notifications, unread] = await Promise.all([
-      loadNotifications(),
-      loadUnreadNotificationCount(),
-    ]);
+    const unread = await loadUnreadNotificationCount();
+
+    if (!includeList) {
+      return {
+        notifications: [], // We don't need to return the list if includeList is false
+        unreadCount: unread.count ?? 0,
+      };
+    }
+
+    const notifications = await loadNotifications();
 
     const isStaffUser = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     const attentionIds = new Set(
@@ -319,19 +378,31 @@ export function AppProvider({ children }) {
   }, [isAuthenticated, currentUser]);
 
   useEffect(() => {
-    loadStaffNotificationCounts();
-    if (!isAuthenticated) return;
+    void loadStaffNotificationCounts();
+    if (!isAuthenticated) {
+      // Clear staff/notification state when logging out
+      setStaffNotificationCounts(null);
+      setInboxNotifications([]);
+      setUnreadNotificationCount(0);
+      hasLoadedNotificationsRef.current = false;
+      knownAttentionNotificationIdsRef.current = new Set();
+      return;
+    }
     const isStaff = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
     if (!isStaff) return;
     // Staff polling keeps dashboard badges fresh without forcing a full route reload.
-    const interval = setInterval(loadStaffNotificationCounts, 50000);
+    const interval = setInterval(() => {
+      void loadStaffNotificationCounts();
+    }, STAFF_COUNTS_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [loadStaffNotificationCounts, isAuthenticated, currentUser]);
 
   useEffect(() => {
-    refreshNotifications();
+    void refreshNotifications({ includeList: true });
     if (!isAuthenticated) return;
-    const interval = setInterval(refreshNotifications, 50000);
+    const interval = setInterval(() => {
+      void refreshNotifications({ includeList: false });
+    }, NOTIFICATION_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refreshNotifications, isAuthenticated]);
 
@@ -361,51 +432,25 @@ export function AppProvider({ children }) {
     try {
       await notificationsApi.markNotificationRead(notificationId);
     } finally {
-      await refreshNotifications();
+      await refreshNotifications({ includeList: true });
     }
   }, [refreshNotifications]);
 
   // Marks the full inbox read in one call and then refreshes counts so badges stay accurate.
   const markAllNotificationsRead = useCallback(async () => {
     await notificationsApi.markAllNotificationsRead();
-    await refreshNotifications();
+    await refreshNotifications({ includeList: true });
   }, [refreshNotifications]);
 
-  // Loads shared storefront config and keeps landing arrays defaulted to [] if config omits them.
-  const loadConfig = useCallback(async () => {
-    try {
-      const config = await configApi.getConfig();
-      if (config) {
-        // Central config hydration keeps checkout, store info, and admin settings reading one shared source.
-        if (typeof config.taxRate === 'number') setTaxRate(config.taxRate);
-        if (typeof config.minimumDeliveryOrder === 'number') setMinimumDeliveryOrder(config.minimumDeliveryOrder);
-        if (typeof config.minimumDeliveryOrderEnabled === 'boolean') setMinimumDeliveryOrderEnabled(config.minimumDeliveryOrderEnabled);
-        if (typeof config.deliveryDisabled === 'boolean') setDeliveryDisabled(config.deliveryDisabled);
-        if (typeof config.deliveryDisabledMessage === 'string') setDeliveryDisabledMessage(config.deliveryDisabledMessage);
-        if (typeof config.deliveryRadiusMiles === 'number') setDeliveryRadiusMiles(config.deliveryRadiusMiles);
-        if (Array.isArray(config.featuredProductIds)) setFeaturedProductIds(config.featuredProductIds);
-        if (Array.isArray(config.promotions)) setPromotions(config.promotions);
-        if (config.storeSettings) {
-          setStoreSettings(config.storeSettings);
-          if (typeof config.storeSettings.address === 'string') setPickupLocation(config.storeSettings.address);
-        } else if (typeof config.pickupLocation === 'string') {
-          setPickupLocation(config.pickupLocation);
-        }
-        if (config.paymentSettings) {
-          setPaymentSettings(config.paymentSettings);
-          setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
-        } else if (typeof config.storeCashappUsername === 'string') {
-          setStoreCashappUsername(config.storeCashappUsername);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load remote config, using default tax rate.', e);
-    }
-  }, []);
+  // Fetches full notification payloads when the dropdown is opened.
+  const handleNotificationsPanelOpen = useCallback(async () => {
+    await refreshNotifications({ includeList: true });
+  }, [refreshNotifications]);
 
-  useEffect(() => {
-    loadConfig();
-  }, [loadConfig]);
+  // loadConfig() is now strictly governed by route and auth state (managed in the effect at the top of this file) to prevent guest-triggered 500 errors.
+
+  // Centralized data loading for authenticated users is managed via the refreshStorefrontData effect above.
+  // loadConfig() is now strictly governed by route and auth state to prevent guest-triggered 500 errors.
 
   // Loads orders for authenticated users only, clears signed-out state, and supports silent background refreshes.
   const loadOrders = useCallback(async (silent = false) => {
@@ -436,7 +481,7 @@ export function AppProvider({ children }) {
     if (!isAuthenticated || isLoading) return;
     
     // Background polling for orders keeps the UI (like pickup notices) fresh without full reloads.
-    const interval = setInterval(() => loadOrders(true), 50000);
+    const interval = setInterval(() => loadOrders(true), ORDER_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isAuthenticated, isLoading, loadOrders]);
 
@@ -836,6 +881,24 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Notifies the staff of customer arrival for curbside pickup and refreshes orders.
+  const notifyArrival = async (orderId, parkingSpot) => {
+    try {
+      const updatedOrder = await ordersApi.notifyArrival(orderId, parkingSpot);
+      
+      // Refresh orders list
+      const ordersData = await ordersApi.getAllOrders();
+      setOrders(ordersData);
+      
+      showNotification('Arrival notification sent successfully', 'success');
+      return updatedOrder;
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to send arrival notification. Please try again.';
+      showNotification(errorMessage, 'error');
+      throw error;
+    }
+  };
+
   // Restores the cart from a saved snapshot, which is used by external-payment cancel flows.
   const restoreCart = (items) => {
     setCart(items);
@@ -1137,6 +1200,7 @@ export function AppProvider({ children }) {
     updateCategory,
     deleteCategory,
     updateOrderStatus, 
+    notifyArrival,
     deleteOrder,
     printOrderReceipt,
     addItemToOrder,
@@ -1152,6 +1216,7 @@ export function AppProvider({ children }) {
     inboxNotifications,
     unreadNotificationCount,
     refreshNotifications,
+    handleNotificationsPanelOpen,
     markNotificationRead,
     markAllNotificationsRead,
     notificationsMuted,

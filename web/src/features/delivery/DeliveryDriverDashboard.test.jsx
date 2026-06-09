@@ -12,6 +12,7 @@ const ordersApi = vi.hoisted(() => ({
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../services/ordersApi', () => ordersApi);
@@ -39,7 +40,7 @@ describe('DeliveryDriverDashboard', () => {
     await waitFor(() => expect(ordersApi.getReadyForDeliveryOrders).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(ordersApi.getOutForDeliveryOrders).toHaveBeenCalledTimes(1));
 
-    const refreshCall = [...intervalSpy.mock.calls].reverse().find(([, delay]) => delay === 50000);
+    const refreshCall = [...intervalSpy.mock.calls].reverse().find(([, delay]) => delay === 60000);
     expect(refreshCall).toBeTruthy();
 
     const refreshFn = refreshCall?.[0];
@@ -73,7 +74,7 @@ describe('DeliveryDriverDashboard', () => {
     fireEvent.click(checkbox);
 
     await waitFor(() => expect(checkbox).toBeChecked());
-    const deliveryRefreshIntervals = intervalSpy.mock.calls.filter(([, delay]) => delay === 50000);
+    const deliveryRefreshIntervals = intervalSpy.mock.calls.filter(([, delay]) => delay === 60000);
     expect(clearIntervalSpy).toHaveBeenCalled();
     expect(deliveryRefreshIntervals).toHaveLength(1);
 

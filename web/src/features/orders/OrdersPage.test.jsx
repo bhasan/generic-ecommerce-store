@@ -12,6 +12,7 @@ const useAppMock = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../components/common/HeaderDivider', () => ({
@@ -89,6 +90,14 @@ describe('OrdersPage integration', () => {
     expect(screen.getByText('Pending (1)')).toBeInTheDocument();
     expect(screen.getByText('Prep Orders (1)')).toBeInTheDocument();
     await waitFor(() => expect(baseAppState.loadOrders).toHaveBeenCalled());
+  });
+
+  it('does not create an extra OrdersPage polling interval', () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+    renderOrdersPage();
+    const orderPollingIntervals = setIntervalSpy.mock.calls.filter(([, delay]) => delay === 60000);
+    expect(orderPollingIntervals).toHaveLength(0);
+    setIntervalSpy.mockRestore();
   });
 
   it('updates selected status filters and hides unchecked columns', () => {
@@ -288,5 +297,57 @@ describe('OrdersPage — customer role', () => {
     fireEvent.click(screen.getByText('Close Panel'));
 
     expect(screen.queryByText('Order Detail Panel #701')).not.toBeInTheDocument();
+  });
+});
+
+describe('OrdersPage — forceCustomerView', () => {
+  const staffUserId = 1;
+  const staffAppState = makeAppState({
+    currentUser: { id: staffUserId, username: 'manager-one', roles: [ROLES.MANAGEMENT] },
+    orders: [
+      {
+        id: 701,
+        userId: staffUserId,
+        status: 'PENDING',
+        total: 42.5,
+        createdAt: '2026-04-01T10:00:00.000Z',
+        updatedAt: '2026-04-01T10:00:00.000Z',
+        user: { username: 'manager-one', cashapp: '$manager-one' },
+        items: [{ id: 1, productId: 101, quantity: 2, price: 21.25, voided: false }],
+      },
+      {
+        id: 702,
+        userId: 11,
+        status: 'APPROVED',
+        total: 20,
+        createdAt: '2026-04-01T11:00:00.000Z',
+        updatedAt: '2026-04-01T11:00:00.000Z',
+        user: { username: 'customer-two', cashapp: '$customer-two' },
+        items: [{ id: 2, productId: 102, quantity: 1, price: 20, voided: false }],
+      },
+    ]
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAppMock.mockReturnValue(staffAppState);
+  });
+
+  it('shows "My Orders" title and only lists the staff user\'s own orders when forceCustomerView is true', () => {
+    render(
+      <MemoryRouter initialEntries={['/my-orders']}>
+        <OrdersPage forceCustomerView={true} />
+      </MemoryRouter>
+    );
+
+    // Should display "My Orders"
+    expect(screen.getByText('My Orders')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Orders' })).not.toBeInTheDocument();
+
+    // Should show staff user's own order (701)
+    expect(screen.getByText('Order #701')).toBeInTheDocument();
+    
+    // Should NOT show other user's order (702)
+    expect(screen.queryByText('Order #702')).not.toBeInTheDocument();
   });
 });

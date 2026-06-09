@@ -29,6 +29,7 @@ const ordersApi = vi.hoisted(() => ({
   createOrder: vi.fn(),
   checkDeliveryEligibility: vi.fn(),
   updateOrderStatus: vi.fn(),
+  notifyArrival: vi.fn(),
   deleteOrder: vi.fn(),
   addItemToOrder: vi.fn(),
   voidOrderItem: vi.fn(),
@@ -108,6 +109,7 @@ function ContextHarness() {
       <button onClick={() => app.checkout('', 'PICKUP', 'CREDIT')}>Checkout With Credit</button>
       <button onClick={() => app.markNotificationRead(11)}>Mark Notification Read</button>
       <button onClick={() => app.login('driver', 'driver123')}>Trigger Login</button>
+      <button onClick={() => app.notifyArrival(111, 'Spot X')}>Notify Arrival</button>
     </div>
   );
 }
@@ -168,7 +170,9 @@ describe('AppContext', () => {
       { route: '/products' }
     );
 
-    await waitFor(() => expect(screen.getByTestId('products-count')).toHaveTextContent('1'));
+    // Products count stays 0 because we are not authenticated
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'));
+    expect(screen.getByTestId('products-count')).toHaveTextContent('0');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
   });
 
@@ -183,7 +187,8 @@ describe('AppContext', () => {
       { route: '/products' }
     );
 
-    await waitFor(() => expect(screen.getByTestId('products-count')).toHaveTextContent('1'));
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'));
+    expect(screen.getByTestId('products-count')).toHaveTextContent('0');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
     expect(localStorage.getItem('cartData')).toBeNull();
     expect(consoleErrorSpy).toHaveBeenCalled();
@@ -221,12 +226,14 @@ describe('AppContext', () => {
     apiModule.getAuthToken.mockReturnValue('token-123');
     authApi.getProfile.mockResolvedValue(users.customer);
     ordersApi.getAllOrders
-      .mockResolvedValueOnce(sampleOrders)
-      .mockResolvedValueOnce([...sampleOrders, { id: 302, status: 'PLACED', items: [] }]);
+      .mockResolvedValueOnce(sampleOrders) // Mount load
+      .mockResolvedValueOnce(sampleOrders) // Potential effect re-trigger
+      .mockResolvedValue([...sampleOrders, { id: 302, status: 'PLACED', items: [] }]); // Final state
     ordersApi.createOrder.mockResolvedValue({ id: 302, status: 'PLACED' });
     creditApi.getUserCredit
-      .mockResolvedValueOnce({ balance: 20 })
-      .mockResolvedValueOnce({ balance: 5 });
+      .mockResolvedValueOnce({ balance: 20 }) // Mount load
+      .mockResolvedValueOnce({ balance: 20 }) // Potential effect re-trigger
+      .mockResolvedValue({ balance: 5 }); // Final state
 
     renderWithProviders(
       <AppProvider>
@@ -260,7 +267,8 @@ describe('AppContext', () => {
       { route: '/products' }
     );
 
-    await waitFor(() => expect(screen.getByTestId('products-count')).toHaveTextContent('1'));
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'));
+    expect(screen.getByTestId('products-count')).toHaveTextContent('0');
 
     fireEvent.click(screen.getByText('Add To Cart'));
 
@@ -274,13 +282,17 @@ describe('AppContext', () => {
     notificationsApi.getNotifications
       .mockResolvedValueOnce([
         { id: 11, title: 'New order', message: 'Order #11 is waiting.', requiresAttention: true, readAt: null, metadata: { path: '/orders' } }
-      ])
+      ]) // Mount load
       .mockResolvedValueOnce([
+        { id: 11, title: 'New order', message: 'Order #11 is waiting.', requiresAttention: true, readAt: null, metadata: { path: '/orders' } }
+      ]) // Potential effect re-trigger
+      .mockResolvedValue([
         { id: 11, title: 'New order', message: 'Order #11 is waiting.', requiresAttention: true, readAt: '2026-04-03T22:00:00.000Z', metadata: { path: '/orders' } }
-      ]);
+      ]); // Final state
     notificationsApi.getUnreadNotificationCount
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 0 });
+      .mockResolvedValueOnce({ count: 1 }) // Mount load
+      .mockResolvedValueOnce({ count: 1 }) // Potential effect re-trigger
+      .mockResolvedValue({ count: 0 }); // Final state
 
     renderWithProviders(
       <AppProvider>
@@ -318,5 +330,31 @@ describe('AppContext', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/delivery-dashboard'));
+  });
+
+  it('calls ordersApi.notifyArrival and refreshes the order list', async () => {
+    apiModule.getAuthToken.mockReturnValue('token-123');
+    authApi.getProfile.mockResolvedValue(users.customer);
+    ordersApi.getAllOrders
+      .mockResolvedValueOnce(sampleOrders)
+      .mockResolvedValueOnce(sampleOrders)
+      .mockResolvedValue([...sampleOrders, { id: 111, status: 'ARRIVED', items: [] }]);
+    ordersApi.notifyArrival.mockResolvedValue({ id: 111, status: 'ARRIVED' });
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/orders' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Notify Arrival'));
+    });
+
+    expect(ordersApi.notifyArrival).toHaveBeenCalledWith(111, 'Spot X');
+    await waitFor(() => expect(screen.getByTestId('orders-count')).toHaveTextContent('2'));
   });
 });

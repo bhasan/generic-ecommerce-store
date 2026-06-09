@@ -13,6 +13,7 @@ window.scrollTo = vi.fn();
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
+  AppProvider: ({ children }) => children,
 }));
 
 vi.mock('../../components/common/HeaderDivider', () => ({
@@ -153,6 +154,55 @@ describe('Orders Workflow Integration', () => {
       expect(paidBtn).toHaveClass('variant-success');
       fireEvent.click(paidBtn);
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(2001, OrderStatus.PICKED_UP);
+    });
+
+    it('handles the curbside pickup lifecycle including check-in status (Arrived)', async () => {
+      const order = {
+        id: 2002,
+        userId: 7,
+        status: OrderStatus.APPROVED,
+        total: 15,
+        deliveryMethod: 'CURBSIDE',
+        paymentMethod: 'IN_STORE',
+        deliveryAddress: 'CURBSIDE: Silver Toyota Camry',
+        user: { username: 'curbside-customer' },
+        items: [{ id: 3, productId: 101, quantity: 1, price: 15, voided: false }],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const appState = makeAppState([order]);
+      useAppMock.mockReturnValue(appState);
+
+      renderOrdersPage();
+
+      // 1. Verify Prep Order (Approved) state with curbside details
+      const card = screen.getByText('#2002').closest('.kanban-card');
+      expect(within(card).getByText('Curbside')).toBeInTheDocument();
+      expect(within(card).getByText('Silver Toyota Camry')).toBeInTheDocument();
+      
+      const readyBtn = within(card).getByText('Ready for Pickup');
+      fireEvent.click(readyBtn);
+      expect(appState.updateOrderStatus).toHaveBeenCalledWith(2002, OrderStatus.READY_FOR_PICKUP);
+
+      // 2. Simulate customer arrival (Transitions to ARRIVED and appends spot)
+      order.status = OrderStatus.ARRIVED;
+      order.deliveryAddress = 'CURBSIDE: Silver Toyota Camry | SPOT: Space 4';
+      cleanup();
+      renderOrdersPage();
+
+      const arrivedCard = screen.getByText('#2002').closest('.kanban-card');
+      expect(arrivedCard).toHaveClass('kanban-card-arrived');
+      expect(within(arrivedCard).getByText('Silver Toyota Camry | SPOT: Space 4')).toBeInTheDocument();
+
+      // Verify next quick action to complete order is Picked Up
+      const pickedUpBtn = within(arrivedCard).getByText('Picked Up');
+      fireEvent.click(pickedUpBtn);
+
+      // Confirm in dialog
+      expect(screen.getByText('Take Payment in Store')).toBeInTheDocument();
+      fireEvent.click(screen.getByText('Paid'));
+      expect(appState.updateOrderStatus).toHaveBeenCalledWith(2002, OrderStatus.PICKED_UP);
     });
   });
 

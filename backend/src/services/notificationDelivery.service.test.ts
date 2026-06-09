@@ -116,6 +116,39 @@ describe('notification delivery service', () => {
     expect(notificationService.updateDeliveryStatus).toHaveBeenCalledWith([123], 'DELIVERED');
   });
 
+  it('marks all grouped notification ids delivered when deduped payloads are sent', async () => {
+    process.env.MAKE_NOTIFICATION_WEBHOOK_URL = 'https://default.example/webhook';
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue('Accepted'),
+    } as any);
+    (global as any).fetch = fetchMock;
+
+    const { NotificationDeliveryService } = await import('./notificationDelivery.service');
+    const service = new NotificationDeliveryService();
+    const payload = {
+      eventType: 'ORDER_CREATED',
+      category: 'ORDERS',
+      channelIntent: 'ops_alert',
+      notificationId: 301,
+      notificationIds: [301, 302, 303],
+      occurredAt: '2026-04-12T18:00:00.000Z',
+      recipient: { userId: 45 },
+      message: {
+        title: 'New order submitted',
+        body: 'Order #987 is waiting for review.',
+      },
+      metadata: {
+        destinationEmail: 'admin@example.com',
+      },
+    };
+
+    await service.deliver([payload as any], 'ORDERS');
+
+    expect(notificationService.updateDeliveryStatus).toHaveBeenCalledWith([301, 302, 303], 'DELIVERED');
+  });
+
   it('delivers an email payload that includes userEmail for customer routing', async () => {
     process.env.MAKE_NOTIFICATION_WEBHOOK_URL = 'https://default.example/webhook';
     const fetchMock = vi.fn().mockResolvedValue({

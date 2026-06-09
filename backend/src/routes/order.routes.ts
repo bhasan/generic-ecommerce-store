@@ -54,6 +54,20 @@ router.get('/delivered', authenticate, authorizeAdmin, orderController.getDelive
 router.get('/:id', authenticate, orderController.getOrderById);
 
 /**
+ * @route   POST /api/orders/:id/arrive
+ * @desc    Notify staff of customer arrival for curbside pickup
+ * @access  Private (Order owner only)
+ */
+router.post(
+  '/:id/arrive',
+  authenticate,
+  [
+    body('parkingSpot').isString().withMessage('Parking spot details are required').trim().notEmpty().withMessage('Parking spot details are required')
+  ],
+  orderController.customerArrive
+);
+
+/**
  * @route   POST /api/orders/delivery-eligibility
  * @desc    Check whether a delivery address is currently eligible
  * @access  Private (All authenticated users)

@@ -3,11 +3,10 @@ import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest } from '../../utils/roles';
-import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, MessageSquare, Wallet, Home } from 'lucide-react';
+import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
-import * as contactMessagesApi from '../../services/contactMessagesApi';
 
 function Navbar() {
   const {
@@ -22,18 +21,19 @@ function Navbar() {
     markAllNotificationsRead,
     notificationsMuted,
     toggleNotificationsMuted,
+    handleNotificationsPanelOpen,
     orders,
   } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [newMessageCount, setNewMessageCount] = useState(0);
   const profileRef = useRef(null);
   const adminRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const cartCount = cart.length;
   const isGuest = checkIsGuest(currentUser);
+  const isLoginRoute = location.pathname === '/login';
 
   const isCustomer = hasRole(currentUser, ROLES.CUSTOMER)
     && !hasRole(currentUser, ROLES.EMPLOYEE)
@@ -46,6 +46,7 @@ function Navbar() {
   const isDeliveryDriver = hasRole(currentUser, ROLES.DELIVERY_DRIVER);
   // Can manage orders: employees, managers, and admins
   const canManageOrders = isEmployee || isManagement;
+  const hasArrivedOrders = orders && orders.some(order => order.status === 'ARRIVED');
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -69,35 +70,13 @@ function Navbar() {
     setShowMobileMenu(false);
   }, [location.pathname]);
 
-  // Fetch new message count for admins/managers
-  useEffect(() => {
-    const fetchMessageCount = async () => {
-      if (!isManagement || isGuest) return;
-
-      try {
-        const { count } = await contactMessagesApi.getNewMessageCount();
-        setNewMessageCount(count);
-      } catch (error) {
-        // Silently fail - don't show error for badge count
-        console.warn('Failed to fetch message count:', error);
-      }
-    };
-
-    fetchMessageCount();
-
-    // Refresh count every 60 seconds
-    const interval = setInterval(fetchMessageCount, 60000);
-
-    return () => clearInterval(interval);
-  }, [isManagement, isGuest]);
-
   const handleLogout = () => {
     setShowProfileMenu(false);
     logout();
   };
 
   // Render navigation links (reusable for both desktop and mobile)
-  const renderNavLinks = () => (
+  const renderNavLinks = ({ includeStaffMyOrders = false } = {}) => (
     <>
       {/* Start Here - link to home for all logged in users */}
       {!isGuest && (
@@ -136,7 +115,7 @@ function Navbar() {
       {/* Customer-specific links */}
       {isCustomer && !isGuest && (
         <NavLink
-          to="/orders"
+          to="/my-orders"
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
         >
           <Package size={18} />
@@ -152,6 +131,17 @@ function Navbar() {
         >
           <Package size={18} />
           <span>Orders</span>
+          {hasArrivedOrders && <span className="nav-dot" aria-label="Customer arrived notification" />}
+        </NavLink>
+      )}
+
+      {canManageOrders && includeStaffMyOrders && (
+        <NavLink
+          to="/my-orders"
+          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+        >
+          <Package size={18} />
+          <span>My Orders</span>
         </NavLink>
       )}
 
@@ -160,6 +150,7 @@ function Navbar() {
         <NavLink
           to="/manage-products"
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
+          title="Manage Products"
         >
           <Users size={18} />
           <span>Manage Products</span>
@@ -245,17 +236,19 @@ function Navbar() {
             </div>
           </div>
 
-          <div className="navbar-right">
-            {/* Hamburger Menu Button (mobile only) */}
-            <button
-              className={`hamburger-btn ${showMobileMenu ? 'open' : ''}`}
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              aria-label="Toggle menu"
-            >
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-              <span className="hamburger-line"></span>
-            </button>
+          <div className={`navbar-right ${isGuest ? 'navbar-right-guest' : 'navbar-right-auth'}`}>
+            {/* Hamburger Menu Button (mobile only, hidden on login route) */}
+            {!isLoginRoute && (
+              <button
+                className={`hamburger-btn ${showMobileMenu ? 'open' : ''}`}
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                aria-label="Toggle menu"
+              >
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+              </button>
+            )}
 
             {!isGuest && (
               <NotificationDropdown
@@ -267,6 +260,7 @@ function Navbar() {
                 onMarkAllRead={markAllNotificationsRead}
                 notificationsMuted={notificationsMuted}
                 onToggleMuted={toggleNotificationsMuted}
+                onOpen={handleNotificationsPanelOpen}
                 canManageOrders={canManageOrders}
                 orders={orders}
               />
@@ -310,6 +304,18 @@ function Navbar() {
                       <Settings size={16} />
                       <span>Change Profile</span>
                     </button>
+                    {canManageOrders && (
+                      <button
+                        onClick={() => {
+                          setShowProfileMenu(false);
+                          navigate('/my-orders');
+                        }}
+                        className="profile-menu-item"
+                      >
+                        <Package size={16} />
+                        <span>My Orders</span>
+                      </button>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="profile-menu-item profile-menu-logout"
@@ -350,7 +356,7 @@ function Navbar() {
         className={`mobile-menu ${showMobileMenu ? 'open' : ''}`}
         onClick={(e) => e.stopPropagation()}
       >
-        {renderNavLinks()}
+        {renderNavLinks({ includeStaffMyOrders: true })}
 
         {/* Help link in mobile menu */}
         {!isGuest && (

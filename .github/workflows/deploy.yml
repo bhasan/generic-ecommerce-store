@@ -3,12 +3,19 @@ name: Deploy to VPS
 on:
   push:
     branches:
+      - main
       - feature/notification_connection
   workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -20,16 +27,17 @@ jobs:
           script_stop: true
           script: |
             set -e
-            cd ${{ secrets.APP_DIR }}
+            cd "${{ secrets.APP_DIR }}"
 
+            BRANCH="${{ github.ref_name }}"
             git fetch origin
-            git checkout feature/notification_connection
-            git pull --ff-only origin feature/notification_connection
+            git checkout "$BRANCH" || git checkout -b "$BRANCH" "origin/$BRANCH"
+            git pull --ff-only origin "$BRANCH"
 
             docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod build
             docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
 
-            docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy || true
+            docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
 
             curl -fsS http://localhost/api/health
             docker ps --format "table {{.Names}}\t{{.Status}}"

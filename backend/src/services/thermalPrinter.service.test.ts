@@ -20,6 +20,10 @@ const logger = {
   debug: vi.fn(),
 };
 
+const printJobService = {
+  createPrintJob: vi.fn(),
+};
+
 vi.mock('../config/database', () => ({
   default: prismaMock,
 }));
@@ -28,23 +32,27 @@ vi.mock('../utils/logger', () => ({
   logger,
 }));
 
+vi.mock('./printJob.service', () => ({
+  printJobService,
+}));
+
 describe('thermal printer service', () => {
   const originalEnv = {
-    webhook: process.env.THERMAL_PRINTER_WEBHOOK_URL,
-    apiKey: process.env.THERMAL_PRINTER_API_KEY,
     storeName: process.env.THERMAL_PRINTER_STORE_NAME,
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.THERMAL_PRINTER_WEBHOOK_URL = 'http://printer.local/print';
-    process.env.THERMAL_PRINTER_API_KEY = 'printer-key';
     process.env.THERMAL_PRINTER_STORE_NAME = 'Smoke Station Test';
+    printJobService.createPrintJob.mockResolvedValue({
+      id: 501,
+      orderId: 81,
+      reason: 'ORDER_CREATED',
+      status: 'PENDING',
+    });
   });
 
   afterEach(() => {
-    process.env.THERMAL_PRINTER_WEBHOOK_URL = originalEnv.webhook;
-    process.env.THERMAL_PRINTER_API_KEY = originalEnv.apiKey;
     process.env.THERMAL_PRINTER_STORE_NAME = originalEnv.storeName;
     vi.unstubAllGlobals();
   });
@@ -70,7 +78,7 @@ describe('thermal printer service', () => {
     });
   };
 
-  it('dispatches a receipt payload for a configured printer webhook', async () => {
+  it('queues a receipt payload as a pending print job', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
       { id: 1, orderId: 81, productId: 2, quantity: 2, price: 10.82, voided: false, addedAfterSubmission: false },
@@ -78,12 +86,6 @@ describe('thermal printer service', () => {
     prismaMock.productItem.findMany.mockResolvedValue([
       { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
     ]);
-
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
 
@@ -97,16 +99,14 @@ describe('thermal printer service', () => {
       reason: 'ORDER_CREATED',
       orderId: 81,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe('http://printer.local/print');
-    expect(init.headers).toMatchObject({
-      'Content-Type': 'application/json',
-      'x-printer-apikey': 'printer-key',
+    expect(printJobService.createPrintJob).toHaveBeenCalledTimes(1);
+    expect(printJobService.createPrintJob).toHaveBeenCalledWith({
+      orderId: 81,
+      reason: 'ORDER_CREATED',
+      payload: expect.any(Object),
     });
 
-    const body = JSON.parse(init.body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.eventType).toBe('ORDER_RECEIPT_PRINT_REQUESTED');
     expect(body.order.id).toBe(81);
     expect(body.receipt.templateType).toBe('STAFF_TICKET');
@@ -145,24 +145,6 @@ TOTAL                               $21.64
 `);
   });
 
-  it('skips dispatch cleanly when the printer webhook is not configured', async () => {
-    process.env.THERMAL_PRINTER_WEBHOOK_URL = '';
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-
-    const { ThermalPrinterService } = await import('./thermalPrinter.service');
-    const service = new ThermalPrinterService();
-
-    const result = await service.dispatchReceipt(81, 'MANUAL_REPRINT');
-
-    expect(result).toEqual({
-      queued: false,
-      reason: 'MANUAL_REPRINT',
-      orderId: 81,
-    });
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
   it('prints delivery orders with emphasized address near the top', async () => {
     prismaMock.order.findUnique.mockResolvedValue({
       id: 91,
@@ -189,16 +171,10 @@ TOTAL                               $21.64
       { id: 9, name: 'House Special', category: { name: 'Bundle' } },
     ]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(91, 'ORDER_CREATED');
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     const lines = body.receipt.text.split('\n');
     const deliveryIndex = lines.findIndex((line: string) => line.includes('*** DELIVERY ***'));
     const addressIndex = lines.findIndex((line: string) => line.includes('742 EVERGREEN TERRACE'));
@@ -209,6 +185,42 @@ TOTAL                               $21.64
     expect(body.receipt.text).toContain('DELIVERY ADDRESS');
   });
 
+  it('prints curbside pickup orders with vehicle info section', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 95,
+      userId: 8,
+      status: 'APPROVED',
+      total: 15.0,
+      createdAt: new Date('2026-04-09T19:00:00.000Z'),
+      updatedAt: new Date('2026-04-09T19:00:00.000Z'),
+      deliveryMethod: 'CURBSIDE',
+      paymentMethod: 'EXTERNAL',
+      deliveryAddress: 'CURBSIDE: Silver Camry',
+    });
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 8,
+      username: 'customer-two',
+      cashapp: '$customer-two',
+      phoneNumber: '555-222-3333',
+      address: '456 Side St',
+    });
+    prismaMock.orderItem.findMany.mockResolvedValue([
+      { id: 5, orderId: 95, productId: 2, quantity: 1, price: 15.0, voided: false, addedAfterSubmission: false },
+    ]);
+    prismaMock.productItem.findMany.mockResolvedValue([
+      { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
+    ]);
+
+    const { thermalPrinterService } = await import('./thermalPrinter.service');
+    await thermalPrinterService.dispatchReceipt(95, 'ORDER_CREATED');
+
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
+    expect(body.receipt.text).toContain('*** CURBSIDE PICKUP ***');
+    expect(body.receipt.text).toContain('CURBSIDE VEHICLE INFO');
+    expect(body.receipt.text).toContain('CURBSIDE: SILVER CAMRY');
+  });
+
+
   it('marks manual reprints clearly', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
@@ -218,16 +230,10 @@ TOTAL                               $21.64
       { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
     ]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(81, 'MANUAL_REPRINT');
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.receipt.text).toContain('REPRINT');
     expect(body.receipt.text).not.toContain('NEW ORDER');
   });
@@ -245,16 +251,10 @@ TOTAL                               $21.64
       },
     ]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED');
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     const lines = body.receipt.text.split('\n');
     const wrappedNameLines = lines.filter((line: string) => line.includes('EXTREMELY') || line.includes('MULTIPLE RECEIPT'));
 
@@ -273,16 +273,10 @@ TOTAL                               $21.64
       { id: 5, name: 'Active Item', category: { name: 'Flower' } },
     ]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED');
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.receipt.text).toContain('ACTIVE ITEM');
     expect(body.receipt.text).not.toContain('VOIDED ITEM');
   });
@@ -296,16 +290,10 @@ TOTAL                               $21.64
       { id: 4, name: 'Voided Item', category: { name: 'Accessories' } },
     ]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED');
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.receipt.text).toContain('NO ACTIVE ITEMS');
   });
 
@@ -318,20 +306,14 @@ TOTAL                               $21.64
       { id: 6, name: 'Half Gram Example', category: { name: 'Concentrates' } },
     ]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED');
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.receipt.text).toContain('0.5 x $14.00 = $7.00');
   });
 
-  it('returns queued false when the printer webhook rejects the request', async () => {
+  it('surfaces print job creation failures so callers do not mistake them for queued work', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
       { id: 1, orderId: 81, productId: 2, quantity: 2, price: 10.82, voided: false, addedAfterSubmission: false },
@@ -340,22 +322,11 @@ TOTAL                               $21.64
       { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
     ]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 502,
-      text: vi.fn().mockResolvedValue('Printer gateway unavailable'),
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    printJobService.createPrintJob.mockRejectedValue(new Error('database unavailable'));
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
-    const result = await thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED');
 
-    expect(result).toEqual({
-      queued: false,
-      reason: 'ORDER_CREATED',
-      orderId: 81,
-    });
-    expect(logger.error).toHaveBeenCalled();
+    await expect(thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED')).rejects.toThrow('database unavailable');
   });
 
   it('uses fallback text when product or category details are missing', async () => {
@@ -365,16 +336,10 @@ TOTAL                               $21.64
     ]);
     prismaMock.productItem.findMany.mockResolvedValue([]);
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn(),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED');
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.order.items[0]).toMatchObject({
       productId: 99,
       productName: 'Product #99',

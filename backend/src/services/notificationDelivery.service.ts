@@ -12,6 +12,7 @@ interface DeliveryPayload {
   category: NotificationCategory;
   channelIntent: 'email' | 'ops_alert' | 'in_app_sync';
   notificationId: number;
+  notificationIds?: number[];
   occurredAt: string;
   recipient: {
     userId: number;
@@ -46,6 +47,14 @@ const CATEGORY_ENV_MAP: Record<NotificationCategory, string> = {
 export class NotificationDeliveryService {
   private apiKey = process.env.MAKE_API_KEY;
 
+  private collectNotificationIds(payloads: DeliveryPayload[]) {
+    return [...new Set(
+      payloads.flatMap((payload) => payload.notificationIds?.length
+        ? payload.notificationIds
+        : [payload.notificationId]),
+    )];
+  }
+
   resolveWebhookUrl(category: NotificationCategory) {
     const categoryKey = CATEGORY_ENV_MAP[category];
     return process.env[categoryKey]
@@ -66,12 +75,14 @@ export class NotificationDeliveryService {
 
     const webhookUrl = this.resolveWebhookUrl(category);
     if (!webhookUrl || !this.apiKey) {
+      const notificationIds = this.collectNotificationIds(payloads);
       await notificationService.updateDeliveryStatus(
-        payloads.map((payload) => payload.notificationId),
+        notificationIds,
         NotificationDeliveryStatus.DISABLED,
       );
       logger.warn('Notification delivery disabled for category', {
         category,
+        count: notificationIds.length,
         hasWebhookUrl: Boolean(webhookUrl),
         hasApiKey: Boolean(this.apiKey),
       });
@@ -95,8 +106,9 @@ export class NotificationDeliveryService {
         }
       }));
 
+      const notificationIds = this.collectNotificationIds(payloads);
       await notificationService.updateDeliveryStatus(
-        payloads.map((payload) => payload.notificationId),
+        notificationIds,
         NotificationDeliveryStatus.DELIVERED,
       );
 
@@ -105,8 +117,9 @@ export class NotificationDeliveryService {
         count: payloads.length,
       });
     } catch (error) {
+      const notificationIds = this.collectNotificationIds(payloads);
       await notificationService.updateDeliveryStatus(
-        payloads.map((payload) => payload.notificationId),
+        notificationIds,
         NotificationDeliveryStatus.FAILED,
       );
 

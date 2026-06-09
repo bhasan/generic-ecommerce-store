@@ -351,6 +351,39 @@ export class OrderController {
       next(error);
     }
   }
+
+  /**
+   * Notify staff of customer arrival for curbside pickup
+   * POST /api/orders/:id/arrive
+   */
+  async customerArrive(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        res.status(401).json({ error: 'Authentication required' });
+        return;
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ errors: errors.array() });
+        return;
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: 'Invalid order ID' });
+        return;
+      }
+
+      const order = await orderService.customerArrive(id, req.user.userId, req.body.parkingSpot);
+      res.status(200).json({
+        message: 'Arrival notification sent successfully',
+        order
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new OrderController();
