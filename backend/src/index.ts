@@ -141,14 +141,14 @@ const paymentSettingsService = new PaymentSettingsService();
 const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
 const brandingService = new BrandingService();
-void brandingService; // used in Task 3 (/api/config extension)
 
 // Config check route
 app.get('/api/config', async (_req, res) => {
-  const [paymentSettings, storeSettings, orderingConstraints] = await Promise.all([
+  const [paymentSettings, storeSettings, orderingConstraints, branding] = await Promise.all([
     paymentSettingsService.getPaymentSettings(),
     storeSettingsService.getStoreSettings(),
     orderingConstraintsService.getOrderingConstraints(),
+    brandingService.getBranding(),
   ]);
   res.json({
     taxRate: DEFAULT_TAX_RATE,
@@ -161,6 +161,7 @@ app.get('/api/config', async (_req, res) => {
     storeCashappUsername: paymentSettings.cashapp?.handle || '',
     paymentSettings,
     storeSettings,
+    branding,
   });
 });
 
