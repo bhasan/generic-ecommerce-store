@@ -902,6 +902,12 @@ export class OrderService {
         throw new AppError(`Invalid quantity for ${product.name}`, 400);
       }
 
+      // Stock check before transaction
+      if (product.stockEnabled && product.stock < data.quantity) {
+        logger.warn('Add item failed: insufficient stock', { orderId, productId: data.productId, stock: product.stock, requested: data.quantity });
+        throw new AppError(`Insufficient stock for ${product.name}`, 400);
+      }
+
       // Create new order item
       const discountRules = this.resolveQuantityDiscounts(product);
       const unitPrice = this.resolveDiscountedUnitPrice(product.price, data.quantity, discountRules);
@@ -913,27 +919,10 @@ export class OrderService {
         price: unitPrice,
       });
 
-      const orderItem = await prisma.orderItem.create({
-        data: {
-          orderId,
-          productId: data.productId,
-          quantity: data.quantity,
-          price: unitPrice,
-          addedAfterSubmission: true
-        }
-      });
-
-      logger.info('Order item created in database', {
-        orderItemId: orderItem.id,
-        orderId,
-        productId: data.productId,
-        quantity: data.quantity,
-      });
-
       // Recalculate order total
       const oldTotal = order.total;
       const newTotal = order.total + (unitPrice * data.quantity);
-      
+
       logger.debug('Updating order total', {
         orderId,
         oldTotal,
@@ -941,9 +930,37 @@ export class OrderService {
         itemCost: unitPrice * data.quantity,
       });
 
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { total: newTotal }
+      const { orderItem } = await prisma.$transaction(async (tx) => {
+        const orderItem = await tx.orderItem.create({
+          data: {
+            orderId,
+            productId: data.productId,
+            quantity: data.quantity,
+            price: unitPrice,
+            addedAfterSubmission: true
+          }
+        });
+
+        await tx.order.update({
+          where: { id: orderId },
+          data: { total: newTotal }
+        });
+
+        if (product.stockEnabled) {
+          await tx.productItem.update({
+            where: { id: product.id },
+            data: { stock: { decrement: data.quantity } }
+          });
+        }
+
+        return { orderItem, newTotal };
+      });
+
+      logger.info('Order item created in database', {
+        orderItemId: orderItem.id,
+        orderId,
+        productId: data.productId,
+        quantity: data.quantity,
       });
 
       logger.info('Order item added successfully', {

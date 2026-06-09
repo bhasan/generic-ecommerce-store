@@ -8,6 +8,7 @@ const prismaMock = {
   },
   productItem: {
     findMany: vi.fn(),
+    findUnique: vi.fn(),
     update: vi.fn(),
   },
   order: {
@@ -19,6 +20,7 @@ const prismaMock = {
   orderItem: {
     create: vi.fn(),
     findMany: vi.fn(),
+    findUnique: vi.fn(),
   },
   $transaction: vi.fn(),
 };
@@ -475,6 +477,120 @@ describe('order service notifications', () => {
         message: 'Order must be in READY_FOR_PICKUP status to check in',
         statusCode: 400,
       });
+    });
+  });
+
+  describe('addItemToOrder', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('decrements stock for stock-enabled product when adding item to order', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 10,
+        total: 20.00,
+      });
+
+      prismaMock.productItem.findUnique.mockResolvedValue({
+        id: 5,
+        name: 'Test Product',
+        price: 10.00,
+        stock: 5,
+        stockEnabled: true,
+        category: { id: 1, name: 'Cat' },
+        allowedQuantities: null,
+        quantityDiscounts: null,
+      });
+
+      prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
+
+      prismaMock.orderItem.create.mockResolvedValue({
+        id: 99,
+        orderId: 10,
+        productId: 5,
+        quantity: 2,
+        price: 10.00,
+        addedAfterSubmission: true,
+      });
+
+      prismaMock.order.update.mockResolvedValue({ id: 10, total: 40.00 });
+      prismaMock.productItem.update.mockResolvedValue({ id: 5, stock: 3 });
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      const result = await service.addItemToOrder(10, { productId: 5, quantity: 2 });
+
+      expect(result.id).toBe(99);
+      expect(prismaMock.productItem.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: { stock: { decrement: 2 } },
+      });
+    });
+
+    it('throws 400 with insufficient stock message when stock is too low', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 10,
+        total: 20.00,
+      });
+
+      prismaMock.productItem.findUnique.mockResolvedValue({
+        id: 5,
+        name: 'Low Stock Product',
+        price: 10.00,
+        stock: 1,
+        stockEnabled: true,
+        category: { id: 1, name: 'Cat' },
+        allowedQuantities: null,
+        quantityDiscounts: null,
+      });
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await expect(service.addItemToOrder(10, { productId: 5, quantity: 3 })).rejects.toMatchObject({
+        message: 'Insufficient stock for Low Stock Product',
+        statusCode: 400,
+      });
+
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('does not decrement stock for non-stock-enabled product', async () => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 10,
+        total: 20.00,
+      });
+
+      prismaMock.productItem.findUnique.mockResolvedValue({
+        id: 7,
+        name: 'No Stock Product',
+        price: 5.00,
+        stock: 0,
+        stockEnabled: false,
+        category: { id: 1, name: 'Cat' },
+        allowedQuantities: null,
+        quantityDiscounts: null,
+      });
+
+      prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
+
+      prismaMock.orderItem.create.mockResolvedValue({
+        id: 100,
+        orderId: 10,
+        productId: 7,
+        quantity: 2,
+        price: 5.00,
+        addedAfterSubmission: true,
+      });
+
+      prismaMock.order.update.mockResolvedValue({ id: 10, total: 30.00 });
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      const result = await service.addItemToOrder(10, { productId: 7, quantity: 2 });
+
+      expect(result.id).toBe(100);
+      expect(prismaMock.productItem.update).not.toHaveBeenCalled();
     });
   });
 });
