@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import unzipper from 'unzipper';
 import { AppError } from '../middleware/error.middleware';
 import { UPLOADS_DIR } from '../utils/fileUtils';
+import { BrandingService } from '../services/branding.service';
 
 const MAX_IMAGE_DIMENSION = 1920;
 const WEBP_QUALITY = 85;
@@ -155,6 +156,43 @@ export class UploadController {
       res.json({ imported, skipped });
     } catch (err) {
       next(err);
+    }
+  }
+
+  /**
+   * Upload a favicon and generate 16x16, 32x32, and 180x180 PNG variants
+   * POST /api/upload/favicon
+   */
+  async uploadFavicon(req: MulterRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.file) {
+        throw new AppError('No file uploaded. Please select an image.', 400);
+      }
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      const sizes: Array<{ key: '16' | '32' | '180'; size: number }> = [
+        { key: '16', size: 16 },
+        { key: '32', size: 32 },
+        { key: '180', size: 180 },
+      ];
+      const inputPath = path.join(uploadsDir, req.file.filename);
+      const faviconUrls: { '16': string; '32': string; '180': string } = { '16': '', '32': '', '180': '' };
+
+      for (const { key, size } of sizes) {
+        const outFilename = `favicon-${size}.png`;
+        const outPath = path.join(uploadsDir, outFilename);
+        await sharp(inputPath)
+          .resize(size, size, { fit: 'cover' })
+          .png()
+          .toFile(outPath);
+        faviconUrls[key] = `/api/uploads/${outFilename}`;
+      }
+
+      await fs.promises.unlink(inputPath);
+      const brandingService = new BrandingService();
+      await brandingService.updateBranding({ faviconUrls });
+      res.status(201).json({ urls: faviconUrls });
+    } catch (error) {
+      next(error);
     }
   }
 
