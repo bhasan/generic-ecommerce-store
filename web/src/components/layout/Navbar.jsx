@@ -3,7 +3,7 @@ import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest } from '../../utils/roles';
-import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home } from 'lucide-react';
+import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home, Globe } from 'lucide-react';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
@@ -215,6 +215,20 @@ function Navbar() {
                 <CheckCircle size={16} />
                 <span>Orders History</span>
               </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate('/website-management');
+                    setShowAdminMenu(false);
+                    setShowMobileMenu(false);
+                  }}
+                  className={`admin-menu-item ${location.pathname === '/website-management' ? 'admin-menu-item-active' : ''}`}
+                >
+                  <Globe size={16} />
+                  <span>Website Management</span>
+                </button>
+              )}
             </div>
           )}
         </div>
