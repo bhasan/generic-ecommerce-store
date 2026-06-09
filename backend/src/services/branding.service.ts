@@ -72,6 +72,10 @@ export class BrandingService {
     const c = branding.customColors;
     if (!c) return ':root {}';
 
+    const HEX = /^#[0-9a-f]{6}$/i;
+    const RGB = /^\d{1,3} \d{1,3} \d{1,3}$/;
+    const isSafe = (k: string, v: string) => k.endsWith('-rgb') ? RGB.test(v) : HEX.test(v);
+
     const entries: Array<[string, string | undefined]> = [
       ['--color-primary', c.primary],
       ['--color-primary-dark', c.primaryDark],
@@ -87,7 +91,7 @@ export class BrandingService {
       ['--color-secondary-rgb', c.secondaryRgb],
     ];
     const lines = entries
-      .filter(([, v]) => v !== undefined && v !== '')
+      .filter((entry): entry is [string, string] => !!entry[1] && isSafe(entry[0], entry[1]))
       .map(([k, v]) => `  ${k}: ${v};`);
     if (!lines.length) return ':root {}';
     return `:root {\n${lines.join('\n')}\n}`;
