@@ -77,6 +77,34 @@ describe('branding service', () => {
     expect(css).toContain('}');
   });
 
+  it('generateCssBlock strips customColors values that are not valid hex or RGB tokens', async () => {
+    prismaMock.uiSetting.findUnique.mockResolvedValue({
+      value: {
+        storeName: '', tagline: '', logoUrl: '', heroImageUrl: '',
+        faviconUrls: { '16': '', '32': '', '180': '' },
+        palette: 'custom',
+        customColors: {
+          primary: '#2563eb',
+          primaryDark: 'red} body{display:none}/*',
+          primaryLight: 'javascript:alert(1)',
+          primaryRgb: '37 99 235',
+          secondary: '#059669',
+          secondaryRgb: '999 999 999',
+        },
+      },
+    });
+    const { BrandingService } = await import('./branding.service');
+    const css = await new BrandingService().generateCssBlock();
+
+    expect(css).toContain('--color-primary: #2563eb');
+    expect(css).toContain('--color-primary-rgb: 37 99 235');
+    expect(css).toContain('--color-secondary: #059669');
+    // malformed hex and non-CSS values are dropped
+    expect(css).not.toContain('display:none');
+    expect(css).not.toContain('javascript:');
+    expect(css).not.toContain('red}');
+  });
+
   it('auto-computes color variants when primary hex is provided on update', async () => {
     const data = {
       storeName: '', tagline: '', logoUrl: '', heroImageUrl: '',
