@@ -23,6 +23,7 @@ function Navbar() {
     toggleNotificationsMuted,
     handleNotificationsPanelOpen,
     orders,
+    branding,
   } = useApp();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
@@ -227,7 +228,10 @@ function Navbar() {
         <div className="navbar-container">
           <div className="navbar-left">
             <Link to="/" className="navbar-brand">
-              <span>Smoke Station HTX</span>
+              {branding?.logoUrl
+                ? <img src={branding.logoUrl} alt={branding.storeName || 'Store'} className="navbar-logo" style={{ height: 32, objectFit: 'contain' }} />
+                : <span>{branding?.storeName || 'Store'}</span>
+              }
             </Link>
 
             {/* Desktop Navigation Links */}
