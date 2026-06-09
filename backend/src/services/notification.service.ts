@@ -55,15 +55,18 @@ export class NotificationService {
     ordersByStatus: Record<string, number>;
     pendingRegistrations: number;
   }> {
+    // Dynamic import breaks the circular dependency chain:
+    // notification.service → user.service → notificationEvents.service → notification.service
+    const userServiceModule = await import('./user.service');
+    const userSvc = userServiceModule.default;
+
     const [orderGroups, pendingRegistrations] = await Promise.all([
       prisma.order.groupBy({
         by: ['status'],
         _count: { status: true },
         where: { status: { in: UNFULFILLED_STATUSES } }
       }),
-      prisma.user.count({
-        where: { approved: false, rejected: false }
-      })
+      userSvc.getPendingRegistrationCount(),
     ]);
 
     const ordersByStatus: Record<string, number> = {};
