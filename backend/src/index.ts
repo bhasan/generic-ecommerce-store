@@ -26,6 +26,9 @@ import { DEFAULT_TAX_RATE } from './constants/settings';
 import { PaymentSettingsService } from './services/paymentSettings.service';
 import { StoreSettingsService } from './services/storeSettings.service';
 import { OrderingConstraintsService } from './services/orderingConstraints.service';
+import { BrandingService } from './services/branding.service';
+import { brandingController } from './controllers/branding.controller';
+import brandingRoutes from './routes/branding.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -137,6 +140,8 @@ app.get('/api/health', async (req, res) => {
 const paymentSettingsService = new PaymentSettingsService();
 const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
+const brandingService = new BrandingService();
+void brandingService; // used in Task 3 (/api/config extension)
 
 // Config check route
 app.get('/api/config', async (_req, res) => {
@@ -159,6 +164,8 @@ app.get('/api/config', async (_req, res) => {
   });
 });
 
+app.get('/api/branding/css', brandingController.getCss);
+
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
 app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
   maxAge: '30d',
@@ -179,6 +186,7 @@ app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
 app.use('/api/landing-page-settings', generalLimiter, landingPageSettingsRoutes);
+app.use('/api/branding', generalLimiter, brandingRoutes);
 app.use('/api/credits', generalLimiter, creditRoutes);
 app.use('/api/print-jobs', readWriteLimiter, printJobRoutes);
 
