@@ -34,9 +34,10 @@ describe('store settings service', () => {
     const result = await new StoreSettingsService().getStoreSettings();
 
     expect(result).toEqual({
-      name: 'Smoke Station',
-      address: '9400 S Texas 6 Suite C, Houston, TX 77083',
+      name: '',
+      address: '',
       phoneNumber: '',
+      tagline: '',
       notificationEmails: {
         adminEmail: '',
         managementEmail: '',
@@ -50,6 +51,7 @@ describe('store settings service', () => {
       name: 'Smoke Station West',
       address: '101 Example Ave',
       phoneNumber: '555-0100',
+      tagline: 'Your neighborhood smoke shop',
       notificationEmails: {
         adminEmail: 'admin@example.com',
         managementEmail: 'manager@example.com',

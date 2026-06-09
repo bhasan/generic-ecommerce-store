@@ -12,6 +12,7 @@ export interface StoreSettings {
   name: string;
   address: string;
   phoneNumber: string;
+  tagline: string;
   notificationEmails: NotificationEmailRouting;
 }
 
@@ -44,9 +45,10 @@ const getDefaultNotificationEmailRouting = (): NotificationEmailRouting => ({
 });
 
 const getDefaultStoreSettings = (): StoreSettings => ({
-  name: 'Smoke Station',
-  address: '9400 S Texas 6 Suite C, Houston, TX 77083',
+  name: '',
+  address: '',
   phoneNumber: '',
+  tagline: '',
   notificationEmails: getDefaultNotificationEmailRouting(),
 });
 
@@ -76,6 +78,7 @@ export class StoreSettingsService {
       name: typeof data?.name === 'string' ? data.name : defaults.name,
       address: typeof data?.address === 'string' ? data.address : defaults.address,
       phoneNumber: typeof data?.phoneNumber === 'string' ? data.phoneNumber : defaults.phoneNumber,
+      tagline: typeof data?.tagline === 'string' ? data.tagline : defaults.tagline,
       notificationEmails: {
         adminEmail: normalizeEmailField(
           data?.notificationEmails?.adminEmail,
@@ -143,14 +146,8 @@ export class StoreSettingsService {
     if (data.name.length > 128) {
       throw new AppError('Invalid store settings: name must be 128 characters or fewer', 400);
     }
-    if (!data.name.trim()) {
-      throw new AppError('Invalid store settings: name is required', 400);
-    }
     if (data.address.length > 256) {
       throw new AppError('Invalid store settings: address must be 256 characters or fewer', 400);
-    }
-    if (!data.address.trim()) {
-      throw new AppError('Invalid store settings: address is required', 400);
     }
     if (data.phoneNumber.length > 32) {
       throw new AppError('Invalid store settings: phoneNumber must be 32 characters or fewer', 400);
