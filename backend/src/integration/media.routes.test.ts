@@ -29,6 +29,7 @@ const uploadController = vi.hoisted(() => ({
   getImages: vi.fn((_req, res) => res.status(200).json({ images: [{ filename: 'existing.webp', url: '/api/uploads/existing.webp' }] })),
   deleteImage: vi.fn((_req, res) => res.status(200).json({ message: 'Image deleted successfully' })),
   importZip: vi.fn((_req, res) => res.status(200).json({ imported: 2, skipped: 1 })),
+  uploadFavicon: vi.fn((_req, res) => res.status(201).json({ urls: { '16': '/api/uploads/favicon-16.png', '32': '/api/uploads/favicon-32.png', '180': '/api/uploads/favicon-180.png' } })),
 }));
 const upload = vi.hoisted(() => ({
   single: vi.fn(() => (req: any, _res: any, next: any) => {

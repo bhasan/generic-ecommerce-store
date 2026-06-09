@@ -189,7 +189,7 @@ input, textarea, select {
 .form-select.form-input-error:focus,
 .form-textarea.form-input-error:focus {
   border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 3px var(--color-danger-bg-strong);
 }
 
 .form-error-message {
@@ -232,7 +232,7 @@ input, textarea, select {
 .form-textarea.has-error:focus,
 .form-textarea.form-error:focus {
   border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 3px var(--color-danger-bg-strong);
 }
 
 /* ============================================

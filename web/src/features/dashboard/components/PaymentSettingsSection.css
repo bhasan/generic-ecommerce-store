@@ -71,3 +71,7 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+[data-theme="light"] .payment-method-toggle-status.enabled {
+  color: var(--color-secondary-dark);
+}

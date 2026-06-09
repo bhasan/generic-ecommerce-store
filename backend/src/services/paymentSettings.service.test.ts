@@ -23,7 +23,7 @@ describe('payment settings service', () => {
     const result = await new PaymentSettingsService().getPaymentSettings();
 
     expect(result).toEqual({
-      cashapp: { enabled: true, handle: '$SmokeStationX' },
+      cashapp: { enabled: true, handle: '' },
       zelle: { enabled: false, handle: '' },
       venmo: { enabled: false, handle: '' },
     });

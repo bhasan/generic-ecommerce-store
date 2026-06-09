@@ -741,7 +741,7 @@ function CheckoutPage() {
             ) : (
               <div className="pickup-location-info">
                 <h4>Store Pickup Location</h4>
-                <p className="pickup-address">{pickupLocation || '123 Smoke Station Ave, Dallas, TX 75001'}</p>
+                <p className="pickup-address">{pickupLocation}</p>
                 
                 <div className="pickup-sub-method">
                   <div className="pickup-sub-toggle">

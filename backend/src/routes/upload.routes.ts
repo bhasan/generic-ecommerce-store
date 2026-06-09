@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import uploadController from '../controllers/upload.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { authorizeManagement } from '../middleware/role.middleware';
+import { authorizeManagement, authorizeAdmin } from '../middleware/role.middleware';
 import { upload } from '../config/multer';
 
 const router = Router();
@@ -77,6 +77,19 @@ router.delete(
   authenticate,
   authorizeManagement,
   uploadController.deleteImage
+);
+
+/**
+ * @route   POST /api/upload/favicon
+ * @desc    Upload a favicon image and generate 16x16, 32x32, and 180x180 PNG variants
+ * @access  Private (Admin only)
+ */
+router.post(
+  '/favicon',
+  authenticate,
+  authorizeAdmin,
+  upload.single('file'),
+  uploadController.uploadFavicon
 );
 
 export default router;

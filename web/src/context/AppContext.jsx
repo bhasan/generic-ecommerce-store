@@ -11,6 +11,7 @@ import * as creditApi from '../services/creditApi';
 import { getAuthToken } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
+import { applyBrandingTokens } from '../utils/colorUtils';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
@@ -104,6 +105,7 @@ export function AppProvider({ children }) {
     venmo: { enabled: false, handle: '' },
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [branding, setBranding] = useState(null);
   const [creditBalance, setCreditBalance] = useState(0);
   const hasInteractedRef = useRef(false);
   const hasLoadedNotificationsRef = useRef(false);
@@ -185,6 +187,19 @@ export function AppProvider({ children }) {
           setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
         } else if (typeof config.storeCashappUsername === 'string') {
           setStoreCashappUsername(config.storeCashappUsername);
+        }
+        if (config.branding) {
+          setBranding(config.branding);
+          applyBrandingTokens(config.branding.customColors);
+          if (config.branding.storeName) {
+            document.title = config.branding.storeName;
+          }
+          if (config.branding.faviconUrls?.['32']) {
+            const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
+            link.rel = 'icon';
+            link.href = config.branding.faviconUrls['32'];
+            if (!document.head.contains(link)) document.head.appendChild(link);
+          }
         }
       }
     } catch (e) {
@@ -1242,6 +1257,7 @@ export function AppProvider({ children }) {
     paymentSettings,
     storeSettings,
     loadConfig,
+    branding,
     restoreCart,
     creditBalance,
     refreshCreditBalance,

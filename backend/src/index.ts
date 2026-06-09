@@ -26,6 +26,9 @@ import { DEFAULT_TAX_RATE } from './constants/settings';
 import { PaymentSettingsService } from './services/paymentSettings.service';
 import { StoreSettingsService } from './services/storeSettings.service';
 import { OrderingConstraintsService } from './services/orderingConstraints.service';
+import { BrandingService } from './services/branding.service';
+import { brandingController } from './controllers/branding.controller';
+import brandingRoutes from './routes/branding.routes';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -109,7 +112,7 @@ app.get('/api/health', async (req, res) => {
     await prisma.$queryRaw`SELECT 1`;
     res.json({
       status: 'ok',
-      message: 'Smoke Station Backend API is running!',
+      message: 'Backend API is running!',
       timestamp,
       environment: process.env.NODE_ENV || 'development',
       checks: {
@@ -120,7 +123,7 @@ app.get('/api/health', async (req, res) => {
   } catch (error) {
     res.status(503).json({
       status: 'degraded',
-      message: 'Smoke Station Backend API is running with degraded dependencies.',
+      message: 'Backend API is running with degraded dependencies.',
       timestamp,
       environment: process.env.NODE_ENV || 'development',
       checks: {
@@ -137,13 +140,15 @@ app.get('/api/health', async (req, res) => {
 const paymentSettingsService = new PaymentSettingsService();
 const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
+const brandingService = new BrandingService();
 
 // Config check route
 app.get('/api/config', async (_req, res) => {
-  const [paymentSettings, storeSettings, orderingConstraints] = await Promise.all([
+  const [paymentSettings, storeSettings, orderingConstraints, branding] = await Promise.all([
     paymentSettingsService.getPaymentSettings(),
     storeSettingsService.getStoreSettings(),
     orderingConstraintsService.getOrderingConstraints(),
+    brandingService.getBranding(),
   ]);
   res.json({
     taxRate: DEFAULT_TAX_RATE,
@@ -156,8 +161,11 @@ app.get('/api/config', async (_req, res) => {
     storeCashappUsername: paymentSettings.cashapp?.handle || '',
     paymentSettings,
     storeSettings,
+    branding,
   });
 });
+
+app.get('/api/branding/css', generalLimiter, brandingController.getCss);
 
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
 app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
@@ -179,6 +187,7 @@ app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
 app.use('/api/landing-page-settings', generalLimiter, landingPageSettingsRoutes);
+app.use('/api/branding', generalLimiter, brandingRoutes);
 app.use('/api/credits', generalLimiter, creditRoutes);
 app.use('/api/print-jobs', readWriteLimiter, printJobRoutes);
 

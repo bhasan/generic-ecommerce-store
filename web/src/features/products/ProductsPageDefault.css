@@ -105,7 +105,7 @@
 
 .btn-add-to-cart:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 6px 20px var(--color-primary-shadow);
 }
 
 .btn-add-to-cart:disabled {
@@ -225,18 +225,18 @@
 }
 
 .product-list-stock {
-  background: rgba(16, 185, 129, 0.1);
-  color: var(--color-secondary);
+  background: var(--color-secondary-bg);
+  color: var(--color-secondary-dark);
 }
 
 .product-list-stock.is-out {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
 .product-list-hidden {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--color-warning);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-dark);
 }
 
 .product-list-price {
@@ -349,7 +349,7 @@
 
 .category-section {
   margin-bottom: 32px;
-  background: rgba(31, 41, 55, 0.6);
+  background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: var(--spacing-lg);

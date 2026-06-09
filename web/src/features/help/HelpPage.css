@@ -290,3 +290,5 @@
     width: 100%;
   }
 }
+
+[data-theme="light"] .help-contact-value { color: var(--color-primary); }

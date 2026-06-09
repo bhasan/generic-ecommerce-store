@@ -111,7 +111,7 @@
 
 .delivery-order-item.selected {
   border-color: var(--color-primary);
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
 }
 
 .delivery-order-item.route-order {
@@ -228,7 +228,7 @@
 .btn-start-route:hover {
   background: var(--color-primary-dark);
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 2px 8px var(--color-primary-border);
 }
 
 .route-edit-actions {

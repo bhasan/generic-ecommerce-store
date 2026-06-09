@@ -310,13 +310,13 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 4px 10px var(--color-primary-border);
   margin: 0;
 }
 
 .btn-upload-prominent:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 15px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 6px 15px var(--color-primary-shadow);
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
 }
 

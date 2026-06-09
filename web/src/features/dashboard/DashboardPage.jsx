@@ -4,14 +4,11 @@ import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import * as announcementsApi from '../../services/announcementsApi';
 import * as contactMessagesApi from '../../services/contactMessagesApi';
-import * as paymentSettingsApi from '../../services/paymentSettingsApi';
-import * as storeSettingsApi from '../../services/storeSettingsApi';
-import * as orderingConstraintsApi from '../../services/orderingConstraintsApi';
 import * as landingPageSettingsApi from '../../services/landingPageSettingsApi';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
-import { LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard, Globe } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AdminDashboardTabs from '../../components/layout/AdminDashboardTabs';
 import DashboardHeader from './components/DashboardHeader';
@@ -20,9 +17,6 @@ import UsersSection from './components/UsersSection';
 import AnnouncementsSection from './components/AnnouncementsSection';
 import RejectedUsersSection from './components/RejectedUsersSection';
 import MessagesSection from './components/MessagesSection';
-import PaymentSettingsSection from './components/PaymentSettingsSection';
-import StoreSettingsSection from './components/StoreSettingsSection';
-import OrderingConstraintsSection from './components/OrderingConstraintsSection';
 import LandingPageSection from './components/LandingPageSection';
 import VIPManagementSection from './components/VIPManagementSection';
 import * as productsApi from '../../services/productsApi';
@@ -34,9 +28,6 @@ const DASHBOARD_SECTIONS = {
   REJECTED_USERS: 'rejected-users',
   ANNOUNCEMENTS: 'announcements',
   MESSAGES: 'messages',
-  PAYMENT_SETTINGS: 'payment-settings',
-  STORE_SETTINGS: 'store-settings',
-  ORDERING_CONSTRAINTS: 'ordering-constraints',
   LANDING_PAGE: 'landing-page',
   VIP_MANAGEMENT: 'vip-management',
 };
@@ -90,18 +81,6 @@ function DashboardPage() {
   // Delete User State
   const [deleteUserModalOpen, setDeleteUserModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
-
-  // Payment Settings State
-  const [localPaymentSettings, setLocalPaymentSettings] = useState(null);
-  const [isLoadingPaymentSettings, setIsLoadingPaymentSettings] = useState(false);
-
-  // Store Settings State
-  const [localStoreSettings, setLocalStoreSettings] = useState(null);
-  const [isLoadingStoreSettings, setIsLoadingStoreSettings] = useState(false);
-
-  // Ordering Constraints State
-  const [localOrderingConstraints, setLocalOrderingConstraints] = useState(null);
-  const [isLoadingOrderingConstraints, setIsLoadingOrderingConstraints] = useState(false);
 
   // Landing Page Settings State
   const [localLandingPageSettings, setLocalLandingPageSettings] = useState(null);
@@ -223,81 +202,6 @@ function DashboardPage() {
     }
   }, [showNotification]);
 
-  // Load payment settings
-  const loadPaymentSettings = useCallback(async () => {
-    try {
-      setIsLoadingPaymentSettings(true);
-      const settings = await paymentSettingsApi.getPaymentSettings();
-      setLocalPaymentSettings(settings);
-    } catch (error) {
-      showNotification(error.message || 'Failed to load payment settings', 'error');
-    } finally {
-      setIsLoadingPaymentSettings(false);
-    }
-  }, [showNotification]);
-
-  const handleSavePaymentSettings = async (data) => {
-    try {
-      const response = await paymentSettingsApi.updatePaymentSettings(data);
-      setLocalPaymentSettings(response.settings || response);
-      showNotification('Payment settings updated successfully', 'success');
-      // Refresh shared config so checkout and header surfaces pick up new payment options immediately.
-      loadConfig();
-    } catch (error) {
-      showNotification(error.message || 'Failed to save payment settings', 'error');
-    }
-  };
-
-  // Load store settings
-  const loadStoreSettings = useCallback(async () => {
-    try {
-      setIsLoadingStoreSettings(true);
-      const settings = await storeSettingsApi.getStoreSettings();
-      setLocalStoreSettings(settings);
-    } catch (error) {
-      showNotification(error.message || 'Failed to load store settings', 'error');
-    } finally {
-      setIsLoadingStoreSettings(false);
-    }
-  }, [showNotification]);
-
-  const handleSaveStoreSettings = async (data) => {
-    try {
-      const response = await storeSettingsApi.updateStoreSettings(data);
-      setLocalStoreSettings(response.settings || response);
-      showNotification('Store settings updated successfully', 'success');
-      // Refresh shared config so pickup/store details stay aligned outside the dashboard.
-      loadConfig();
-    } catch (error) {
-      showNotification(error.message || 'Failed to save store settings', 'error');
-    }
-  };
-
-  // Load ordering constraints
-  const loadOrderingConstraints = useCallback(async () => {
-    try {
-      setIsLoadingOrderingConstraints(true);
-      const constraints = await orderingConstraintsApi.getOrderingConstraints();
-      setLocalOrderingConstraints(constraints);
-    } catch (error) {
-      showNotification(error.message || 'Failed to load ordering constraints', 'error');
-    } finally {
-      setIsLoadingOrderingConstraints(false);
-    }
-  }, [showNotification]);
-
-  const handleSaveOrderingConstraints = async (data) => {
-    try {
-      const response = await orderingConstraintsApi.updateOrderingConstraints(data);
-      setLocalOrderingConstraints(response.constraints || response);
-      showNotification('Ordering constraints updated successfully', 'success');
-      // Refresh shared config so cart and checkout rules see the latest limits right away.
-      loadConfig();
-    } catch (error) {
-      showNotification(error.message || 'Failed to save ordering constraints', 'error');
-    }
-  };
-
   // Load landing page settings
   const loadLandingPageSettings = useCallback(async () => {
     try {
@@ -335,18 +239,12 @@ function DashboardPage() {
       loadRejectedUsers();
     } else if (activeSection === DASHBOARD_SECTIONS.MESSAGES) {
       loadContactMessages(messagesStatusFilter);
-    } else if (activeSection === DASHBOARD_SECTIONS.PAYMENT_SETTINGS) {
-      loadPaymentSettings();
-    } else if (activeSection === DASHBOARD_SECTIONS.STORE_SETTINGS) {
-      loadStoreSettings();
-    } else if (activeSection === DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS) {
-      loadOrderingConstraints();
     } else if (activeSection === DASHBOARD_SECTIONS.LANDING_PAGE) {
       loadLandingPageSettings();
     } else if (activeSection === DASHBOARD_SECTIONS.VIP_MANAGEMENT) {
       loadVipData();
     }
-  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadPaymentSettings, loadStoreSettings, loadOrderingConstraints, loadLandingPageSettings, loadVipData]);
+  }, [activeSection, loadPendingRegistrations, loadAnnouncements, loadUsers, loadRoles, loadRejectedUsers, loadContactMessages, messagesStatusFilter, loadLandingPageSettings, loadVipData]);
 
   useEffect(() => {
     if (activeSection !== DASHBOARD_SECTIONS.MESSAGES) return undefined;
@@ -840,29 +738,17 @@ function DashboardPage() {
             isAdmin={isAdmin}
           />
         );
-      case DASHBOARD_SECTIONS.PAYMENT_SETTINGS:
+      case 'payment-settings':
+      case 'store-settings':
+      case 'ordering-constraints':
         return (
-          <PaymentSettingsSection
-            isLoading={isLoadingPaymentSettings}
-            paymentSettings={localPaymentSettings}
-            onSave={handleSavePaymentSettings}
-          />
-        );
-      case DASHBOARD_SECTIONS.STORE_SETTINGS:
-        return (
-          <StoreSettingsSection
-            isLoading={isLoadingStoreSettings}
-            storeSettings={localStoreSettings}
-            onSave={handleSaveStoreSettings}
-          />
-        );
-      case DASHBOARD_SECTIONS.ORDERING_CONSTRAINTS:
-        return (
-          <OrderingConstraintsSection
-            isLoading={isLoadingOrderingConstraints}
-            orderingConstraints={localOrderingConstraints}
-            onSave={handleSaveOrderingConstraints}
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem 1.25rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--color-primary)', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+            <Globe size={20} />
+            <div>
+              <strong style={{ color: 'var(--text-primary)' }}>Store Info, Payment Methods, and Delivery Settings have moved</strong>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem' }}>Manage them in <a href="/website-management" style={{ color: 'var(--color-primary)' }}>Website Management</a>.</p>
+            </div>
+          </div>
         );
       case DASHBOARD_SECTIONS.LANDING_PAGE:
         return (

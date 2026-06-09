@@ -197,7 +197,7 @@
 .btn-send-payment-done:not(:disabled):hover {
   opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 12px var(--color-secondary-border);
 }
 
 .btn-send-payment-done:disabled {
@@ -227,7 +227,7 @@
 }
 
 .send-payment-method-card {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-secondary-bg);
   border: 1px solid var(--color-secondary);
   padding: 1rem;
   border-radius: 0.5rem;
@@ -312,4 +312,14 @@
   .send-payment-modal-content {
     padding: var(--spacing-lg);
   }
+}
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .send-payment-modal-icon,
+[data-theme="light"] .send-payment-method-handle-value {
+  color: var(--color-secondary-dark);
+}
+
+[data-theme="light"] .send-payment-location-icon {
+  color: var(--color-primary);
 }

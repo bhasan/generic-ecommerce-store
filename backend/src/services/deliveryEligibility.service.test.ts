@@ -215,3 +215,79 @@ describe('delivery eligibility service', () => {
     }));
   });
 });
+
+describe('invalidateStoreAddressCache', () => {
+  const storeSettingsCallCount = (calls: any[][]) =>
+    calls.filter(([args]) => args.where.key === 'store_settings').length;
+
+  // Pre-geocoded coords for both the store and customer address so the radius check runs
+  // and therefore getStoreAddress() is actually invoked.
+  const STORE_GEOCODE = {
+    latitude: 29.699, longitude: -95.641,
+    formattedAddress: '9400 S Texas 6 Suite C, Houston, TX 77083',
+    city: 'Houston', state: 'TX', zipCode: '77083',
+  };
+  const CUSTOMER_GEOCODE = {
+    latitude: 29.702, longitude: -95.646,
+    formattedAddress: '123 Main St, Houston, TX 77083',
+    city: 'Houston', state: 'TX', zipCode: '77083',
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { invalidateStoreAddressCache } = await import('./deliveryEligibility.service');
+    invalidateStoreAddressCache();
+
+    prismaMock.uiSetting.findUnique.mockImplementation(async ({ where }) => {
+      if (where.key === 'store_settings') {
+        return { value: { address: '9400 S Texas 6 Suite C, Houston, TX 77083' } };
+      }
+      if (where.key === 'ordering_constraints') {
+        return {
+          value: {
+            minimumDeliveryOrder: 35, minimumDeliveryOrderEnabled: true,
+            deliveryRadiusMiles: 5, offlineZipFallbackEnabled: false,
+            offlineDeliveryZipCodes: [],
+          },
+        };
+      }
+      return null;
+    });
+    // Both addresses have cached geocodes so resolveStructuredAddress returns 'resolved',
+    // which is the only path that subsequently calls getStoreAddress().
+    prismaMock.addressGeocodeCache.findUnique.mockImplementation(async ({ where }) => {
+      if (where.normalizedAddress === '123 main st houston tx 77083') return CUSTOMER_GEOCODE;
+      if (where.normalizedAddress === '9400 s texas 6 suite c houston tx 77083') return STORE_GEOCODE;
+      return null;
+    });
+    prismaMock.addressGeocodeCache.upsert.mockResolvedValue({});
+    vi.stubGlobal('fetch', vi.fn());
+    process.env.GOOGLE_GEOCODING_API_KEY = '';
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('forces a DB re-fetch after the cache is invalidated', async () => {
+    const { DeliveryEligibilityService, invalidateStoreAddressCache } = await import('./deliveryEligibility.service');
+    const service = new DeliveryEligibilityService();
+    const addr = { street: '123 Main St', city: 'Houston', state: 'TX', zipCode: '77083' };
+
+    // First call — populates the module-level store address cache
+    await service.checkDeliveryEligibility(addr);
+    const callsAfterFirst = storeSettingsCallCount(prismaMock.uiSetting.findUnique.mock.calls);
+    expect(callsAfterFirst).toBeGreaterThan(0);
+
+    // Second call — store address served from cache (no new store_settings DB read)
+    await service.checkDeliveryEligibility(addr);
+    const callsAfterSecond = storeSettingsCallCount(prismaMock.uiSetting.findUnique.mock.calls);
+    expect(callsAfterSecond).toBe(callsAfterFirst);
+
+    // Invalidate cache → next call must re-fetch from DB
+    invalidateStoreAddressCache();
+    await service.checkDeliveryEligibility(addr);
+    const callsAfterThird = storeSettingsCallCount(prismaMock.uiSetting.findUnique.mock.calls);
+    expect(callsAfterThird).toBeGreaterThan(callsAfterSecond);
+  });
+});

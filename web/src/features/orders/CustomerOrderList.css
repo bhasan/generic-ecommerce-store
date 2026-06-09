@@ -165,7 +165,7 @@
 .stepper-step.active .stepper-dot {
   background: var(--color-primary);
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 0 0 4px var(--color-primary-bg-strong);
 }
 
 .stepper-label {
@@ -197,7 +197,7 @@
 /* ── Rejected banner ── */
 .order-rejected-banner {
   padding: 0.625rem 0.875rem;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 0.5rem;
   color: #ef4444;
@@ -284,7 +284,7 @@
 .btn-browse-menu:hover {
   background: var(--color-primary-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
 }
 
 /* ── Responsive ── */
@@ -323,12 +323,12 @@
   font-size: 0.95rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
 }
 
 .customer-order-actions .btn-arrive-here:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.45);
+  box-shadow: 0 6px 18px var(--color-primary-shadow);
 }
 
 .customer-order-actions .btn-arrive-here:disabled {
@@ -343,7 +343,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   background: rgba(16, 185, 129, 0.08);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  border: 1px solid var(--color-secondary-bg-strong);
   border-radius: 0.5rem;
   color: var(--color-secondary);
   font-size: 0.875rem;

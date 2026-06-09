@@ -131,9 +131,9 @@
 }
 
 .role-badge-no-roles {
-  background: rgba(245, 158, 11, 0.2);
+  background: var(--color-warning-bg-strong);
   color: var(--color-warning);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid var(--color-warning-border);
   font-style: italic;
 }
 
@@ -268,5 +268,16 @@
   .users-table td {
     padding: 0.75rem 0.5rem;
   }
+}
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .role-badge-delivery-driver {
+  background: #92400e;
+}
+
+[data-theme="light"] .role-badge-no-roles {
+  color: var(--color-warning-dark);
+  border-color: color-mix(in srgb, var(--color-warning-dark) 30%, transparent);
+  background: color-mix(in srgb, var(--color-warning-dark) 8%, transparent);
 }
 

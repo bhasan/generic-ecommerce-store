@@ -35,20 +35,20 @@
 }
 
 .delivery-method-toggle .toggle-btn:hover:not(.active) {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
   color: var(--color-primary-light);
 }
 
 .delivery-method-toggle .toggle-btn.active {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
   transform: scale(1.02);
 }
 
 /* Pickup Location Info */
 .pickup-location-info {
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--color-primary-bg);
   border: 1px solid var(--color-primary-dark);
   border-radius: 0.75rem;
   padding: 2rem;
@@ -72,4 +72,10 @@
   color: var(--text-secondary);
   font-size: 0.9rem;
   margin: 0;
+}
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .delivery-method-toggle .toggle-btn:hover:not(.active),
+[data-theme="light"] .pickup-location-info h4 {
+  color: var(--color-primary);
 }

@@ -5,7 +5,7 @@
 .cart-button {
   position: relative;
   padding: var(--spacing-sm);
-  color: var(--text-secondary);
+  color: var(--nav-item-color);
   transition: var(--transition-all);
   border-radius: var(--radius-md);
   background: transparent;
@@ -14,8 +14,8 @@
 }
 
 .cart-button:hover {
-  background: var(--bg-hover);
-  color: var(--color-primary-light);
+  background: var(--nav-item-hover-bg);
+  color: var(--nav-item-hover-color);
 }
 
 .cart-badge {
@@ -170,3 +170,4 @@
     right: -6px;
   }
 }
+

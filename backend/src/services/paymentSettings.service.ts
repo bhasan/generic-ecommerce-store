@@ -13,7 +13,7 @@ export interface PaymentSettings {
 }
 
 const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
-  cashapp: { enabled: true, handle: '$SmokeStationX' },
+  cashapp: { enabled: true, handle: '' },
   zelle: { enabled: false, handle: '' },
   venmo: { enabled: false, handle: '' },
 };

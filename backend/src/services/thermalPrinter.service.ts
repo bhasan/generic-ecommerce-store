@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { logger } from '../utils/logger';
 import { printJobService } from './printJob.service';
+import { StoreSettingsService } from './storeSettings.service';
 
 export type ReceiptDispatchReason = 'ORDER_CREATED' | 'MANUAL_REPRINT';
 
@@ -41,8 +42,27 @@ interface ReceiptOrderSnapshot {
   }>;
 }
 
+const STORE_NAME_TTL_MS = 5 * 60 * 1000;
+let _cachedStoreName: string | null = null;
+let _storeNameCacheExpiresAt = 0;
+
+export function invalidateStoreNameCache(): void {
+  _cachedStoreName = null;
+}
+
 export class ThermalPrinterService {
-  private storeName = process.env.THERMAL_PRINTER_STORE_NAME || 'Smoke Station';
+  private async getStoreName(): Promise<string> {
+    const envName = process.env.THERMAL_PRINTER_STORE_NAME;
+    if (envName) return envName;
+    const now = Date.now();
+    if (_cachedStoreName !== null && now < _storeNameCacheExpiresAt) {
+      return _cachedStoreName;
+    }
+    const settings = await new StoreSettingsService().getStoreSettings();
+    _cachedStoreName = settings.name || 'Store';
+    _storeNameCacheExpiresAt = now + STORE_NAME_TTL_MS;
+    return _cachedStoreName;
+  }
 
   isConfigured() {
     return true;
@@ -50,7 +70,7 @@ export class ThermalPrinterService {
 
   async dispatchReceipt(orderId: number, reason: ReceiptDispatchReason, actor?: ReceiptActor) {
     const snapshot = await this.buildReceiptOrderSnapshot(orderId);
-    const payload = this.buildPayload(snapshot, reason, actor);
+    const payload = await this.buildPayload(snapshot, reason, actor);
 
     const job = await printJobService.createPrintJob({
       orderId,
@@ -72,8 +92,8 @@ export class ThermalPrinterService {
     };
   }
 
-  private buildPayload(snapshot: ReceiptOrderSnapshot, reason: ReceiptDispatchReason, actor?: ReceiptActor) {
-    const receiptText = this.buildStaffTicketText(snapshot, reason);
+  private async buildPayload(snapshot: ReceiptOrderSnapshot, reason: ReceiptDispatchReason, actor?: ReceiptActor) {
+    const receiptText = await this.buildStaffTicketText(snapshot, reason);
 
     return {
       eventType: 'ORDER_RECEIPT_PRINT_REQUESTED',
@@ -85,7 +105,7 @@ export class ThermalPrinterService {
         username: actor?.username ?? null,
       },
       printer: {
-        storeName: this.storeName,
+        storeName: await this.getStoreName(),
         format: 'text/plain',
         width: STAFF_TICKET_WIDTH,
       },
@@ -98,7 +118,7 @@ export class ThermalPrinterService {
     };
   }
 
-  private buildStaffTicketText(snapshot: ReceiptOrderSnapshot, reason: ReceiptDispatchReason) {
+  private async buildStaffTicketText(snapshot: ReceiptOrderSnapshot, reason: ReceiptDispatchReason) {
     const divider = '-'.repeat(STAFF_TICKET_WIDTH);
     const strongDivider = '='.repeat(STAFF_TICKET_WIDTH);
     const createdLabel = new Date(snapshot.createdAt).toLocaleString('en-US', {
@@ -113,8 +133,9 @@ export class ThermalPrinterService {
         ? '*** CURBSIDE PICKUP ***' 
         : '*** PICKUP ***';
 
+    const storeName = await this.getStoreName();
     const lines = [
-      this.centerText(this.storeName.toUpperCase()),
+      this.centerText(storeName.toUpperCase()),
       this.centerText(reason === 'MANUAL_REPRINT' ? 'REPRINT' : 'NEW ORDER'),
       strongDivider,
       `ORDER #${snapshot.id}`,

@@ -143,7 +143,7 @@
 .glass-input:focus {
   background: rgba(30, 41, 59, 0.6) !important;
   border-color: var(--color-primary-light) !important;
-  box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.25) !important;
+  box-shadow: 0 0 0 4px var(--color-primary-border) !important;
   outline: none;
 }
 
@@ -216,13 +216,13 @@
   font-size: var(--font-size-base);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
   margin-top: var(--spacing-md);
 }
 
 .btn-login:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 12px 24px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 12px 24px var(--color-primary-shadow);
   filter: brightness(1.1);
 }
 
@@ -274,8 +274,8 @@
 }
 
 .glass-error {
-  background: rgba(239, 68, 68, 0.2) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: var(--color-danger-bg-strong) !important;
+  border-color: var(--color-danger-border) !important;
   backdrop-filter: blur(4px);
 }
 
