@@ -384,6 +384,29 @@ export class OrderController {
       next(error);
     }
   }
+
+  async getPaymentToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const orderId = parseInt(req.params.id, 10);
+      const userId = (req as any).user.userId;
+      const result = await orderService.getPaymentToken(orderId, userId);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async verifyPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const orderId = parseInt(req.params.id, 10);
+      const userId = (req as any).user.userId;
+      const { transId } = req.body;
+      const result = await orderService.confirmCardPayment(orderId, userId, transId);
+      res.status(200).json({ message: 'Payment confirmed', order: result });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new OrderController();

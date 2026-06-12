@@ -139,6 +139,25 @@ router.post(
 );
 
 /**
+ * @route   POST /api/orders/:id/payment/token
+ * @desc    Get Authorize.net hosted payment page token for a PENDING_PAYMENT order
+ * @access  Private (order owner only)
+ */
+router.post('/:id/payment/token', authenticate, orderController.getPaymentToken);
+
+/**
+ * @route   POST /api/orders/:id/payment/verify
+ * @desc    Verify Authorize.net transaction and confirm order
+ * @access  Private (order owner only)
+ */
+router.post(
+  '/:id/payment/verify',
+  authenticate,
+  [body('transId').isString().notEmpty().withMessage('transId is required')],
+  orderController.verifyPayment
+);
+
+/**
  * @route   PATCH /api/orders/:id/status
  * @desc    Update order status
  * @access  Private (Management/Admin for all statuses, Delivery Driver for DELIVERED only)
