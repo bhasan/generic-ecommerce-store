@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="text/javascript">
+    function callParentFunction(str) {
+      if (str && str.length > 0 && window.parent && window.parent.AuthorizeNetIFrame) {
+        window.parent.AuthorizeNetIFrame.onReceiveCommunication(str);
+      }
+    }
+    function receiveParams(urlParams) {
+      callParentFunction(urlParams);
+    }
+  </script>
+</head>
+<body onload="receiveParams(window.location.search.substring(1))">
+</body>
+</html>
