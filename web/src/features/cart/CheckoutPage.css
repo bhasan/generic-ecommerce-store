@@ -645,6 +645,88 @@
   accent-color: var(--color-primary);
 }
 
+.payment-method-card {
+  justify-content: space-between;
+}
+
+.payment-method-card-label {
+  flex: 1;
+}
+
+.payment-method-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--border-radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.payment-method-option.selected .payment-method-badge {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.payment-method-detail {
+  margin-top: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  font-size: 0.9rem;
+}
+
+.payment-cc-info p {
+  margin: 0 0 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.payment-cc-info p:last-child {
+  margin-bottom: 0;
+}
+
+.payment-retry-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--color-warning-bg, rgba(234, 179, 8, 0.08));
+  border: 1px solid var(--color-warning, rgba(234, 179, 8, 0.4));
+  border-radius: var(--border-radius-md);
+  text-align: center;
+}
+
+.payment-retry-card h3 {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+.payment-retry-card p {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.payment-retry-order-info {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.payment-retry-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.payment-retry-card .btn-primary,
+.payment-retry-card .btn-secondary {
+  margin: 0.25rem 0.25rem;
+  font-size: 0.875rem;
+}
+
 .payment-credit-confirm {
   background: rgba(22, 163, 74, 0.07);
   border: 1px solid rgba(22, 163, 74, 0.3);

@@ -470,22 +470,7 @@ function CheckoutPage() {
                 <div className="form-group">
                   <label className="payment-method-select-label">Payment Method</label>
                   <div className="payment-method-options">
-                    {creditBalance > 0 && (
-                      <label className={`payment-method-option ${isCreditPayment ? 'selected' : ''}`}>
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value={PaymentMethod.CREDIT}
-                          checked={isCreditPayment}
-                          onChange={() => {
-                            setSelectedPaymentMethod(PaymentMethod.CREDIT);
-                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
-                          }}
-                        />
-                        <span>Store Credit (${creditBalance.toFixed(2)} available)</span>
-                      </label>
-                    )}
-                    <label className={`payment-method-option ${isExternalPayment ? 'selected' : ''}`}>
+                    <label className={`payment-method-option payment-method-card ${isExternalPayment ? 'selected' : ''}`}>
                       <input
                         type="radio"
                         name="paymentMethod"
@@ -496,10 +481,26 @@ function CheckoutPage() {
                           setErrors({ ...errors, credit: '' });
                         }}
                       />
-                      <span>Pay via CashApp / Zelle / Venmo</span>
+                      <span className="payment-method-card-label">📱 CashApp / Zelle / Venmo</span>
                     </label>
+                    {creditBalance > 0 && (
+                      <label className={`payment-method-option payment-method-card ${isCreditPayment ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={PaymentMethod.CREDIT}
+                          checked={isCreditPayment}
+                          onChange={() => {
+                            setSelectedPaymentMethod(PaymentMethod.CREDIT);
+                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
+                          }}
+                        />
+                        <span className="payment-method-card-label">🏦 Store Credit</span>
+                        <span className="payment-method-badge">${creditBalance.toFixed(2)} available</span>
+                      </label>
+                    )}
                     {isPickup && (
-                      <label className={`payment-method-option ${isInStorePayment ? 'selected' : ''}`}>
+                      <label className={`payment-method-option payment-method-card ${isInStorePayment ? 'selected' : ''}`}>
                         <input
                           type="radio"
                           name="paymentMethod"
@@ -510,7 +511,8 @@ function CheckoutPage() {
                             setErrors({ ...errors, credit: '', cashAppUsername: '' });
                           }}
                         />
-                        <span>Pay in Store</span>
+                        <span className="payment-method-card-label">🏬 Pay in Store</span>
+                        <span className="payment-method-badge">pickup only</span>
                       </label>
                     )}
                   </div>
@@ -524,7 +526,7 @@ function CheckoutPage() {
               )}
 
               {isExternalPayment && (
-                <>
+                <div className="payment-method-detail">
                   {paymentSettings?.cashapp?.enabled && (
                     <div className="form-group">
                       <label htmlFor="cashapp">Payment will be received from (your payment username):</label>
@@ -553,7 +555,6 @@ function CheckoutPage() {
                       )}
                     </div>
                   )}
-
                   {paymentSettings?.cashapp?.enabled && (
                     <div className="payment-method-info">
                       <p className="payment-instructions">
@@ -561,7 +562,6 @@ function CheckoutPage() {
                       </p>
                     </div>
                   )}
-
                   {paymentSettings?.zelle?.enabled && (
                     <div className="payment-method-info">
                       <p className="payment-instructions">
@@ -569,7 +569,6 @@ function CheckoutPage() {
                       </p>
                     </div>
                   )}
-
                   {paymentSettings?.venmo?.enabled && (
                     <div className="payment-method-info">
                       <p className="payment-instructions">
@@ -577,21 +576,20 @@ function CheckoutPage() {
                       </p>
                     </div>
                   )}
-
                   <p className="payment-memo-hint">
                     After "Place Order" is clicked, you will get an order number. Put that in the memo.
                   </p>
-                </>
+                </div>
               )}
 
               {isCreditPayment && (
-                <div className="payment-credit-confirm">
+                <div className="payment-method-detail payment-credit-confirm">
                   <p>Your store credit balance of <strong>${creditBalance.toFixed(2)}</strong> will be used to pay for this order.</p>
                 </div>
               )}
 
               {isInStorePayment && (
-                <div className="payment-credit-confirm">
+                <div className="payment-method-detail payment-credit-confirm">
                   <p>You'll pay <strong>${total.toFixed(2)}</strong> when you arrive to pick up your order.</p>
                 </div>
               )}
