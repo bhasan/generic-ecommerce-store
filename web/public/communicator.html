@@ -2,13 +2,10 @@
 <html>
 <head>
   <script type="text/javascript">
-    function callParentFunction(str) {
-      if (str && str.length > 0 && window.parent && window.parent.AuthorizeNetIFrame) {
-        window.parent.AuthorizeNetIFrame.onReceiveCommunication(str);
-      }
-    }
     function receiveParams(urlParams) {
-      callParentFunction(urlParams);
+      if (urlParams && urlParams.length > 0 && window.parent) {
+        window.parent.postMessage(urlParams, window.location.origin);
+      }
     }
   </script>
 </head>

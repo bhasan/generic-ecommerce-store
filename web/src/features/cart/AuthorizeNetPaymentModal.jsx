@@ -14,54 +14,57 @@ export default function AuthorizeNetPaymentModal({ orderId, iframeUrl, amount, o
   });
 
   useEffect(() => {
-    window.AuthorizeNetIFrame = {
-      onReceiveCommunication: (querystr) => {
-        const params = new URLSearchParams(querystr);
-        const action = params.get('action');
+    const handleMessage = (event) => {
+      // Only accept messages from our own origin (posted by communicator.html)
+      if (event.origin !== window.location.origin) return;
 
-        if (action === 'resizeWindow') {
-          // Accept Hosted grows past its initial height on validation errors.
-          const height = parseInt(params.get('height'), 10);
-          if (!Number.isNaN(height)) setIframeHeight(Math.max(height, 400));
+      const querystr = event.data;
+      if (typeof querystr !== 'string') return;
+
+      const params = new URLSearchParams(querystr);
+      const action = params.get('action');
+
+      if (action === 'resizeWindow') {
+        // Accept Hosted grows past its initial height on validation errors.
+        const height = parseInt(params.get('height'), 10);
+        if (!Number.isNaN(height)) setIframeHeight(Math.max(height, 400));
+        return;
+      }
+
+      if (action === 'cancel') {
+        onFailureRef.current('Payment cancelled');
+        return;
+      }
+
+      if (action === 'transactResponse') {
+        let response;
+        try {
+          response = JSON.parse(params.get('response'));
+        } catch {
+          onFailureRef.current('Invalid payment response');
           return;
         }
 
-        if (action === 'cancel') {
-          onFailureRef.current('Payment cancelled');
+        if (response.responseCode !== '1') {
+          onFailureRef.current(response.responseReasonText || 'Payment declined');
           return;
         }
 
-        if (action === 'transactResponse') {
-          let response;
-          try {
-            response = JSON.parse(params.get('response'));
-          } catch {
-            onFailureRef.current('Invalid payment response');
-            return;
-          }
-
-          if (response.responseCode !== '1') {
-            onFailureRef.current(response.responseReasonText || 'Payment declined');
-            return;
-          }
-
-          setVerifying(true);
-          setVerifyError('');
-          verifyPayment(orderId, response.transId)
-            .then(() => onSuccessRef.current())
-            .catch(() => {
-              setVerifying(false);
-              setVerifyError(
-                `Payment may have gone through — contact support with order #${orderId} if your card was charged.`
-              );
-            });
-        }
-      },
+        setVerifying(true);
+        setVerifyError('');
+        verifyPayment(orderId, response.transId)
+          .then(() => onSuccessRef.current())
+          .catch(() => {
+            setVerifying(false);
+            setVerifyError(
+              `Payment may have gone through — contact support with order #${orderId} if your card was charged.`
+            );
+          });
+      }
     };
 
-    return () => {
-      delete window.AuthorizeNetIFrame;
-    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, [orderId]);
 
   return (

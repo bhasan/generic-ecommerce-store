@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import AuthorizeNetPaymentModal from './AuthorizeNetPaymentModal';
 
@@ -11,13 +11,13 @@ const defaultProps = {
   onClose: vi.fn(),
 };
 
+function postMessage(data) {
+  window.dispatchEvent(new MessageEvent('message', { data, origin: window.location.origin }));
+}
+
 describe('AuthorizeNetPaymentModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    delete window.AuthorizeNetIFrame;
   });
 
   it('renders the modal with order total', () => {
@@ -33,11 +33,11 @@ describe('AuthorizeNetPaymentModal', () => {
     expect(iframe.src).toBe(defaultProps.iframeUrl);
   });
 
-  it('registers window.AuthorizeNetIFrame on mount and cleans up on unmount', () => {
+  it('cleans up the message listener on unmount', () => {
+    const spy = vi.spyOn(window, 'removeEventListener');
     const { unmount } = render(<AuthorizeNetPaymentModal {...defaultProps} />);
-    expect(window.AuthorizeNetIFrame).toBeDefined();
     unmount();
-    expect(window.AuthorizeNetIFrame).toBeUndefined();
+    expect(spy).toHaveBeenCalledWith('message', expect.any(Function));
   });
 
   it('calls onClose when the X button is clicked', () => {
@@ -46,23 +46,29 @@ describe('AuthorizeNetPaymentModal', () => {
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores messages from foreign origins', () => {
+    render(<AuthorizeNetPaymentModal {...defaultProps} />);
+    window.dispatchEvent(new MessageEvent('message', { data: 'action=cancel', origin: 'https://evil.example.com' }));
+    expect(defaultProps.onFailure).not.toHaveBeenCalled();
+  });
+
   it('calls onFailure when Authorize.net sends a cancel action', () => {
     render(<AuthorizeNetPaymentModal {...defaultProps} />);
-    window.AuthorizeNetIFrame.onReceiveCommunication('action=cancel');
+    postMessage('action=cancel');
     expect(defaultProps.onFailure).toHaveBeenCalledTimes(1);
   });
 
   it('calls onFailure when transactResponse has non-1 responseCode', () => {
     render(<AuthorizeNetPaymentModal {...defaultProps} />);
     const response = JSON.stringify({ responseCode: '2', transId: '', responseReasonText: 'Declined' });
-    window.AuthorizeNetIFrame.onReceiveCommunication(`action=transactResponse&response=${encodeURIComponent(response)}`);
+    postMessage(`action=transactResponse&response=${encodeURIComponent(response)}`);
     expect(defaultProps.onFailure).toHaveBeenCalledWith('Declined');
   });
 
   it('resizes the iframe when Authorize.net sends a resizeWindow action', () => {
     render(<AuthorizeNetPaymentModal {...defaultProps} />);
     act(() => {
-      window.AuthorizeNetIFrame.onReceiveCommunication('action=resizeWindow&width=600&height=900');
+      postMessage('action=resizeWindow&width=600&height=900');
     });
     const iframe = document.querySelector('iframe');
     expect(iframe.height).toBe('900');

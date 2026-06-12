@@ -159,7 +159,11 @@ app.get('/api/config', async (_req, res) => {
       deliveryRadiusMiles: orderingConstraints.deliveryRadiusMiles,
       pickupLocation: storeSettings.address,
     storeCashappUsername: paymentSettings.cashapp?.handle || '',
-    paymentSettings,
+    paymentSettings: {
+      ...paymentSettings,
+      // Strip server-side credentials — only the enabled flag is needed by the frontend
+      cc_payment: { enabled: paymentSettings.cc_payment.enabled },
+    },
     storeSettings,
     branding,
   });
