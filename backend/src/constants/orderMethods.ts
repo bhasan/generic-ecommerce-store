@@ -10,6 +10,7 @@ export const PaymentMethod = {
   EXTERNAL: 'EXTERNAL',
   CREDIT: 'CREDIT',
   IN_STORE: 'IN_STORE',
+  CC: 'CC',
 } as const;
 
 export type PaymentMethodValue = (typeof PaymentMethod)[keyof typeof PaymentMethod];

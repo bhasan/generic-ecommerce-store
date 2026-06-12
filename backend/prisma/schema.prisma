@@ -60,6 +60,7 @@ model Order {
   updatedAt                 DateTime                  @updatedAt
   deliveryMethod            String                    @default("DELIVERY")
   paymentMethod             String                    @default("EXTERNAL")
+  transactionId             String?                   @unique
   deliveryAddress           String?
   deliveryZoneStatus        DeliveryZoneStatus?
   deliveryEligibilitySource DeliveryEligibilitySource?
@@ -268,6 +269,7 @@ model PrintJob {
 }
 
 enum OrderStatus {
+  PENDING_PAYMENT
   PENDING
   APPROVED
   NOT_FULFILLING
