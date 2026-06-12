@@ -5,6 +5,8 @@ import { useApp } from '../../context/AppContext';
 import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
 import SendPaymentModal from '../../components/common/SendPaymentModal';
+import AuthorizeNetPaymentModal from './AuthorizeNetPaymentModal';
+import * as ordersApi from '../../services/ordersApi';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
@@ -62,6 +64,8 @@ function CheckoutPage() {
   const [orderCancelled, setOrderCancelled] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState(false);
   const [errors, setErrors] = useState({});
+  const [ccPaymentModal, setCcPaymentModal] = useState(null);
+  const [paymentRetryOrder, setPaymentRetryOrder] = useState(null);
   const [deliveryEligibility, setDeliveryEligibility] = useState(createInitialEligibilityState);
   const latestEligibilityRequestRef = useRef(0);
   const prefilledAddressKeyRef = useRef('');
@@ -72,7 +76,8 @@ function CheckoutPage() {
   const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
   const isInStorePayment = selectedPaymentMethod === PaymentMethod.IN_STORE;
   const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
-  const showPaymentSelector = creditBalance > 0 || isPickup;
+  const isCCPayment = selectedPaymentMethod === PaymentMethod.CC;
+  const showPaymentSelector = creditBalance > 0 || isPickup || paymentSettings?.cc_payment?.enabled;
 
   const clearVehicleError = (fieldName) => {
     setErrors((prev) => ({
@@ -197,12 +202,12 @@ function CheckoutPage() {
   }, [isDelivery, isInStorePayment]);
 
   useEffect(() => {
-    if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted) {
+    if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted && !ccPaymentModal && !paymentRetryOrder) {
       navigate('/cart');
     }
-  }, [cart.length, isSubmitting, pendingOrderState, showSendPaymentModal, orderCancelled, orderCompleted, navigate]);
+  }, [cart.length, isSubmitting, pendingOrderState, showSendPaymentModal, orderCancelled, orderCompleted, ccPaymentModal, paymentRetryOrder, navigate]);
 
-  if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted) {
+  if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted && !ccPaymentModal && !paymentRetryOrder) {
     return null;
   }
 
@@ -306,6 +311,21 @@ function CheckoutPage() {
         items: itemsForSuccess,
         paymentMethod: selectedPaymentMethod
       };
+
+      if (isCCPayment) {
+        try {
+          const { iframeUrl } = await ordersApi.getPaymentToken(newOrder.id);
+          setCcPaymentModal({ iframeUrl, orderId: newOrder.id, amount: total, items: itemsForSuccess, orderState });
+        } catch {
+          try {
+            await deleteOrder(newOrder.id, { silent: true });
+          } finally {
+            restoreCart(itemsForSuccess);
+            setErrors((prev) => ({ ...prev, payment: 'Could not initialize card payment. Please try again.' }));
+          }
+        }
+        return;
+      }
 
       if (!isExternalPayment) {
         setOrderCompleted(true);
@@ -434,6 +454,39 @@ function CheckoutPage() {
         paymentSettings={paymentSettings}
       />
 
+      {ccPaymentModal && (
+        <AuthorizeNetPaymentModal
+          orderId={ccPaymentModal.orderId}
+          iframeUrl={ccPaymentModal.iframeUrl}
+          amount={ccPaymentModal.amount}
+          onSuccess={() => {
+            setOrderCompleted(true);
+            setCcPaymentModal(null);
+            navigate('/order-success', { state: ccPaymentModal.orderState });
+          }}
+          onFailure={(reason) => {
+            setCcPaymentModal(null);
+            setPaymentRetryOrder({
+              orderId: ccPaymentModal.orderId,
+              amount: ccPaymentModal.amount,
+              items: ccPaymentModal.items,
+              orderState: ccPaymentModal.orderState,
+              reason,
+            });
+          }}
+          onClose={() => {
+            setCcPaymentModal(null);
+            setPaymentRetryOrder({
+              orderId: ccPaymentModal.orderId,
+              amount: ccPaymentModal.amount,
+              items: ccPaymentModal.items,
+              orderState: ccPaymentModal.orderState,
+              reason: 'Payment not completed — you can retry below.',
+            });
+          }}
+        />
+      )}
+
       <div className="checkout-content">
         <div className="checkout-main">
           <div className="checkout-section surface-card">
@@ -515,6 +568,22 @@ function CheckoutPage() {
                         <span className="payment-method-badge">pickup only</span>
                       </label>
                     )}
+                    {paymentSettings?.cc_payment?.enabled && (
+                      <label className={`payment-method-option payment-method-card ${isCCPayment ? 'selected' : ''}`}>
+                        <input
+                          type="radio"
+                          name="paymentMethod"
+                          value={PaymentMethod.CC}
+                          checked={isCCPayment}
+                          onChange={() => {
+                            setSelectedPaymentMethod(PaymentMethod.CC);
+                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
+                          }}
+                        />
+                        <span className="payment-method-card-label">💳 Credit / Debit Card</span>
+                        <span className="payment-method-badge">Secure</span>
+                      </label>
+                    )}
                   </div>
                   {errors.credit && (
                     <span className="error-message">
@@ -592,6 +661,20 @@ function CheckoutPage() {
                 <div className="payment-method-detail payment-credit-confirm">
                   <p>You'll pay <strong>${total.toFixed(2)}</strong> when you arrive to pick up your order.</p>
                 </div>
+              )}
+
+              {isCCPayment && (
+                <div className="payment-method-detail payment-cc-info">
+                  <p>You'll be taken to a secure payment form. Your order is placed first, then confirmed automatically once payment is complete.</p>
+                  <p>🔒 Secured by Authorize.Net — card data never touches our servers</p>
+                </div>
+              )}
+
+              {errors.payment && (
+                <span className="error-message">
+                  <AlertCircle size={14} />
+                  {errors.payment}
+                </span>
               )}
             </div>
           </div>
@@ -864,7 +947,9 @@ function CheckoutPage() {
                 ? 'Processing...'
                 : deliveryEligibility.status === 'checking'
                   ? 'Checking delivery...'
-                  : 'Place Order'}
+                  : isCCPayment
+                    ? 'Place Order & Pay →'
+                    : 'Place Order'}
             </button>
 
             <p className="checkout-note">{
@@ -875,6 +960,60 @@ function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {paymentRetryOrder && (
+        <div className="checkout-retry-overlay">
+          <div className="payment-retry-card">
+            <div className="payment-retry-icon">⚠️</div>
+            <h3>Payment Unsuccessful</h3>
+            <p>{paymentRetryOrder.reason || 'Your card could not be processed. Your order has been saved.'}</p>
+            <div className="payment-retry-order-info">
+              <span>Order #{paymentRetryOrder.orderId}</span>
+              <span>Total: ${paymentRetryOrder.amount?.toFixed(2)}</span>
+            </div>
+            <div>
+              <button
+                className="btn-primary"
+                onClick={async () => {
+                  try {
+                    const { iframeUrl } = await ordersApi.getPaymentToken(paymentRetryOrder.orderId);
+                    setCcPaymentModal({
+                      iframeUrl,
+                      orderId: paymentRetryOrder.orderId,
+                      amount: paymentRetryOrder.amount,
+                      items: paymentRetryOrder.items,
+                      orderState: paymentRetryOrder.orderState,
+                    });
+                    setPaymentRetryOrder(null);
+                  } catch {
+                    setErrors((prev) => ({ ...prev, payment: 'Could not retry payment. Please contact support.' }));
+                  }
+                }}
+              >
+                🔄 Retry Card Payment
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={async () => {
+                  try {
+                    await deleteOrder(paymentRetryOrder.orderId, { silent: true });
+                  } catch {
+                    // Restore the cart even if cleanup fails — matches handleSendPaymentCancel.
+                  } finally {
+                    if (paymentRetryOrder.items?.length) {
+                      restoreCart(paymentRetryOrder.items);
+                    }
+                    setPaymentRetryOrder(null);
+                    setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
+                  }
+                }}
+              >
+                Switch to CashApp / Zelle / Venmo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
