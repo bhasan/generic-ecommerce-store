@@ -365,3 +365,65 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ── Pending Payment Banner & Actions ── */
+.order-pending-payment-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--bg-tertiary, rgba(234, 179, 8, 0.08));
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.customer-order-actions .btn-complete-payment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.25rem;
+  flex: 1;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px var(--color-primary-border);
+}
+
+.customer-order-actions .btn-complete-payment:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px var(--color-primary-shadow);
+}
+
+.customer-order-actions .btn-cancel-order {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.customer-order-actions .btn-cancel-order:hover:not(:disabled) {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.customer-order-actions .btn-cancel-order:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
