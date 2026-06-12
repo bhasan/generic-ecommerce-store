@@ -11,9 +11,12 @@ import { DeliveryEligibilityService } from './deliveryEligibility.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
 import { notificationEventsService } from './notificationEvents.service';
 import { thermalPrinterService } from './thermalPrinter.service';
+import { PaymentSettingsService } from './paymentSettings.service';
+import { authorizeNetService } from './authorizenet.service';
 
 const orderingConstraintsService = new OrderingConstraintsService();
 const deliveryEligibilityService = new DeliveryEligibilityService();
+const paymentSettingsService = new PaymentSettingsService();
 
 interface CreateOrderData {
   userId: number;
@@ -613,7 +616,7 @@ export class OrderService {
           data: {
             userId,
             total,
-            status: OrderStatus.PENDING,
+            status: effectivePaymentMethod === PaymentMethod.CC ? OrderStatus.PENDING_PAYMENT : OrderStatus.PENDING,
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
             ...(deliveryEligibility ? {
@@ -730,16 +733,18 @@ export class OrderService {
         stockUpdatesCount: stockUpdates.length,
       });
 
-      await notificationEventsService.notifyOrderCreated(order.id, userId);
-      try {
-        await thermalPrinterService.dispatchReceipt(order.id, 'ORDER_CREATED', {
-          userId,
-        });
-      } catch (printerError) {
-        logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, {
-          orderId: order.id,
-          userId,
-        });
+      if (effectivePaymentMethod !== PaymentMethod.CC) {
+        await notificationEventsService.notifyOrderCreated(order.id, userId);
+        try {
+          await thermalPrinterService.dispatchReceipt(order.id, 'ORDER_CREATED', {
+            userId,
+          });
+        } catch (printerError) {
+          logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, {
+            orderId: order.id,
+            userId,
+          });
+        }
       }
 
       return {
@@ -1238,6 +1243,70 @@ export class OrderService {
       logger.error('Failed customer arrive update', error, { orderId, userId });
       throw error;
     }
+  }
+
+  async getPaymentToken(orderId: number, userId: number): Promise<{ token: string; iframeUrl: string }> {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+
+    if (!order) throw new AppError('Order not found', 404);
+    if (order.userId !== userId) throw new AppError('Not authorized', 403);
+    if (order.paymentMethod !== PaymentMethod.CC) throw new AppError('Order is not a card payment', 400);
+    if (order.status !== OrderStatus.PENDING_PAYMENT) throw new AppError('Order is not awaiting payment', 400);
+
+    const settings = await paymentSettingsService.getPaymentSettings();
+    if (!settings.cc_payment?.enabled) throw new AppError('Card payments are not enabled', 400);
+
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const communicatorUrl = `${frontendUrl}/communicator.html`;
+
+    const token = await authorizeNetService.getHostedPageToken(
+      orderId,
+      order.total,
+      communicatorUrl,
+      settings.cc_payment
+    );
+
+    const iframeUrl = settings.cc_payment.sandboxMode
+      ? `https://test.authorize.net/payment/payment?token=${token}`
+      : `https://accept.authorize.net/payment/payment?token=${token}`;
+
+    return { token, iframeUrl };
+  }
+
+  async confirmCardPayment(orderId: number, userId: number, transId: string): Promise<{ id: number; status: string }> {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+
+    if (!order) throw new AppError('Order not found', 404);
+    if (order.userId !== userId) throw new AppError('Not authorized', 403);
+    if (order.paymentMethod !== PaymentMethod.CC) throw new AppError('Order is not a card payment', 400);
+    if (order.status !== OrderStatus.PENDING_PAYMENT) throw new AppError('Order is not awaiting payment', 400);
+
+    // Replay protection: the same transaction must not confirm two orders.
+    // The @unique constraint on transactionId is the hard backstop; this check gives a clean error.
+    const duplicate = await prisma.order.findFirst({
+      where: { transactionId: transId, NOT: { id: orderId } },
+    });
+    if (duplicate) throw new AppError('This payment has already been applied to another order', 400);
+
+    const settings = await paymentSettingsService.getPaymentSettings();
+    await authorizeNetService.verifyTransaction(transId, order.total, orderId, settings.cc_payment);
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: { status: OrderStatus.PENDING, transactionId: transId },
+    });
+
+    await notificationEventsService.notifyOrderCreated(orderId, userId);
+    try {
+      await thermalPrinterService.dispatchReceipt(orderId, 'ORDER_CREATED', { userId });
+    } catch (printerError) {
+      logger.error('Thermal printer dispatch threw unexpectedly after CC payment confirmation', printerError, {
+        orderId,
+        userId,
+      });
+    }
+
+    return { id: updated.id, status: updated.status };
   }
 }
 
