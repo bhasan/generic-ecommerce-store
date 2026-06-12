@@ -57,8 +57,8 @@ The current checkout page will be updated to match the mockup design: payment me
 Wraps the `authorizenet` npm SDK. Stateless — reads credentials from the settings service on each call so credential updates take effect immediately without restart.
 
 **Methods:**
-- `getHostedPageToken(orderId: number, amount: number, settings: CCPaymentSettings): Promise<string>` — Calls `getHostedPaymentPageRequest` with the order amount and a `returnUrl` pointing to `communicator.html`. Returns the token string.
-- `verifyTransaction(transId: string, expectedAmount: number, settings: CCPaymentSettings): Promise<void>` — Calls `getTransactionDetailsRequest`, confirms status is `settledSuccessfully` or `capturedPendingSettlement`, and that the amount matches. Throws `AppError` on mismatch or failure.
+- `getHostedPageToken(orderId: number, amount: number, settings: CCPaymentSettings): Promise<string>` — Calls `getHostedPaymentPageRequest` with the order amount, the order ID as the transaction's invoice number (binds the payment to this specific order), and a `returnUrl` pointing to `communicator.html`. Returns the token string.
+- `verifyTransaction(transId: string, expectedAmount: number, expectedOrderId: number, settings: CCPaymentSettings): Promise<void>` — Calls `getTransactionDetailsRequest`, confirms status is `settledSuccessfully` or `capturedPendingSettlement`, that the amount matches, and that the transaction's invoice number matches `expectedOrderId`. Throws `AppError` on mismatch or failure. Combined with a unique constraint on `Order.transactionId`, this prevents one payment from confirming multiple orders (replay).
 
 Both methods switch between sandbox (`apitest.authorize.net`) and production (`api2.authorize.net`) based on `settings.sandboxMode`.
 
@@ -111,7 +111,7 @@ The transaction key is stored as-is in the `UiSetting` JSON blob — it is not e
 PENDING_PAYMENT
 
 // Add to Order model
-transactionId  String?
+transactionId  String?  @unique
 ```
 
 `PENDING_PAYMENT` is distinct from `PENDING` — it means the order exists but payment has not been confirmed. Staff dashboards filter on `PENDING` and above, so `PENDING_PAYMENT` orders are invisible to staff until payment completes.
@@ -169,6 +169,6 @@ URL configured in the `getHostedPaymentPageRequest` as the `hostedPaymentReturnO
 
 ## Follow-on Work (Out of Scope for This Feature)
 
-- **Checkout UX refresh** — Update the payment method selection UI across all payment types to match the radio-card pattern shown in the mockup (contextual detail box per selected method). This improves the checkout flow holistically and should ship with or shortly after the CC feature.
+- ~~**Checkout UX refresh**~~ — **Moved in scope (2026-06-12).** The payment-section radio-card refresh for all payment methods is now Task 8 of the implementation plan, sequenced *before* the CC checkout task so the CC option is built onto the new structure. Reference design: radio cards (icon + name + meta badge) with a single contextual detail box for the selected method.
 - **Credential encryption at rest** — Consider encrypting `loginId` and `transactionKey` in the `UiSetting` JSON using a server-side key. Not required for launch given admin-only access.
 - **Refund flow** — Authorize.net supports refunds via API. Not in scope for initial integration.
