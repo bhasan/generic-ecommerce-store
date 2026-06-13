@@ -91,10 +91,10 @@ export class PaymentSettingsService {
         throw new AppError('cc_payment.transactionKey is required when card payments are enabled', 400);
       }
     }
-    if (typeof cc.loginId !== 'string' || cc.loginId.length > 64) {
+    if (cc.loginId !== undefined && (typeof cc.loginId !== 'string' || cc.loginId.length > 64)) {
       throw new AppError('cc_payment.loginId must be a string of 64 characters or fewer', 400);
     }
-    if (typeof cc.transactionKey !== 'string' || cc.transactionKey.length > 64) {
+    if (cc.transactionKey !== undefined && (typeof cc.transactionKey !== 'string' || cc.transactionKey.length > 64)) {
       throw new AppError('cc_payment.transactionKey must be a string of 64 characters or fewer', 400);
     }
   }

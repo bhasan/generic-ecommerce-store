@@ -98,8 +98,7 @@ export default function AuthorizeNetPaymentModal({ orderId, iframeUrl, amount, o
               title="Secure Card Payment"
               width="100%"
               height={iframeHeight}
-              frameBorder="0"
-              scrolling="no"
+              style={{ border: 'none', overflow: 'hidden' }}
             />
           )}
         </div>

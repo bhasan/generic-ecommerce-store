@@ -687,6 +687,17 @@
   margin-bottom: 0;
 }
 
+.checkout-retry-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
 .payment-retry-card {
   margin-top: 1rem;
   padding: 1rem;

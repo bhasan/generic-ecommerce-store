@@ -400,6 +400,13 @@ export class OrderController {
     try {
       const orderId = parseInt(req.params.id, 10);
       const userId = (req as any).user.userId;
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        res.status(400).json({ errors: errors.array() });
+        return;
+      }
+
       const { transId } = req.body;
       const result = await orderService.confirmCardPayment(orderId, userId, transId);
       res.status(200).json({ message: 'Payment confirmed', order: result });
