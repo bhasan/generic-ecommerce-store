@@ -1,239 +1,102 @@
-import { Request, Response, NextFunction } from 'express';
-import { validationResult } from 'express-validator';
+import { Request, Response } from 'express';
 import userService from '../services/user.service';
 import { logger } from '../utils/logger';
+import { validateRequest, parseIntParam } from '../utils/request.util';
 
 export class UserController {
-  /**
-   * Get all users
-   * GET /api/users
-   */
-  async getAllUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const users = await userService.getAllUsers();
-      res.status(200).json(users);
-    } catch (error) {
-      next(error);
-    }
+  async getAllUsers(_req: Request, res: Response) : Promise<void> {
+    const users = await userService.getAllUsers();
+    res.status(200).json(users);
   }
 
-  /**
-   * Get user by ID
-   * GET /api/users/:id
-   */
-  async getUserById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = parseInt(req.params.id, 10);
-      
-      if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
-      }
-
-      const requestingUserId = req.user?.userId;
-      const requestingUserRoles = req.user?.roles;
-
-      const user = await userService.getUserById(userId, requestingUserId, requestingUserRoles);
-      res.status(200).json(user);
-    } catch (error) {
-      next(error);
-    }
+  async getUserById(req: Request, res: Response) : Promise<void> {
+    const userId = parseIntParam(req.params.id, res, 'user');
+    if (userId === null) return;
+    const requestingUserId = req.user?.userId;
+    const requestingUserRoles = req.user?.roles;
+    const user = await userService.getUserById(userId, requestingUserId, requestingUserRoles);
+    res.status(200).json(user);
   }
 
-  /**
-   * Update user
-   * PUT /api/users/:id
-   */
-  async updateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      // Check for validation errors
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        logger.warn('User update validation failed', {
-          requestId: req.requestId || 'unknown',
-          actorUserId: req.user?.userId || 'anonymous',
-          targetUserId: req.params.id,
-          errors: errors.array(),
-        });
-        res.status(400).json({ errors: errors.array() });
-        return;
-      }
-
-      const userId = parseInt(req.params.id, 10);
-      
-      if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
-      }
-
-      const requestingUserId = req.user?.userId;
-      const requestingUserRoles = req.user?.roles;
-
-      const updatedUser = await userService.updateUser(
-        userId,
-        req.body,
-        requestingUserId,
-        requestingUserRoles
-      );
-      logger.info('User update completed', {
-        requestId: req.requestId || 'unknown',
-        actorUserId: requestingUserId || 'anonymous',
-        targetUserId: userId,
-      });
-      
-      res.status(200).json({
-        message: 'User updated successfully',
-        user: updatedUser
-      });
-    } catch (error) {
-      next(error);
-    }
+  async updateUser(req: Request, res: Response) : Promise<void> {
+    if (!validateRequest(req, res)) return;
+    const userId = parseIntParam(req.params.id, res, 'user');
+    if (userId === null) return;
+    const requestingUserId = req.user?.userId;
+    const requestingUserRoles = req.user?.roles;
+    const updatedUser = await userService.updateUser(userId, req.body, requestingUserId, requestingUserRoles);
+    logger.info('User update completed', {
+      requestId: req.requestId || 'unknown',
+      actorUserId: requestingUserId || 'anonymous',
+      targetUserId: userId,
+    });
+    res.status(200).json({ message: 'User updated successfully', user: updatedUser });
   }
 
-  /**
-   * Get pending registrations
-   * GET /api/users/pending
-   */
-  async getPendingRegistrations(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const pendingUsers = await userService.getPendingRegistrations();
-      res.status(200).json(pendingUsers);
-    } catch (error) {
-      next(error);
-    }
+  async getPendingRegistrations(_req: Request, res: Response) : Promise<void> {
+    const pendingUsers = await userService.getPendingRegistrations();
+    res.status(200).json(pendingUsers);
   }
 
-  /**
-   * Approve user
-   * POST /api/users/:id/approve
-   */
-  async approveUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = parseInt(req.params.id, 10);
-      
-      if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
-      }
-
-      logger.info('User approval requested', {
-        requestId: req.requestId || 'unknown',
-        actorUserId: req.user?.userId || 'anonymous',
-        targetUserId: userId,
-      });
-      const approvedUser = await userService.approveUser(userId);
-      res.status(200).json({
-        message: 'User approved successfully',
-        user: approvedUser
-      });
-    } catch (error) {
-      next(error);
-    }
+  async approveUser(req: Request, res: Response) : Promise<void> {
+    const userId = parseIntParam(req.params.id, res, 'user');
+    if (userId === null) return;
+    logger.info('User approval requested', {
+      requestId: req.requestId || 'unknown',
+      actorUserId: req.user?.userId || 'anonymous',
+      targetUserId: userId,
+    });
+    const approvedUser = await userService.approveUser(userId);
+    res.status(200).json({ message: 'User approved successfully', user: approvedUser });
   }
 
-  /**
-   * Get rejected users
-   * GET /api/users/rejected
-   */
-  async getRejectedUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const rejectedUsers = await userService.getRejectedUsers();
-      res.status(200).json(rejectedUsers);
-    } catch (error) {
-      next(error);
-    }
+  async getRejectedUsers(_req: Request, res: Response) : Promise<void> {
+    const rejectedUsers = await userService.getRejectedUsers();
+    res.status(200).json(rejectedUsers);
   }
 
-  /**
-   * Reject user registration
-   * POST /api/users/:id/reject
-   */
-  async rejectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = parseInt(req.params.id, 10);
-      
-      if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
-      }
-
-      const { rejectionNote } = req.body;
-      logger.info('User rejection requested', {
-        requestId: req.requestId || 'unknown',
-        actorUserId: req.user?.userId || 'anonymous',
-        targetUserId: userId,
-        hasRejectionNote: Boolean(rejectionNote),
-      });
-      const result = await userService.rejectUser(userId, rejectionNote);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
+  async rejectUser(req: Request, res: Response) : Promise<void> {
+    const userId = parseIntParam(req.params.id, res, 'user');
+    if (userId === null) return;
+    const { rejectionNote } = req.body;
+    logger.info('User rejection requested', {
+      requestId: req.requestId || 'unknown',
+      actorUserId: req.user?.userId || 'anonymous',
+      targetUserId: userId,
+      hasRejectionNote: Boolean(rejectionNote),
+    });
+    const result = await userService.rejectUser(userId, rejectionNote);
+    res.status(200).json(result);
   }
 
-  /**
-   * Un-reject user (move back to pending)
-   * POST /api/users/:id/unreject
-   */
-  async unRejectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = parseInt(req.params.id, 10);
-      
-      if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
-      }
-
-      logger.info('User un-reject requested', {
-        requestId: req.requestId || 'unknown',
-        actorUserId: req.user?.userId || 'anonymous',
-        targetUserId: userId,
-      });
-      const result = await userService.unRejectUser(userId);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
+  async unRejectUser(req: Request, res: Response) : Promise<void> {
+    const userId = parseIntParam(req.params.id, res, 'user');
+    if (userId === null) return;
+    logger.info('User un-reject requested', {
+      requestId: req.requestId || 'unknown',
+      actorUserId: req.user?.userId || 'anonymous',
+      targetUserId: userId,
+    });
+    const result = await userService.unRejectUser(userId);
+    res.status(200).json(result);
   }
 
-  /**
-   * Delete user
-   * DELETE /api/users/:id
-   */
-  async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = parseInt(req.params.id, 10);
-      
-      if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
-      }
-
-      logger.info('User delete requested', {
-        requestId: req.requestId || 'unknown',
-        actorUserId: req.user?.userId || 'anonymous',
-        targetUserId: userId,
-      });
-      const result = await userService.deleteUser(userId);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
+  async deleteUser(req: Request, res: Response) : Promise<void> {
+    const userId = parseIntParam(req.params.id, res, 'user');
+    if (userId === null) return;
+    logger.info('User delete requested', {
+      requestId: req.requestId || 'unknown',
+      actorUserId: req.user?.userId || 'anonymous',
+      targetUserId: userId,
+    });
+    const result = await userService.deleteUser(userId);
+    res.status(200).json(result);
   }
 
-  /**
-   * Get all roles
-   * GET /api/users/roles
-   */
-  async getAllRoles(_req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const roles = await userService.getAllRoles();
-      res.status(200).json(roles);
-    } catch (error) {
-      next(error);
-    }
+  async getAllRoles(_req: Request, res: Response) : Promise<void> {
+    const roles = await userService.getAllRoles();
+    res.status(200).json(roles);
   }
 }
 
 export default new UserController();
-

@@ -32,7 +32,7 @@ const createResponse = () => ({
 describe('product controller logging', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('logs validation failure on createProduct', async () => {
+  it('returns 400 on createProduct validation failure', async () => {
     (validationResult as any).mockReturnValue({
       isEmpty: () => false,
       array: () => [{ msg: 'name required' }],
@@ -40,11 +40,8 @@ describe('product controller logging', () => {
     const req: any = { user: { userId: 3 }, requestId: 'req-1' };
     const res = createResponse();
 
-    await productController.createProduct(req, res as any, vi.fn());
+    await productController.createProduct(req, res as any);
 
-    expect(logger.warn).toHaveBeenCalledWith('Product create validation failed', expect.objectContaining({
-      actorUserId: 3,
-    }));
     expect(res.status).toHaveBeenCalledWith(400);
   });
 

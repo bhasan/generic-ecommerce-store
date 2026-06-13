@@ -74,7 +74,7 @@ describe('contact controller logging', () => {
     vi.clearAllMocks();
   });
 
-  it('logs validation failures for contact form submission', async () => {
+  it('returns 400 on contact form validation failure', async () => {
     validationResultMock.mockReturnValue({
       isEmpty: () => false,
       array: () => [{ msg: 'Subject is required' }],
@@ -83,12 +83,8 @@ describe('contact controller logging', () => {
     const req: any = { requestId: 'req-1', user: { userId: 7 } };
     const res = createResponse();
 
-    await controller.submitContactForm(req, res as any, vi.fn());
+    await controller.submitContactForm(req, res as any);
 
-    expect(logger.warn).toHaveBeenCalledWith('Contact form validation failed', expect.objectContaining({
-      requestId: 'req-1',
-      actorUserId: 7,
-    }));
     expect(res.status).toHaveBeenCalledWith(400);
   });
 
@@ -233,7 +229,7 @@ describe('contact controller logging', () => {
       message: 'Reply recorded, but email delivery failed.',
     }));
     expect(logger.warn).toHaveBeenCalledWith('Reply recorded but email delivery failed', expect.objectContaining({
-      messageId: '8',
+      messageId: 8,
       repliedBy: 3,
       requestId: 'req-4',
     }));

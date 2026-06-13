@@ -52,14 +52,10 @@ describe('importZip', () => {
     vi.clearAllMocks();
   });
 
-  it('calls next with a 400 AppError when no file is attached', async () => {
+  it('throws a 400 AppError when no file is attached', async () => {
     const { default: controller } = await import('./upload.controller');
-    const next = makeNext();
 
-    await controller.importZip(makeReq(), makeRes(), next);
-
-    expect(next).toHaveBeenCalledOnce();
-    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 400 });
+    await expect(controller.importZip(makeReq(), makeRes())).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('writes new files and returns the correct imported count', async () => {
@@ -193,14 +189,10 @@ describe('uploadFavicon', () => {
     vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined as any);
   });
 
-  it('returns 400 when no file is attached', async () => {
+  it('throws a 400 AppError when no file is attached', async () => {
     const { default: controller } = await import('./upload.controller');
-    const next = makeNext();
 
-    await controller.uploadFavicon({ file: undefined } as any, makeRes(), next);
-
-    expect(next).toHaveBeenCalledOnce();
-    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 400 });
+    await expect(controller.uploadFavicon({ file: undefined } as any, makeRes())).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('generates 16, 32, and 180px PNG variants and returns their URLs', async () => {

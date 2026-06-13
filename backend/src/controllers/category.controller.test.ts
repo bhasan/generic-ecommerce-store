@@ -32,7 +32,7 @@ const createResponse = () => ({
 describe('category controller logging', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('logs validation failure on createCategory', async () => {
+  it('returns 400 on createCategory validation failure', async () => {
     (validationResult as any).mockReturnValue({
       isEmpty: () => false,
       array: () => [{ msg: 'name required' }],
@@ -40,11 +40,8 @@ describe('category controller logging', () => {
     const req: any = { user: { userId: 5 }, requestId: 'req-1' };
     const res = createResponse();
 
-    await categoryController.createCategory(req, res as any, vi.fn());
+    await categoryController.createCategory(req, res as any);
 
-    expect(logger.warn).toHaveBeenCalledWith('Category create validation failed', expect.objectContaining({
-      actorUserId: 5,
-    }));
     expect(res.status).toHaveBeenCalledWith(400);
   });
 

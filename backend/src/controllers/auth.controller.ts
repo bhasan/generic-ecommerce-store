@@ -1,86 +1,29 @@
-import { Request, Response, NextFunction } from 'express';
-import { validationResult } from 'express-validator';
+import { Request, Response } from 'express';
 import authService from '../services/auth.service';
-import { logger } from '../utils/logger';
+import { validateRequest } from '../utils/request.util';
 
 export class AuthController {
-  /**
-   * Register a new user
-   * POST /api/auth/register
-   */
-  async register(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      // Check for validation errors
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        logger.warn('Auth register validation failed', {
-          requestId: req.requestId || 'unknown',
-          path: req.path,
-          method: req.method,
-          errors: errors.array(),
-        });
-        res.status(400).json({ errors: errors.array() });
-        return;
-      }
-
-      const result = await authService.register(req.body);
-      res.status(201).json(result);
-    } catch (error) {
-      next(error);
-    }
+  async register(req: Request, res: Response) : Promise<void> {
+    if (!validateRequest(req, res)) return;
+    const result = await authService.register(req.body);
+    res.status(201).json(result);
   }
 
-  /**
-   * Login user
-   * POST /api/auth/login
-   */
-  async login(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      // Check for validation errors
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        logger.warn('Auth login validation failed', {
-          requestId: req.requestId || 'unknown',
-          path: req.path,
-          method: req.method,
-          errors: errors.array(),
-        });
-        res.status(400).json({ errors: errors.array() });
-        return;
-      }
-
-      const result = await authService.login(req.body);
-      res.status(200).json({
-        message: 'Login successful',
-        ...result
-      });
-    } catch (error) {
-      next(error);
-    }
+  async login(req: Request, res: Response) : Promise<void> {
+    if (!validateRequest(req, res)) return;
+    const result = await authService.login(req.body);
+    res.status(200).json({ message: 'Login successful', ...result });
   }
 
-  /**
-   * Get current user profile
-   * GET /api/auth/profile
-   */
-  async getProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      if (!req.user) {
-        res.status(401).json({ error: 'Authentication required' });
-        return;
-      }
-
-      const user = await authService.getProfile(req.user.userId);
-      res.status(200).json(user);
-    } catch (error) {
-      next(error);
+  async getProfile(req: Request, res: Response) : Promise<void> {
+    if (!req.user) {
+      res.status(401).json({ error: 'Authentication required' });
+      return;
     }
+    const user = await authService.getProfile(req.user.userId);
+    res.status(200).json(user);
   }
 
-  /**
-   * Logout user (client-side removes token)
-   * POST /api/auth/logout
-   */
   async logout(_req: Request, res: Response): Promise<void> {
     res.status(200).json({ message: 'Logout successful' });
   }

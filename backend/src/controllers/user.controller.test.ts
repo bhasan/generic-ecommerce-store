@@ -34,22 +34,16 @@ const createResponse = () => ({
 describe('user controller logging', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('logs validation failure on updateUser', async () => {
+  it('returns 400 on updateUser validation failure', async () => {
     (validationResult as any).mockReturnValue({
       isEmpty: () => false,
       array: () => [{ msg: 'bad email' }],
     });
     const req: any = { params: { id: '2' }, user: { userId: 9 }, requestId: 'req-1' };
     const res = createResponse();
-    const next = vi.fn();
 
-    await userController.updateUser(req, res as any, next);
+    await userController.updateUser(req, res as any);
 
-    expect(logger.warn).toHaveBeenCalledWith('User update validation failed', expect.objectContaining({
-      requestId: 'req-1',
-      actorUserId: 9,
-      targetUserId: '2',
-    }));
     expect(res.status).toHaveBeenCalledWith(400);
   });
 
