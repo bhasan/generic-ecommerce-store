@@ -150,7 +150,7 @@ describe('getPaymentToken', () => {
     expect(result.iframeUrl).toBe('https://accept.authorize.net/payment/payment?token=tok_live');
   });
 
-  it('uses CORS_ORIGIN env var for the communicatorUrl when set', async () => {
+  it('uses CORS_ORIGIN for the communicatorUrl passed to the Authorize.Net service', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
     authorizeNetServiceMock.getHostedPageToken.mockResolvedValue('tok_abc');
@@ -169,42 +169,14 @@ describe('getPaymentToken', () => {
     delete process.env.CORS_ORIGIN;
   });
 
-  it('falls back to requestOrigin when CORS_ORIGIN is unset and origin is HTTPS', async () => {
-    prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
-    paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
-    authorizeNetServiceMock.getHostedPageToken.mockResolvedValue('tok_fallback');
-    delete process.env.CORS_ORIGIN;
-
-    const { OrderService } = await import('./order.service');
-    await new OrderService().getPaymentToken(42, 7, 'https://customer.example.com');
-
-    expect(authorizeNetServiceMock.getHostedPageToken).toHaveBeenCalledWith(
-      42,
-      basePendingOrder.total,
-      'https://customer.example.com/communicator.html',
-      enabledCCSettings,
-    );
-  });
-
-  it('throws 400 when CORS_ORIGIN is unset and requestOrigin is HTTP (not HTTPS)', async () => {
+  it('throws 503 when CORS_ORIGIN is not configured', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
     delete process.env.CORS_ORIGIN;
 
     const { OrderService } = await import('./order.service');
     await expect(
-      new OrderService().getPaymentToken(42, 7, 'http://insecure.example.com')
-    ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining('HTTPS') });
-  });
-
-  it('throws 503 when CORS_ORIGIN is unset and no requestOrigin is provided', async () => {
-    prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
-    paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
-    delete process.env.CORS_ORIGIN;
-
-    const { OrderService } = await import('./order.service');
-    await expect(
-      new OrderService().getPaymentToken(42, 7, undefined)
+      new OrderService().getPaymentToken(42, 7)
     ).rejects.toMatchObject({ statusCode: 503, message: expect.stringContaining('CORS_ORIGIN') });
   });
 });
