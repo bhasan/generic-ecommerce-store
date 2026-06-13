@@ -18,6 +18,27 @@ const orderingConstraintsService = new OrderingConstraintsService();
 const deliveryEligibilityService = new DeliveryEligibilityService();
 const paymentSettingsService = new PaymentSettingsService();
 
+// Resolves the public frontend URL for the Authorize.net communicator.html callback.
+// Priority: CORS_ORIGIN env var → request Origin header (HTTPS only) → error.
+function resolveCommunicatorUrl(requestOrigin?: string): string {
+  const corsOrigin = process.env.CORS_ORIGIN;
+  if (corsOrigin) return `${corsOrigin}/communicator.html`;
+
+  if (!requestOrigin) {
+    throw new AppError(
+      'Card payments are unavailable: server domain is not configured (set CORS_ORIGIN)',
+      503
+    );
+  }
+  if (!requestOrigin.startsWith('https://')) {
+    throw new AppError(
+      'Card payments require a secure (HTTPS) connection',
+      400
+    );
+  }
+  return `${requestOrigin}/communicator.html`;
+}
+
 interface CreateOrderData {
   userId: number;
   items: Array<{
@@ -1245,7 +1266,7 @@ export class OrderService {
     }
   }
 
-  async getPaymentToken(orderId: number, userId: number): Promise<{ token: string; iframeUrl: string }> {
+  async getPaymentToken(orderId: number, userId: number, requestOrigin?: string): Promise<{ token: string; iframeUrl: string }> {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
 
     if (!order) throw new AppError('Order not found', 404);
@@ -1256,8 +1277,7 @@ export class OrderService {
     const settings = await paymentSettingsService.getPaymentSettings();
     if (!settings.cc_payment?.enabled) throw new AppError('Card payments are not enabled', 400);
 
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-    const communicatorUrl = `${frontendUrl}/communicator.html`;
+    const communicatorUrl = resolveCommunicatorUrl(requestOrigin);
 
     const token = await authorizeNetService.getHostedPageToken(
       orderId,

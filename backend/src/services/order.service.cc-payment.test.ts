@@ -125,10 +125,12 @@ describe('getPaymentToken', () => {
       cc_payment: { ...enabledCCSettings, sandboxMode: true },
     });
     authorizeNetServiceMock.getHostedPageToken.mockResolvedValue('tok_sandbox');
+    process.env.CORS_ORIGIN = 'https://shop.example.com';
 
     const { OrderService } = await import('./order.service');
     const result = await new OrderService().getPaymentToken(42, 7);
 
+    delete process.env.CORS_ORIGIN;
     expect(result.token).toBe('tok_sandbox');
     expect(result.iframeUrl).toBe('https://test.authorize.net/payment/payment?token=tok_sandbox');
   });
@@ -139,18 +141,20 @@ describe('getPaymentToken', () => {
       cc_payment: { ...enabledCCSettings, sandboxMode: false },
     });
     authorizeNetServiceMock.getHostedPageToken.mockResolvedValue('tok_live');
+    process.env.CORS_ORIGIN = 'https://shop.example.com';
 
     const { OrderService } = await import('./order.service');
     const result = await new OrderService().getPaymentToken(42, 7);
 
+    delete process.env.CORS_ORIGIN;
     expect(result.iframeUrl).toBe('https://accept.authorize.net/payment/payment?token=tok_live');
   });
 
-  it('passes orderId, total, communicatorUrl, and CC settings to the Authorize.Net service', async () => {
+  it('uses CORS_ORIGIN env var for the communicatorUrl when set', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
     authorizeNetServiceMock.getHostedPageToken.mockResolvedValue('tok_abc');
-    process.env.FRONTEND_URL = 'https://shop.example.com';
+    process.env.CORS_ORIGIN = 'https://shop.example.com';
 
     const { OrderService } = await import('./order.service');
     await new OrderService().getPaymentToken(42, 7);
@@ -162,7 +166,46 @@ describe('getPaymentToken', () => {
       enabledCCSettings,
     );
 
-    delete process.env.FRONTEND_URL;
+    delete process.env.CORS_ORIGIN;
+  });
+
+  it('falls back to requestOrigin when CORS_ORIGIN is unset and origin is HTTPS', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
+    paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
+    authorizeNetServiceMock.getHostedPageToken.mockResolvedValue('tok_fallback');
+    delete process.env.CORS_ORIGIN;
+
+    const { OrderService } = await import('./order.service');
+    await new OrderService().getPaymentToken(42, 7, 'https://customer.example.com');
+
+    expect(authorizeNetServiceMock.getHostedPageToken).toHaveBeenCalledWith(
+      42,
+      basePendingOrder.total,
+      'https://customer.example.com/communicator.html',
+      enabledCCSettings,
+    );
+  });
+
+  it('throws 400 when CORS_ORIGIN is unset and requestOrigin is HTTP (not HTTPS)', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
+    paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
+    delete process.env.CORS_ORIGIN;
+
+    const { OrderService } = await import('./order.service');
+    await expect(
+      new OrderService().getPaymentToken(42, 7, 'http://insecure.example.com')
+    ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining('HTTPS') });
+  });
+
+  it('throws 503 when CORS_ORIGIN is unset and no requestOrigin is provided', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
+    paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
+    delete process.env.CORS_ORIGIN;
+
+    const { OrderService } = await import('./order.service');
+    await expect(
+      new OrderService().getPaymentToken(42, 7, undefined)
+    ).rejects.toMatchObject({ statusCode: 503, message: expect.stringContaining('CORS_ORIGIN') });
   });
 });
 

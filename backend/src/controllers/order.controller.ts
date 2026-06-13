@@ -389,7 +389,8 @@ export class OrderController {
     try {
       const orderId = parseInt(req.params.id, 10);
       const userId = (req as any).user.userId;
-      const result = await orderService.getPaymentToken(orderId, userId);
+      const requestOrigin = req.headers.origin;
+      const result = await orderService.getPaymentToken(orderId, userId, requestOrigin);
       res.status(200).json(result);
     } catch (error) {
       next(error);

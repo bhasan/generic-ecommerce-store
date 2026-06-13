@@ -516,7 +516,7 @@ describe('order routes integration', () => {
         token: 'tok_sandbox',
         iframeUrl: 'https://test.authorize.net/payment/payment?token=tok_sandbox',
       });
-      expect(orderService.getPaymentToken).toHaveBeenCalledWith(42, 7);
+      expect(orderService.getPaymentToken).toHaveBeenCalledWith(42, 7, undefined);
     });
 
     it('forwards a 404 when the service throws order-not-found', async () => {
