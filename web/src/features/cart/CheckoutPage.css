@@ -858,6 +858,17 @@
      so users can drag it. Firefox shows its own (non-overlay) scrollbar by default. */
   overflow-y: scroll;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
+
+/* Firefox: it ignores ::-webkit-scrollbar, so give it the standard props.
+   (Chromium intentionally has no scrollbar-width set so it uses the webkit
+   scrollbar below instead of a thin overlay one.) */
+@supports (-moz-appearance: none) {
+  .send-payment-modal .modal-body {
+    scrollbar-width: auto;
+    scrollbar-color: #7c3aed rgba(124, 58, 237, 0.15);
+  }
 }
 
 .send-payment-modal .modal-body::-webkit-scrollbar {
@@ -865,13 +876,16 @@
 }
 
 .send-payment-modal .modal-body::-webkit-scrollbar-track {
-  background: var(--bg-hover, rgba(0, 0, 0, 0.08));
+  background: rgba(124, 58, 237, 0.15);
 }
 
 .send-payment-modal .modal-body::-webkit-scrollbar-thumb {
-  background: var(--color-primary, #6b46c1);
-  border-radius: 6px;
-  border: 3px solid var(--bg-dashboard-sidebar, #fff);
+  background: #7c3aed;
+  border-radius: 7px;
+}
+
+.send-payment-modal .modal-body::-webkit-scrollbar-thumb:hover {
+  background: #6d28d9;
 }
 
 .send-payment-modal .modal-body iframe {
