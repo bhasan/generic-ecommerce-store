@@ -251,5 +251,3 @@ process.on('uncaughtException', (error) => {
   // In production, you should exit the process
   process.exit(1);
 });
-
-export default app;
