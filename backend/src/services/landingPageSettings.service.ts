@@ -18,7 +18,6 @@ const LandingPageSettingsSchema = z.object({
     .max(20, 'Invalid landing page settings: cannot have more than 20 promotion slides'),
 });
 
-export type Promotion = z.infer<typeof PromotionSchema>;
 export type LandingPageSettings = z.infer<typeof LandingPageSettingsSchema>;
 
 const DEFAULT_LANDING_PAGE_SETTINGS: LandingPageSettings = {

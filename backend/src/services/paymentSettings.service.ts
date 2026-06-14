@@ -43,7 +43,6 @@ const PaymentSettingsSchema = z
     }
   });
 
-export type PaymentMethodSettings = z.infer<typeof PaymentMethodSchema>;
 export type CCPaymentSettings = z.infer<typeof CCPaymentSchema>;
 export type PaymentSettings = z.infer<typeof PaymentSettingsSchema>;
 
