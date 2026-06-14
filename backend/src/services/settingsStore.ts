@@ -13,7 +13,8 @@ export function parseOrThrow<T>(schema: ZodType<T>, data: unknown): T {
 export interface SettingsStoreConfig<T> {
   key: string;
   schema: ZodType<T>;
-  defaults: T;
+  /** Static defaults, or a factory called fresh on each read (e.g. when defaults depend on env). */
+  defaults: T | (() => T);
   onRead?: (raw: T) => T;
   onWrite?: (data: T) => T;
 }
@@ -21,14 +22,19 @@ export interface SettingsStoreConfig<T> {
 export class SettingsStore<T extends object> {
   constructor(private readonly config: SettingsStoreConfig<T>) {}
 
+  private resolveDefaults(): T {
+    const { defaults } = this.config;
+    return typeof defaults === 'function' ? (defaults as () => T)() : structuredClone(defaults);
+  }
+
   async read(): Promise<T> {
-    const { key, defaults, onRead } = this.config;
+    const { key, onRead } = this.config;
     const row = await prisma.uiSetting.findUnique({ where: { key } });
     if (!row) {
-      return structuredClone(defaults);
+      return this.resolveDefaults();
     }
     const stored = row.value as unknown as Partial<T>;
-    const merged = { ...structuredClone(defaults), ...stored } as T;
+    const merged = { ...this.resolveDefaults(), ...stored } as T;
     return onRead ? onRead(merged) : merged;
   }
 

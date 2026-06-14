@@ -66,6 +66,17 @@ describe('SettingsStore', () => {
     expect(result.a).toBe('secret');
   });
 
+  it('resolves defaults from a factory fresh on each read (no row)', async () => {
+    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    const { SettingsStore } = await import('./settingsStore');
+    let counter = 0;
+    const store = new SettingsStore({
+      key: 'k', schema, defaults: () => ({ a: `gen${++counter}`, n: 0 }),
+    });
+    expect((await store.read()).a).toBe('gen1');
+    expect((await store.read()).a).toBe('gen2');
+  });
+
   it('throws AppError(400) on schema validation failure', async () => {
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({ key: 'k', schema, defaults });
