@@ -78,12 +78,13 @@ describe('AuthorizeNetPaymentModal', () => {
     expect(defaultProps.onFailure).toHaveBeenCalledWith('Declined');
   });
 
-  it('resizes the iframe when Authorize.net sends a resizeWindow action', () => {
+  it('resizes the iframe to a fractional height, rounded up with a buffer to avoid a sub-pixel scrollbar', () => {
     render(<AuthorizeNetPaymentModal {...defaultProps} />);
     act(() => {
-      postMessage('action=resizeWindow&width=600&height=900');
+      postMessage('action=resizeWindow&width=600&height=900.141');
     });
     const iframe = document.querySelector('iframe');
-    expect(iframe.height).toBe('900');
+    // ceil(900.141) + 4px buffer
+    expect(iframe.height).toBe('905');
   });
 });

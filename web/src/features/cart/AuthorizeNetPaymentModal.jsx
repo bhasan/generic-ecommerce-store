@@ -29,8 +29,11 @@ export default function AuthorizeNetPaymentModal({ orderId, token, paymentFormUr
 
       if (action === 'resizeWindow') {
         // Accept Hosted grows past its initial height on validation errors.
-        const height = parseInt(params.get('height'), 10);
-        if (!Number.isNaN(height)) setIframeHeight(Math.max(height, 400));
+        // The reported height can be fractional (e.g. 725.141); round up and add a
+        // small buffer so the iframe is never a sub-pixel too short — otherwise it
+        // shows its own scrollbar on top of the modal body's (double scrollbars).
+        const height = parseFloat(params.get('height'));
+        if (!Number.isNaN(height)) setIframeHeight(Math.max(Math.ceil(height) + 4, 400));
         return;
       }
 
