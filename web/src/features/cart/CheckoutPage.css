@@ -814,3 +814,67 @@
 [data-theme="light"] .shipping-free {
   color: var(--color-secondary-dark) !important;
 }
+
+/* ── Authorize.Net hosted card payment modal ──────────────────────────────
+   The modal reuses the global .modal-* classes but needs a properly sized
+   container: the Authorize.Net iframe is ~441px wide and grows tall (up to
+   ~725px) via resize events, so the container must cap at the viewport and
+   scroll its body instead of overflowing/cutting off. */
+.send-payment-modal {
+  background: var(--bg-dashboard-sidebar);
+  border: 2px solid var(--color-primary-dark);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: min(96vw, 720px);
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  animation: slideDown var(--transition-slow) ease-out;
+}
+
+.send-payment-modal .modal-header {
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.send-payment-modal .modal-header h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.send-payment-modal .modal-body {
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.send-payment-modal .modal-body iframe {
+  display: block;
+  width: 100%;
+  border: none;
+}
+
+.send-payment-modal .modal-verifying,
+.send-payment-modal .modal-verify-error {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.send-payment-modal .modal-footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.send-payment-modal .modal-footer p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
