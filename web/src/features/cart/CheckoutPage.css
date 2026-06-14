@@ -850,42 +850,38 @@
   padding: 0;
   flex: 1 1 auto;
   min-height: 0;
-  /* `scroll` (not `auto`) keeps a draggable track visible. We intentionally do NOT
-     set the standard `scrollbar-width`/`scrollbar-color` here: when those are set,
-     Chromium ignores the ::-webkit-scrollbar styling below and falls back to a thin
-     OS overlay scrollbar that auto-hides. With only ::-webkit-scrollbar defined,
-     Chromium renders a classic, always-visible scrollbar that reserves layout space
-     so users can drag it. Firefox shows its own (non-overlay) scrollbar by default. */
-  overflow-y: scroll;
+  /* Keep the scrollbar gutter reserved and let the body scroll when the hosted
+     iframe is taller than the modal. The ::-webkit-scrollbar rules below force a
+     classic (non-overlay) scrollbar so it stays visible while scrolling. */
+  overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
 }
 
-/* Firefox: it ignores ::-webkit-scrollbar, so give it the standard props.
-   (Chromium intentionally has no scrollbar-width set so it uses the webkit
-   scrollbar below instead of a thin overlay one.) */
+/* Firefox honours the standard properties (it ignores ::-webkit-scrollbar). */
 @supports (-moz-appearance: none) {
   .send-payment-modal .modal-body {
-    scrollbar-width: auto;
-    scrollbar-color: #7c3aed rgba(124, 58, 237, 0.15);
+    scrollbar-color: var(--border-color) var(--bg-primary);
   }
 }
 
+/* Chromium/WebKit scrollbar — matches the project convention (DeliveryDriverDashboard.css). */
 .send-payment-modal .modal-body::-webkit-scrollbar {
-  width: 14px;
+  width: var(--spacing-sm);
 }
 
 .send-payment-modal .modal-body::-webkit-scrollbar-track {
-  background: rgba(124, 58, 237, 0.15);
+  background: var(--bg-primary);
+  border-radius: var(--radius-sm);
 }
 
 .send-payment-modal .modal-body::-webkit-scrollbar-thumb {
-  background: #7c3aed;
-  border-radius: 7px;
+  background: var(--border-color);
+  border-radius: var(--radius-sm);
 }
 
 .send-payment-modal .modal-body::-webkit-scrollbar-thumb:hover {
-  background: #6d28d9;
+  background: var(--text-tertiary);
 }
 
 .send-payment-modal .modal-body iframe {
