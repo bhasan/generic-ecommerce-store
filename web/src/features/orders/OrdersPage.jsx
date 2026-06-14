@@ -235,7 +235,7 @@ function OrdersPage({ forceCustomerView = false }) {
       viewStartAtRef.current = Date.now();
       setNewOrderIds([]);
       knownOrderIdsRef.current = new Set(ordersRef.current.map((o) => o.id));
-      // Silent refresh on focus â€” no loading spinner, avoids disrupting the current view.
+      // Silent refresh on focus — no loading spinner, avoids disrupting the current view.
       loadOrders(true);
     };
     window.addEventListener('focus', handleFocus);
@@ -286,7 +286,7 @@ function OrdersPage({ forceCustomerView = false }) {
   }, [orders, isLoadingOrders]);
 
   const formatOrderDate = (dateString) => {
-    if (!dateString) return 'â€”';
+    if (!dateString) return '—';
     const date = new Date(dateString);
     return Number.isNaN(date.getTime()) ? dateString : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   };
@@ -486,7 +486,7 @@ function OrdersPage({ forceCustomerView = false }) {
 
   const selectedOrder = selectedOrderId ? orders.find((o) => o.id === selectedOrderId) : null;
 
-  // Customers get a dedicated list view â€” no kanban, no staff-only controls.
+  // Customers get a dedicated list view — no kanban, no staff-only controls.
   if (isCustomerOnly) {
     const myOrders = orders.filter((o) => o.userId === currentUser.id);
     return (
@@ -701,7 +701,7 @@ function OrdersPage({ forceCustomerView = false }) {
                           </div>
                         )}
                         <div className="kanban-card-meta">
-                          ${order.total.toFixed(2)} Â· {itemCount} item{itemCount !== 1 ? 's' : ''}
+                          ${order.total.toFixed(2)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
                         </div>
                         <div className={`kanban-card-payment-info ${order.user?.cashapp ? 'has' : 'none'}`}>
                           {order.user?.cashapp ? `@${order.user.cashapp}` : (isPayInStore ? 'Payment in Store' : 'No payment username')}

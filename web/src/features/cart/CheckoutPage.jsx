@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
-import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle, Smartphone, Wallet, Store, CreditCard, Lock, AlertTriangle, RefreshCw } from 'lucide-react';
 import SendPaymentModal from '../../components/common/SendPaymentModal';
 import AuthorizeNetPaymentModal from './AuthorizeNetPaymentModal';
 import * as ordersApi from '../../services/ordersApi';
@@ -535,7 +535,7 @@ function CheckoutPage() {
                           setErrors({ ...errors, credit: '' });
                         }}
                       />
-                      <span className="payment-method-card-label">📱 CashApp / Zelle / Venmo</span>
+                      <span className="payment-method-card-label"><Smartphone size={16} /> CashApp / Zelle / Venmo</span>
                     </label>
                     {creditBalance > 0 && (
                       <label className={`payment-method-option payment-method-card ${isCreditPayment ? 'selected' : ''}`}>
@@ -549,7 +549,7 @@ function CheckoutPage() {
                             setErrors({ ...errors, credit: '', cashAppUsername: '' });
                           }}
                         />
-                        <span className="payment-method-card-label">🏦 Store Credit</span>
+                        <span className="payment-method-card-label"><Wallet size={16} /> Store Credit</span>
                         <span className="payment-method-badge">${creditBalance.toFixed(2)} available</span>
                       </label>
                     )}
@@ -565,7 +565,7 @@ function CheckoutPage() {
                             setErrors({ ...errors, credit: '', cashAppUsername: '' });
                           }}
                         />
-                        <span className="payment-method-card-label">🏬 Pay in Store</span>
+                        <span className="payment-method-card-label"><Store size={16} /> Pay in Store</span>
                         <span className="payment-method-badge">pickup only</span>
                       </label>
                     )}
@@ -581,7 +581,7 @@ function CheckoutPage() {
                             setErrors({ ...errors, credit: '', cashAppUsername: '' });
                           }}
                         />
-                        <span className="payment-method-card-label">💳 Credit / Debit Card</span>
+                        <span className="payment-method-card-label"><CreditCard size={16} /> Credit / Debit Card</span>
                         <span className="payment-method-badge">Secure</span>
                       </label>
                     )}
@@ -667,7 +667,7 @@ function CheckoutPage() {
               {isCCPayment && (
                 <div className="payment-method-detail payment-cc-info">
                   <p>You'll be taken to a secure payment form. Your order is placed first, then confirmed automatically once payment is complete.</p>
-                  <p>🔒 Secured by Authorize.Net — card data never touches our servers</p>
+                  <p><Lock size={14} /> Secured by Authorize.Net — card data never touches our servers</p>
                 </div>
               )}
 
@@ -965,7 +965,7 @@ function CheckoutPage() {
       {paymentRetryOrder && (
         <div className="checkout-retry-overlay">
           <div className="payment-retry-card">
-            <div className="payment-retry-icon">⚠️</div>
+            <div className="payment-retry-icon"><AlertTriangle size={28} /></div>
             <h3>Payment Unsuccessful</h3>
             <p>{paymentRetryOrder.reason || 'Your card could not be processed. Your order has been saved.'}</p>
             <div className="payment-retry-order-info">
@@ -992,7 +992,7 @@ function CheckoutPage() {
                   }
                 }}
               >
-                🔄 Retry Card Payment
+                <RefreshCw size={16} /> Retry Card Payment
               </button>
               <button
                 className="btn-secondary"

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { CreditCard, Key, AlertTriangle, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { updatePaymentSettings } from '../../../services/paymentSettingsApi';
 import PaymentSettingsSection from '../../dashboard/components/PaymentSettingsSection';
@@ -28,7 +29,7 @@ function AuthorizeNetCredentialsCard({ paymentSettings, onSave }) {
   return (
     <div className="payment-method-card authnet-card">
       <div className="payment-method-card-header">
-        <span className="payment-method-icon">💳</span>
+        <span className="payment-method-icon"><CreditCard size={20} /></span>
         <div className="payment-method-info">
           <div className="payment-method-name">Credit / Debit Card (Authorize.Net)</div>
           <div className="payment-method-desc">Accept card payments via hosted payment form</div>
@@ -49,14 +50,14 @@ function AuthorizeNetCredentialsCard({ paymentSettings, onSave }) {
           onClick={() => setExpanded((v) => !v)}
           type="button"
         >
-          🔑 API Credentials {expanded ? '▲' : '▼'}
+          <Key size={16} /> API Credentials {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
       </div>
 
       {expanded && (
         <div className="payment-credentials-body">
           <p className="cred-warning">
-            ⚠️ Keep these credentials private. Anyone with access can process charges on your account.
+            <AlertTriangle size={16} /> Keep these credentials private. Anyone with access can process charges on your account.
           </p>
 
           <div className="cred-field">
@@ -91,7 +92,7 @@ function AuthorizeNetCredentialsCard({ paymentSettings, onSave }) {
                 onClick={() => setShowKey((v) => !v)}
                 aria-label={showKey ? 'Hide transaction key' : 'Show transaction key'}
               >
-                {showKey ? '🙈' : '👁'}
+                {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
             <p className="cred-hint">Generate in Authorize.Net → Account → Security Settings → Transaction Key.</p>

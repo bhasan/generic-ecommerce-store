@@ -651,6 +651,9 @@
 
 .payment-method-card-label {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
 .payment-method-badge {
@@ -685,6 +688,9 @@
 
 .payment-cc-info p:last-child {
   margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
 .checkout-retry-overlay {
@@ -763,6 +769,10 @@
 .payment-retry-actions .btn-secondary {
   width: 100%;
   margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
 }
 
 /* The base .btn-secondary uses a transparent border, which is invisible on the
@@ -916,4 +926,7 @@
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
