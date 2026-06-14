@@ -1,6 +1,23 @@
 import { z } from 'zod';
 import { SettingsStore } from './settingsStore';
 import { encrypt, decrypt } from '../utils/crypto.util';
+import { logger } from '../utils/logger';
+
+/**
+ * Decrypt a stored credential, failing closed: if the value is empty or cannot be
+ * decrypted (e.g. legacy plaintext written before encryption, or a wrong/rotated key),
+ * return '' rather than throwing. This keeps the public /api/config endpoint and
+ * checkout up; a loud warning tells operators to re-enter credentials.
+ */
+function safeDecrypt(value: string, key: string, field: string): string {
+  if (!value) return '';
+  try {
+    return decrypt(value, key);
+  } catch {
+    logger.warn('Stored CC credential could not be decrypted — treating as unconfigured', { field });
+    return '';
+  }
+}
 
 const PaymentMethodSchema = z.object({
   enabled: z.boolean(),
@@ -71,8 +88,8 @@ export class PaymentSettingsService {
           ...raw,
           cc_payment: {
             ...cc,
-            loginId: cc.loginId ? decrypt(cc.loginId, key) : '',
-            transactionKey: cc.transactionKey ? decrypt(cc.transactionKey, key) : '',
+            loginId: safeDecrypt(cc.loginId, key, 'loginId'),
+            transactionKey: safeDecrypt(cc.transactionKey, key, 'transactionKey'),
           },
         };
       },

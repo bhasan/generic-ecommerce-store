@@ -141,6 +141,26 @@ describe('payment settings service', () => {
     expect(encrypt).toHaveBeenCalledWith('myTxKey', TEST_KEY);
   });
 
+  it('treats undecryptable stored credentials as empty instead of throwing', async () => {
+    const { decrypt } = await import('../utils/crypto.util');
+    const boom = () => { throw new Error('Invalid encrypted value format'); };
+    vi.mocked(decrypt).mockImplementationOnce(boom).mockImplementationOnce(boom);
+    prismaMock.uiSetting.findUnique.mockResolvedValue({
+      value: {
+        cashapp: { enabled: true, handle: '$x' },
+        zelle: { enabled: false, handle: '' },
+        venmo: { enabled: false, handle: '' },
+        cc_payment: { enabled: true, loginId: 'plaintext-legacy', transactionKey: 'plaintext-legacy', sandboxMode: true },
+      },
+    });
+    const { PaymentSettingsService } = await import('./paymentSettings.service');
+
+    const result = await new PaymentSettingsService(TEST_KEY).getPaymentSettings();
+
+    expect(result.cc_payment.loginId).toBe('');
+    expect(result.cc_payment.transactionKey).toBe('');
+  });
+
   it('decrypts loginId and transactionKey when reading from DB', async () => {
     const { PaymentSettingsService } = await import('./paymentSettings.service');
     prismaMock.uiSetting.findUnique.mockResolvedValue({

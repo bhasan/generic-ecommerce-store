@@ -28,6 +28,7 @@ import { StoreSettingsService } from './services/storeSettings.service';
 import { OrderingConstraintsService } from './services/orderingConstraints.service';
 import { BrandingService } from './services/branding.service';
 import { brandingController } from './controllers/branding.controller';
+import { asyncHandler } from './utils/asyncHandler.util';
 import brandingRoutes from './routes/branding.routes';
 
 // Import middleware
@@ -143,7 +144,7 @@ const orderingConstraintsService = new OrderingConstraintsService();
 const brandingService = new BrandingService();
 
 // Config check route
-app.get('/api/config', async (_req, res) => {
+app.get('/api/config', asyncHandler(async (_req, res) => {
   const [paymentSettings, storeSettings, orderingConstraints, branding] = await Promise.all([
     paymentSettingsService.getPaymentSettings(),
     storeSettingsService.getStoreSettings(),
@@ -167,7 +168,7 @@ app.get('/api/config', async (_req, res) => {
     storeSettings,
     branding,
   });
-});
+}));
 
 app.get('/api/branding/css', generalLimiter, brandingController.getCss);
 
