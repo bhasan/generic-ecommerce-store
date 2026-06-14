@@ -10,6 +10,26 @@ vi.mock('../config/database', () => ({ default: prismaMock }));
 const schema = z.object({ a: z.string(), n: z.number() });
 const defaults = { a: 'def', n: 0 };
 
+describe('parseOrThrow', () => {
+  it('returns the parsed data when valid', async () => {
+    const { parseOrThrow } = await import('./settingsStore');
+    expect(parseOrThrow(schema, { a: 'ok', n: 1 })).toEqual({ a: 'ok', n: 1 });
+  });
+
+  it('throws AppError(400) carrying the first issue message', async () => {
+    const { parseOrThrow } = await import('./settingsStore');
+    const labelled = z.object({ a: z.string('a must be a string') });
+    try {
+      parseOrThrow(labelled, { a: 123 });
+      throw new Error('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(AppError);
+      expect((err as AppError).statusCode).toBe(400);
+      expect((err as AppError).message).toBe('a must be a string');
+    }
+  });
+});
+
 describe('SettingsStore', () => {
   beforeEach(() => vi.clearAllMocks());
 
