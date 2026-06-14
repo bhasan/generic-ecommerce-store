@@ -1,21 +1,20 @@
-import { get, put, del, post } from './api';
+import { get, put, post } from './api';
+import { createResourceApi } from './createResourceApi';
+
+const usersResource = createResourceApi('/users', 'user');
 
 /**
  * Get all users
  * @returns {Promise<Array>} Array of user objects
  */
-export const getAllUsers = async () => {
-  return get('/users');
-};
+export const getAllUsers = usersResource.getAll;
 
 /**
  * Get user by ID
  * @param {number} id - User ID
  * @returns {Promise<object>} User object
  */
-export const getUserById = async (id) => {
-  return get(`/users/${id}`);
-};
+export const getUserById = usersResource.getById;
 
 /**
  * Update user
@@ -78,9 +77,7 @@ export const unRejectUser = async (id) => {
  * @param {number} id - User ID
  * @returns {Promise<object>} Success message
  */
-export const deleteUser = async (id) => {
-  return del(`/users/${id}`);
-};
+export const deleteUser = usersResource.remove;
 
 /**
  * Get all available roles
