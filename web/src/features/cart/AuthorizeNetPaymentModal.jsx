@@ -1,12 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { verifyPayment } from '../../services/ordersApi';
 
-export default function AuthorizeNetPaymentModal({ orderId, iframeUrl, amount, onSuccess, onFailure, onClose }) {
+const IFRAME_NAME = 'authnet-payment-frame';
+
+export default function AuthorizeNetPaymentModal({ orderId, token, paymentFormUrl, amount, onSuccess, onFailure, onClose }) {
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
   const [iframeHeight, setIframeHeight] = useState(500);
   const onSuccessRef = useRef(onSuccess);
   const onFailureRef = useRef(onFailure);
+  const formRef = useRef(null);
 
   useEffect(() => {
     onSuccessRef.current = onSuccess;
@@ -67,6 +70,14 @@ export default function AuthorizeNetPaymentModal({ orderId, iframeUrl, amount, o
     return () => window.removeEventListener('message', handleMessage);
   }, [orderId]);
 
+  // Accept Hosted requires the token to be POSTed (not a GET query param).
+  // Auto-submit the hidden form into the named iframe once it's mounted.
+  useEffect(() => {
+    if (!verifying && !verifyError && formRef.current) {
+      formRef.current.submit();
+    }
+  }, [token, verifying, verifyError]);
+
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true">
       <div className="send-payment-modal">
@@ -93,13 +104,24 @@ export default function AuthorizeNetPaymentModal({ orderId, iframeUrl, amount, o
               <p>{verifyError}</p>
             </div>
           ) : (
-            <iframe
-              src={iframeUrl}
-              title="Secure Card Payment"
-              width="100%"
-              height={iframeHeight}
-              style={{ border: 'none', overflow: 'hidden' }}
-            />
+            <>
+              <form
+                ref={formRef}
+                action={paymentFormUrl}
+                method="post"
+                target={IFRAME_NAME}
+                style={{ display: 'none' }}
+              >
+                <input type="hidden" name="token" value={token} />
+              </form>
+              <iframe
+                name={IFRAME_NAME}
+                title="Secure Card Payment"
+                width="100%"
+                height={iframeHeight}
+                style={{ border: 'none', overflow: 'hidden' }}
+              />
+            </>
           )}
         </div>
 

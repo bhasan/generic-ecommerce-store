@@ -314,8 +314,8 @@ function CheckoutPage() {
 
       if (isCCPayment) {
         try {
-          const { iframeUrl } = await ordersApi.getPaymentToken(newOrder.id);
-          setCcPaymentModal({ iframeUrl, orderId: newOrder.id, amount: total, items: itemsForSuccess, orderState });
+          const { token, paymentFormUrl } = await ordersApi.getPaymentToken(newOrder.id);
+          setCcPaymentModal({ token, paymentFormUrl, orderId: newOrder.id, amount: total, items: itemsForSuccess, orderState });
         } catch {
           try {
             await deleteOrder(newOrder.id, { silent: true });
@@ -457,7 +457,8 @@ function CheckoutPage() {
       {ccPaymentModal && (
         <AuthorizeNetPaymentModal
           orderId={ccPaymentModal.orderId}
-          iframeUrl={ccPaymentModal.iframeUrl}
+          token={ccPaymentModal.token}
+          paymentFormUrl={ccPaymentModal.paymentFormUrl}
           amount={ccPaymentModal.amount}
           onSuccess={() => {
             setOrderCompleted(true);
@@ -976,9 +977,10 @@ function CheckoutPage() {
                 className="btn-primary"
                 onClick={async () => {
                   try {
-                    const { iframeUrl } = await ordersApi.getPaymentToken(paymentRetryOrder.orderId);
+                    const { token, paymentFormUrl } = await ordersApi.getPaymentToken(paymentRetryOrder.orderId);
                     setCcPaymentModal({
-                      iframeUrl,
+                      token,
+                      paymentFormUrl,
                       orderId: paymentRetryOrder.orderId,
                       amount: paymentRetryOrder.amount,
                       items: paymentRetryOrder.items,

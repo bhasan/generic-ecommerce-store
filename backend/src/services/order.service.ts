@@ -1259,7 +1259,7 @@ export class OrderService {
     }
   }
 
-  async getPaymentToken(orderId: number, userId: number): Promise<{ token: string; iframeUrl: string }> {
+  async getPaymentToken(orderId: number, userId: number): Promise<{ token: string; paymentFormUrl: string }> {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
 
     if (!order) throw new AppError('Order not found', 404);
@@ -1279,11 +1279,14 @@ export class OrderService {
       settings.cc_payment
     );
 
-    const iframeUrl = settings.cc_payment.sandboxMode
-      ? `https://test.authorize.net/payment/payment?token=${token}`
-      : `https://accept.authorize.net/payment/payment?token=${token}`;
+    // Accept Hosted requires the token to be submitted via an HTTP POST form field
+    // (name="token") to this URL — passing it as a GET query param yields
+    // "Missing or invalid token". The frontend renders an auto-submitting form.
+    const paymentFormUrl = settings.cc_payment.sandboxMode
+      ? 'https://test.authorize.net/payment/payment'
+      : 'https://accept.authorize.net/payment/payment';
 
-    return { token, iframeUrl };
+    return { token, paymentFormUrl };
   }
 
   async confirmCardPayment(orderId: number, userId: number, transId: string): Promise<{ id: number; status: string }> {

@@ -1,14 +1,8 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <script type="text/javascript">
-    function receiveParams(urlParams) {
-      if (urlParams && urlParams.length > 0 && window.parent) {
-        window.parent.postMessage(urlParams, window.location.origin);
-      }
-    }
-  </script>
+  <script src="/communicator.js"></script>
 </head>
-<body onload="receiveParams(window.location.search.substring(1))">
+<body>
 </body>
 </html>

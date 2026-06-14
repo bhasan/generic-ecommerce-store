@@ -119,7 +119,7 @@ describe('getPaymentToken', () => {
     });
   });
 
-  it('returns a sandbox iframeUrl when sandboxMode is true', async () => {
+  it('returns the sandbox payment form URL and token when sandboxMode is true', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({
       cc_payment: { ...enabledCCSettings, sandboxMode: true },
@@ -131,11 +131,13 @@ describe('getPaymentToken', () => {
     const result = await new OrderService().getPaymentToken(42, 7);
 
     delete process.env.CORS_ORIGIN;
+    // Accept Hosted requires the token to be POSTed as a form field, not passed
+    // as a GET query param — so the service returns the bare form action URL.
     expect(result.token).toBe('tok_sandbox');
-    expect(result.iframeUrl).toBe('https://test.authorize.net/payment/payment?token=tok_sandbox');
+    expect(result.paymentFormUrl).toBe('https://test.authorize.net/payment/payment');
   });
 
-  it('returns a production iframeUrl when sandboxMode is false', async () => {
+  it('returns the production payment form URL when sandboxMode is false', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({
       cc_payment: { ...enabledCCSettings, sandboxMode: false },
@@ -147,7 +149,8 @@ describe('getPaymentToken', () => {
     const result = await new OrderService().getPaymentToken(42, 7);
 
     delete process.env.CORS_ORIGIN;
-    expect(result.iframeUrl).toBe('https://accept.authorize.net/payment/payment?token=tok_live');
+    expect(result.token).toBe('tok_live');
+    expect(result.paymentFormUrl).toBe('https://accept.authorize.net/payment/payment');
   });
 
   it('uses CORS_ORIGIN for the communicatorUrl passed to the Authorize.Net service', async () => {

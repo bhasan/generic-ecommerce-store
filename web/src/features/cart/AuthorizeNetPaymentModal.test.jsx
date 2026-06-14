@@ -4,7 +4,8 @@ import AuthorizeNetPaymentModal from './AuthorizeNetPaymentModal';
 
 const defaultProps = {
   orderId: 42,
-  iframeUrl: 'https://test.authorize.net/payment/payment?token=abc',
+  token: 'tok_abc',
+  paymentFormUrl: 'https://test.authorize.net/payment/payment',
   amount: 41.14,
   onSuccess: vi.fn(),
   onFailure: vi.fn(),
@@ -16,8 +17,13 @@ function postMessage(data) {
 }
 
 describe('AuthorizeNetPaymentModal', () => {
+  let submitSpy;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    // jsdom doesn't implement form submission; spy so the auto-submit doesn't throw
+    // and we can assert the token is POSTed.
+    submitSpy = vi.spyOn(HTMLFormElement.prototype, 'submit').mockImplementation(() => {});
   });
 
   it('renders the modal with order total', () => {
@@ -26,11 +32,18 @@ describe('AuthorizeNetPaymentModal', () => {
     expect(screen.getByText(/\$41\.14/i)).toBeInTheDocument();
   });
 
-  it('renders an iframe with the provided iframeUrl', () => {
+  it('POSTs the token to the payment form URL, targeting the iframe', () => {
     render(<AuthorizeNetPaymentModal {...defaultProps} />);
     const iframe = document.querySelector('iframe');
     expect(iframe).toBeTruthy();
-    expect(iframe.src).toBe(defaultProps.iframeUrl);
+    const form = document.querySelector('form');
+    expect(form).toBeTruthy();
+    expect(form.getAttribute('action')).toBe(defaultProps.paymentFormUrl);
+    expect(form.getAttribute('method')).toBe('post');
+    expect(form.getAttribute('target')).toBe(iframe.getAttribute('name'));
+    const tokenInput = form.querySelector('input[name="token"]');
+    expect(tokenInput.value).toBe(defaultProps.token);
+    expect(submitSpy).toHaveBeenCalled();
   });
 
   it('cleans up the message listener on unmount', () => {
