@@ -1,4 +1,6 @@
-import { get, put } from './api';
+import { createSettingsApi } from './createSettingsApi';
 
-export const getOrderingConstraints = () => get('/ordering-constraints');
-export const updateOrderingConstraints = (data) => put('/ordering-constraints', data);
+const api = createSettingsApi('/ordering-constraints');
+
+export const getOrderingConstraints = () => api.get();
+export const updateOrderingConstraints = (data) => api.update(data);

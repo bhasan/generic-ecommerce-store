@@ -1,4 +1,6 @@
-import { get, put } from './api';
+import { createSettingsApi } from './createSettingsApi';
 
-export const getStoreSettings = () => get('/store-settings');
-export const updateStoreSettings = (data) => put('/store-settings', data);
+const api = createSettingsApi('/store-settings');
+
+export const getStoreSettings = () => api.get();
+export const updateStoreSettings = (data) => api.update(data);

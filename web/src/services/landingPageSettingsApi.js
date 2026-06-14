@@ -1,4 +1,6 @@
-import { get, put } from './api';
+import { createSettingsApi } from './createSettingsApi';
 
-export const getLandingPageSettings = () => get('/landing-page-settings');
-export const updateLandingPageSettings = (data) => put('/landing-page-settings', data);
+const api = createSettingsApi('/landing-page-settings');
+
+export const getLandingPageSettings = () => api.get();
+export const updateLandingPageSettings = (data) => api.update(data);
