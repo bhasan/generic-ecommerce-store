@@ -78,13 +78,14 @@ describe('AuthorizeNetPaymentModal', () => {
     expect(defaultProps.onFailure).toHaveBeenCalledWith('Declined');
   });
 
-  it('resizes the iframe to a fractional height, rounded up with a buffer to avoid a sub-pixel scrollbar', () => {
+  it('renders the iframe to fill its container (single internal scrollbar, no resize-driven height)', () => {
     render(<AuthorizeNetPaymentModal {...defaultProps} />);
-    act(() => {
-      postMessage('action=resizeWindow&width=600&height=900.141');
-    });
     const iframe = document.querySelector('iframe');
-    // ceil(900.141) + 4px buffer
-    expect(iframe.height).toBe('905');
+    expect(iframe.getAttribute('height')).toBe('100%');
+    // resizeWindow messages must not throw or change the iframe sizing
+    act(() => {
+      postMessage('action=resizeWindow&width=600&height=900');
+    });
+    expect(iframe.getAttribute('height')).toBe('100%');
   });
 });

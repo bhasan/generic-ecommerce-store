@@ -6,7 +6,6 @@ const IFRAME_NAME = 'authnet-payment-frame';
 export default function AuthorizeNetPaymentModal({ orderId, token, paymentFormUrl, amount, onSuccess, onFailure, onClose }) {
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState('');
-  const [iframeHeight, setIframeHeight] = useState(500);
   const onSuccessRef = useRef(onSuccess);
   const onFailureRef = useRef(onFailure);
   const formRef = useRef(null);
@@ -27,15 +26,10 @@ export default function AuthorizeNetPaymentModal({ orderId, token, paymentFormUr
       const params = new URLSearchParams(querystr);
       const action = params.get('action');
 
-      if (action === 'resizeWindow') {
-        // Accept Hosted grows past its initial height on validation errors.
-        // The reported height can be fractional (e.g. 725.141); round up and add a
-        // small buffer so the iframe is never a sub-pixel too short — otherwise it
-        // shows its own scrollbar on top of the modal body's (double scrollbars).
-        const height = parseFloat(params.get('height'));
-        if (!Number.isNaN(height)) setIframeHeight(Math.max(Math.ceil(height) + 4, 400));
-        return;
-      }
+      // Note: Accept Hosted also emits a `resizeWindow` action. We intentionally
+      // ignore it — the iframe fills a fixed-height modal body and scrolls its own
+      // content, so there's a single scrollbar (the form's) rather than resizing the
+      // iframe element inside a separately-scrolling container (which caused two).
 
       if (action === 'cancel') {
         onFailureRef.current('Payment cancelled');
@@ -121,8 +115,8 @@ export default function AuthorizeNetPaymentModal({ orderId, token, paymentFormUr
                 name={IFRAME_NAME}
                 title="Secure Card Payment"
                 width="100%"
-                height={iframeHeight}
-                style={{ border: 'none', overflow: 'hidden' }}
+                height="100%"
+                style={{ border: 'none' }}
               />
             </>
           )}
