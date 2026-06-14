@@ -1,16 +1,45 @@
+import { z } from 'zod';
 import prisma from '../config/database';
-import { AppError } from '../middleware/error.middleware';
+import { SettingsStore, parseOrThrow } from './settingsStore';
 import { normalizeZipCode, extractZipCodeFromFreeformAddress } from '../utils/address.util';
 
-export interface OrderingConstraints {
-  minimumDeliveryOrder: number;
-  minimumDeliveryOrderEnabled: boolean;
-  deliveryDisabled: boolean;
-  deliveryDisabledMessage: string;
-  deliveryRadiusMiles: number;
-  offlineZipFallbackEnabled: boolean;
-  offlineDeliveryZipCodes: string[];
-}
+const OrderingConstraintsSchema = z.object({
+  minimumDeliveryOrder: z
+    .number('Invalid ordering constraints: minimumDeliveryOrder must be a number')
+    .min(0, 'Invalid ordering constraints: minimumDeliveryOrder must be 0 or greater'),
+  minimumDeliveryOrderEnabled: z.boolean('Invalid ordering constraints: minimumDeliveryOrderEnabled must be a boolean'),
+  deliveryDisabled: z.boolean('Invalid ordering constraints: deliveryDisabled must be a boolean'),
+  deliveryDisabledMessage: z
+    .string('Invalid ordering constraints: deliveryDisabledMessage must be a string')
+    .max(300, 'Invalid ordering constraints: deliveryDisabledMessage cannot exceed 300 characters'),
+  deliveryRadiusMiles: z
+    .number('Invalid ordering constraints: deliveryRadiusMiles must be a number')
+    .gt(0, 'Invalid ordering constraints: deliveryRadiusMiles must be greater than 0')
+    .transform((v) => Number(v.toFixed(2))),
+  offlineZipFallbackEnabled: z.boolean('Invalid ordering constraints: offlineZipFallbackEnabled must be a boolean'),
+  offlineDeliveryZipCodes: z
+    .array(
+      z.string('Invalid ordering constraints: offlineDeliveryZipCodes entries must be strings'),
+      'Invalid ordering constraints: offlineDeliveryZipCodes must be an array',
+    )
+    .transform((entries, ctx) => {
+      const normalized: string[] = [];
+      for (const entry of entries) {
+        const normalizedZip = normalizeZipCode(entry);
+        if (!normalizedZip) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `Invalid ordering constraints: "${entry}" is not a valid ZIP code`,
+          });
+          return z.NEVER;
+        }
+        normalized.push(normalizedZip);
+      }
+      return Array.from(new Set(normalized)).sort();
+    }),
+});
+
+export type OrderingConstraints = z.infer<typeof OrderingConstraintsSchema>;
 
 const DEFAULT_ORDERING_CONSTRAINTS: OrderingConstraints = {
   minimumDeliveryOrder: 35,
@@ -21,6 +50,12 @@ const DEFAULT_ORDERING_CONSTRAINTS: OrderingConstraints = {
   offlineZipFallbackEnabled: true,
   offlineDeliveryZipCodes: [],
 };
+
+const store = new SettingsStore<OrderingConstraints>({
+  key: 'ordering_constraints',
+  schema: OrderingConstraintsSchema,
+  defaults: DEFAULT_ORDERING_CONSTRAINTS,
+});
 
 const OFFLINE_ZIPS_TTL_MS = 5 * 60 * 1000;
 
@@ -58,94 +93,13 @@ export class OrderingConstraintsService {
       return { ...DEFAULT_ORDERING_CONSTRAINTS, offlineDeliveryZipCodes: offlineZips };
     }
 
-    return this.normalize(row.value);
+    return parseOrThrow(OrderingConstraintsSchema, {
+      ...DEFAULT_ORDERING_CONSTRAINTS,
+      ...(row.value && typeof row.value === 'object' ? row.value : {}),
+    });
   }
 
   async updateOrderingConstraints(data: Partial<OrderingConstraints>): Promise<OrderingConstraints> {
-    const normalized = this.normalize(data);
-
-    const row = await prisma.uiSetting.upsert({
-      where: { key: 'ordering_constraints' },
-      update: { value: normalized as object },
-      create: { key: 'ordering_constraints', value: normalized as object },
-    });
-
-    return this.normalize(row.value);
-  }
-
-  private normalize(data: unknown): OrderingConstraints {
-    const raw = this.validate(data);
-    return {
-      minimumDeliveryOrder: raw.minimumDeliveryOrder,
-      minimumDeliveryOrderEnabled: raw.minimumDeliveryOrderEnabled,
-      deliveryDisabled: raw.deliveryDisabled,
-      deliveryDisabledMessage: raw.deliveryDisabledMessage,
-      deliveryRadiusMiles: raw.deliveryRadiusMiles,
-      offlineZipFallbackEnabled: raw.offlineZipFallbackEnabled,
-      offlineDeliveryZipCodes: raw.offlineDeliveryZipCodes,
-    };
-  }
-
-  private validate(data: unknown): OrderingConstraints {
-    const merged = {
-      ...DEFAULT_ORDERING_CONSTRAINTS,
-      ...((data && typeof data === 'object') ? data : {}),
-    } as Partial<OrderingConstraints>;
-
-    if (typeof merged.minimumDeliveryOrder !== 'number') {
-      throw new AppError('Invalid ordering constraints: minimumDeliveryOrder must be a number', 400);
-    }
-    if (merged.minimumDeliveryOrder < 0) {
-      throw new AppError('Invalid ordering constraints: minimumDeliveryOrder must be 0 or greater', 400);
-    }
-    if (typeof merged.minimumDeliveryOrderEnabled !== 'boolean') {
-      throw new AppError('Invalid ordering constraints: minimumDeliveryOrderEnabled must be a boolean', 400);
-    }
-    if (typeof merged.deliveryDisabled !== 'boolean') {
-      throw new AppError('Invalid ordering constraints: deliveryDisabled must be a boolean', 400);
-    }
-    if (typeof merged.deliveryDisabledMessage !== 'string') {
-      throw new AppError('Invalid ordering constraints: deliveryDisabledMessage must be a string', 400);
-    }
-    if (merged.deliveryDisabledMessage.length > 300) {
-      throw new AppError('Invalid ordering constraints: deliveryDisabledMessage cannot exceed 300 characters', 400);
-    }
-    if (typeof merged.deliveryRadiusMiles !== 'number') {
-      throw new AppError('Invalid ordering constraints: deliveryRadiusMiles must be a number', 400);
-    }
-    if (merged.deliveryRadiusMiles <= 0) {
-      throw new AppError('Invalid ordering constraints: deliveryRadiusMiles must be greater than 0', 400);
-    }
-    if (typeof merged.offlineZipFallbackEnabled !== 'boolean') {
-      throw new AppError('Invalid ordering constraints: offlineZipFallbackEnabled must be a boolean', 400);
-    }
-
-    const rawZipCodes = merged.offlineDeliveryZipCodes;
-    if (!Array.isArray(rawZipCodes)) {
-      throw new AppError('Invalid ordering constraints: offlineDeliveryZipCodes must be an array', 400);
-    }
-
-    const normalizedZipCodes = rawZipCodes.map((entry) => {
-      if (typeof entry !== 'string') {
-        throw new AppError('Invalid ordering constraints: offlineDeliveryZipCodes entries must be strings', 400);
-      }
-
-      const normalizedZip = normalizeZipCode(entry);
-      if (!normalizedZip) {
-        throw new AppError(`Invalid ordering constraints: "${entry}" is not a valid ZIP code`, 400);
-      }
-
-      return normalizedZip;
-    });
-
-    return {
-      minimumDeliveryOrder: merged.minimumDeliveryOrder,
-      minimumDeliveryOrderEnabled: merged.minimumDeliveryOrderEnabled,
-      deliveryDisabled: merged.deliveryDisabled,
-      deliveryDisabledMessage: merged.deliveryDisabledMessage,
-      deliveryRadiusMiles: Number(merged.deliveryRadiusMiles.toFixed(2)),
-      offlineZipFallbackEnabled: merged.offlineZipFallbackEnabled,
-      offlineDeliveryZipCodes: Array.from(new Set(normalizedZipCodes)).sort(),
-    };
+    return store.write({ ...DEFAULT_ORDERING_CONSTRAINTS, ...data });
   }
 }

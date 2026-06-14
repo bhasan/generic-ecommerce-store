@@ -1,8 +1,9 @@
-import { get, put } from './api';
+import { createSettingsApi } from './createSettingsApi';
 
-export const getBranding = () => get('/branding');
+const api = createSettingsApi('/branding');
 
-export const updateBranding = (data) => put('/branding', data);
+export const getBranding = () => api.get();
+export const updateBranding = (data) => api.update(data);
 
 export const uploadFavicon = (file) => {
   const formData = new FormData();

@@ -1,17 +1,6 @@
-import { get, put } from './api';
+import { createSettingsApi } from './createSettingsApi';
 
-export const getOrderingConstraints = async () => {
-  try {
-    return await get('/ordering-constraints');
-  } catch (error) {
-    throw error;
-  }
-};
+const api = createSettingsApi('/ordering-constraints');
 
-export const updateOrderingConstraints = async (data) => {
-  try {
-    return await put('/ordering-constraints', data);
-  } catch (error) {
-    throw error;
-  }
-};
+export const getOrderingConstraints = () => api.get();
+export const updateOrderingConstraints = (data) => api.update(data);

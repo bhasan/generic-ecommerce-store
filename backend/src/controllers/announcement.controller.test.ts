@@ -29,17 +29,13 @@ const createResponse = () => ({
 describe('announcement controller logging', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('logs invalid create request', async () => {
+  it('returns 400 on invalid create request', async () => {
     const controller = new AnnouncementController();
     const req: any = { body: {}, user: { userId: 1 }, requestId: 'req-1' };
     const res = createResponse();
 
-    await controller.createAnnouncement(req, res as any, vi.fn());
+    await controller.createAnnouncement(req, res as any);
 
-    expect(logger.warn).toHaveBeenCalledWith('Announcement create validation failed', expect.objectContaining({
-      actorUserId: 1,
-      reason: 'Message is required',
-    }));
     expect(res.status).toHaveBeenCalledWith(400);
   });
 

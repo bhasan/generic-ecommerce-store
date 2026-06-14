@@ -1,29 +1,33 @@
-import prisma from '../config/database';
+import { z } from 'zod';
+import { SettingsStore } from './settingsStore';
 
-export interface ColorTokens {
-  primary: string;
-  primaryDark?: string;
-  primaryLight?: string;
-  primaryHover?: string;
-  primaryActive?: string;
-  primaryRgb?: string;
-  secondary: string;
-  secondaryDark?: string;
-  secondaryLight?: string;
-  secondaryHover?: string;
-  secondaryActive?: string;
-  secondaryRgb?: string;
-}
+const ColorTokensSchema = z.object({
+  primary: z.string(),
+  primaryDark: z.string().optional(),
+  primaryLight: z.string().optional(),
+  primaryHover: z.string().optional(),
+  primaryActive: z.string().optional(),
+  primaryRgb: z.string().optional(),
+  secondary: z.string(),
+  secondaryDark: z.string().optional(),
+  secondaryLight: z.string().optional(),
+  secondaryHover: z.string().optional(),
+  secondaryActive: z.string().optional(),
+  secondaryRgb: z.string().optional(),
+});
 
-export interface BrandingSettings {
-  storeName: string;
-  tagline: string;
-  logoUrl: string;
-  heroImageUrl: string;
-  faviconUrls: { '16': string; '32': string; '180': string };
-  palette: string;
-  customColors: ColorTokens | null;
-}
+const BrandingSettingsSchema = z.object({
+  storeName: z.string(),
+  tagline: z.string(),
+  logoUrl: z.string(),
+  heroImageUrl: z.string(),
+  faviconUrls: z.object({ '16': z.string(), '32': z.string(), '180': z.string() }),
+  palette: z.string(),
+  customColors: ColorTokensSchema.nullable(),
+});
+
+export type ColorTokens = z.infer<typeof ColorTokensSchema>;
+export type BrandingSettings = z.infer<typeof BrandingSettingsSchema>;
 
 const DEFAULT_BRANDING: BrandingSettings = {
   storeName: '',
@@ -35,15 +39,19 @@ const DEFAULT_BRANDING: BrandingSettings = {
   customColors: null,
 };
 
+const store = new SettingsStore<BrandingSettings>({
+  key: 'branding',
+  schema: BrandingSettingsSchema,
+  defaults: DEFAULT_BRANDING,
+});
+
 export class BrandingService {
   async getBranding(): Promise<BrandingSettings> {
-    const row = await prisma.uiSetting.findUnique({ where: { key: 'branding' } });
-    if (!row) return { ...DEFAULT_BRANDING, faviconUrls: { ...DEFAULT_BRANDING.faviconUrls } };
-    return { ...DEFAULT_BRANDING, ...(row.value as Partial<BrandingSettings>) };
+    return store.read();
   }
 
   async updateBranding(data: Partial<BrandingSettings>): Promise<BrandingSettings> {
-    const current = await this.getBranding();
+    const current = await store.read();
     const merged: BrandingSettings = { ...current, ...data };
 
     if (merged.customColors) {
@@ -58,13 +66,7 @@ export class BrandingService {
       }
     }
 
-    const row = await prisma.uiSetting.upsert({
-      where: { key: 'branding' },
-      update: { value: merged as object },
-      create: { key: 'branding', value: merged as object },
-    });
-
-    return { ...DEFAULT_BRANDING, ...(row.value as Partial<BrandingSettings>) };
+    return store.write(merged);
   }
 
   async generateCssBlock(): Promise<string> {

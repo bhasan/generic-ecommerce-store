@@ -31,6 +31,9 @@ export default defineConfig({
   },
   server: {
     port: 5843,
+    // Allow HTTPS dev tunnels (e.g. cloudflared) so Authorize.Net card payments,
+    // which require an https:// communicator origin, can be tested locally.
+    allowedHosts: ['localhost', '.trycloudflare.com', '.ngrok-free.app', '.ngrok.io'],
     proxy: {
       '/api': {
         target: devProxyTarget,

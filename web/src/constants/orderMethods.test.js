@@ -15,14 +15,15 @@ describe('orderMethods constants', () => {
   });
 
   describe('PaymentMethod', () => {
-    it('contains EXTERNAL, CREDIT, and IN_STORE', () => {
+    it('contains EXTERNAL, CREDIT, IN_STORE, and CC', () => {
       expect(PaymentMethod.EXTERNAL).toBe('EXTERNAL');
       expect(PaymentMethod.CREDIT).toBe('CREDIT');
       expect(PaymentMethod.IN_STORE).toBe('IN_STORE');
+      expect(PaymentMethod.CC).toBe('CC');
     });
 
     it('covers all expected payment method values', () => {
-      expect(Object.values(PaymentMethod)).toEqual(['EXTERNAL', 'CREDIT', 'IN_STORE']);
+      expect(Object.values(PaymentMethod)).toEqual(['EXTERNAL', 'CREDIT', 'IN_STORE', 'CC']);
     });
   });
 });

@@ -145,3 +145,11 @@ export const notifyArrival = async (id, parkingSpot) => {
   return response.order || response;
 };
 
+export const getPaymentToken = async (orderId) => {
+  return post(`/orders/${orderId}/payment/token`, {});
+};
+
+export const verifyPayment = async (orderId, transId) => {
+  return post(`/orders/${orderId}/payment/verify`, { transId });
+};
+

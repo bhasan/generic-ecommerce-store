@@ -29,6 +29,8 @@ const orderService = vi.hoisted(() => ({
   deleteOrder: vi.fn(),
   printOrderReceipt: vi.fn(),
   customerArrive: vi.fn(),
+  getPaymentToken: vi.fn(),
+  confirmCardPayment: vi.fn(),
 }));
 const deliveryEligibilityService = vi.hoisted(() => ({
   checkDeliveryEligibility: vi.fn(),
@@ -482,6 +484,96 @@ describe('order routes integration', () => {
       expect(response.status).toBe(400);
       expect(body.errors[0].msg).toBe('Parking spot details are required');
       expect(orderService.customerArrive).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /:id/payment/token', () => {
+    it('returns 401 without an auth token', async () => {
+      const { response } = await requestJson(server, '/api/orders/42/payment/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      expect(response.status).toBe(401);
+      expect(orderService.getPaymentToken).not.toHaveBeenCalled();
+    });
+
+    it('returns token and iframeUrl for the order owner', async () => {
+      verifyToken.mockReturnValue({ userId: 7, username: 'customer-one', roles: ['CUSTOMER'] });
+      orderService.getPaymentToken.mockResolvedValue({
+        token: 'tok_sandbox',
+        iframeUrl: 'https://test.authorize.net/payment/payment?token=tok_sandbox',
+      });
+
+      const { response, body } = await requestJson(server, '/api/orders/42/payment/token', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer customer-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({
+        token: 'tok_sandbox',
+        iframeUrl: 'https://test.authorize.net/payment/payment?token=tok_sandbox',
+      });
+      expect(orderService.getPaymentToken).toHaveBeenCalledWith(42, 7);
+    });
+
+    it('forwards a 404 when the service throws order-not-found', async () => {
+      verifyToken.mockReturnValue({ userId: 7, username: 'customer-one', roles: ['CUSTOMER'] });
+      orderService.getPaymentToken.mockRejectedValue(new AppError('Order not found', 404));
+
+      const { response, body } = await requestJson(server, '/api/orders/99/payment/token', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer customer-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      expect(response.status).toBe(404);
+      expect(body.error.message).toBe('Order not found');
+    });
+  });
+
+  describe('POST /:id/payment/verify', () => {
+    it('returns 401 without an auth token', async () => {
+      const { response } = await requestJson(server, '/api/orders/42/payment/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transId: 'txn_abc' }),
+      });
+      expect(response.status).toBe(401);
+      expect(orderService.confirmCardPayment).not.toHaveBeenCalled();
+    });
+
+    it('confirms a card payment and returns the updated order', async () => {
+      verifyToken.mockReturnValue({ userId: 7, username: 'customer-one', roles: ['CUSTOMER'] });
+      orderService.confirmCardPayment.mockResolvedValue({ id: 42, status: 'PENDING' });
+
+      const { response, body } = await requestJson(server, '/api/orders/42/payment/verify', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer customer-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transId: 'txn_abc' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(body).toEqual({ message: 'Payment confirmed', order: { id: 42, status: 'PENDING' } });
+      expect(orderService.confirmCardPayment).toHaveBeenCalledWith(42, 7, 'txn_abc');
+    });
+
+    it('forwards a 400 when the transactionId is a replay', async () => {
+      verifyToken.mockReturnValue({ userId: 7, username: 'customer-one', roles: ['CUSTOMER'] });
+      orderService.confirmCardPayment.mockRejectedValue(
+        new AppError('This payment has already been applied to another order', 400)
+      );
+
+      const { response, body } = await requestJson(server, '/api/orders/42/payment/verify', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer customer-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transId: 'txn_dup' }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(body.error.message).toBe('This payment has already been applied to another order');
     });
   });
 });

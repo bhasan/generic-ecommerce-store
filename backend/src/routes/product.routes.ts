@@ -3,36 +3,15 @@ import { body } from 'express-validator';
 import productController from '../controllers/product.controller';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware';
 import { authorizeManagement, authorizeAdmin } from '../middleware/role.middleware';
+import { asyncHandler } from '../utils/asyncHandler.util';
+import { quantityDiscountValidators } from '../validators/quantityDiscount.validator';
 
 const router = Router();
 
-/**
- * @route   GET /api/products
- * @desc    Get all products
- * @access  Public (but filtered based on auth)
- */
-router.get('/', optionalAuthenticate, productController.getAllProducts);
+router.get('/', optionalAuthenticate, asyncHandler(productController.getAllProducts));
+router.get('/export-zip', authenticate, authorizeManagement, asyncHandler(productController.exportZip));
+router.get('/:id', optionalAuthenticate, asyncHandler(productController.getProductById));
 
-/**
- * @route   GET /api/products/export-zip
- * @desc    Export all products + images as a ZIP archive
- * @access  Private (Management/Admin only)
- * NOTE: Must be registered before /:id to avoid route capture.
- */
-router.get('/export-zip', authenticate, authorizeManagement, productController.exportZip);
-
-/**
- * @route   GET /api/products/:id
- * @desc    Get product by ID
- * @access  Public (but filtered based on auth)
- */
-router.get('/:id', optionalAuthenticate, productController.getProductById);
-
-/**
- * @route   POST /api/products
- * @desc    Create a new product
- * @access  Private (Management/Admin only)
- */
 router.post(
   '/',
   authenticate,
@@ -51,27 +30,11 @@ router.post(
     body('allowedQuantitiesOverride').optional().isArray(),
     body('allowedQuantitiesOverride.*').optional().isFloat(),
     body('quantityDiscountsOverride').optional().isArray(),
-    body('quantityDiscountsOverride.*.quantity').optional().isFloat({ min: 0.0000001 }),
-    body('quantityDiscountsOverride.*.type').optional().isIn(['percent', 'fixed']),
-    body('quantityDiscountsOverride.*.value').optional().isFloat({ min: 0 }),
-    body('quantityDiscountsOverride').optional().custom((value) => {
-      if (!Array.isArray(value)) return true;
-      value.forEach((rule) => {
-        if (rule?.type === 'percent' && typeof rule.value === 'number' && rule.value > 100) {
-          throw new Error('Percent discounts cannot exceed 100');
-        }
-      });
-      return true;
-    })
+    ...quantityDiscountValidators('quantityDiscountsOverride'),
   ],
-  productController.createProduct
+  asyncHandler(productController.createProduct)
 );
 
-/**
- * @route   PUT /api/products/:id
- * @desc    Update a product
- * @access  Private (Management/Admin only)
- */
 router.put(
   '/:id',
   authenticate,
@@ -90,27 +53,11 @@ router.put(
     body('allowedQuantitiesOverride').optional().isArray(),
     body('allowedQuantitiesOverride.*').optional().isFloat(),
     body('quantityDiscountsOverride').optional().isArray(),
-    body('quantityDiscountsOverride.*.quantity').optional().isFloat({ min: 0.0000001 }),
-    body('quantityDiscountsOverride.*.type').optional().isIn(['percent', 'fixed']),
-    body('quantityDiscountsOverride.*.value').optional().isFloat({ min: 0 }),
-    body('quantityDiscountsOverride').optional().custom((value) => {
-      if (!Array.isArray(value)) return true;
-      value.forEach((rule) => {
-        if (rule?.type === 'percent' && typeof rule.value === 'number' && rule.value > 100) {
-          throw new Error('Percent discounts cannot exceed 100');
-        }
-      });
-      return true;
-    })
+    ...quantityDiscountValidators('quantityDiscountsOverride'),
   ],
-  productController.updateProduct
+  asyncHandler(productController.updateProduct)
 );
 
-/**
- * @route   DELETE /api/products/:id
- * @desc    Delete a product
- * @access  Private (Admin only)
- */
-router.delete('/:id', authenticate, authorizeAdmin, productController.deleteProduct);
+router.delete('/:id', authenticate, authorizeAdmin, asyncHandler(productController.deleteProduct));
 
 export default router;

@@ -4,8 +4,10 @@ import { Package, RefreshCw, ChevronRight, ShoppingBag, Clock } from 'lucide-rea
 import HeaderDivider from '../../components/common/HeaderDivider';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import AuthorizeNetPaymentModal from '../cart/AuthorizeNetPaymentModal';
+import * as ordersApi from '../../services/ordersApi';
 
-const ACTIVE_STATUSES = ['PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'READY_FOR_PICKUP', 'ARRIVED'];
+const ACTIVE_STATUSES = ['PENDING_PAYMENT', 'PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'READY_FOR_PICKUP', 'ARRIVED'];
 
 // Stepper definitions per delivery method
 const DELIVERY_STEPS = [
@@ -95,6 +97,8 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
   const { notifyArrival } = useApp();
   const [activeTab, setActiveTab] = useState('active');
   const [arrivingOrderId, setArrivingOrderId] = useState(null);
+  const [pendingPaymentModal, setPendingPaymentModal] = useState(null); // { orderId, iframeUrl, amount }
+  const [cancellingOrderId, setCancellingOrderId] = useState(null);
 
   const handleArriveClick = async (orderId) => {
     setArrivingOrderId(orderId);
@@ -107,11 +111,33 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
     }
   };
 
+  const handleCompletePayment = async (order) => {
+    try {
+      const { token, iframeUrl } = await ordersApi.getPaymentToken(order.id);
+      setPendingPaymentModal({ orderId: order.id, iframeUrl: iframeUrl || `https://test.authorize.net/payment/payment?token=${token}`, amount: order.total });
+    } catch {
+      // Error notification handled globally
+    }
+  };
+
+  const handleCancelPendingOrder = async (orderId) => {
+    setCancellingOrderId(orderId);
+    try {
+      await ordersApi.deleteOrder(orderId);
+      loadOrders();
+    } catch {
+      // Error notification handled globally
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
+
   const myOrders = [...orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const activeOrders = myOrders.filter((o) => ACTIVE_STATUSES.includes(o.status));
   const displayedOrders = activeTab === 'active' ? activeOrders : myOrders;
 
   return (
+    <>
     <div className="customer-orders-page">
       <div className="orders-header section-header-surface">
         <div>
@@ -175,6 +201,7 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
           {displayedOrders.map((order) => {
             const isPickup = order.deliveryMethod === 'PICKUP' || order.deliveryMethod === 'CURBSIDE';
             const isRejected = order.status === 'NOT_FULFILLING';
+            const isPendingPayment = order.status === 'PENDING_PAYMENT';
             const itemCount = order.items?.filter((i) => !i.voided).length ?? 0;
             const itemsSummary = getItemsSummary(order, products);
 
@@ -194,6 +221,11 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
                   <div className="order-rejected-banner">
                     Order could not be fulfilled — invalid payment
                   </div>
+                ) : isPendingPayment ? (
+                  <div className="order-pending-payment-banner">
+                    <Clock size={16} className="banner-icon" />
+                    <span>Awaiting payment — your order is reserved but not yet confirmed.</span>
+                  </div>
                 ) : (
                   <StatusStepper status={order.status} isPickup={isPickup} />
                 )}
@@ -206,6 +238,26 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
                 )}
 
                 <p className="order-items-summary">{itemsSummary}</p>
+
+                {isPendingPayment && (
+                  <div className="customer-order-actions">
+                    <button
+                      type="button"
+                      className="btn-complete-payment"
+                      onClick={() => handleCompletePayment(order)}
+                    >
+                      Complete Payment
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-cancel-order"
+                      onClick={() => handleCancelPendingOrder(order.id)}
+                      disabled={cancellingOrderId === order.id}
+                    >
+                      {cancellingOrderId === order.id ? 'Cancelling…' : 'Cancel Order'}
+                    </button>
+                  </div>
+                )}
 
                 {!isRejected && order.deliveryMethod === 'CURBSIDE' && order.status === 'READY_FOR_PICKUP' && (
                   <div className="customer-order-actions">
@@ -238,6 +290,21 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
         </div>
       )}
     </div>
+
+      {pendingPaymentModal && (
+        <AuthorizeNetPaymentModal
+          orderId={pendingPaymentModal.orderId}
+          iframeUrl={pendingPaymentModal.iframeUrl}
+          amount={pendingPaymentModal.amount}
+          onSuccess={() => {
+            setPendingPaymentModal(null);
+            loadOrders();
+          }}
+          onFailure={() => setPendingPaymentModal(null)}
+          onClose={() => setPendingPaymentModal(null)}
+        />
+      )}
+    </>
   );
 }
 

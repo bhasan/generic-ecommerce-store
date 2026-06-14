@@ -1,17 +1,6 @@
-import { get, put } from './api';
+import { createSettingsApi } from './createSettingsApi';
 
-export const getStoreSettings = async () => {
-  try {
-    return await get('/store-settings');
-  } catch (error) {
-    throw error;
-  }
-};
+const api = createSettingsApi('/store-settings');
 
-export const updateStoreSettings = async (data) => {
-  try {
-    return await put('/store-settings', data);
-  } catch (error) {
-    throw error;
-  }
-};
+export const getStoreSettings = () => api.get();
+export const updateStoreSettings = (data) => api.update(data);
