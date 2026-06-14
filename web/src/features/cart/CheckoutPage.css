@@ -850,8 +850,28 @@
   padding: 0;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
+  /* `scroll` (not `auto`) keeps a draggable track visible. We intentionally do NOT
+     set the standard `scrollbar-width`/`scrollbar-color` here: when those are set,
+     Chromium ignores the ::-webkit-scrollbar styling below and falls back to a thin
+     OS overlay scrollbar that auto-hides. With only ::-webkit-scrollbar defined,
+     Chromium renders a classic, always-visible scrollbar that reserves layout space
+     so users can drag it. Firefox shows its own (non-overlay) scrollbar by default. */
+  overflow-y: scroll;
   overflow-x: hidden;
+}
+
+.send-payment-modal .modal-body::-webkit-scrollbar {
+  width: 14px;
+}
+
+.send-payment-modal .modal-body::-webkit-scrollbar-track {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.08));
+}
+
+.send-payment-modal .modal-body::-webkit-scrollbar-thumb {
+  background: var(--color-primary, #6b46c1);
+  border-radius: 6px;
+  border: 3px solid var(--bg-dashboard-sidebar, #fff);
 }
 
 .send-payment-modal .modal-body iframe {
