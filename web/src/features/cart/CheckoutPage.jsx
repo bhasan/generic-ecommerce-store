@@ -972,7 +972,7 @@ function CheckoutPage() {
               <span>Order #{paymentRetryOrder.orderId}</span>
               <span>Total: ${paymentRetryOrder.amount?.toFixed(2)}</span>
             </div>
-            <div>
+            <div className="payment-retry-actions">
               <button
                 className="btn-primary"
                 onClick={async () => {
