@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
+import { encrypt, decrypt } from '../utils/crypto.util';
 
 export interface PaymentMethodSettings {
   enabled: boolean;
@@ -28,6 +29,15 @@ const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
 };
 
 export class PaymentSettingsService {
+  private readonly encryptionKey: string;
+
+  constructor(encryptionKey?: string) {
+    this.encryptionKey = encryptionKey ?? process.env.PAYMENT_ENCRYPTION_KEY ?? '';
+    if (!this.encryptionKey) {
+      throw new Error('PAYMENT_ENCRYPTION_KEY must be set');
+    }
+  }
+
   async getPaymentSettings(): Promise<PaymentSettings> {
     const row = await prisma.uiSetting.findUnique({
       where: { key: 'payment_settings' },
@@ -38,12 +48,15 @@ export class PaymentSettingsService {
     }
 
     const stored = row.value as unknown as Partial<PaymentSettings>;
+    const cc = { ...DEFAULT_PAYMENT_SETTINGS.cc_payment, ...(stored.cc_payment || {}) };
+
     return {
       ...DEFAULT_PAYMENT_SETTINGS,
       ...stored,
       cc_payment: {
-        ...DEFAULT_PAYMENT_SETTINGS.cc_payment,
-        ...(stored.cc_payment || {}),
+        ...cc,
+        loginId: cc.loginId ? decrypt(cc.loginId, this.encryptionKey) : '',
+        transactionKey: cc.transactionKey ? decrypt(cc.transactionKey, this.encryptionKey) : '',
       },
     };
   }
@@ -51,13 +64,22 @@ export class PaymentSettingsService {
   async updatePaymentSettings(data: PaymentSettings): Promise<PaymentSettings> {
     this.validate(data);
 
-    const row = await prisma.uiSetting.upsert({
+    const toStore: PaymentSettings = {
+      ...data,
+      cc_payment: {
+        ...data.cc_payment,
+        loginId: data.cc_payment.loginId ? encrypt(data.cc_payment.loginId, this.encryptionKey) : '',
+        transactionKey: data.cc_payment.transactionKey ? encrypt(data.cc_payment.transactionKey, this.encryptionKey) : '',
+      },
+    };
+
+    await prisma.uiSetting.upsert({
       where: { key: 'payment_settings' },
-      update: { value: data as object },
-      create: { key: 'payment_settings', value: data as object },
+      update: { value: toStore as object },
+      create: { key: 'payment_settings', value: toStore as object },
     });
 
-    return row.value as unknown as PaymentSettings;
+    return data;
   }
 
   private validate(data: PaymentSettings): void {
