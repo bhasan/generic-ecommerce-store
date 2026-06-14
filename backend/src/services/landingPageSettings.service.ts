@@ -1,73 +1,43 @@
-import prisma from '../config/database';
-import { AppError } from '../middleware/error.middleware';
+import { z } from 'zod';
+import { SettingsStore } from './settingsStore';
 
-export interface Promotion {
-  url: string;
-  description: string;
-}
+const PromotionSchema = z.object({
+  url: z.string().trim().min(1, 'Invalid landing page settings: each promotion must have a non-empty url'),
+  description: z.string('Invalid landing page settings: each promotion description must be a string'),
+});
 
-export interface LandingPageSettings {
-  featuredProductIds: number[];
-  promotions: Promotion[];
-}
+const LandingPageSettingsSchema = z.object({
+  featuredProductIds: z
+    .array(
+      z.number().int().positive('Invalid landing page settings: featuredProductIds must be positive integers'),
+      { error: 'Invalid landing page settings: featuredProductIds must be an array' }
+    )
+    .max(12, 'Invalid landing page settings: cannot select more than 12 featured products'),
+  promotions: z
+    .array(PromotionSchema, { error: 'Invalid landing page settings: promotions must be an array' })
+    .max(20, 'Invalid landing page settings: cannot have more than 20 promotion slides'),
+});
+
+export type Promotion = z.infer<typeof PromotionSchema>;
+export type LandingPageSettings = z.infer<typeof LandingPageSettingsSchema>;
 
 const DEFAULT_LANDING_PAGE_SETTINGS: LandingPageSettings = {
   featuredProductIds: [],
   promotions: [],
 };
 
+const store = new SettingsStore<LandingPageSettings>({
+  key: 'landing_page_settings',
+  schema: LandingPageSettingsSchema,
+  defaults: DEFAULT_LANDING_PAGE_SETTINGS,
+});
+
 export class LandingPageSettingsService {
   async getLandingPageSettings(): Promise<LandingPageSettings> {
-    const row = await prisma.uiSetting.findUnique({
-      where: { key: 'landing_page_settings' },
-    });
-
-    if (!row) {
-      return DEFAULT_LANDING_PAGE_SETTINGS;
-    }
-
-    const saved = row.value as unknown as Partial<LandingPageSettings>;
-    return {
-      featuredProductIds: saved.featuredProductIds ?? [],
-      promotions: saved.promotions ?? [],
-    };
+    return store.read();
   }
 
   async updateLandingPageSettings(data: LandingPageSettings): Promise<LandingPageSettings> {
-    this.validate(data);
-
-    const row = await prisma.uiSetting.upsert({
-      where: { key: 'landing_page_settings' },
-      update: { value: data as object },
-      create: { key: 'landing_page_settings', value: data as object },
-    });
-
-    return row.value as unknown as LandingPageSettings;
-  }
-
-  private validate(data: LandingPageSettings): void {
-    if (!data || !Array.isArray(data.featuredProductIds)) {
-      throw new AppError('Invalid landing page settings: featuredProductIds must be an array', 400);
-    }
-    if (data.featuredProductIds.length > 12) {
-      throw new AppError('Invalid landing page settings: cannot select more than 12 featured products', 400);
-    }
-    if (!data.featuredProductIds.every(id => Number.isInteger(id) && id > 0)) {
-      throw new AppError('Invalid landing page settings: featuredProductIds must be positive integers', 400);
-    }
-    if (!Array.isArray(data.promotions)) {
-      throw new AppError('Invalid landing page settings: promotions must be an array', 400);
-    }
-    if (data.promotions.length > 20) {
-      throw new AppError('Invalid landing page settings: cannot have more than 20 promotion slides', 400);
-    }
-    for (const promo of data.promotions) {
-      if (!promo || typeof promo.url !== 'string' || !promo.url.trim()) {
-        throw new AppError('Invalid landing page settings: each promotion must have a non-empty url', 400);
-      }
-      if (typeof promo.description !== 'string') {
-        throw new AppError('Invalid landing page settings: each promotion description must be a string', 400);
-      }
-    }
+    return store.write(data);
   }
 }
