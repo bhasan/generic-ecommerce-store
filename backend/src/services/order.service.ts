@@ -6,18 +6,14 @@ import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
 import { StructuredDeliveryAddress } from '../utils/address.util';
-import { parseCurbsideAddress } from '../utils/curbside';
 import { getPaymentStrategy } from './payments/registry';
-import { PaymentMethodEnum } from '../../generated/prisma';
-import { DeliveryEligibilityService } from './deliveryEligibility.service';
-import { OrderingConstraintsService } from './orderingConstraints.service';
+import { getFulfillmentStrategy } from './fulfillment/registry';
+import { PaymentMethodEnum, DeliveryMethodEnum } from '../../generated/prisma';
 import { notificationEventsService } from './notificationEvents.service';
 import { thermalPrinterService } from './thermalPrinter.service';
 import { PaymentSettingsService } from './paymentSettings.service';
 import { authorizeNetService } from './authorizenet.service';
 
-const orderingConstraintsService = new OrderingConstraintsService();
-const deliveryEligibilityService = new DeliveryEligibilityService();
 const paymentSettingsService = new PaymentSettingsService();
 
 // Resolves the Authorize.net communicator.html callback URL from server config only.
@@ -509,6 +505,7 @@ export class OrderService {
     const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, paymentMethod } = data;
     const effectivePaymentMethod = (paymentMethod || PaymentMethod.EXTERNAL) as PaymentMethodEnum;
     const paymentStrategy = getPaymentStrategy(effectivePaymentMethod);
+    const fulfillmentStrategy = getFulfillmentStrategy(deliveryMethod as DeliveryMethodEnum);
 
     logger.info('Creating new order', {
       userId,
@@ -597,30 +594,7 @@ export class OrderService {
       };
     });
 
-      const orderingConstraints = await orderingConstraintsService.getOrderingConstraints();
-      const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = orderingConstraints;
-
-      let deliveryEligibility: Awaited<ReturnType<typeof deliveryEligibilityService.checkDeliveryEligibility>> | null = null;
-      if (deliveryMethod === DeliveryMethod.DELIVERY) {
-        if (!deliveryAddress) {
-          throw new AppError('Delivery address is required for delivery orders', 400);
-        }
-
-        if (minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
-          throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
-        }
-
-        deliveryEligibility = await deliveryEligibilityService.checkDeliveryEligibility(deliveryAddress);
-        if (!deliveryEligibility.deliverable) {
-          throw new AppError(
-            deliveryEligibility.message,
-            400,
-            deliveryEligibility.deliveryZoneStatus === 'OUT_OF_ZONE'
-              ? 'DELIVERY_OUT_OF_ZONE'
-              : 'DELIVERY_UNVERIFIED'
-          );
-        }
-      }
+      await fulfillmentStrategy.validate({ userId, deliveryAddress, subtotal });
 
       // Calculate tax and final total
       const tax = Number((subtotal * DEFAULT_TAX_RATE).toFixed(2));
@@ -644,18 +618,7 @@ export class OrderService {
             status: paymentStrategy.initialStatus(),
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
-            ...(deliveryEligibility ? {
-              deliveryAddress: deliveryEligibility.canonicalAddress,
-              deliveryZoneStatus: deliveryEligibility.deliveryZoneStatus,
-              deliveryEligibilitySource: deliveryEligibility.deliveryZoneSource,
-              deliveryDistanceMiles: deliveryEligibility.distanceMiles,
-              deliveryThresholdMiles: deliveryEligibility.thresholdMiles,
-              deliveryZoneCheckedAt: deliveryEligibility.checkedAt,
-            } : {}),
-            ...(deliveryMethod === DeliveryMethod.CURBSIDE && typeof deliveryAddress === 'string' ? {
-              deliveryAddress: deliveryAddress,
-              ...parseCurbsideAddress(deliveryAddress),
-            } : {}),
+            ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress, subtotal }),
             paymentHandle: cashAppUsername?.trim() || null,
           }
         });
@@ -691,17 +654,8 @@ export class OrderService {
           }
         }
 
-        if (deliveryMethod === DeliveryMethod.DELIVERY && deliveryEligibility?.canonicalAddress) {
-          await tx.user.update({
-            where: { id: userId },
-            data: {
-              address: deliveryEligibility.canonicalAddress,
-              deliveryZoneStatus: deliveryEligibility.deliveryZoneStatus,
-              deliveryZoneSource: deliveryEligibility.deliveryZoneSource,
-              deliveryZoneDistanceMiles: deliveryEligibility.distanceMiles,
-              deliveryZoneCheckedAt: deliveryEligibility.checkedAt,
-            }
-          });
+        if (fulfillmentStrategy.applyInTransaction) {
+          await fulfillmentStrategy.applyInTransaction(tx, newOrder.id, userId, { userId, deliveryAddress, subtotal });
         }
 
         await paymentStrategy.applyInTransaction(tx, newOrder.id, { userId, deliveryMethod, cashAppUsername, total });
