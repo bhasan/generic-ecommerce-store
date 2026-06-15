@@ -43,23 +43,29 @@ test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED'
     const managerPage = await managerCtx.newPage();
     await managerPage.goto('/orders');
 
-    // Staff kanban shows order id as "#55" (no padding); clicking the card opens the detail panel
-    await expect(managerPage.locator('.kanban-card-id', { hasText: `#${rawId}` })).toBeVisible({ timeout: 10_000 });
-    await managerPage.locator('.kanban-card-id', { hasText: `#${rawId}` }).click();
+    // Scope to MY card by its exact id badge — every kanban card carries its own inline
+    // quick-action buttons, so a board-wide .first() can act on the wrong order.
+    const card = managerPage.locator('.kanban-card').filter({
+      has: managerPage.locator('.kanban-card-id', { hasText: new RegExp(`^#${rawId}$`) }),
+    });
+    await expect(card).toBeVisible({ timeout: 10_000 });
 
     // PENDING → APPROVED: button label is "Approve (Payment Verified)"
-    await managerPage.getByRole('button', { name: /approve \(payment verified\)/i }).first().click();
+    await card.getByRole('button', { name: /approve \(payment verified\)/i }).click();
     // After APPROVED the next quick-action button switches to "Ready for Pickup"
-    await expect(managerPage.getByRole('button', { name: /ready for pickup/i }).first()).toBeVisible({ timeout: 8_000 });
+    await expect(card.getByRole('button', { name: /ready for pickup/i })).toBeVisible({ timeout: 8_000 });
 
     // APPROVED → READY_FOR_PICKUP
-    await managerPage.getByRole('button', { name: /ready for pickup/i }).first().click();
+    await card.getByRole('button', { name: /ready for pickup/i }).click();
     // After READY_FOR_PICKUP the next quick-action button switches to "Picked Up"
-    await expect(managerPage.getByRole('button', { name: /picked up/i }).first()).toBeVisible({ timeout: 8_000 });
+    await expect(card.getByRole('button', { name: /picked up/i })).toBeVisible({ timeout: 8_000 });
 
-    // READY → COMPLETED (PICKED_UP in the system)
-    await managerPage.getByRole('button', { name: /picked up/i }).first().click();
-    await expect(managerPage.getByText('Picked Up').first()).toBeVisible({ timeout: 8_000 });
+    // READY → COMPLETED (PICKED_UP): this transition pops a "Take Payment in Store"
+    // confirmation that must be accepted ("Paid") before the status actually changes.
+    await card.getByRole('button', { name: /picked up/i }).click();
+    await managerPage.getByRole('button', { name: 'Paid' }).click();
+    // PICKED_UP is terminal — the card no longer offers any quick-action button.
+    await expect(card.getByRole('button', { name: /picked up/i })).toHaveCount(0, { timeout: 8_000 });
 
     await managerCtx.close();
   });

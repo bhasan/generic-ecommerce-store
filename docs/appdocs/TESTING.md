@@ -12,10 +12,23 @@ how to run it, and the conventions to follow when adding tests.
 | `npm test` | Backend Vitest + Frontend Vitest (CI baseline) |
 | `npm run test:backend` | Backend Vitest only |
 | `npm run test:web` | Frontend Vitest only |
+| `npm --prefix backend run test:coverage` | Backend Vitest with coverage + threshold gate |
 | `npm run test:e2e` | Playwright e2e — real-backend suite (reseed + smoke + flows) + mocked checkout layer |
 | `npm run test:e2e:ui` | Playwright with interactive UI explorer |
 
 All commands run from the **workspace root** (`/smoke-station-delivery/`).
+
+### Continuous integration
+
+`.github/workflows/test.yml` gates every pull request (and pushes to `main`) with three jobs:
+
+- **backend** — `prisma generate` then `npm run test:coverage` (Vitest + coverage thresholds)
+- **frontend** — `npm test` (Vitest + jsdom)
+- **e2e** — boots the dev stack, applies migrations, runs the full Playwright suite, uploads the report
+
+Coverage thresholds live in `backend/vitest.config.ts` and act as a **regression ratchet**:
+the floors sit just below the current baseline (≈60% lines, 68% branches, 72% functions, with
+`generated/` and config excluded). Raise them as coverage improves; never lower them.
 
 ---
 
@@ -28,6 +41,9 @@ All commands run from the **workspace root** (`/smoke-station-delivery/`).
 ### What is tested
 
 - Service-layer logic in isolation: `order.service`, `credit.service`, `thermalPrinter.service`, etc.
+  - `credit.service.test.ts` covers the money-critical paths directly: add/remove/use/refund,
+    overdraw rejection, non-positive-amount guards, insufficient-balance, and the staff-username
+    annotation on the transaction ledger.
 - Strategy registries: `backend/src/services/payments/registry.test.ts`, `backend/src/services/fulfillment/registry.test.ts`
 - Route-level validators (where they have standalone unit coverage)
 
@@ -186,11 +202,35 @@ The route→role table lives in `e2e/helpers/routes.ts` (mirrors `web/src/App.js
 | `e2e/flows/order-lifecycle.spec.ts` | Customer places order; manager advances PENDING → APPROVED → READY → COMPLETED |
 | `e2e/flows/curbside-arrival.spec.ts` | CURBSIDE order → manager marks READY_FOR_PICKUP → customer clicks "I'm Here" → staff sees ARRIVED |
 | `e2e/flows/store-credit.spec.ts` | Manager grants credit to sarahjohnson → customer checks out with CREDIT payment |
+| `e2e/flows/driver-delivery.spec.ts` | Admin sets the in-zone ZIP → DELIVERY × CREDIT order → manager approves → staff dispatch + deliver via the delivery dashboard → driver RBAC boundary asserted (driver may only mark DELIVERED, only from READY_FOR_DELIVERY) |
 
 **Unique-marker rule:** every flow asserts against data it uniquely created in that run
 (order id from `.order-id-number`, unique vehicle make string, unique special-instructions
 marker). Never assert on list count or row position — flows share seeded accounts and the
 single reseed means prior orders from other flows are present in the DB.
+
+**Capture the order id from the network response, not the success page.** The success
+page pads the id (`#000094`) while every other screen shows it raw (`#94`), and parsing
+the padded text has proven brittle against seeded orders. Prefer
+`page.waitForResponse` on the `POST /api/orders` 201 and read `order.id`.
+
+**Scope kanban actions to a single card.** Each `.kanban-card` carries its own inline
+quick-action buttons, and the order-detail panel adds yet another set. A board-wide
+`getByRole('button', …).first()` will silently act on the wrong order. Filter the card by
+its exact id badge first, then click within it:
+
+```ts
+const card = page.locator('.kanban-card').filter({
+  has: page.locator('.kanban-card-id', { hasText: new RegExp(`^#${orderId}$`) }),
+});
+await card.getByRole('button', { name: /approve \(payment verified\)/i }).click();
+```
+
+> **Known gap (not a test bug):** delivery drivers can only set `DELIVERED`, and only from
+> `READY_FOR_DELIVERY`, but the dashboard's "mark delivered" button renders only on
+> `OUT_FOR_DELIVERY` cards — which drivers cannot produce. So a driver cannot complete a
+> delivery through the UI; the route-build + deliver path only works for staff. The flow
+> exercises the staff path and asserts the driver boundary at the API level.
 
 ### Mocked layer — `e2e/checkout.spec.ts`
 

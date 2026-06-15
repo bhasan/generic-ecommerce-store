@@ -1,0 +1,118 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend unit tests (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Tests mock the DB, but TypeScript still resolves the generated Prisma
+      # client (backend/generated/prisma is gitignored), so generate it first.
+      - name: Generate Prisma client
+        run: npm run prisma:generate
+
+      # Runs the suite with coverage so the configured thresholds gate the build.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+  frontend:
+    name: Frontend unit tests (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  e2e:
+    name: Playwright e2e (real backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install root dependencies (Playwright)
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      # Bring up the dev stack ourselves so we can apply migrations before the
+      # suite's global-setup seeds. Playwright reuses this stack
+      # (reuseExistingServer) rather than starting its own.
+      - name: Start dev stack
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+      - name: Wait for backend health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/api/health > /dev/null 2>&1; then
+              echo "Backend healthy"; exit 0
+            fi
+            echo "Waiting for backend... ($i)"; sleep 5
+          done
+          echo "Backend did not become healthy in time"
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail=100
+          exit 1
+
+      - name: Apply database migrations
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T backend npx prisma migrate deploy
+
+      - name: Run Playwright tests
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Dump stack logs on failure
+        if: ${{ failure() }}
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail=200

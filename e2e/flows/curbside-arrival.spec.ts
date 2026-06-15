@@ -43,15 +43,20 @@ test.describe('Curbside arrival flow', () => {
     });
     const managerPage = await managerCtx.newPage();
     await managerPage.goto('/orders');
-    await expect(managerPage.locator('.kanban-card-id', { hasText: `#${rawId}` })).toBeVisible({ timeout: 10_000 });
-    await managerPage.locator('.kanban-card-id', { hasText: `#${rawId}` }).click();
+    // Scope to MY card by its exact id badge — kanban cards carry their own inline
+    // quick-action buttons, so a board-wide .first() can act on the wrong order.
+    const card = managerPage.locator('.kanban-card').filter({
+      has: managerPage.locator('.kanban-card-id', { hasText: new RegExp(`^#${rawId}$`) }),
+    });
+    await expect(card).toBeVisible({ timeout: 10_000 });
     // PENDING → APPROVED
-    await managerPage.getByRole('button', { name: /approve \(payment verified\)/i }).first().click();
+    await card.getByRole('button', { name: /approve \(payment verified\)/i }).click();
     // After APPROVED the next quick-action button switches to "Ready for Pickup"
-    await expect(managerPage.getByRole('button', { name: /ready for pickup/i }).first()).toBeVisible({ timeout: 8_000 });
+    await expect(card.getByRole('button', { name: /ready for pickup/i })).toBeVisible({ timeout: 8_000 });
     // APPROVED → READY_FOR_PICKUP
-    await managerPage.getByRole('button', { name: /ready for pickup/i }).first().click();
-    await expect(managerPage.getByText('Ready for Pickup').first()).toBeVisible({ timeout: 8_000 });
+    await card.getByRole('button', { name: /ready for pickup/i }).click();
+    // Confirms the transition: the next staff action becomes "Picked Up"
+    await expect(card.getByRole('button', { name: /picked up/i })).toBeVisible({ timeout: 8_000 });
 
     // --- Customer: click "I'm Here" on my-orders ---
     await customerPage.goto('/my-orders');
@@ -60,9 +65,11 @@ test.describe('Curbside arrival flow', () => {
     // After clicking I'm Here, the order status should update to ARRIVED
     await expect(customerPage.getByText(/arrived/i).first()).toBeVisible({ timeout: 8_000 });
 
-    // --- Manager: verify staff view shows Customer Arrived for this order ---
+    // --- Manager: verify staff view flags this order as arrived ---
+    // The kanban card gains the `kanban-card-arrived` class when status === ARRIVED
+    // ("Customer Arrived" itself is the column header, not card text).
     await managerPage.reload();
-    await expect(managerPage.getByText('Customer Arrived').first()).toBeVisible({ timeout: 10_000 });
+    await expect(card).toHaveClass(/kanban-card-arrived/, { timeout: 10_000 });
 
     await customerCtx.close();
     await managerCtx.close();
