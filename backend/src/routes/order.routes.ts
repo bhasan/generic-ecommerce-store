@@ -43,6 +43,10 @@ router.post(
     body('paymentMethod').optional().isIn(Object.values(PaymentMethod)).withMessage('Payment method must be EXTERNAL, CREDIT, or IN_STORE'),
     body('deliveryMethod').isIn(Object.values(DeliveryMethod)).withMessage('Delivery method must be DELIVERY or PICKUP'),
     ...conditionalDeliveryAddressValidators,
+    // Structured vehicle (new contract) — optional while legacy string back-compat is active
+    body('vehicle').optional().isObject().withMessage('Vehicle must be an object'),
+    body('vehicle.makeModel').optional().isString().trim().notEmpty().withMessage('Vehicle make/model is required'),
+    body('vehicle.color').optional().isString().trim().notEmpty().withMessage('Vehicle color is required'),
   ],
   asyncHandler(orderController.createOrder)
 );

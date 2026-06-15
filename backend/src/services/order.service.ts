@@ -30,6 +30,11 @@ function resolveCommunicatorUrl(): string {
   return `${corsOrigin}/communicator.html`;
 }
 
+export interface VehicleDetails {
+  makeModel: string;
+  color: string;
+}
+
 interface CreateOrderData {
   userId: number;
   items: Array<{
@@ -38,7 +43,10 @@ interface CreateOrderData {
   }>;
   cashAppUsername?: string;
   deliveryMethod: typeof DeliveryMethod[keyof typeof DeliveryMethod];
+  /** For DELIVERY orders. */
   deliveryAddress?: StructuredDeliveryAddress;
+  /** For CURBSIDE orders — new structured form. Back-compat: legacy string still accepted. */
+  vehicle?: VehicleDetails;
   paymentMethod?: typeof PaymentMethod[keyof typeof PaymentMethod];
 }
 
@@ -502,10 +510,16 @@ export class OrderService {
    */
   // Creates an order, enforces stock and delivery rules, persists delivery snapshots, and triggers notifications/printing.
   async createOrder(data: CreateOrderData) {
-    const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, paymentMethod } = data;
+    const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, vehicle, paymentMethod } = data;
     const effectivePaymentMethod = (paymentMethod || PaymentMethod.EXTERNAL) as PaymentMethodEnum;
     const paymentStrategy = getPaymentStrategy(effectivePaymentMethod);
     const fulfillmentStrategy = getFulfillmentStrategy(deliveryMethod as DeliveryMethodEnum);
+
+    // Back-compat shim (Step 5 → Step 7): convert structured vehicle to legacy string for curbside.
+    // After Step 7 ships the frontend will send `vehicle` directly; this shim is removed in Step 8.
+    const effectiveDeliveryAddress = vehicle
+      ? `CURBSIDE: ${vehicle.color.trim()} ${vehicle.makeModel.trim()}`
+      : deliveryAddress;
 
     logger.info('Creating new order', {
       userId,
@@ -528,6 +542,7 @@ export class OrderService {
       throw new AppError('Order must contain at least one item', 400);
     }
 
+    // Early compatibility check (no total needed): catches e.g. IN_STORE+DELIVERY before any DB work.
     paymentStrategy.validate({ userId, deliveryMethod, cashAppUsername, total: 0 });
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
@@ -594,11 +609,14 @@ export class OrderService {
       };
     });
 
-      await fulfillmentStrategy.validate({ userId, deliveryAddress, subtotal });
+      await fulfillmentStrategy.validate({ userId, deliveryAddress: effectiveDeliveryAddress, subtotal });
 
       // Calculate tax and final total
       const tax = Number((subtotal * DEFAULT_TAX_RATE).toFixed(2));
       const total = subtotal + tax;
+
+      // Validate payment method now that total is known (e.g. credit balance check).
+      paymentStrategy.validate({ userId, deliveryMethod, cashAppUsername, total });
 
       // Create order with items
       logger.info('Creating order record in database', {
@@ -618,7 +636,7 @@ export class OrderService {
             status: paymentStrategy.initialStatus(),
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
-            ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress, subtotal }),
+            ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress: effectiveDeliveryAddress, subtotal }),
             paymentHandle: cashAppUsername?.trim() || null,
           }
         });
@@ -655,7 +673,7 @@ export class OrderService {
         }
 
         if (fulfillmentStrategy.applyInTransaction) {
-          await fulfillmentStrategy.applyInTransaction(tx, newOrder.id, userId, { userId, deliveryAddress, subtotal });
+          await fulfillmentStrategy.applyInTransaction(tx, newOrder.id, userId, { userId, deliveryAddress: effectiveDeliveryAddress, subtotal });
         }
 
         await paymentStrategy.applyInTransaction(tx, newOrder.id, { userId, deliveryMethod, cashAppUsername, total });

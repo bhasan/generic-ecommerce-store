@@ -7,6 +7,8 @@ export class CreditPaymentStrategy implements PaymentStrategy {
   readonly method = PaymentMethodEnum.CREDIT;
 
   validate(ctx: OrderContext): void {
+    // Skip balance check when total is 0 (early pre-fetch compatibility check with no total yet).
+    if (ctx.total === 0) return;
     if ((ctx.creditBalance ?? 0) < ctx.total) {
       throw new AppError(
         `Insufficient credit balance. Available: $${(ctx.creditBalance ?? 0).toFixed(2)}, required: $${ctx.total.toFixed(2)}`,
