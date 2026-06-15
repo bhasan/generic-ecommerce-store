@@ -53,3 +53,4 @@ backend/uploads/
 # Ensure Prisma migrations are tracked
 !backend/prisma/migrations/
 !backend/prisma/migrations/**/*.sql
+test-results/

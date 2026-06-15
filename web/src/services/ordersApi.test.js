@@ -58,29 +58,24 @@ describe('ordersApi', () => {
     });
   });
 
-  it('posts to the create endpoint and includes deliveryAddress for DELIVERY and CURBSIDE methods', async () => {
+  it('posts to the create endpoint and includes vehicleDescription for CURBSIDE orders', async () => {
     const api = await import('./api');
-    api.post.mockResolvedValue({
-      id: 801,
-      deliveryMethod: 'CURBSIDE',
-      deliveryAddress: 'CURBSIDE: Red Model 3',
-    });
+    api.post.mockResolvedValue({ id: 801, deliveryMethod: 'CURBSIDE' });
 
     const ordersApi = await import('./ordersApi');
-    const result = await ordersApi.createOrder([{ productId: 101, quantity: 1 }], 'some_cashapp', 'CURBSIDE', 'IN_STORE', 'CURBSIDE: Red Model 3');
+    const result = await ordersApi.createOrder(
+      [{ productId: 101, quantity: 1 }], 'some_cashapp', 'CURBSIDE', 'IN_STORE',
+      undefined, 'Red Tesla Model 3'
+    );
 
     expect(api.post).toHaveBeenCalledWith('/orders', {
       items: [{ productId: 101, quantity: 1 }],
       cashAppUsername: 'some_cashapp',
       deliveryMethod: 'CURBSIDE',
       paymentMethod: 'IN_STORE',
-      deliveryAddress: 'CURBSIDE: Red Model 3',
+      vehicleDescription: 'Red Tesla Model 3',
     });
-    expect(result).toEqual({
-      id: 801,
-      deliveryMethod: 'CURBSIDE',
-      deliveryAddress: 'CURBSIDE: Red Model 3',
-    });
+    expect(result).toEqual({ id: 801, deliveryMethod: 'CURBSIDE' });
   });
 });
 

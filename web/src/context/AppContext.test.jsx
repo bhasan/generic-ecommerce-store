@@ -256,7 +256,7 @@ describe('AppContext', () => {
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('5');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
     expect(localStorage.getItem('cartData')).toBeNull();
-    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ productId: 101, quantity: 1 }], '', 'PICKUP', 'CREDIT', undefined);
+    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ productId: 101, quantity: 1 }], '', 'PICKUP', 'CREDIT', undefined, undefined);
   });
 
   it('persists cart changes to localStorage after adding an item', async () => {

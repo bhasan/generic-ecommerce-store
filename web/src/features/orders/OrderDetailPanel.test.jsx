@@ -20,7 +20,8 @@ const baseOrder = {
   paymentMethod: 'IN_STORE',
   total: 45.0,
   createdAt: '2026-06-03T12:00:00Z',
-  deliveryAddress: 'CURBSIDE: Silver Camry',
+  deliveryAddress: null,
+  vehicleDescription: 'Silver Camry',
   items: [
     { id: 1, productId: 101, quantity: 2, price: 22.5, voided: false }
   ],

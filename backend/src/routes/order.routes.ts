@@ -6,17 +6,10 @@ import { authorizeEmployee, authorizeAdmin, authorize } from '../middleware/role
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { OrderStatus } from '../../generated/prisma';
 import { asyncHandler } from '../utils/asyncHandler.util';
+import { deliveryAddressValidators, conditionalDeliveryAddressValidators } from '../validators/deliveryAddress';
 
 const router = Router();
 
-const deliveryAddressValidators = [
-  body('deliveryAddress').isObject().withMessage('Delivery address is required'),
-  body('deliveryAddress.street').isString().trim().notEmpty().withMessage('Delivery street is required'),
-  body('deliveryAddress.apartment').optional().isString().withMessage('Delivery apartment must be a string'),
-  body('deliveryAddress.city').isString().trim().notEmpty().withMessage('Delivery city is required'),
-  body('deliveryAddress.state').isString().trim().isLength({ min: 2, max: 2 }).withMessage('Delivery state must be a 2-letter code'),
-  body('deliveryAddress.zipCode').isString().trim().matches(/^\d{5}(-\d{4})?$/).withMessage('Delivery ZIP code must be a valid ZIP code'),
-];
 
 // Order listing uses the authenticated user's roles to decide which records the service returns.
 router.get('/', authenticate, asyncHandler(orderController.getAllOrders));
@@ -36,7 +29,7 @@ router.post(
   asyncHandler(orderController.customerArrive)
 );
 
-router.post('/delivery-eligibility', authenticate, deliveryAddressValidators, asyncHandler(orderController.checkDeliveryEligibility));
+router.post('/delivery-eligibility', authenticate, [...deliveryAddressValidators], asyncHandler(orderController.checkDeliveryEligibility));
 
 // Checkout requests land here after cart submission and fan into validation plus order creation.
 router.post(
@@ -49,26 +42,8 @@ router.post(
     body('cashAppUsername').optional().isString().withMessage('CashApp username must be a string'),
     body('paymentMethod').optional().isIn(Object.values(PaymentMethod)).withMessage('Payment method must be EXTERNAL, CREDIT, or IN_STORE'),
     body('deliveryMethod').isIn(Object.values(DeliveryMethod)).withMessage('Delivery method must be DELIVERY or PICKUP'),
-    body('deliveryAddress').custom((value, { req }) => {
-      if (req.body.deliveryMethod !== DeliveryMethod.DELIVERY) return true;
-      if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        throw new Error('Delivery address is required for delivery orders');
-      }
-      return true;
-    }),
-    body('deliveryAddress.street')
-      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
-      .isString().trim().notEmpty().withMessage('Delivery street is required'),
-    body('deliveryAddress.apartment').optional().isString().withMessage('Delivery apartment must be a string'),
-    body('deliveryAddress.city')
-      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
-      .isString().trim().notEmpty().withMessage('Delivery city is required'),
-    body('deliveryAddress.state')
-      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
-      .isString().trim().isLength({ min: 2, max: 2 }).withMessage('Delivery state must be a 2-letter code'),
-    body('deliveryAddress.zipCode')
-      .if((_value, { req }) => req.body.deliveryMethod === DeliveryMethod.DELIVERY)
-      .isString().trim().matches(/^\d{5}(-\d{4})?$/).withMessage('Delivery ZIP code must be a valid ZIP code'),
+    ...conditionalDeliveryAddressValidators,
+    body('vehicleDescription').optional().isString().trim().notEmpty().withMessage('Vehicle description must be a non-empty string'),
   ],
   asyncHandler(orderController.createOrder)
 );
