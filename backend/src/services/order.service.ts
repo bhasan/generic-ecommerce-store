@@ -7,7 +7,8 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
 import { StructuredDeliveryAddress } from '../utils/address.util';
 import { parseCurbsideAddress } from '../utils/curbside';
-import creditService from './credit.service';
+import { getPaymentStrategy } from './payments/registry';
+import { PaymentMethodEnum } from '../../generated/prisma';
 import { DeliveryEligibilityService } from './deliveryEligibility.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
 import { notificationEventsService } from './notificationEvents.service';
@@ -59,6 +60,17 @@ interface PrintOrderReceiptData {
     userId?: number | null;
     username?: string | null;
   };
+}
+
+// Single source for the notify+print side-effects fired when an order becomes active.
+// Used by createOrder (non-CC) and confirmCardPayment (CC, deferred until payment confirmed).
+async function dispatchOrderCreatedEffects(orderId: number, userId: number): Promise<void> {
+  await notificationEventsService.notifyOrderCreated(orderId, userId);
+  try {
+    await thermalPrinterService.dispatchReceipt(orderId, 'ORDER_CREATED', { userId });
+  } catch (printerError) {
+    logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, { orderId, userId });
+  }
 }
 
 export class OrderService {
@@ -495,8 +507,8 @@ export class OrderService {
   // Creates an order, enforces stock and delivery rules, persists delivery snapshots, and triggers notifications/printing.
   async createOrder(data: CreateOrderData) {
     const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, paymentMethod } = data;
-    const effectivePaymentMethod = paymentMethod || PaymentMethod.EXTERNAL;
-    const isCredit = effectivePaymentMethod === PaymentMethod.CREDIT;
+    const effectivePaymentMethod = (paymentMethod || PaymentMethod.EXTERNAL) as PaymentMethodEnum;
+    const paymentStrategy = getPaymentStrategy(effectivePaymentMethod);
 
     logger.info('Creating new order', {
       userId,
@@ -519,9 +531,7 @@ export class OrderService {
       throw new AppError('Order must contain at least one item', 400);
     }
 
-    if (effectivePaymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP && deliveryMethod !== DeliveryMethod.CURBSIDE) {
-      throw new AppError('Pay in store is only available for pickup and curbside orders', 400);
-    }
+    paymentStrategy.validate({ userId, deliveryMethod, cashAppUsername, total: 0 });
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -631,7 +641,7 @@ export class OrderService {
           data: {
             userId,
             total,
-            status: effectivePaymentMethod === PaymentMethod.CC ? OrderStatus.PENDING_PAYMENT : OrderStatus.PENDING,
+            status: paymentStrategy.initialStatus(),
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
             ...(deliveryEligibility ? {
@@ -694,9 +704,7 @@ export class OrderService {
           });
         }
 
-        if (isCredit) {
-          await creditService.useCredit(userId, total, newOrder.id, tx);
-        }
+        await paymentStrategy.applyInTransaction(tx, newOrder.id, { userId, deliveryMethod, cashAppUsername, total });
 
         return {
           newOrder,
@@ -750,18 +758,8 @@ export class OrderService {
         stockUpdatesCount: stockUpdates.length,
       });
 
-      if (effectivePaymentMethod !== PaymentMethod.CC) {
-        await notificationEventsService.notifyOrderCreated(order.id, userId);
-        try {
-          await thermalPrinterService.dispatchReceipt(order.id, 'ORDER_CREATED', {
-            userId,
-          });
-        } catch (printerError) {
-          logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, {
-            orderId: order.id,
-            userId,
-          });
-        }
+      if (paymentStrategy.notifiesOnCreate()) {
+        await dispatchOrderCreatedEffects(order.id, userId);
       }
 
       return {
@@ -1154,11 +1152,8 @@ export class OrderService {
         total: order.total,
       });
 
-      // Auto-refund credit if this was a credit-paid order
-      if (order.paymentMethod === PaymentMethod.CREDIT) {
-        logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
-        await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
-      }
+      const deletePaymentStrategy = getPaymentStrategy(order.paymentMethod as PaymentMethodEnum);
+      await deletePaymentStrategy.refundOnDelete(orderId, order.userId, order.total);
 
       return { message: 'Order deleted successfully' };
     } catch (error) {
@@ -1316,15 +1311,7 @@ export class OrderService {
       data: { status: OrderStatus.PENDING, transactionId: transId },
     });
 
-    await notificationEventsService.notifyOrderCreated(orderId, userId);
-    try {
-      await thermalPrinterService.dispatchReceipt(orderId, 'ORDER_CREATED', { userId });
-    } catch (printerError) {
-      logger.error('Thermal printer dispatch threw unexpectedly after CC payment confirmation', printerError, {
-        orderId,
-        userId,
-      });
-    }
+    await dispatchOrderCreatedEffects(orderId, userId);
 
     return { id: updated.id, status: updated.status };
   }
