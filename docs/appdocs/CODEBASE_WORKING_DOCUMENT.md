@@ -180,9 +180,12 @@ These remain intentionally unchanged in this hardening pass:
 
 Current workspace test commands:
 
-- `npm test`
-- `npm run test:backend`
-- `npm run test:web`
-- `npm run test:hardening`
+- `npm test` — backend Vitest + frontend Vitest
+- `npm run test:backend` — backend Vitest only
+- `npm run test:web` — frontend Vitest only
+- `npm run test:hardening` — same as `npm test`
+- `npm run test:e2e` — Playwright browser tests (no backend needed)
+- `npm run test:e2e:ui` — Playwright with interactive UI explorer
 
-Build and lint verification were not rerun in this pass.
+For full testing documentation including conventions, mock patterns, and coverage map see:
+**`docs/appdocs/TESTING.md`**
