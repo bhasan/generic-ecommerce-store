@@ -4,7 +4,6 @@ export interface OrderContext {
   userId: number;
   deliveryMethod: string;
   cashAppUsername?: string;
-  creditBalance?: number;
   total: number;
 }
 

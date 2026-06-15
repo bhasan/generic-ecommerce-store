@@ -599,7 +599,7 @@ export class OrderService {
       };
     });
 
-      await fulfillmentStrategy.validate({ userId, deliveryAddress: effectiveDeliveryAddress, subtotal });
+      await fulfillmentStrategy.validate({ userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal });
 
       // Calculate tax and final total
       const tax = Number((subtotal * DEFAULT_TAX_RATE).toFixed(2));

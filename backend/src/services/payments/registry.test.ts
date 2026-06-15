@@ -41,12 +41,9 @@ describe('PaymentStrategy registry', () => {
     it('initialStatus is PENDING', () => expect(strategy.initialStatus()).toBe(OrderStatus.PENDING));
     it('notifiesOnCreate is true', () => expect(strategy.notifiesOnCreate()).toBe(true));
 
-    it('validate throws when credit insufficient', () => {
-      expect(() => strategy.validate({ userId: 1, deliveryMethod: 'PICKUP', total: 50, creditBalance: 10 })).toThrow();
-    });
-
-    it('validate passes when credit sufficient', () => {
-      expect(() => strategy.validate({ userId: 1, deliveryMethod: 'PICKUP', total: 10, creditBalance: 50 })).not.toThrow();
+    it('validate never throws — balance enforcement is deferred to useCredit in the transaction', () => {
+      expect(() => strategy.validate({ userId: 1, deliveryMethod: 'PICKUP', total: 50 })).not.toThrow();
+      expect(() => strategy.validate({ userId: 1, deliveryMethod: 'PICKUP', total: 0 })).not.toThrow();
     });
   });
 

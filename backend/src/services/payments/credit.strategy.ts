@@ -6,15 +6,11 @@ import creditService from '../credit.service';
 export class CreditPaymentStrategy implements PaymentStrategy {
   readonly method = PaymentMethodEnum.CREDIT;
 
-  validate(ctx: OrderContext): void {
-    // Skip balance check when total is 0 (early pre-fetch compatibility check with no total yet).
-    if (ctx.total === 0) return;
-    if ((ctx.creditBalance ?? 0) < ctx.total) {
-      throw new AppError(
-        `Insufficient credit balance. Available: $${(ctx.creditBalance ?? 0).toFixed(2)}, required: $${ctx.total.toFixed(2)}`,
-        400,
-      );
-    }
+  validate(_ctx: OrderContext): void {
+    // Balance enforcement happens inside applyInTransaction via creditService.useCredit(),
+    // which reads the live DB balance inside the transaction. Pre-checking here would require
+    // an extra DB round-trip and creditBalance is not available in CreateOrderData.
+    // The frontend paymentRegistry already provides the UX-level guard.
   }
 
   initialStatus(): OrderStatus {
