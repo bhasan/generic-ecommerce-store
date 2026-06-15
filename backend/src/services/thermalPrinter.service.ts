@@ -23,6 +23,7 @@ interface ReceiptOrderSnapshot {
   deliveryMethod: string;
   paymentMethod: string;
   deliveryAddress: string | null;
+  vehicleDescription: string | null;
   customer: {
     id: number;
     username: string;
@@ -158,8 +159,9 @@ export class ThermalPrinterService {
       lines.push('');
       lines.push(divider);
       lines.push('CURBSIDE VEHICLE INFO');
-      if (snapshot.deliveryAddress) {
-        lines.push(...this.wrapText(snapshot.deliveryAddress.toUpperCase()));
+      const vehicleText = snapshot.vehicleDescription || snapshot.deliveryAddress;
+      if (vehicleText) {
+        lines.push(...this.wrapText(vehicleText.toUpperCase()));
       } else {
         lines.push('VEHICLE INFO NOT PROVIDED');
       }
@@ -308,6 +310,7 @@ export class ThermalPrinterService {
       deliveryMethod: order.deliveryMethod,
       paymentMethod: order.paymentMethod,
       deliveryAddress: order.deliveryAddress || customer.address || null,
+      vehicleDescription: order.vehicleDescription || null,
       customer,
       items: orderItems.map((item) => {
         const product = productMap.get(item.productId);
