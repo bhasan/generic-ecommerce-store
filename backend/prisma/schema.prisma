@@ -58,8 +58,8 @@ model Order {
   total                     Float
   createdAt                 DateTime                  @default(now())
   updatedAt                 DateTime                  @updatedAt
-  deliveryMethod            String                    @default("DELIVERY")
-  paymentMethod             String                    @default("EXTERNAL")
+  deliveryMethod            DeliveryMethodEnum        @default(DELIVERY)
+  paymentMethod             PaymentMethodEnum         @default(EXTERNAL)
   transactionId             String?                   @unique
   deliveryAddress           String?
   vehicleDescription        String?
@@ -332,6 +332,19 @@ enum CreditTransactionType {
   USED
   REFUNDED
   REMOVED
+}
+
+enum DeliveryMethodEnum {
+  DELIVERY
+  PICKUP
+  CURBSIDE
+}
+
+enum PaymentMethodEnum {
+  EXTERNAL
+  CREDIT
+  IN_STORE
+  CC
 }
 
 enum DeliveryZoneStatus {
