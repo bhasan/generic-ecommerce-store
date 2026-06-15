@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./api', () => ({
+const api = vi.hoisted(() => ({
   get: vi.fn(),
   post: vi.fn(),
   patch: vi.fn(),
   del: vi.fn(),
 }));
+
+vi.mock('./api', () => api);
+
+import * as ordersApi from './ordersApi';
 
 describe('ordersApi', () => {
   beforeEach(() => {
@@ -13,7 +17,6 @@ describe('ordersApi', () => {
   });
 
   it('posts to the print endpoint and returns the queue result', async () => {
-    const api = await import('./api');
     api.post.mockResolvedValue({
       message: 'Order receipt queued for printing',
       result: {
@@ -23,7 +26,6 @@ describe('ordersApi', () => {
       },
     });
 
-    const ordersApi = await import('./ordersApi');
     const result = await ordersApi.printOrderReceipt(55);
 
     expect(api.post).toHaveBeenCalledWith('/orders/55/print', {});
@@ -35,7 +37,6 @@ describe('ordersApi', () => {
   });
 
   it('posts to the arrive endpoint with the parking spot and returns order status', async () => {
-    const api = await import('./api');
     api.post.mockResolvedValue({
       message: 'Arrival notification sent successfully',
       order: {
@@ -46,7 +47,6 @@ describe('ordersApi', () => {
       },
     });
 
-    const ordersApi = await import('./ordersApi');
     const result = await ordersApi.notifyArrival(701, 'Space 3');
 
     expect(api.post).toHaveBeenCalledWith('/orders/701/arrive', { parkingSpot: 'Space 3' });
@@ -59,10 +59,8 @@ describe('ordersApi', () => {
   });
 
   it('posts to the create endpoint and includes vehicleDescription for CURBSIDE orders', async () => {
-    const api = await import('./api');
     api.post.mockResolvedValue({ id: 801, deliveryMethod: 'CURBSIDE' });
 
-    const ordersApi = await import('./ordersApi');
     const result = await ordersApi.createOrder(
       [{ productId: 101, quantity: 1 }], 'some_cashapp', 'CURBSIDE', 'IN_STORE',
       undefined, 'Red Tesla Model 3'
@@ -78,4 +76,3 @@ describe('ordersApi', () => {
     expect(result).toEqual({ id: 801, deliveryMethod: 'CURBSIDE' });
   });
 });
-

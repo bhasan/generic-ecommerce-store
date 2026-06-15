@@ -4,7 +4,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import OrderDetailPanel from './OrderDetailPanel';
 import { OrderStatus } from '../../constants/orderStatuses';
 
-const notifyArrivalMock = vi.fn();
+const notifyArrivalMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => ({

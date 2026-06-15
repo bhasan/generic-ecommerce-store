@@ -24,19 +24,18 @@ vi.mock('../../components/common/ConfirmationModal', () => ({
     ) : null,
 }));
 
-const useAppMock = vi.fn();
+const useAppMock = vi.hoisted(() => vi.fn());
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
 }));
 
-vi.mock('../../services/usersApi', () => ({
+const usersApi = vi.hoisted(() => ({
   getAllUsers: vi.fn(),
   getAllRoles: vi.fn(),
   updateUser: vi.fn(),
   deleteUser: vi.fn(),
 }));
-
-import * as usersApi from '../../services/usersApi';
+vi.mock('../../services/usersApi', () => usersApi);
 
 const makeAppState = (overrides = {}) => ({
   currentUser: { id: 1, username: 'admin', roles: [ROLES.ADMIN] },

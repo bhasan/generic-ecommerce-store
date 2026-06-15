@@ -5,12 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CheckoutPage from './CheckoutPage';
 import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 
-const checkoutMock = vi.fn();
-const checkDeliveryEligibilityMock = vi.fn();
-const deleteOrderMock = vi.fn();
-const restoreCartMock = vi.fn();
-
-const useAppMock = vi.fn();
+const checkoutMock = vi.hoisted(() => vi.fn());
+const checkDeliveryEligibilityMock = vi.hoisted(() => vi.fn());
+const deleteOrderMock = vi.hoisted(() => vi.fn());
+const restoreCartMock = vi.hoisted(() => vi.fn());
+const useAppMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),

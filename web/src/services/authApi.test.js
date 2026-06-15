@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./api', () => ({
+const api = vi.hoisted(() => ({
   post: vi.fn(),
   get: vi.fn(),
   setAuthToken: vi.fn(),
   clearAuthToken: vi.fn(),
 }));
+
+vi.mock('./api', () => api);
+
+import * as authApi from './authApi';
 
 describe('authApi', () => {
   beforeEach(() => {
@@ -14,12 +18,10 @@ describe('authApi', () => {
   });
 
   it('stores token and user data on login', async () => {
-    const api = await import('./api');
     api.post.mockResolvedValue({
       user: { id: 1, name: 'User' },
       token: 'token-123',
     });
-    const authApi = await import('./authApi');
 
     const result = await authApi.login('user@test.com', 'secret');
 
@@ -32,9 +34,7 @@ describe('authApi', () => {
   });
 
   it('always clears auth token on logout', async () => {
-    const api = await import('./api');
     api.post.mockRejectedValue(new Error('network'));
-    const authApi = await import('./authApi');
 
     await expect(authApi.logout()).rejects.toThrow('network');
 

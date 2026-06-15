@@ -4,15 +4,15 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, beforeEach, expect, it, vi } from 'vitest';
 import LandingPage from './LandingPage';
 
-const useAppMock = vi.fn();
+const useAppMock = vi.hoisted(() => vi.fn());
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
   AppProvider: ({ children }) => children,
 }));
 
-const ProductsGridMock = vi.fn(({ products }) => (
+const ProductsGridMock = vi.hoisted(() => vi.fn(({ products }) => (
   <ul>{products.map(p => <li key={p.id}>{p.name}</li>)}</ul>
-));
+)));
 vi.mock('../products/ProductsGrid', () => ({
   default: (props) => ProductsGridMock(props),
 }));
