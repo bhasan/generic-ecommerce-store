@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
+import { checkoutFlowReducer, initialCheckoutFlow, CheckoutFlowState } from './checkout/checkoutMachine';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
@@ -58,18 +59,20 @@ function CheckoutPage() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cashAppUsername, setCashAppUsername] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(PaymentMethod.EXTERNAL);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
-  const [pendingOrderState, setPendingOrderState] = useState(null);
-  const [orderCancelled, setOrderCancelled] = useState(false);
-  const [orderCompleted, setOrderCompleted] = useState(false);
+  const [flow, dispatchFlow] = useReducer(checkoutFlowReducer, initialCheckoutFlow);
   const [errors, setErrors] = useState({});
-  const [ccPaymentModal, setCcPaymentModal] = useState(null);
-  const [paymentRetryOrder, setPaymentRetryOrder] = useState(null);
   const [deliveryEligibility, setDeliveryEligibility] = useState(createInitialEligibilityState);
   const latestEligibilityRequestRef = useRef(0);
   const prefilledAddressKeyRef = useRef('');
   const hasUsedImmediatePrefillCheckRef = useRef(false);
+
+  const isSubmitting = flow.state === CheckoutFlowState.SUBMITTING;
+  const showSendPaymentModal = flow.state === CheckoutFlowState.AWAITING_PAYMENT;
+  const pendingOrderState = flow.state === CheckoutFlowState.AWAITING_PAYMENT ? flow.orderState : null;
+  const orderCancelled = flow.state === CheckoutFlowState.CANCELLED;
+  const orderCompleted = flow.state === CheckoutFlowState.SUCCESS;
+  const ccPaymentModal = flow.state === CheckoutFlowState.CC_PAYMENT ? flow.ccModal : null;
+  const paymentRetryOrder = flow.state === CheckoutFlowState.RETRY ? flow.retryOrder : null;
 
   const isPickup = deliveryMethod === DeliveryMethod.PICKUP || deliveryMethod === DeliveryMethod.CURBSIDE;
   const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
@@ -202,12 +205,18 @@ function CheckoutPage() {
   }, [isDelivery, isInStorePayment]);
 
   useEffect(() => {
-    if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted && !ccPaymentModal && !paymentRetryOrder) {
+    if (cart.length === 0 && flow.state === CheckoutFlowState.EDITING) {
       navigate('/cart');
     }
-  }, [cart.length, isSubmitting, pendingOrderState, showSendPaymentModal, orderCancelled, orderCompleted, ccPaymentModal, paymentRetryOrder, navigate]);
+  }, [cart.length, flow.state, navigate]);
 
-  if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted && !ccPaymentModal && !paymentRetryOrder) {
+  useEffect(() => {
+    if (flow.state === CheckoutFlowState.SUCCESS && flow.orderState) {
+      navigate('/order-success', { state: flow.orderState });
+    }
+  }, [flow.state, flow.orderState, navigate]);
+
+  if (cart.length === 0 && flow.state === CheckoutFlowState.EDITING) {
     return null;
   }
 
@@ -278,7 +287,7 @@ function CheckoutPage() {
   const handlePlaceOrder = async () => {
     if (!validateForm()) return;
 
-    setIsSubmitting(true);
+    dispatchFlow({ type: 'SUBMIT' });
 
     try {
       const itemsForSuccess = [...cart];
@@ -315,57 +324,56 @@ function CheckoutPage() {
       if (isCCPayment) {
         try {
           const { token, paymentFormUrl } = await ordersApi.getPaymentToken(newOrder.id);
-          setCcPaymentModal({ token, paymentFormUrl, orderId: newOrder.id, amount: total, items: itemsForSuccess, orderState });
+          dispatchFlow({
+            type: 'ORDER_CREATED_CC',
+            orderState,
+            ccModal: { token, paymentFormUrl, orderId: newOrder.id, amount: total, items: itemsForSuccess },
+          });
         } catch {
           try {
             await deleteOrder(newOrder.id, { silent: true });
           } finally {
             restoreCart(itemsForSuccess);
+            dispatchFlow({ type: 'SUBMIT_ERROR' });
             setErrors((prev) => ({ ...prev, payment: 'Could not initialize card payment. Please try again.' }));
           }
         }
         return;
       }
 
-      if (!isExternalPayment) {
-        setOrderCompleted(true);
-        navigate('/order-success', { state: orderState });
+      if (isExternalPayment) {
+        dispatchFlow({ type: 'ORDER_CREATED_EXTERNAL', orderState });
       } else {
-        setPendingOrderState(orderState);
-        setShowSendPaymentModal(true);
+        dispatchFlow({ type: 'ORDER_CREATED_IMMEDIATE', orderState });
       }
     } catch {
       // Error is already handled in AppContext.
-    } finally {
-      setIsSubmitting(false);
+      dispatchFlow({ type: 'SUBMIT_ERROR' });
     }
   };
 
   // Finalizes the external-payment handoff after the user confirms they sent payment.
   const handleSendPaymentDone = () => {
-    setOrderCompleted(true);
-    setShowSendPaymentModal(false);
+    dispatchFlow({ type: 'EXTERNAL_PAYMENT_CONFIRMED' });
     if (pendingOrderState) {
       navigate('/order-success', { state: pendingOrderState });
-      setPendingOrderState(null);
     }
   };
 
   // Cancels the pending external-payment order and restores the cart even if deleteOrder fails.
   const handleSendPaymentCancel = async () => {
-    setOrderCancelled(true);
+    const snapshot = pendingOrderState;
+    dispatchFlow({ type: 'CANCEL' });
     try {
-      if (pendingOrderState?.order?.id) {
-        await deleteOrder(pendingOrderState.order.id, { silent: true });
+      if (snapshot?.order?.id) {
+        await deleteOrder(snapshot.order.id, { silent: true });
       }
     } catch {
-      // Cancellation should still close the modal and restore the cart even if cleanup fails.
+      // Cancellation should still restore the cart even if cleanup fails.
     } finally {
-      if (pendingOrderState?.items?.length) {
-        restoreCart(pendingOrderState.items);
+      if (snapshot?.items?.length) {
+        restoreCart(snapshot.items);
       }
-      setShowSendPaymentModal(false);
-      setPendingOrderState(null);
     }
   };
 
@@ -461,28 +469,30 @@ function CheckoutPage() {
           paymentFormUrl={ccPaymentModal.paymentFormUrl}
           amount={ccPaymentModal.amount}
           onSuccess={() => {
-            setOrderCompleted(true);
-            setCcPaymentModal(null);
-            navigate('/order-success', { state: ccPaymentModal.orderState });
+            dispatchFlow({ type: 'PAYMENT_CONFIRMED' });
           }}
           onFailure={(reason) => {
-            setCcPaymentModal(null);
-            setPaymentRetryOrder({
-              orderId: ccPaymentModal.orderId,
-              amount: ccPaymentModal.amount,
-              items: ccPaymentModal.items,
-              orderState: ccPaymentModal.orderState,
-              reason,
+            dispatchFlow({
+              type: 'PAYMENT_FAILED',
+              retryOrder: {
+                orderId: ccPaymentModal.orderId,
+                amount: ccPaymentModal.amount,
+                items: ccPaymentModal.items,
+                orderState: flow.orderState,
+                reason,
+              },
             });
           }}
           onClose={() => {
-            setCcPaymentModal(null);
-            setPaymentRetryOrder({
-              orderId: ccPaymentModal.orderId,
-              amount: ccPaymentModal.amount,
-              items: ccPaymentModal.items,
-              orderState: ccPaymentModal.orderState,
-              reason: 'Payment not completed — you can retry below.',
+            dispatchFlow({
+              type: 'PAYMENT_FAILED',
+              retryOrder: {
+                orderId: ccPaymentModal.orderId,
+                amount: ccPaymentModal.amount,
+                items: ccPaymentModal.items,
+                orderState: flow.orderState,
+                reason: 'Payment not completed — you can retry below.',
+              },
             });
           }}
         />
