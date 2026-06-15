@@ -29,19 +29,19 @@ export const getOrderById = async (id) => {
  * Create order (checkout)
  * @param {Array} items - Array of items [{ productId, quantity }]
  * @param {string} [cashAppUsername] - CashApp username for payment
- * @param {string} [deliveryMethod] - 'DELIVERY' or 'PICKUP'
+ * @param {string} [deliveryMethod] - 'DELIVERY', 'PICKUP', or 'CURBSIDE'
  * @param {string} [paymentMethod] - payment method selected at checkout
- * @param {object} [deliveryAddress] - structured delivery address for delivery orders
+ * @param {object} [deliveryAddress] - structured delivery address for DELIVERY orders
+ * @param {string} [vehicleDescription] - free-form vehicle string (e.g. "Silver Toyota Camry") for CURBSIDE orders
  * @returns {Promise<object>} Created order object
  */
-export const createOrder = async (items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress) => {
+export const createOrder = async (items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription) => {
   const payload = { items };
   if (cashAppUsername) payload.cashAppUsername = cashAppUsername;
   if (deliveryMethod) payload.deliveryMethod = deliveryMethod;
   if (paymentMethod) payload.paymentMethod = paymentMethod;
-  if ((deliveryMethod === 'DELIVERY' || deliveryMethod === 'CURBSIDE') && deliveryAddress) {
-    payload.deliveryAddress = deliveryAddress;
-  }
+  if (deliveryMethod === 'DELIVERY' && deliveryAddress) payload.deliveryAddress = deliveryAddress;
+  if (deliveryMethod === 'CURBSIDE' && vehicleDescription) payload.vehicleDescription = vehicleDescription;
   const response = await post('/orders', payload);
   return response.order || response;
 };

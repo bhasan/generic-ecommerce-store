@@ -4,6 +4,7 @@ import { StructuredDeliveryAddress } from '../../utils/address.util';
 export interface FulfillmentContext {
   userId: number;
   deliveryAddress?: StructuredDeliveryAddress | string;
+  vehicleDescription?: string;
   subtotal: number;
 }
 

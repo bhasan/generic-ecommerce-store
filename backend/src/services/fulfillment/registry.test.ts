@@ -54,16 +54,16 @@ describe('FulfillmentStrategy registry', () => {
     const strategy = getFulfillmentStrategy(DeliveryMethodEnum.CURBSIDE);
 
     it('has correct method', () => expect(strategy.method).toBe(DeliveryMethodEnum.CURBSIDE));
-    it('validate throws when no deliveryAddress', async () => {
+    it('validate throws when no vehicleDescription', async () => {
       await expect(strategy.validate({ userId: 1, subtotal: 10 })).rejects.toThrow();
     });
-    it('validate passes when deliveryAddress provided', async () => {
-      await expect(strategy.validate({ userId: 1, subtotal: 10, deliveryAddress: 'CURBSIDE: Black Civic' })).resolves.not.toThrow();
+    it('validate passes when vehicleDescription provided', async () => {
+      await expect(strategy.validate({ userId: 1, subtotal: 10, vehicleDescription: 'Black Honda Civic' })).resolves.not.toThrow();
     });
-    it('buildOrderFields extracts vehicleDescription from legacy string', async () => {
-      const fields = await strategy.buildOrderFields({ userId: 1, subtotal: 10, deliveryAddress: 'CURBSIDE: Black Civic' });
+    it('buildOrderFields stores vehicleDescription directly', async () => {
+      const fields = await strategy.buildOrderFields({ userId: 1, subtotal: 10, vehicleDescription: ' Black Civic ' });
       expect(fields.vehicleDescription).toBe('Black Civic');
-      expect(fields.deliveryAddress).toBe('CURBSIDE: Black Civic');
+      expect(fields.deliveryAddress).toBeUndefined();
     });
     it('onCheckIn returns parkingSpot', async () => {
       const fields = await strategy.onCheckIn!(1, ' A-12 ');

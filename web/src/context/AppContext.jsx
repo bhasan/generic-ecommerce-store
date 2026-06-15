@@ -728,7 +728,7 @@ export function AppProvider({ children }) {
   }, []);
 
   // Creates an order, refreshes dependent state, and preserves delivery/profile/payment side effects by method.
-  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress) => {
+  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -737,7 +737,7 @@ export function AppProvider({ children }) {
       }));
 
       // Create order via API
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress);
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription);
 
       if (deliveryMethod === DeliveryMethod.DELIVERY) {
         try {

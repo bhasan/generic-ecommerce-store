@@ -73,7 +73,7 @@ describe('CheckoutPage', () => {
     fireEvent.click(screen.getByLabelText(/store credit/i));
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined, undefined));
     expect(await screen.findByText('Order success page')).toBeInTheDocument();
   });
 
@@ -125,7 +125,7 @@ describe('CheckoutPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.EXTERNAL, undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.EXTERNAL, undefined, undefined));
     expect(await screen.findByText(/order placed successfully/i)).toBeInTheDocument();
     expect(screen.getAllByText(/\$SmokeStationHQ/).length).toBeGreaterThan(0);
   });
@@ -269,7 +269,8 @@ describe('CheckoutPage', () => {
         '$customer-one',
         DeliveryMethod.PICKUP,
         PaymentMethod.IN_STORE,
-        undefined
+        undefined,
+        undefined,
       ));
 
       // SendPaymentModal should NOT appear — go directly to success page
@@ -363,7 +364,8 @@ describe('CheckoutPage', () => {
         '$customer-one',
         'CURBSIDE',
         PaymentMethod.EXTERNAL,
-        'CURBSIDE: Silver Toyota Camry'
+        undefined,
+        'Silver Toyota Camry',
       ));
     });
   });

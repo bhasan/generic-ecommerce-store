@@ -30,11 +30,6 @@ function resolveCommunicatorUrl(): string {
   return `${corsOrigin}/communicator.html`;
 }
 
-export interface VehicleDetails {
-  makeModel: string;
-  color: string;
-}
-
 interface CreateOrderData {
   userId: number;
   items: Array<{
@@ -45,8 +40,8 @@ interface CreateOrderData {
   deliveryMethod: typeof DeliveryMethod[keyof typeof DeliveryMethod];
   /** For DELIVERY orders. */
   deliveryAddress?: StructuredDeliveryAddress;
-  /** For CURBSIDE orders — new structured form. Back-compat: legacy string still accepted. */
-  vehicle?: VehicleDetails;
+  /** For CURBSIDE orders — free-form display string (e.g. "Silver Toyota Camry"). */
+  vehicleDescription?: string;
   paymentMethod?: typeof PaymentMethod[keyof typeof PaymentMethod];
 }
 
@@ -510,16 +505,11 @@ export class OrderService {
    */
   // Creates an order, enforces stock and delivery rules, persists delivery snapshots, and triggers notifications/printing.
   async createOrder(data: CreateOrderData) {
-    const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, vehicle, paymentMethod } = data;
+    const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, vehicleDescription, paymentMethod } = data;
     const effectivePaymentMethod = (paymentMethod || PaymentMethod.EXTERNAL) as PaymentMethodEnum;
     const paymentStrategy = getPaymentStrategy(effectivePaymentMethod);
     const fulfillmentStrategy = getFulfillmentStrategy(deliveryMethod as DeliveryMethodEnum);
-
-    // Back-compat shim (Step 5 → Step 7): convert structured vehicle to legacy string for curbside.
-    // After Step 7 ships the frontend will send `vehicle` directly; this shim is removed in Step 8.
-    const effectiveDeliveryAddress = vehicle
-      ? `CURBSIDE: ${vehicle.color.trim()} ${vehicle.makeModel.trim()}`
-      : deliveryAddress;
+    const effectiveDeliveryAddress = deliveryAddress;
 
     logger.info('Creating new order', {
       userId,
@@ -636,7 +626,7 @@ export class OrderService {
             status: paymentStrategy.initialStatus(),
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
-            ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress: effectiveDeliveryAddress, subtotal }),
+            ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal }),
             paymentHandle: cashAppUsername?.trim() || null,
           }
         });
@@ -673,7 +663,7 @@ export class OrderService {
         }
 
         if (fulfillmentStrategy.applyInTransaction) {
-          await fulfillmentStrategy.applyInTransaction(tx, newOrder.id, userId, { userId, deliveryAddress: effectiveDeliveryAddress, subtotal });
+          await fulfillmentStrategy.applyInTransaction(tx, newOrder.id, userId, { userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal });
         }
 
         await paymentStrategy.applyInTransaction(tx, newOrder.id, { userId, deliveryMethod, cashAppUsername, total });
