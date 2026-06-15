@@ -406,6 +406,7 @@ describe('order service notifications', () => {
         data: {
           status: OrderStatus.ARRIVED,
           deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+          parkingSpot: 'Space 4',
         },
       });
       expect(notificationEventsService.notifyOrderStatusUpdated).toHaveBeenCalledWith(

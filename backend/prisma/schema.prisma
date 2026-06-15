@@ -62,6 +62,9 @@ model Order {
   paymentMethod             String                    @default("EXTERNAL")
   transactionId             String?                   @unique
   deliveryAddress           String?
+  vehicleDescription        String?
+  parkingSpot               String?
+  paymentHandle             String?
   deliveryZoneStatus        DeliveryZoneStatus?
   deliveryEligibilitySource DeliveryEligibilitySource?
   deliveryDistanceMiles     Float?

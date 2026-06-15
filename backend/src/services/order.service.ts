@@ -6,6 +6,7 @@ import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
 import { StructuredDeliveryAddress } from '../utils/address.util';
+import { parseCurbsideAddress, formatCurbsideAddress } from '../utils/curbside';
 import creditService from './credit.service';
 import { DeliveryEligibilityService } from './deliveryEligibility.service';
 import { OrderingConstraintsService } from './orderingConstraints.service';
@@ -643,7 +644,9 @@ export class OrderService {
             } : {}),
             ...(deliveryMethod === DeliveryMethod.CURBSIDE && typeof deliveryAddress === 'string' ? {
               deliveryAddress: deliveryAddress,
+              ...parseCurbsideAddress(deliveryAddress),
             } : {}),
+            paymentHandle: cashAppUsername?.trim() || null,
           }
         });
 
@@ -1223,6 +1226,7 @@ export class OrderService {
         data: {
           status: OrderStatus.ARRIVED,
           deliveryAddress: updatedAddress,
+          parkingSpot: parkingSpot.trim(),
         }
       });
 
