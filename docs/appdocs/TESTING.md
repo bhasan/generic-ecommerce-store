@@ -12,7 +12,7 @@ how to run it, and the conventions to follow when adding tests.
 | `npm test` | Backend Vitest + Frontend Vitest (CI baseline) |
 | `npm run test:backend` | Backend Vitest only |
 | `npm run test:web` | Frontend Vitest only |
-| `npm run test:e2e` | Playwright e2e (auto-starts Vite, no backend needed) |
+| `npm run test:e2e` | Playwright e2e — real-backend suite (reseed + smoke + flows) + mocked checkout layer |
 | `npm run test:e2e:ui` | Playwright with interactive UI explorer |
 
 All commands run from the **workspace root** (`/smoke-station-delivery/`).
@@ -122,42 +122,85 @@ submission scenarios, asserting the correct `checkout()` call args and post-orde
 
 ## Layer 3 — Playwright e2e tests
 
-**Location:** `e2e/checkout.spec.ts`  
 **Runner:** Playwright (configured in `playwright.config.ts` at workspace root)  
 **Run:** `npm run test:e2e`
 
-Playwright auto-starts the Vite dev server on port 5843 before running. It reuses an
-already-running server when `reuseExistingServer: true` (the default config). **No backend
-is required** — all API traffic is mocked at the browser network layer.
+The suite runs as **four Playwright projects** in one command:
 
-### What is tested
+| Project | Dir / match | Backend needed | Auth |
+|---|---|---|---|
+| `setup` | `e2e/auth.setup.ts` | Yes | Logs in per role, saves storageState |
+| `smoke` | `e2e/smoke/` | Yes | storageState per role |
+| `flows` | `e2e/flows/` | Yes | storageState per role |
+| `mocked` | `e2e/checkout.spec.ts` | No | `addInitScript` (unchanged) |
 
-11 browser-level tests across three groups:
+### Prerequisites
 
-**Fulfillment × payment matrix (8 tests)**
+The real-backend projects (`smoke`, `flows`) require the full dev stack running:
 
-| Test | What is asserted |
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+Before each suite run, `e2e/global-setup.ts` automatically:
+1. Polls `GET /api/health` until the backend is healthy (up to 120s)
+2. Runs `prisma:seed` inside the backend container via `docker compose exec`
+3. This **wipes all 14 tables** and reseeds known accounts + catalog (dev DB only)
+
+The `mocked` project (checkout.spec.ts) never contacts the backend and runs independently.
+
+### Real-backend projects
+
+#### `setup` — storageState per role
+
+`e2e/auth.setup.ts` performs a real UI login for each seeded role and saves the browser
+storage state (JWT in localStorage) to `e2e/.auth/<role>.json`. The `smoke` and `flows`
+projects load these files via `test.use({ storageState })`.
+
+Seeded accounts used (defined in `e2e/helpers/accounts.ts`, mirrors `backend/prisma/seed.ts`):
+
+| Role key | Username | Password |
+|---|---|---|
+| admin | admin | admin123 |
+| manager | manager | manager123 |
+| employee | employee | employee123 |
+| customer | johncustomer | customer123 |
+| driver | driver | driver123 |
+
+`e2e/.auth/` is gitignored — these files contain real JWTs.
+
+#### `smoke` — RBAC matrix
+
+`e2e/smoke/rbac.spec.ts` iterates every route × every role. For authorized combinations it
+asserts a visible landmark. For unauthorized-but-authenticated combinations it asserts the
+redirect to `/products` (the behavior confirmed in `ProtectedRoute.jsx`).
+
+The route→role table lives in `e2e/helpers/routes.ts` (mirrors `web/src/App.jsx`).
+
+#### `flows` — Critical deep flows
+
+| File | What it tests |
 |---|---|
-| PICKUP × CREDIT | Navigates to `/order-success` |
-| PICKUP × IN_STORE | Navigates to `/order-success` |
-| PICKUP × EXTERNAL | SendPaymentModal appears ("Order Placed Successfully!") |
-| PICKUP × CC | AuthorizeNet modal overlay (`.modal-overlay`) appears |
-| CURBSIDE × EXTERNAL | `vehicleDescription: 'Silver Toyota Camry'` sent as flat string; no `deliveryAddress`; modal appears |
-| CURBSIDE × CREDIT | `vehicleDescription: 'Blue Honda Civic'`; navigates to success |
-| CURBSIDE × IN_STORE | `vehicleDescription: 'Red Ford F-150'`; navigates to success |
-| DELIVERY × CREDIT | `deliveryAddress` object sent; navigates to success |
+| `e2e/flows/auth.spec.ts` | Login success, bad-password error, register → pending, logout clears session |
+| `e2e/flows/customer-order.spec.ts` | Browse → add to cart → PICKUP × IN_STORE checkout → order appears in my-orders |
+| `e2e/flows/order-lifecycle.spec.ts` | Customer places order; manager advances PENDING → APPROVED → READY → COMPLETED |
+| `e2e/flows/curbside-arrival.spec.ts` | CURBSIDE order → manager marks READY_FOR_PICKUP → customer clicks "I'm Here" → staff sees ARRIVED |
+| `e2e/flows/store-credit.spec.ts` | Manager grants credit to sarahjohnson → customer checks out with CREDIT payment |
 
-**Validation guards (2 tests)**
+**Unique-marker rule:** every flow asserts against data it uniquely created in that run
+(order id from `.order-id-number`, unique vehicle make string, unique special-instructions
+marker). Never assert on list count or row position — flows share seeded accounts and the
+single reseed means prior orders from other flows are present in the DB.
 
-- CURBSIDE with empty vehicle fields: error text appears, no navigation
-- DELIVERY with empty address fields: Place Order button is disabled
+### Mocked layer — `e2e/checkout.spec.ts`
 
-**CC payment retry (1 test)**
+11 browser tests covering the checkout fulfillment × payment matrix, validation guards, and
+CC payment retry. Runs without the backend. All API traffic is mocked via `page.route()`;
+auth/cart are seeded via `page.addInitScript()`. This layer's value is **request payload
+assertions** (`capturedOrderBody`) and CC modal behaviour — things the real backend makes
+harder to verify.
 
-- Simulates an Authorize.Net cancel message (`window.postMessage('action=cancel', origin)`)
-- Asserts `.payment-retry-card` overlay appears with "Payment Unsuccessful"
-
-### API mocking architecture
+### API mocking architecture (mocked layer only)
 
 All tests use a **single `page.route('**/*')` handler** with URL-based `if/else` dispatch.
 Using multiple separate `page.route()` calls causes hard-to-debug LIFO ordering conflicts
@@ -184,22 +227,6 @@ for the CC payment radio to appear (the registry's `isAvailable` guard checks th
 
 The `FAKE_USER` fixture must use `cashapp: '$customer-one'` (not `cashAppUsername`) to match
 the field name AppContext reads from `currentUser`.
-
-### Auth seeding
-
-localStorage is pre-populated via `page.addInitScript()` before the page loads, which
-runs synchronously before any React code:
-
-```ts
-await page.addInitScript(({ user, cart, token }) => {
-  localStorage.setItem('userData', JSON.stringify(user));
-  localStorage.setItem('cartData', JSON.stringify(cart));
-  localStorage.setItem('authToken', token);
-}, { user: FAKE_USER, cart: FAKE_CART, token: 'fake-jwt-token' });
-```
-
-This satisfies ProtectedRoute (`isGuest` check) and AppContext's auth initialization
-without a real login flow.
 
 ### CC modal message format
 
