@@ -25,7 +25,7 @@ const configApi = vi.hoisted(() => ({ getConfig: vi.fn().mockResolvedValue({}) }
 // AppContext calls getUserCredit(userId), not getMyCredit
 const creditApi = vi.hoisted(() => ({ getUserCredit: vi.fn().mockResolvedValue({ balance: 0 }) }));
 // Return a token so the auth check proceeds and isAuthenticated becomes true
-const api = vi.hoisted(() => ({ getAuthToken: vi.fn().mockReturnValue('test-token') }));
+const api = vi.hoisted(() => ({ getAuthToken: vi.fn().mockReturnValue('test-token'), newSession: vi.fn() }));
 
 vi.mock('../services/ordersApi', () => ordersApi);
 vi.mock('../services/authApi', () => authApi);

@@ -61,6 +61,7 @@ const creditApi = vi.hoisted(() => ({
 
 const apiModule = vi.hoisted(() => ({
   getAuthToken: vi.fn(),
+  newSession: vi.fn(),
 }));
 
 vi.mock('../services/authApi', () => authApi);
@@ -76,6 +77,7 @@ vi.mock('../services/api', async () => {
   return {
     ...actual,
     getAuthToken: apiModule.getAuthToken,
+    newSession: apiModule.newSession,
   };
 });
 
@@ -158,5 +160,46 @@ describe('AppContext auth session recovery', () => {
       expect(screen.getByTestId('notification')).toHaveTextContent('Login successful!');
     });
     expect(screen.getByTestId('location')).toHaveTextContent('/products');
+  });
+
+  it('calls newSession() after successful login so stale pre-login requests cannot dispatch backend:unavailable', async () => {
+    renderWithProviders(
+      <AppProvider>
+        <AuthHarness />
+      </AppProvider>,
+      { route: '/login' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('loading')).toHaveTextContent('false'));
+
+    apiModule.newSession.mockClear();
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Trigger Login'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('notification')).toHaveTextContent('Login successful!');
+    });
+
+    expect(apiModule.newSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls newSession() after successful auth check on refresh so only current-session failures show warnings', async () => {
+    apiModule.newSession.mockClear();
+
+    renderWithProviders(
+      <AppProvider>
+        <AuthHarness />
+      </AppProvider>,
+      { route: '/orders' }
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false');
+      expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+    });
+
+    expect(apiModule.newSession).toHaveBeenCalled();
   });
 });

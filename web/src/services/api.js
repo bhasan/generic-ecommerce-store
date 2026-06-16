@@ -11,6 +11,11 @@ const API_RETRY_BASE_DELAY_MS = Number(import.meta.env.VITE_API_RETRY_BASE_DELAY
 const BACKEND_ERROR_COOLDOWN_MS = Number(import.meta.env.VITE_BACKEND_ERROR_COOLDOWN_MS || 30000);
 
 let lastBackendErrorAt = 0;
+let currentSessionId = 0;
+
+export const newSession = () => {
+  currentSessionId += 1;
+};
 
 const debugClient = (event, context = {}) => {
   // Dev-only trace surface for Codex/debugging sessions. Do not promote this to
@@ -125,6 +130,7 @@ const isRetryableStatus = (status) => status >= 500 && status <= 599;
 
 const apiClient = async (url, options = {}) => {
   const token = getAuthToken();
+  const sessionId = currentSessionId;
   const { retries, skipAutoLogout, ...requestOptions } = options;
   
   const headers = {
@@ -216,7 +222,9 @@ const apiClient = async (url, options = {}) => {
           const message = retryableStatus
             ? 'Our servers are having trouble right now. Please try again shortly.'
             : 'We are having trouble reaching the server. Please check your connection and try again.';
-          notifyBackendUnavailable(message);
+          if (sessionId === currentSessionId) {
+            notifyBackendUnavailable(message);
+          }
         }
         if (isNetworkError) {
           const networkError = new Error('Network error. Please check your connection.');

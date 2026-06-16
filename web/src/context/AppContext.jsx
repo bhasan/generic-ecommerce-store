@@ -8,7 +8,7 @@ import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
 import * as configApi from '../services/configApi';
 import * as creditApi from '../services/creditApi';
-import { getAuthToken } from '../services/api';
+import { getAuthToken, newSession } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
 import { applyBrandingTokens } from '../utils/colorUtils';
@@ -138,6 +138,7 @@ export function AppProvider({ children }) {
             }
             setCurrentUser(user);
             setIsAuthenticated(true);
+            newSession();
             // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
             try {
               const creditData = await creditApi.getUserCredit(user.id);
@@ -559,7 +560,8 @@ export function AppProvider({ children }) {
       
       setCurrentUser(user);
       setIsAuthenticated(true);
-      
+      newSession();
+
       // If there's a return path (e.g., guest tried to access orders), go there
       if (returnPath) {
         navigate(returnPath);
