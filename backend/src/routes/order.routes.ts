@@ -37,7 +37,7 @@ router.post(
   authenticate,
   [
     body('items').isArray({ min: 1 }).withMessage('Order must contain at least one item'),
-    body('items.*.productId').isInt().withMessage('Valid product ID is required'),
+    body('items.*.variantId').isInt().withMessage('Valid variant ID is required'),
     body('items.*.quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
     body('cashAppUsername').optional().isString().withMessage('CashApp username must be a string'),
     body('paymentMethod').optional().isIn(Object.values(PaymentMethod)).withMessage('Payment method must be EXTERNAL, CREDIT, or IN_STORE'),
@@ -69,7 +69,7 @@ router.post(
   authenticate,
   authorizeEmployee,
   [
-    body('productId').isInt().withMessage('Valid product ID is required'),
+    body('variantId').isInt().withMessage('Valid variant ID is required'),
     body('quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
   ],
   asyncHandler(orderController.addItemToOrder)

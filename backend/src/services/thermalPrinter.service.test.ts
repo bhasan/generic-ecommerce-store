@@ -86,10 +86,7 @@ describe('thermal printer service', () => {
   it('queues a receipt payload as a pending print job', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 1, orderId: 81, productId: 2, quantity: 2, price: 10.82, voided: false, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
+      { id: 1, orderId: 81, variantId: 2, productName: 'Blue Dream', variantLabel: 'Default', quantity: 2, unitPrice: D(10.82), voided: false, addedAfterSubmission: false, variant: { product: { category: { name: 'Flower' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -117,7 +114,7 @@ describe('thermal printer service', () => {
     expect(body.receipt.templateType).toBe('STAFF_TICKET');
     expect(body.printer.width).toBe(42);
     expect(body.order.items[0]).toMatchObject({
-      productId: 2,
+      variantId: 2,
       productName: 'Blue Dream',
       categoryName: 'Flower',
     });
@@ -170,10 +167,7 @@ TOTAL                               $21.64
       address: '742 Evergreen Terrace, Springfield, IL 62704',
     });
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 4, orderId: 91, productId: 9, quantity: 1, price: 32.5, voided: false, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 9, name: 'House Special', category: { name: 'Bundle' } },
+      { id: 4, orderId: 91, variantId: 9, productName: 'House Special', variantLabel: 'Default', quantity: 1, unitPrice: D(32.5), voided: false, addedAfterSubmission: false, variant: { product: { category: { name: 'Bundle' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -211,10 +205,7 @@ TOTAL                               $21.64
       address: '456 Side St',
     });
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 5, orderId: 95, productId: 2, quantity: 1, price: 15.0, voided: false, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
+      { id: 5, orderId: 95, variantId: 2, productName: 'Blue Dream', variantLabel: 'Default', quantity: 1, unitPrice: D(15.0), voided: false, addedAfterSubmission: false, variant: { product: { category: { name: 'Flower' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -230,10 +221,7 @@ TOTAL                               $21.64
   it('marks manual reprints clearly', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 1, orderId: 81, productId: 2, quantity: 2, price: 10.82, voided: false, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
+      { id: 1, orderId: 81, variantId: 2, productName: 'Blue Dream', variantLabel: 'Default', quantity: 2, unitPrice: D(10.82), voided: false, addedAfterSubmission: false, variant: { product: { category: { name: 'Flower' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -247,14 +235,7 @@ TOTAL                               $21.64
   it('wraps long product names and flags added-later items', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 7, orderId: 81, productId: 3, quantity: 1, price: 12, voided: false, addedAfterSubmission: true },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      {
-        id: 3,
-        name: 'Extremely Long Product Name That Should Wrap Across Multiple Receipt Lines Cleanly',
-        category: { name: 'Edibles' },
-      },
+      { id: 7, orderId: 81, variantId: 3, productName: 'Extremely Long Product Name That Should Wrap Across Multiple Receipt Lines Cleanly', variantLabel: 'Default', quantity: 1, unitPrice: D(12), voided: false, addedAfterSubmission: true, variant: { product: { category: { name: 'Edibles' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -271,12 +252,8 @@ TOTAL                               $21.64
   it('omits voided items from active fulfillment lines', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 8, orderId: 81, productId: 4, quantity: 1, price: 9.5, voided: true, addedAfterSubmission: false },
-      { id: 9, orderId: 81, productId: 5, quantity: 2, price: 6, voided: false, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 4, name: 'Voided Item', category: { name: 'Accessories' } },
-      { id: 5, name: 'Active Item', category: { name: 'Flower' } },
+      { id: 8, orderId: 81, variantId: 4, productName: 'Voided Item', variantLabel: 'Default', quantity: 1, unitPrice: D(9.5), voided: true, addedAfterSubmission: false, variant: { product: { category: { name: 'Accessories' } } } },
+      { id: 9, orderId: 81, variantId: 5, productName: 'Active Item', variantLabel: 'Default', quantity: 2, unitPrice: D(6), voided: false, addedAfterSubmission: false, variant: { product: { category: { name: 'Flower' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -290,10 +267,7 @@ TOTAL                               $21.64
   it('shows a safe fallback when all items are voided', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 8, orderId: 81, productId: 4, quantity: 1, price: 9.5, voided: true, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 4, name: 'Voided Item', category: { name: 'Accessories' } },
+      { id: 8, orderId: 81, variantId: 4, productName: 'Voided Item', variantLabel: 'Default', quantity: 1, unitPrice: D(9.5), voided: true, addedAfterSubmission: false, variant: { product: { category: { name: 'Accessories' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -306,10 +280,7 @@ TOTAL                               $21.64
   it('keeps decimal quantities stable in the printed line items', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 10, orderId: 81, productId: 6, quantity: 0.5, price: 14, voided: false, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 6, name: 'Half Gram Example', category: { name: 'Concentrates' } },
+      { id: 10, orderId: 81, variantId: 6, productName: 'Half Gram Example', variantLabel: 'Default', quantity: 0.5, unitPrice: D(14), voided: false, addedAfterSubmission: false, variant: { product: { category: { name: 'Concentrates' } } } },
     ]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
@@ -322,10 +293,7 @@ TOTAL                               $21.64
   it('surfaces print job creation failures so callers do not mistake them for queued work', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 1, orderId: 81, productId: 2, quantity: 2, price: 10.82, voided: false, addedAfterSubmission: false },
-    ]);
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 2, name: 'Blue Dream', category: { name: 'Flower' } },
+      { id: 1, orderId: 81, variantId: 2, productName: 'Blue Dream', variantLabel: 'Default', quantity: 2, unitPrice: D(10.82), voided: false, addedAfterSubmission: false, variant: { product: { category: { name: 'Flower' } } } },
     ]);
 
     printJobService.createPrintJob.mockRejectedValue(new Error('database unavailable'));
@@ -338,16 +306,15 @@ TOTAL                               $21.64
   it('uses fallback text when product or category details are missing', async () => {
     mockPickupOrder();
     prismaMock.orderItem.findMany.mockResolvedValue([
-      { id: 11, orderId: 81, productId: 99, quantity: 1, price: 8, voided: false, addedAfterSubmission: false },
+      { id: 11, orderId: 81, variantId: 99, productName: 'Product #99', variantLabel: 'Default', quantity: 1, unitPrice: D(8), voided: false, addedAfterSubmission: false, variant: { product: { category: null } } },
     ]);
-    prismaMock.productItem.findMany.mockResolvedValue([]);
 
     const { thermalPrinterService } = await import('./thermalPrinter.service');
     await thermalPrinterService.dispatchReceipt(81, 'ORDER_CREATED');
 
     const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.order.items[0]).toMatchObject({
-      productId: 99,
+      variantId: 99,
       productName: 'Product #99',
       categoryName: null,
     });

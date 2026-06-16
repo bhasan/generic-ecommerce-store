@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
+import { Prisma } from '../../generated/prisma';
 
 // All prisma, logger, and service dependencies must be mocked before the module is loaded.
 const prismaMock = vi.hoisted(() => ({
   user: { update: vi.fn() },
-  productItem: { findMany: vi.fn(), update: vi.fn() },
+  productVariant: { findMany: vi.fn(), update: vi.fn() },
   order: { create: vi.fn() },
   orderItem: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -45,7 +46,7 @@ describe('order service — IN_STORE payment', () => {
     await expect(
       orderService.createOrder({
         userId: 1,
-        items: [{ productId: 1, quantity: 1 }],
+        items: [{ variantId: 1, quantity: 1 }],
         deliveryMethod: DeliveryMethod.DELIVERY,
         paymentMethod: PaymentMethod.IN_STORE,
       })
@@ -59,8 +60,8 @@ describe('order service — IN_STORE payment', () => {
 
   it('proceeds past the guard when IN_STORE is paired with PICKUP', async () => {
     prismaMock.user.update.mockResolvedValue({});
-    prismaMock.productItem.findMany.mockResolvedValue([
-      { id: 7, price: 10, stock: null, stockEnabled: false, category: { allowedQuantities: null, quantityDiscounts: null } },
+    prismaMock.productVariant.findMany.mockResolvedValue([
+      { id: 7, label: "Default", product: { id: 7, name: "Item" }, basePrice: new Prisma.Decimal(10), stock: new Prisma.Decimal(0), stockEnabled: false, quantityOptions: [], priceBreaks: [] },
     ]);
     orderingConstraintsMock.getOrderingConstraints.mockResolvedValue({
       minimumDeliveryOrder: 35,
@@ -69,7 +70,7 @@ describe('order service — IN_STORE payment', () => {
     });
     const createdOrder = { id: 42, total: 10.83, status: 'APPROVED', paymentMethod: PaymentMethod.IN_STORE };
     prismaMock.order.create.mockResolvedValue(createdOrder);
-    prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 42, productId: 7, quantity: 1, price: 10 });
+    prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 42, variantId: 7, quantity: 1, unitPrice: new Prisma.Decimal(10) });
     prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
     notificationEventsMock.notifyOrderCreated.mockResolvedValue(undefined);
 
@@ -77,7 +78,7 @@ describe('order service — IN_STORE payment', () => {
 
     const result = await orderService.createOrder({
       userId: 1,
-      items: [{ productId: 7, quantity: 1 }],
+      items: [{ variantId: 7, quantity: 1 }],
       deliveryMethod: DeliveryMethod.PICKUP,
       paymentMethod: PaymentMethod.IN_STORE,
     });
