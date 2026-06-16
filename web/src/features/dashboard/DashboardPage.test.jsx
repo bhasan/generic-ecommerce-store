@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DashboardPage from './DashboardPage';
 
-const useAppMock = vi.fn();
+const useAppMock = vi.hoisted(() => vi.fn());
 const usersApi = vi.hoisted(() => ({
   getPendingRegistrations: vi.fn(),
   getAllUsers: vi.fn(),

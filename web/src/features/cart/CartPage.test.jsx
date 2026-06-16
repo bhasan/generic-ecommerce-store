@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CartPage from './CartPage';
 import { DeliveryMethod } from '../../constants/orderMethods';
 
-const useAppMock = vi.fn();
+const useAppMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),

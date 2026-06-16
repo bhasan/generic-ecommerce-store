@@ -27,6 +27,9 @@ describe('DeliveryDriverDashboard', () => {
     vi.useRealTimers();
     useAppMock.mockReturnValue({
       showNotification: vi.fn(),
+      // Staff by default so the route-building controls render; a driver-only
+      // case below overrides this to assert those controls are hidden.
+      currentUser: { id: 1, roles: ['MANAGEMENT'] },
     });
     ordersApi.getReadyForDeliveryOrders.mockResolvedValue([]);
     ordersApi.getOutForDeliveryOrders.mockResolvedValue([]);
@@ -80,5 +83,40 @@ describe('DeliveryDriverDashboard', () => {
 
     intervalSpy.mockRestore();
     clearIntervalSpy.mockRestore();
+  });
+
+  it('hides route-building controls from delivery drivers but keeps the delivered action', async () => {
+    useAppMock.mockReturnValue({
+      showNotification: vi.fn(),
+      currentUser: { id: 9, roles: ['DELIVERY_DRIVER'] },
+    });
+    ordersApi.getReadyForDeliveryOrders.mockResolvedValue([
+      { id: 101, items: [{ productName: 'Wrap', quantity: 1 }], user: { address: '1 Main St' } },
+    ]);
+    ordersApi.getOutForDeliveryOrders.mockResolvedValue([
+      { id: 202, items: [{ productName: 'Box', quantity: 1 }], user: { address: '2 Main St' } },
+    ]);
+
+    render(<DeliveryDriverDashboard />);
+
+    await waitFor(() => expect(screen.getByText(/order: #202/i)).toBeInTheDocument());
+
+    // No dispatch/route-edit controls for a driver (those 403 on the backend)...
+    expect(screen.queryByRole('button', { name: /start route/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /edit/i })).not.toBeInTheDocument();
+    // ...but the driver can still complete the delivery.
+    expect(screen.getByRole('button', { name: /mark as delivered/i })).toBeInTheDocument();
+  });
+
+  it('shows route-building controls to staff', async () => {
+    ordersApi.getReadyForDeliveryOrders.mockResolvedValue([
+      { id: 101, items: [{ productName: 'Wrap', quantity: 1 }], user: { address: '1 Main St' } },
+    ]);
+    ordersApi.getOutForDeliveryOrders.mockResolvedValue([]);
+
+    render(<DeliveryDriverDashboard />);
+
+    await waitFor(() => expect(screen.getByText(/order: #101/i)).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /start route/i })).toBeInTheDocument();
   });
 });

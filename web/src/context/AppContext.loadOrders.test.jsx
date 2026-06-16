@@ -3,9 +3,8 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 // Paths relative to this test file (src/context/)
-vi.mock('../services/ordersApi', () => ({ getAllOrders: vi.fn() }));
-vi.mock('../services/authApi', () => ({
-  // AppContext calls getProfile() for its auth check (not getCurrentUser)
+const ordersApi = vi.hoisted(() => ({ getAllOrders: vi.fn() }));
+const authApi = vi.hoisted(() => ({
   getProfile: vi.fn().mockResolvedValue({
     id: 1, username: 'testuser', email: 'test@example.com', roles: ['CUSTOMER'],
   }),
@@ -13,20 +12,29 @@ vi.mock('../services/authApi', () => ({
   register: vi.fn(),
   logout: vi.fn(),
 }));
-vi.mock('../services/productsApi', () => ({ getAllProducts: vi.fn().mockResolvedValue([]) }));
-vi.mock('../services/categoriesApi', () => ({ getAllCategories: vi.fn().mockResolvedValue([]) }));
-vi.mock('../services/notificationsApi', () => ({
+const productsApi = vi.hoisted(() => ({ getAllProducts: vi.fn().mockResolvedValue([]) }));
+const categoriesApi = vi.hoisted(() => ({ getAllCategories: vi.fn().mockResolvedValue([]) }));
+const notificationsApi = vi.hoisted(() => ({
   getNotifications: vi.fn().mockResolvedValue([]),
   getUnreadNotificationCount: vi.fn().mockResolvedValue({ count: 0 }),
   getStaffNotificationCounts: vi.fn().mockResolvedValue({ ordersByStatus: {}, pendingRegistrations: 0 }),
   markNotificationRead: vi.fn(),
   markAllNotificationsRead: vi.fn(),
 }));
-vi.mock('../services/configApi', () => ({ getConfig: vi.fn().mockResolvedValue({}) }));
+const configApi = vi.hoisted(() => ({ getConfig: vi.fn().mockResolvedValue({}) }));
 // AppContext calls getUserCredit(userId), not getMyCredit
-vi.mock('../services/creditApi', () => ({ getUserCredit: vi.fn().mockResolvedValue({ balance: 0 }) }));
+const creditApi = vi.hoisted(() => ({ getUserCredit: vi.fn().mockResolvedValue({ balance: 0 }) }));
 // Return a token so the auth check proceeds and isAuthenticated becomes true
-vi.mock('../services/api', () => ({ getAuthToken: vi.fn().mockReturnValue('test-token') }));
+const api = vi.hoisted(() => ({ getAuthToken: vi.fn().mockReturnValue('test-token') }));
+
+vi.mock('../services/ordersApi', () => ordersApi);
+vi.mock('../services/authApi', () => authApi);
+vi.mock('../services/productsApi', () => productsApi);
+vi.mock('../services/categoriesApi', () => categoriesApi);
+vi.mock('../services/notificationsApi', () => notificationsApi);
+vi.mock('../services/configApi', () => configApi);
+vi.mock('../services/creditApi', () => creditApi);
+vi.mock('../services/api', () => api);
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -43,7 +51,6 @@ vi.mock('react-router-dom', async () => {
  */
 async function setupHook() {
   const { AppProvider, useApp } = await import('./AppContext');
-  const ordersApi = await import('../services/ordersApi');
 
   // Block the initial orders fetch so the hook starts in a clean state.
   let resolveInitial;
@@ -64,13 +71,13 @@ async function setupHook() {
   await act(async () => { resolveInitial([]); });
   await waitFor(() => expect(result.current.isLoadingOrders).toBe(false));
 
-  return { result, ordersApi };
+  return { result };
 }
 
 describe('AppContext › loadOrders silent parameter', () => {
 
   it('sets isLoadingOrders=true while a normal (non-silent) fetch is in flight', async () => {
-    const { result, ordersApi } = await setupHook();
+    const { result } = await setupHook();
 
     let resolveFetch;
     ordersApi.getAllOrders.mockReturnValue(
@@ -89,7 +96,7 @@ describe('AppContext › loadOrders silent parameter', () => {
   });
 
   it('never sets isLoadingOrders=true during a silent fetch', async () => {
-    const { result, ordersApi } = await setupHook();
+    const { result } = await setupHook();
 
     let resolveFetch;
     ordersApi.getAllOrders.mockReturnValue(

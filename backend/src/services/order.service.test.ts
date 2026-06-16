@@ -594,4 +594,63 @@ describe('order service notifications', () => {
       expect(prismaMock.productItem.update).not.toHaveBeenCalled();
     });
   });
+
+  describe('updateOrderStatus — delivery driver permissions', () => {
+    const driver = ['DELIVERY_DRIVER'];
+
+    const seedDeliverableOrder = (status: OrderStatus) => {
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 50, userId: 5, status, total: 10, paymentMethod: PaymentMethod.EXTERNAL,
+      });
+      prismaMock.order.update.mockResolvedValue({
+        id: 50, userId: 5, status: OrderStatus.DELIVERED, updatedAt: new Date(),
+      });
+      prismaMock.orderItem.findMany.mockResolvedValue([]);
+      prismaMock.productItem.findMany.mockResolvedValue([]);
+    };
+
+    it('lets a driver mark an OUT_FOR_DELIVERY order as DELIVERED (the staff-dispatch handoff)', async () => {
+      seedDeliverableOrder(OrderStatus.OUT_FOR_DELIVERY);
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await service.updateOrderStatus(50, { status: OrderStatus.DELIVERED }, driver);
+
+      expect(prismaMock.order.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 50 }, data: { status: OrderStatus.DELIVERED } }),
+      );
+    });
+
+    it('still lets a driver deliver a READY_FOR_DELIVERY order', async () => {
+      seedDeliverableOrder(OrderStatus.READY_FOR_DELIVERY);
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await service.updateOrderStatus(50, { status: OrderStatus.DELIVERED }, driver);
+
+      expect(prismaMock.order.update).toHaveBeenCalled();
+    });
+
+    it('rejects delivering an order that is not in a deliverable state', async () => {
+      seedDeliverableOrder(OrderStatus.PENDING);
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await expect(
+        service.updateOrderStatus(50, { status: OrderStatus.DELIVERED }, driver),
+      ).rejects.toMatchObject({ statusCode: 400 });
+      expect(prismaMock.order.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a driver setting any status other than DELIVERED', async () => {
+      seedDeliverableOrder(OrderStatus.OUT_FOR_DELIVERY);
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+
+      await expect(
+        service.updateOrderStatus(50, { status: OrderStatus.OUT_FOR_DELIVERY }, driver),
+      ).rejects.toMatchObject({ statusCode: 403 });
+      expect(prismaMock.order.update).not.toHaveBeenCalled();
+    });
+  });
 });
