@@ -1,3 +1,8 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { Prisma } from '../../generated/prisma';
+
+const D = (n: number) => new Prisma.Decimal(n);
+
 const prismaMock = {
   order: {
     findUnique: vi.fn(),
@@ -62,7 +67,7 @@ describe('thermal printer service', () => {
       id: 81,
       userId: 5,
       status: 'PENDING',
-      total: 21.64,
+      total: D(21.64),
       createdAt: new Date('2026-04-09T15:00:00.000Z'),
       updatedAt: new Date('2026-04-09T15:00:00.000Z'),
       deliveryMethod: 'PICKUP',
@@ -150,7 +155,7 @@ TOTAL                               $21.64
       id: 91,
       userId: 7,
       status: 'APPROVED',
-      total: 32.5,
+      total: D(32.5),
       createdAt: new Date('2026-04-09T18:30:00.000Z'),
       updatedAt: new Date('2026-04-09T18:30:00.000Z'),
       deliveryMethod: 'DELIVERY',
@@ -190,7 +195,7 @@ TOTAL                               $21.64
       id: 95,
       userId: 8,
       status: 'APPROVED',
-      total: 15.0,
+      total: D(15.0),
       createdAt: new Date('2026-04-09T19:00:00.000Z'),
       updatedAt: new Date('2026-04-09T19:00:00.000Z'),
       deliveryMethod: 'CURBSIDE',

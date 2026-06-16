@@ -193,8 +193,8 @@ describe('order routes integration', () => {
     verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
     deliveryEligibilityService.checkDeliveryEligibility.mockResolvedValue({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'ZIP_FALLBACK',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'ZIP_FALLBACK',
       distanceMiles: null,
       thresholdMiles: 5,
       message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
@@ -221,8 +221,8 @@ describe('order routes integration', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'ZIP_FALLBACK',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'ZIP_FALLBACK',
       distanceMiles: null,
       thresholdMiles: 5,
       message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',

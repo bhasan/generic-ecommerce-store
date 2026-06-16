@@ -85,7 +85,7 @@ const installApiMock = ({
     status: 'PLACED',
     createdAt: '2026-04-04T18:30:00.000Z',
     deliveryAddress: '123 Main St, Houston, TX 77083',
-    deliveryEligibilitySource: 'ZIP_FALLBACK',
+    deliverySource: 'ZIP_FALLBACK',
     deliveryDistanceMiles: null,
   },
   initialProfile = baseCustomer,
@@ -195,8 +195,8 @@ describe('delivery eligibility end-to-end journey', () => {
     const api = installApiMock({
       eligibilityResult: {
         deliverable: false,
-        deliveryZoneStatus: 'OUT_OF_ZONE',
-        deliveryZoneSource: 'GOOGLE_GEOCODING',
+        deliveryStatus: 'OUT_OF_ZONE',
+        deliverySource: 'GOOGLE_GEOCODING',
         distanceMiles: 7.1,
         thresholdMiles: 5,
         message: 'This address is 7.10 miles away, outside the 5.00 mile delivery radius.',
@@ -235,18 +235,18 @@ describe('delivery eligibility end-to-end journey', () => {
     const api = installApiMock({
       eligibilityResult: {
         deliverable: true,
-        deliveryZoneStatus: 'IN_ZONE',
-        deliveryZoneSource: 'ZIP_FALLBACK',
+        deliveryStatus: 'IN_ZONE',
+        deliverySource: 'ZIP_FALLBACK',
         distanceMiles: null,
         thresholdMiles: 5,
         message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
       },
       refreshedProfile: {
         ...baseCustomer,
-        deliveryZoneStatus: 'IN_ZONE',
-        deliveryZoneSource: 'ZIP_FALLBACK',
-        deliveryZoneDistanceMiles: null,
-        deliveryZoneCheckedAt: '2026-04-04T18:30:00.000Z',
+        deliveryStatus: 'IN_ZONE',
+        deliverySource: 'ZIP_FALLBACK',
+        deliveryDistanceMiles: null,
+        deliveryCheckedAt: '2026-04-04T18:30:00.000Z',
       },
     });
 

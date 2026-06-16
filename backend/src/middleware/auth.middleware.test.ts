@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { authenticate, optionalAuthenticate } from './auth.middleware';
 import { logger } from '../utils/logger';
 import { extractTokenFromHeader, verifyToken } from '../utils/jwt.util';

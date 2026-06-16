@@ -1,4 +1,6 @@
-import { OrderStatus } from '../../generated/prisma';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { OrderStatus, Prisma } from '../../generated/prisma';
+const D = (n: number) => new Prisma.Decimal(n);
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const prismaMock = {
@@ -170,7 +172,7 @@ describe('order service notifications', () => {
     prismaMock.order.create.mockResolvedValue({
       id: 77,
       userId: 5,
-      total: 10.82,
+      total: D(10.82),
       status: 'PENDING',
       paymentMethod: PaymentMethod.EXTERNAL,
       createdAt: new Date(),
@@ -217,8 +219,8 @@ describe('order service notifications', () => {
     ]);
     deliveryEligibilityService.checkDeliveryEligibility.mockResolvedValue({
       deliverable: false,
-      deliveryZoneStatus: 'OUT_OF_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING',
+      deliveryStatus: 'OUT_OF_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING',
       distanceMiles: 7.1,
       thresholdMiles: 5,
       message: 'Outside radius',
@@ -256,7 +258,7 @@ describe('order service notifications', () => {
       id: 77,
       userId: 5,
       status: OrderStatus.APPROVED,
-      total: 10,
+      total: D(10),
       paymentMethod: PaymentMethod.EXTERNAL,
     });
     prismaMock.order.update.mockResolvedValue({
@@ -330,7 +332,7 @@ describe('order service notifications', () => {
     prismaMock.order.create.mockResolvedValue({
       id: 78,
       userId: 5,
-      total: 10.82,
+      total: D(10.82),
       status: 'PENDING',
       paymentMethod: 'EXTERNAL',
       createdAt: new Date(),
@@ -487,7 +489,7 @@ describe('order service notifications', () => {
     it('decrements stock for stock-enabled product when adding item to order', async () => {
       prismaMock.order.findUnique.mockResolvedValue({
         id: 10,
-        total: 20.00,
+        total: D(20.00),
       });
 
       prismaMock.productItem.findUnique.mockResolvedValue({
@@ -530,7 +532,7 @@ describe('order service notifications', () => {
     it('throws 400 with insufficient stock message when stock is too low', async () => {
       prismaMock.order.findUnique.mockResolvedValue({
         id: 10,
-        total: 20.00,
+        total: D(20.00),
       });
 
       prismaMock.productItem.findUnique.mockResolvedValue({
@@ -558,7 +560,7 @@ describe('order service notifications', () => {
     it('does not decrement stock for non-stock-enabled product', async () => {
       prismaMock.order.findUnique.mockResolvedValue({
         id: 10,
-        total: 20.00,
+        total: D(20.00),
       });
 
       prismaMock.productItem.findUnique.mockResolvedValue({
@@ -600,7 +602,7 @@ describe('order service notifications', () => {
 
     const seedDeliverableOrder = (status: OrderStatus) => {
       prismaMock.order.findUnique.mockResolvedValue({
-        id: 50, userId: 5, status, total: 10, paymentMethod: PaymentMethod.EXTERNAL,
+        id: 50, userId: 5, status, total: D(10), paymentMethod: PaymentMethod.EXTERNAL,
       });
       prismaMock.order.update.mockResolvedValue({
         id: 50, userId: 5, status: OrderStatus.DELIVERED, updatedAt: new Date(),

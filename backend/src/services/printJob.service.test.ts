@@ -1,3 +1,5 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
 const prismaMock = {
   printJob: {
     create: vi.fn(),
@@ -69,19 +71,19 @@ describe('print job service', () => {
     prismaMock.$queryRaw.mockResolvedValue([
       {
         id: 501,
-        order_id: 88,
+        orderId: 88,
         reason: 'ORDER_CREATED',
         status: 'CLAIMED',
-        payload_json: { receipt: { text: 'ORDER #88' } },
-        created_at: new Date('2026-04-20T11:59:00.000Z'),
-        claimed_at: claimedAt,
-        completed_at: null,
-        failed_at: null,
-        claimed_by_agent_id: 'pos-01',
-        native_job_id: null,
-        attempt_count: 0,
-        last_error_code: null,
-        last_error_message: null,
+        payloadJson: { receipt: { text: 'ORDER #88' } },
+        createdAt: new Date('2026-04-20T11:59:00.000Z'),
+        claimedAt: claimedAt,
+        completedAt: null,
+        failedAt: null,
+        claimedByAgentId: 'pos-01',
+        nativeJobId: null,
+        attemptCount: 0,
+        lastErrorCode: null,
+        lastErrorMessage: null,
       },
     ]);
 
@@ -90,10 +92,10 @@ describe('print job service', () => {
     const sqlText = String(prismaMock.$queryRaw.mock.calls[0][0]);
 
     expect(sqlText).toContain('FOR UPDATE SKIP LOCKED');
-    expect(sqlText).toContain('ORDER BY "created_at" ASC');
+    expect(sqlText).toContain('ORDER BY "createdAt" ASC');
     expect(sqlText).toContain('"status" = \'PENDING\'::"PrintJobStatus"');
     expect(sqlText).toContain('"status" = \'CLAIMED\'::"PrintJobStatus"');
-    expect(sqlText).toContain('"claimed_at" < NOW() - INTERVAL \'5 minutes\'');
+    expect(sqlText).toContain('"claimedAt" < NOW() - INTERVAL \'5 minutes\'');
     expect(job).toMatchObject({
       id: 501,
       orderId: 88,

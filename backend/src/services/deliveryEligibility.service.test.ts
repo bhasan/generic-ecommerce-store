@@ -1,3 +1,5 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
 vi.mock('../../generated/prisma', () => ({
   DeliveryEligibilitySource: {
     NONE: 'NONE',
@@ -118,8 +120,8 @@ describe('delivery eligibility service', () => {
 
     expect(result).toEqual(expect.objectContaining({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'ADDRESS_CACHE',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'ADDRESS_CACHE',
     }));
     expect(result.distanceMiles).not.toBeNull();
     expect(fetch).not.toHaveBeenCalled();
@@ -158,8 +160,8 @@ describe('delivery eligibility service', () => {
 
     expect(result).toEqual(expect.objectContaining({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'ZIP_FALLBACK',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'ZIP_FALLBACK',
       distanceMiles: null,
     }));
     expect(logger.warn).toHaveBeenCalledWith('Delivery eligibility ZIP fallback used', expect.objectContaining({
@@ -209,8 +211,8 @@ describe('delivery eligibility service', () => {
 
     expect(result).toEqual(expect.objectContaining({
       deliverable: false,
-      deliveryZoneStatus: 'UNVERIFIED',
-      deliveryZoneSource: 'NONE',
+      deliveryStatus: 'UNVERIFIED',
+      deliverySource: 'NONE',
       distanceMiles: null,
     }));
   });

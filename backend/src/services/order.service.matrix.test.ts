@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 /**
  * Regression matrix — every fulfillment × payment combination that the checkout
  * rewrite (Steps 1-8) touched. Each case asserts that createOrder succeeds and
@@ -59,7 +60,7 @@ const PRODUCT = {
 };
 
 const DELIVERABLE_RESULT = {
-  deliverable: true, deliveryZoneStatus: 'IN_ZONE', deliveryZoneSource: 'GOOGLE_GEOCODING',
+  deliverable: true, deliveryStatus: 'IN_ZONE', deliverySource: 'GOOGLE_GEOCODING',
   distanceMiles: 2, thresholdMiles: 5, message: 'In range',
   canonicalAddress: '123 Main St, Houston, TX 77001', checkedAt: new Date(),
 };
@@ -242,8 +243,8 @@ describe('createOrder — fulfillment × payment matrix', () => {
 
   it('rejects DELIVERY order when address is out of zone', async () => {
     deliveryEligibilityMock.checkDeliveryEligibility.mockResolvedValue({
-      deliverable: false, deliveryZoneStatus: 'OUT_OF_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING', distanceMiles: 9, thresholdMiles: 5,
+      deliverable: false, deliveryStatus: 'OUT_OF_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING', distanceMiles: 9, thresholdMiles: 5,
       message: 'Outside delivery area', checkedAt: new Date(),
     });
 

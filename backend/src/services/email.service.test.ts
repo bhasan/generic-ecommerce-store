@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 const { logger } = vi.hoisted(() => ({
   logger: {
     info: vi.fn(),

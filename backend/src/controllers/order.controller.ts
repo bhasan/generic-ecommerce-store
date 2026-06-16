@@ -55,8 +55,8 @@ export class OrderController {
     const result = await deliveryEligibilityService.checkDeliveryEligibility(req.body.deliveryAddress);
     res.status(200).json({
       deliverable: result.deliverable,
-      deliveryZoneStatus: result.deliveryZoneStatus,
-      deliveryZoneSource: result.deliveryZoneSource,
+      deliveryStatus: result.deliveryStatus,
+      deliverySource: result.deliverySource,
       distanceMiles: result.distanceMiles,
       thresholdMiles: result.thresholdMiles,
       message: result.message,

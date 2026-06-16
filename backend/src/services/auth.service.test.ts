@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
 
 const {
@@ -158,10 +159,10 @@ describe('auth service', () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     hashPassword.mockResolvedValue('hashed-password');
     deliveryEligibilityService.evaluateRegistrationAddress.mockResolvedValue({
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'ZIP_FALLBACK',
-      deliveryZoneDistanceMiles: 0,
-      deliveryZoneCheckedAt: new Date('2026-04-04T02:00:00.000Z'),
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'ZIP_FALLBACK',
+      deliveryDistanceMiles: 0,
+      deliveryCheckedAt: new Date('2026-04-04T02:00:00.000Z'),
     });
     prismaMock.role.findMany.mockResolvedValue([{ id: 1, name: 'CUSTOMER' }]);
     prismaMock.user.create.mockResolvedValue({
@@ -189,9 +190,9 @@ describe('auth service', () => {
     expect(deliveryEligibilityService.evaluateRegistrationAddress).toHaveBeenCalledWith('123 Main St, Houston, TX 77083');
     expect(prismaMock.user.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
-        deliveryZoneStatus: 'IN_ZONE',
-        deliveryZoneSource: 'ZIP_FALLBACK',
-        deliveryZoneDistanceMiles: 0,
+        deliveryStatus: 'IN_ZONE',
+        deliverySource: 'ZIP_FALLBACK',
+        deliveryDistanceMiles: 0,
       }),
     }));
   });

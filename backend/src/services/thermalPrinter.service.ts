@@ -304,7 +304,7 @@ export class ThermalPrinterService {
     return {
       id: order.id,
       status: order.status,
-      total: order.total,
+      total: order.total.toNumber(),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       deliveryMethod: order.deliveryMethod,

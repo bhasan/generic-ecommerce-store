@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { OrderStatus } from '../../generated/prisma';
+import { OrderStatus, Prisma } from '../../generated/prisma';
 import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
@@ -622,6 +622,9 @@ export class OrderService {
         const newOrder = await tx.order.create({
           data: {
             userId,
+            subtotal,
+            tax,
+            taxRate: DEFAULT_TAX_RATE,
             total,
             status: paymentStrategy.initialStatus(),
             deliveryMethod,
@@ -906,9 +909,9 @@ export class OrderService {
         price: unitPrice,
       });
 
-      // Recalculate order total
+      // Recalculate order total (Decimal so money stays exact)
       const oldTotal = order.total;
-      const newTotal = order.total + (unitPrice * data.quantity);
+      const newTotal = order.total.add(new Prisma.Decimal(unitPrice).mul(data.quantity));
 
       logger.debug('Updating order total', {
         orderId,
@@ -1120,7 +1123,7 @@ export class OrderService {
       });
 
       const deletePaymentStrategy = getPaymentStrategy(order.paymentMethod as PaymentMethodEnum);
-      await deletePaymentStrategy.refundOnDelete(orderId, order.userId, order.total);
+      await deletePaymentStrategy.refundOnDelete(orderId, order.userId, order.total.toNumber());
 
       return { message: 'Order deleted successfully' };
     } catch (error) {
@@ -1240,7 +1243,7 @@ export class OrderService {
 
     const token = await authorizeNetService.getHostedPageToken(
       orderId,
-      order.total,
+      order.total.toNumber(),
       communicatorUrl,
       settings.cc_payment
     );
@@ -1271,7 +1274,7 @@ export class OrderService {
     if (duplicate) throw new AppError('This payment has already been applied to another order', 400);
 
     const settings = await paymentSettingsService.getPaymentSettings();
-    await authorizeNetService.verifyTransaction(transId, order.total, orderId, settings.cc_payment);
+    await authorizeNetService.verifyTransaction(transId, order.total.toNumber(), orderId, settings.cc_payment);
 
     const updated = await prisma.order.update({
       where: { id: orderId },

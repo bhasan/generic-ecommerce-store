@@ -156,11 +156,14 @@ export class ContactController {
     });
 
     // This in-app notification updates the customer's support inbox state.
+    // Skipped when the original sender's account was since deleted (userId nulled).
     // Outbound customer email delivery is handled separately by emailService below.
-    await notificationEventsService.notifyContactReplySent(id, originalMessage.userId, {
-      userId,
-      username: repliedByName,
-    });
+    if (originalMessage.userId !== null) {
+      await notificationEventsService.notifyContactReplySent(id, originalMessage.userId, {
+        userId,
+        username: repliedByName,
+      });
+    }
 
     let emailDelivered = false;
     let responseMessage = 'Reply sent successfully';

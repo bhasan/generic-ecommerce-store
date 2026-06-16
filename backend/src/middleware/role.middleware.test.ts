@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { authorize } from './role.middleware';
 import { logger } from '../utils/logger';
 

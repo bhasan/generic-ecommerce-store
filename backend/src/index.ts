@@ -34,6 +34,7 @@ import brandingRoutes from './routes/branding.routes';
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
+import { serializeDecimal } from './middleware/serializeDecimal.middleware';
 import { authLimiter, generalLimiter, readWriteLimiter } from './middleware/rateLimit.middleware';
 
 // Load environment variables
@@ -101,6 +102,9 @@ app.use((req, res, next) => {
 
 // Request logging (must be after body parsing to capture request body)
 app.use(requestLogger);
+
+// Convert Prisma Decimal money fields to numbers in every JSON response
+app.use(serializeDecimal);
 
 // ========================================
 // ROUTES

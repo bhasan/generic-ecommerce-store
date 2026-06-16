@@ -93,7 +93,7 @@ function OrderDetailPanel({
     order.deliveryDistanceMiles !== null && order.deliveryDistanceMiles !== undefined
       ? `${order.deliveryDistanceMiles.toFixed(2)} miles`
       : null,
-    order.deliveryEligibilitySource === 'ZIP_FALLBACK'
+    order.deliverySource === 'ZIP_FALLBACK'
       ? 'ZIP fallback'
       : null,
   ].filter(Boolean).join(' | ');

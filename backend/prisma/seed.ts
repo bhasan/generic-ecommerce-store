@@ -279,9 +279,7 @@ async function seed() {
       comment: 'Amazing sound quality! Best headphones I have ever owned.',
       helpful: 12,
       notHelpful: 1,
-      flagged: false,
-      votedByHelpful: [],
-      votedByNotHelpful: []
+      flagged: false
     }
   });
 
@@ -293,9 +291,7 @@ async function seed() {
       comment: 'Very comfortable for long listening sessions.',
       helpful: 8,
       notHelpful: 0,
-      flagged: false,
-      votedByHelpful: [],
-      votedByNotHelpful: []
+      flagged: false
     }
   });
 
@@ -307,9 +303,7 @@ async function seed() {
       comment: 'Perfect for work from home!',
       helpful: 15,
       notHelpful: 2,
-      flagged: false,
-      votedByHelpful: [],
-      votedByNotHelpful: []
+      flagged: false
     }
   });
 
