@@ -207,7 +207,7 @@ The route→role table lives in `e2e/helpers/routes.ts` (mirrors `web/src/App.js
 | `e2e/flows/order-lifecycle.spec.ts` | Customer places order; manager advances PENDING → APPROVED → READY → COMPLETED |
 | `e2e/flows/curbside-arrival.spec.ts` | CURBSIDE order → manager marks READY_FOR_PICKUP → customer clicks "I'm Here" → staff sees ARRIVED |
 | `e2e/flows/store-credit.spec.ts` | Manager grants credit to sarahjohnson → customer checks out with CREDIT payment |
-| `e2e/flows/driver-delivery.spec.ts` | Admin sets the in-zone ZIP → DELIVERY × CREDIT order → manager approves → staff dispatch + deliver via the delivery dashboard → driver RBAC boundary asserted (driver may only mark DELIVERED, only from READY_FOR_DELIVERY) |
+| `e2e/flows/driver-delivery.spec.ts` | Admin sets the in-zone ZIP → DELIVERY × CREDIT order → manager approves + dispatches → driver completes the delivery via the dashboard → driver RBAC boundary asserted (driver may only mark DELIVERED, never dispatch) |
 
 **Unique-marker rule:** every flow asserts against data it uniquely created in that run
 (order id from `.order-id-number`, unique vehicle make string, unique special-instructions
@@ -231,11 +231,17 @@ const card = page.locator('.kanban-card').filter({
 await card.getByRole('button', { name: /approve \(payment verified\)/i }).click();
 ```
 
-> **Known gap (not a test bug):** delivery drivers can only set `DELIVERED`, and only from
-> `READY_FOR_DELIVERY`, but the dashboard's "mark delivered" button renders only on
-> `OUT_FOR_DELIVERY` cards — which drivers cannot produce. So a driver cannot complete a
-> delivery through the UI; the route-build + deliver path only works for staff. The flow
-> exercises the staff path and asserts the driver boundary at the API level.
+**Delivery hand-off model:** staff **dispatch** an order (`READY_FOR_DELIVERY → OUT_FOR_DELIVERY`,
+via the kanban "In Delivery" action or the dashboard route-builder); the **driver** then completes
+it (`OUT_FOR_DELIVERY → DELIVERED`) from the dashboard's "Out for Delivery" panel. Drivers may set
+*only* `DELIVERED` and only from a deliverable state — they cannot dispatch. `driver-delivery.spec.ts`
+exercises the full hand-off through the browser and asserts the driver boundary (403 on any non-
+`DELIVERED` change).
+
+> Previously the backend only accepted a driver's `DELIVERED` from `READY_FOR_DELIVERY`, while the
+> dashboard's "mark delivered" button renders only on `OUT_FOR_DELIVERY` cards — so a driver could
+> never finish a delivery in the UI. Fixed in `order.service.ts`: `DELIVERED` is now accepted from
+> either `READY_FOR_DELIVERY` or `OUT_FOR_DELIVERY`.
 
 ### Mocked layer — `e2e/checkout.spec.ts`
 

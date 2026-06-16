@@ -14,7 +14,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
   const IN_ZONE_ZIP = '77083';
   const CREDIT_AMOUNT = 500;
 
-  test('staff dispatch + delivery, with driver RBAC enforced', async ({ browser }) => {
+  test('staff dispatch, driver delivers, with driver RBAC enforced', async ({ browser }) => {
     // --- Admin: make the in-zone ZIP deliverable and drop the delivery minimum ---
     const adminCtx = await browser.newContext({ storageState: ACCOUNTS.admin.storageStatePath });
     const adminPage = await adminCtx.newPage();
@@ -112,55 +112,45 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     // For a DELIVERY order the next quick action is "Ready for Delivery"
     await expect(card.getByRole('button', { name: /ready for delivery/i })).toBeVisible({ timeout: 8_000 });
     await card.getByRole('button', { name: /ready for delivery/i }).click();
-    // Confirm the transition: the next staff action becomes "In Delivery"
-    // (STATUS_LABELS.OUT_FOR_DELIVERY === 'In Delivery'). The dashboard, not the
-    // kanban, performs the dispatch + delivery below.
+    // Confirm READY_FOR_DELIVERY, then staff dispatch via "In Delivery" → OUT_FOR_DELIVERY
+    // (STATUS_LABELS.OUT_FOR_DELIVERY === 'In Delivery'). Dispatch is a staff action;
+    // the driver performs the final delivery below.
     await expect(card.getByRole('button', { name: /in delivery/i })).toBeVisible({ timeout: 8_000 });
+    await card.getByRole('button', { name: /in delivery/i }).click();
+    // Once OUT_FOR_DELIVERY the next staff action becomes "Delivered"
+    await expect(card.getByRole('button', { name: /^delivered$/i })).toBeVisible({ timeout: 8_000 });
+    await managerCtx.close();
 
-    // --- Driver RBAC boundary (API): a delivery driver may ONLY mark DELIVERED, and
-    // only from READY_FOR_DELIVERY — it cannot dispatch an order to OUT_FOR_DELIVERY.
+    // --- Driver: RBAC boundary + the real delivery handoff ---
     const driverCtx = await browser.newContext({ storageState: ACCOUNTS.driver.storageStatePath });
     const driverPage = await driverCtx.newPage();
     await driverPage.goto('/');
     await driverPage.waitForLoadState('networkidle');
+
+    // A delivery driver may ONLY mark DELIVERED — never dispatch an order itself.
     const dispatchStatus = await driverPage.evaluate(async (orderId) => {
       const token = localStorage.getItem('authToken');
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'OUT_FOR_DELIVERY' }),
+        body: JSON.stringify({ status: 'READY_FOR_DELIVERY' }),
       });
       return res.status;
     }, rawId);
-    expect(dispatchStatus, 'Driver should be forbidden from dispatching orders').toBe(403);
-    await driverCtx.close();
+    expect(dispatchStatus, 'Driver should be forbidden from changing non-DELIVERED status').toBe(403);
 
-    // --- Staff dispatch + delivery through the delivery-dashboard UI ---
-    // (The route-build + "mark delivered" controls require canManageOrders; a driver's
-    // delivered button only renders on OUT_FOR_DELIVERY cards it isn't allowed to set.)
-    await managerPage.goto('/delivery-dashboard');
-
-    // Find MY order in the left "Ready for Delivery" panel by its id badge. The street
-    // is not a reliable marker: placing the order overwrote the customer's saved profile
-    // address, so other null-address orders echo the same street.
-    const readyCard = managerPage.locator('.delivery-order-item', { hasText: `Order: #${rawId}` });
-    await expect(readyCard).toBeVisible({ timeout: 10_000 });
-
-    // Build a route: enter edit mode, select my order, save → OUT_FOR_DELIVERY
-    await managerPage.getByRole('button', { name: /start route|edit route/i }).first().click();
-    await readyCard.locator('input.order-checkbox').check();
-    await managerPage.getByRole('button', { name: /^save$/i }).click();
-
-    // It now lives in the right "Out for Delivery" panel with a "mark delivered" control
-    const routeCard = managerPage.locator('.delivery-order-item.route-order', { hasText: `Order: #${rawId}` });
+    // The dispatched order shows in the driver's "Out for Delivery" panel; the driver
+    // completes the handoff via the "mark delivered" control (OUT_FOR_DELIVERY → DELIVERED).
+    await driverPage.goto('/delivery-dashboard');
+    const routeCard = driverPage.locator('.delivery-order-item.route-order', { hasText: `Order: #${rawId}` });
     await expect(routeCard).toBeVisible({ timeout: 10_000 });
     await routeCard.locator('.btn-delivered-small').click();
 
     // After DELIVERED the dashboard reloads and this order drops off the board
     await expect(
-      managerPage.locator('.delivery-order-item', { hasText: `Order: #${rawId}` })
+      driverPage.locator('.delivery-order-item', { hasText: `Order: #${rawId}` })
     ).toHaveCount(0, { timeout: 10_000 });
 
-    await managerCtx.close();
+    await driverCtx.close();
   });
 });

@@ -776,13 +776,18 @@ export class OrderService {
           throw new AppError('Delivery drivers can only mark orders as DELIVERED', 403);
         }
         // Delivery drivers can only mark READY_FOR_DELIVERY orders as DELIVERED
-        if (order.status !== OrderStatus.READY_FOR_DELIVERY) {
-          logger.warn('Order status update denied: delivery driver can only update READY_FOR_DELIVERY orders', {
+        // Drivers complete the handoff once an order is ready for or out for delivery.
+        // OUT_FOR_DELIVERY is the state staff dispatch into (and the only one whose
+        // card exposes the "mark delivered" control on the driver dashboard), so it
+        // must be deliverable — otherwise drivers cannot finish a delivery in the UI.
+        const deliverableFrom: OrderStatus[] = [OrderStatus.READY_FOR_DELIVERY, OrderStatus.OUT_FOR_DELIVERY];
+        if (!deliverableFrom.includes(order.status as OrderStatus)) {
+          logger.warn('Order status update denied: order is not in a deliverable state', {
             orderId,
             currentStatus: order.status,
             attemptedStatus: data.status,
           });
-          throw new AppError('Can only mark READY_FOR_DELIVERY orders as DELIVERED', 400);
+          throw new AppError('Can only mark orders that are ready for or out for delivery as DELIVERED', 400);
         }
       }
 
