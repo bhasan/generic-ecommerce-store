@@ -46,6 +46,11 @@ the floors sit just below the current baseline (≈60% lines, 68% branches, 72% 
     annotation on the transaction ledger.
 - Strategy registries: `backend/src/services/payments/registry.test.ts`, `backend/src/services/fulfillment/registry.test.ts`
 - Route-level validators (where they have standalone unit coverage)
+- **Route-level RBAC enforcement** (`src/integration/rbac.routes.test.ts`): mounts the real
+  routers with the real `authenticate` + `authorize` middleware (only the JWT decode is mocked)
+  and asserts, per protected endpoint, that unauthenticated requests get 401, wrong-role tokens
+  get 403, and the allowed role passes the gate. This proves the backend enforces the boundaries
+  the Playwright RBAC smoke layer only checks at the frontend-redirect level.
 
 ### Mock conventions
 
