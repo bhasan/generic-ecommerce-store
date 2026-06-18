@@ -25,10 +25,10 @@ function CartPage() {
   }, [deliveryBlocked, deliveryMethod]);
 
   const resolveAllowedQuantities = (item) => {
-    if (item.allowedQuantitiesOverride && item.allowedQuantitiesOverride.length > 0) {
-      return item.allowedQuantitiesOverride;
-    }
-    return item.category?.allowedQuantities || [];
+    if (!item.quantityOptions?.length) return [];
+    return [...item.quantityOptions]
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map(opt => Number(opt.quantity));
   };
 
   if (cart.length === 0) {
@@ -58,39 +58,41 @@ function CartPage() {
           {cart.map(item => (
             (() => {
               const imageSrc = getProductImageSrc(item);
+              const allowed = resolveAllowedQuantities(item);
+              const unitPrice = getDiscountedUnitPrice(item, item.quantity);
               return (
-                <div key={item.id} className="cart-item surface-card">
+                <div key={item.variantId} className="cart-item surface-card">
                   <div className="cart-item-image-container">
                     <ProductImage src={imageSrc} alt={item.name} className="cart-item-image" />
                   </div>
 
                   <div className="cart-item-details">
                     <h3 className="cart-item-name">{item.name}</h3>
-                    <p className="cart-item-category">{getProductCategoryLabel(item)}</p>
+                    {item.variantLabel && item.variantLabel !== 'Default' && (
+                      <p className="cart-item-variant">{item.variantLabel}</p>
+                    )}
                     <p className="cart-item-price">
-                      ${getDiscountedUnitPrice(item, item.quantity).toFixed(2)} each
+                      ${unitPrice.toFixed(2)} each
                     </p>
                   </div>
 
                   <div className="cart-item-actions">
-                    {resolveAllowedQuantities(item).length > 0 ? (
+                    {allowed.length > 0 ? (
                       <div className="quantity-controls">
                         <select
                           className="quantity-select"
                           value={item.quantity}
-                          onChange={(e) => updateCartQuantity(item.id, parseFloat(e.target.value))}
+                          onChange={(e) => updateCartQuantity(item.variantId, parseFloat(e.target.value))}
                         >
-                          {resolveAllowedQuantities(item).map((quantity) => (
-                            <option key={quantity} value={quantity}>
-                              {quantity}
-                            </option>
+                          {allowed.map((qty) => (
+                            <option key={qty} value={qty}>{qty}</option>
                           ))}
                         </select>
                       </div>
                     ) : (
                       <div className="quantity-controls">
                         <button
-                          onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                          onClick={() => updateCartQuantity(item.variantId, item.quantity - 1)}
                           className="quantity-btn"
                           aria-label="Decrease quantity"
                         >
@@ -98,7 +100,7 @@ function CartPage() {
                         </button>
                         <span className="quantity-display">{item.quantity}</span>
                         <button
-                          onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                          onClick={() => updateCartQuantity(item.variantId, item.quantity + 1)}
                           className="quantity-btn"
                           aria-label="Increase quantity"
                         >
@@ -108,11 +110,11 @@ function CartPage() {
                     )}
 
                     <div className="cart-item-total">
-                      ${(getDiscountedUnitPrice(item, item.quantity) * item.quantity).toFixed(2)}
+                      ${(unitPrice * item.quantity).toFixed(2)}
                     </div>
 
                     <button
-                      onClick={() => removeFromCart(item.id)}
+                      onClick={() => removeFromCart(item.variantId)}
                       className="btn-remove-item"
                       aria-label="Remove item"
                     >

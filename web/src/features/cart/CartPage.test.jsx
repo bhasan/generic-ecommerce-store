@@ -29,11 +29,12 @@ vi.mock('../../components/common/HeaderDivider', () => ({
 
 const baseItem = {
   id: 1,
+  variantId: 1,
   name: 'Blue Dream',
   price: 20,
   quantity: 1,
-  category: { name: 'Flower', allowedQuantities: [] },
-  allowedQuantitiesOverride: [],
+  category: { name: 'Flower' },
+  quantityOptions: [],
 };
 
 const baseAppState = {
@@ -132,7 +133,7 @@ describe('CartPage', () => {
     useAppMock.mockReturnValue({ ...baseAppState, removeFromCart });
     renderCart();
     fireEvent.click(screen.getByRole('button', { name: /remove item/i }));
-    expect(removeFromCart).toHaveBeenCalledWith(baseItem.id);
+    expect(removeFromCart).toHaveBeenCalledWith(baseItem.variantId);
   });
 
   it('calls updateCartQuantity when + button is clicked', () => {
@@ -140,7 +141,7 @@ describe('CartPage', () => {
     useAppMock.mockReturnValue({ ...baseAppState, updateCartQuantity });
     renderCart();
     fireEvent.click(screen.getByRole('button', { name: /increase quantity/i }));
-    expect(updateCartQuantity).toHaveBeenCalledWith(baseItem.id, 2);
+    expect(updateCartQuantity).toHaveBeenCalledWith(baseItem.variantId, 2);
   });
 
   it('calls updateCartQuantity when - button is clicked', () => {
@@ -148,13 +149,13 @@ describe('CartPage', () => {
     useAppMock.mockReturnValue({ ...baseAppState, updateCartQuantity });
     renderCart();
     fireEvent.click(screen.getByRole('button', { name: /decrease quantity/i }));
-    expect(updateCartQuantity).toHaveBeenCalledWith(baseItem.id, 0);
+    expect(updateCartQuantity).toHaveBeenCalledWith(baseItem.variantId, 0);
   });
 
-  it('renders a select dropdown for items with allowedQuantitiesOverride', () => {
+  it('renders a select dropdown for items with quantityOptions', () => {
     useAppMock.mockReturnValue({
       ...baseAppState,
-      cart: [{ ...baseItem, allowedQuantitiesOverride: [1, 2, 3] }],
+      cart: [{ ...baseItem, quantityOptions: [{ quantity: 1 }, { quantity: 2 }, { quantity: 3 }] }],
     });
     renderCart();
     expect(screen.getByRole('combobox')).toBeInTheDocument();

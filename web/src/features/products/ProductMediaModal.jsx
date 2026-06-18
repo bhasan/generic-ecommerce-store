@@ -15,7 +15,7 @@ const ZOOM_STEP = 0.5;
 function ProductMediaModal({ product, initialIndex = 0, onClose }) {
   const images =
     product.images && product.images.length > 0
-      ? product.images
+      ? product.images.map(img => (typeof img === 'object' && img !== null ? img.url : img)).filter(Boolean)
       : product.image
         ? [product.image]
         : [PRODUCT_FALLBACK_IMAGE];

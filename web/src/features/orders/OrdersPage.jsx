@@ -90,7 +90,7 @@ function OrdersPage({ forceCustomerView = false }) {
   const [editingOrderId, setEditingOrderId] = useState(null);
   const [originalOrderState, setOriginalOrderState] = useState(null);
   const [addingItemToOrderId, setAddingItemToOrderId] = useState(null);
-  const [newItemProductId, setNewItemProductId] = useState('');
+  const [newItemVariantId, setNewItemVariantId] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState(1);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [newOrderIds, setNewOrderIds] = useState([]);
@@ -291,10 +291,7 @@ function OrdersPage({ forceCustomerView = false }) {
     return Number.isNaN(date.getTime()) ? dateString : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   };
 
-  const getProductName = (productId) => {
-    const p = products.find((x) => x.id === productId);
-    return p ? p.name : 'Unknown Product';
-  };
+  const getProductName = (item) => item?.productName ?? 'Unknown Product';
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -392,12 +389,10 @@ function OrdersPage({ forceCustomerView = false }) {
   };
 
   const handleAddItem = (orderId) => {
-    if (!newItemProductId) return;
-    const product = products.find((p) => p.id === parseInt(newItemProductId, 10));
-    if (!product) return;
-    addItemToOrder(orderId, { productId: product.id, quantity: newItemQuantity, price: product.price });
+    if (!newItemVariantId) return;
+    addItemToOrder(orderId, parseInt(newItemVariantId, 10), newItemQuantity);
     setAddingItemToOrderId(null);
-    setNewItemProductId('');
+    setNewItemVariantId('');
     setNewItemQuantity(1);
   };
 
@@ -434,7 +429,7 @@ function OrdersPage({ forceCustomerView = false }) {
     setEditingOrderId(null);
     setOriginalOrderState(null);
     setAddingItemToOrderId(null);
-    setNewItemProductId('');
+    setNewItemVariantId('');
     setNewItemQuantity(1);
   };
 
@@ -443,7 +438,7 @@ function OrdersPage({ forceCustomerView = false }) {
     setEditingOrderId(null);
     setOriginalOrderState(null);
     setAddingItemToOrderId(null);
-    setNewItemProductId('');
+    setNewItemVariantId('');
     setNewItemQuantity(1);
   };
 
@@ -511,8 +506,8 @@ function OrdersPage({ forceCustomerView = false }) {
             onSaveEdit={() => {}}
             onCancelEdit={() => {}}
             addingItemToOrderId={null}
-            newItemProductId=""
-            setNewItemProductId={() => {}}
+            newItemVariantId=""
+            setNewItemVariantId={() => {}}
             newItemQuantity={1}
             setNewItemQuantity={() => {}}
             onAddItem={() => {}}
@@ -758,14 +753,14 @@ function OrdersPage({ forceCustomerView = false }) {
           onSaveEdit={handleSaveOrder}
           onCancelEdit={handleCancelOrder}
           addingItemToOrderId={addingItemToOrderId}
-          newItemProductId={newItemProductId}
-          setNewItemProductId={setNewItemProductId}
+          newItemVariantId={newItemVariantId}
+          setNewItemVariantId={setNewItemVariantId}
           newItemQuantity={newItemQuantity}
           setNewItemQuantity={setNewItemQuantity}
           onAddItem={handleAddItem}
           onCancelAddItem={() => {
             setAddingItemToOrderId(null);
-            setNewItemProductId('');
+            setNewItemVariantId('');
             setNewItemQuantity(1);
           }}
           onStartAddItem={setAddingItemToOrderId}

@@ -84,8 +84,7 @@ function getItemsSummary(order, products) {
   const rest = active.length - MAX_SHOWN;
 
   const names = shown.map((item) => {
-    const product = products.find((p) => p.id === item.productId);
-    const name = product ? product.name : 'Unknown';
+    const name = item.productName ?? 'Unknown';
     return item.quantity !== 1 ? `${name} ×${item.quantity}` : name;
   });
 

@@ -67,7 +67,7 @@ function OrderSuccessPage() {
             <div className="order-items-list">
               {orderData.items.map((item, index) => (
                 (() => {
-                  const imageSrc = getProductImageSrc(item);
+                  const imageSrc = item.productImage || getProductImageSrc(item);
                   return (
                 <div key={index} className="order-success-item">
                   <ProductImage
@@ -76,11 +76,14 @@ function OrderSuccessPage() {
                     className="success-item-image"
                   />
                   <div className="success-item-details">
-                    <h4>{item.name}</h4>
+                    <h4>{item.productName ?? item.name}</h4>
+                    {item.variantLabel && item.variantLabel !== 'Default' && (
+                      <p className="success-item-variant">{item.variantLabel}</p>
+                    )}
                     <p>Quantity: {item.quantity}</p>
                   </div>
                   <div className="success-item-price">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    ${(Number(item.unitPrice ?? item.price ?? 0) * item.quantity).toFixed(2)}
                   </div>
                 </div>
                   );

@@ -8,12 +8,22 @@ import { renderWithProviders } from './test/renderWithProviders';
 const journeyProduct = vi.hoisted(() => ({
   id: 101,
   name: 'Blue Dream',
-  price: 45,
-  image: '/flower.png',
-  category: {
-    name: 'Flower',
-    allowedQuantities: [1],
-  },
+  images: [],
+  variants: [
+    {
+      id: 1001,
+      label: 'Default',
+      basePrice: 45,
+      stock: 10,
+      stockEnabled: false,
+      isDefault: true,
+      active: true,
+      pricingMode: 'UNIT',
+      quantityOptions: [{ quantity: 1, sortOrder: 0 }],
+      priceBreaks: [],
+    },
+  ],
+  category: { name: 'Flower' },
 }));
 
 const baseCustomer = vi.hoisted(() => ({
@@ -47,7 +57,7 @@ vi.mock('./features/products/ProductsPage', async () => {
         <button
           type="button"
           onClick={() => {
-            addToCart(journeyProduct, 1);
+            addToCart(journeyProduct, journeyProduct.variants[0], 1);
             navigate('/checkout', { state: { deliveryMethod: 'DELIVERY' } });
           }}
         >
@@ -269,7 +279,7 @@ describe('delivery eligibility end-to-end journey', () => {
 
     expect(api.createOrderBodies).toEqual([
       {
-        items: [{ productId: 101, quantity: 1 }],
+        items: [{ variantId: 1001, quantity: 1 }],
         cashAppUsername: '$customer-one',
         deliveryMethod: 'DELIVERY',
         paymentMethod: 'EXTERNAL',

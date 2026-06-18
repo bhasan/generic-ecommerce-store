@@ -23,15 +23,12 @@ import { importImagesZip } from '../../services/uploadApi';
 import EmptyState from '../../components/common/EmptyState';
 import ProductImage from './ProductImage';
 import CategoriesSection from '../dashboard/components/CategoriesSection';
-import { formatQuantityDiscounts, getCategoryLabel, getProductCategoryLabel, getProductImageSrc, parseQuantityDiscounts } from './productsHelpers';
+import { getCategoryLabel, getProductCategoryLabel, getProductImageSrc, getDefaultVariant } from './productsHelpers';
 import {
   IMAGE_INPUT_ACCEPT,
   MEDIA_INPUT_ACCEPT,
-  UNSUPPORTED_IMAGE_MESSAGE,
   UNSUPPORTED_MEDIA_MESSAGE,
-  isSupportedImageFile,
   isSupportedMediaFile,
-  normalizeImageList,
 } from '../../utils/mediaUpload';
 
 function SortableProductCard({
@@ -56,8 +53,11 @@ function SortableProductCard({
   };
   
   const mainImage = getProductImageSrc(product);
-  const imageCount = product.images ? product.images.length : 1;
-  const showStock = product.stockEnabled !== false;
+  const imageCount = product.images?.length ?? 0;
+  const defaultVariant = getDefaultVariant(product);
+  const showStock = defaultVariant?.stockEnabled !== false;
+  const stock = Number(defaultVariant?.stock ?? 0);
+  const price = Number(defaultVariant?.basePrice ?? 0);
 
   return (
     <div
@@ -73,13 +73,11 @@ function SortableProductCard({
           </div>
         )}
         {product.hidden && (
-          <div className="product-badge product-badge-hidden">
-            Hidden
-          </div>
+          <div className="product-badge product-badge-hidden">Hidden</div>
         )}
         {showStock && (
           <div className="product-badge product-badge-stock">
-            {product.stock > 10 ? 'In Stock' : product.stock > 0 ? 'Low Stock' : 'Out of Stock'}
+            {stock > 10 ? 'In Stock' : stock > 0 ? 'Low Stock' : 'Out of Stock'}
           </div>
         )}
       </div>
@@ -95,13 +93,13 @@ function SortableProductCard({
         <div className="product-meta">
           <div className="meta-item">
             <span className="meta-label">Price</span>
-            <span className="product-price">${product.price}</span>
+            <span className="product-price">${price.toFixed(2)}</span>
           </div>
           {showStock && (
             <div className="meta-item">
               <span className="meta-label">Stock</span>
-              <span className={`stock-badge ${product.stock === 0 ? 'stock-empty' : product.stock < 10 ? 'stock-low' : 'stock-good'}`}>
-                {product.stock} units
+              <span className={`stock-badge ${stock === 0 ? 'stock-empty' : stock < 10 ? 'stock-low' : 'stock-good'}`}>
+                {stock} units
               </span>
             </div>
           )}
@@ -167,7 +165,10 @@ function SortableProductListItem({
   };
 
   const mainImage = getProductImageSrc(product);
-  const showStock = product.stockEnabled !== false;
+  const defVariant = getDefaultVariant(product);
+  const showStock = defVariant?.stockEnabled !== false;
+  const stock = Number(defVariant?.stock ?? 0);
+  const price = Number(defVariant?.basePrice ?? 0);
 
   return (
     <div
@@ -186,14 +187,14 @@ function SortableProductListItem({
             <div className="product-list-meta">
               <span className="product-list-category">{getProductLabel(product)}</span>
               {showStock && (
-                <span className={`product-list-stock ${product.stock === 0 ? 'is-out' : ''}`}>
-                  {product.stock === 0 ? 'Out of Stock' : `${product.stock} units`}
+                <span className={`product-list-stock ${stock === 0 ? 'is-out' : ''}`}>
+                  {stock === 0 ? 'Out of Stock' : `${stock} units`}
                 </span>
               )}
               {product.hidden && <span className="product-list-hidden">Hidden</span>}
             </div>
           </div>
-          <span className="product-list-price">${product.price}</span>
+          <span className="product-list-price">${price.toFixed(2)}</span>
         </div>
         {product.description && <p className="product-list-description">{product.description}</p>}
       </div>
@@ -362,18 +363,28 @@ function ManageProductsPanel() {
   const [topLevelCategories, setTopLevelCategories] = useState([]);
   const [childCategoriesByParent, setChildCategoriesByParent] = useState({});
   const [productsByCategory, setProductsByCategory] = useState({});
-  const [formData, setFormData] = useState({
-    name: '',
-    categoryId: '',
-    price: '',
-    description: '',
-    thumbnail: '',
-    images: [''],
+  const emptyVariant = () => ({
+    label: 'Default',
+    sku: '',
+    pricingMode: 'UNIT',
+    basePrice: '',
     stock: '',
     stockEnabled: false,
+    isDefault: true,
+    active: true,
+    quantityOptions: [],
+    priceBreaks: [],
+  });
+
+  const [formData, setFormData] = useState({
+    name: '',
+    slug: '',
+    categoryId: '',
+    description: '',
     hidden: false,
     vipOnly: false,
-    quantityDiscountsOverride: ''
+    images: [],
+    variants: [emptyVariant()],
   });
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
@@ -386,7 +397,7 @@ function ManageProductsPanel() {
     return savedView === 'grid' || savedView === 'list' ? savedView : 'grid';
   });
   const [manageTab, setManageTab] = useState('products'); // 'products' | 'categories'
-  const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', price: '', stock: '' });
+  const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', variants: '' });
 
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
@@ -433,53 +444,92 @@ function ManageProductsPanel() {
     setChildCategoriesByParent(childrenMap);
   }, [categories]);
   
+  const resetFormData = () => ({
+    name: '',
+    slug: '',
+    categoryId: '',
+    description: '',
+    hidden: false,
+    vipOnly: false,
+    images: [],
+    variants: [emptyVariant()],
+  });
+
   const handleEdit = (product) => {
     const selectedCategoryId = product.categoryId || product.category?.id || '';
     const selectedCategoryLabel = product.category ? getCategoryLabel(product.category) : '';
     setEditingId(product.id);
     setFormData({
-      ...product,
+      name: product.name ?? '',
+      slug: product.slug ?? '',
       categoryId: selectedCategoryId,
-      thumbnail: product.thumbnail || '',
-      images: normalizeImageList(
-        product.images?.length > 0 ? product.images : product.image ? [product.image] : []
-      ),
-      stockEnabled: product.stockEnabled !== false,
-      hidden: product.hidden || false,
-      vipOnly: product.vipOnly || false,
-      quantityDiscountsOverride: formatQuantityDiscounts(product.quantityDiscountsOverride || [])
+      description: product.description ?? '',
+      hidden: product.hidden ?? false,
+      vipOnly: product.vipOnly ?? false,
+      images: (product.images ?? []).map((img, i) => ({
+        id: img.id,
+        url: img.url ?? '',
+        role: img.role ?? 'GALLERY',
+        sortOrder: img.sortOrder ?? i,
+      })),
+      variants: (product.variants ?? []).map(v => ({
+        id: v.id,
+        label: v.label ?? 'Default',
+        sku: v.sku ?? '',
+        pricingMode: v.pricingMode ?? 'UNIT',
+        basePrice: String(v.basePrice ?? ''),
+        stock: String(v.stock ?? ''),
+        stockEnabled: v.stockEnabled ?? false,
+        isDefault: v.isDefault ?? false,
+        active: v.active ?? true,
+        quantityOptions: (v.quantityOptions ?? []).map(opt => ({ id: opt.id, quantity: String(opt.quantity ?? ''), sortOrder: opt.sortOrder ?? 0 })),
+        priceBreaks: (v.priceBreaks ?? []).map(pb => ({ id: pb.id, minQuantity: String(pb.minQuantity ?? ''), unitPrice: String(pb.unitPrice ?? '') })),
+      })),
     });
     setCategoryQuery(selectedCategoryLabel);
     setShowAddForm(false);
   };
 
   const handleSave = async () => {
+    const variants = formData.variants ?? [];
     const errors = {
-      name: !formData.name || !String(formData.name).trim() ? 'Product name is required' : '',
+      name: !String(formData.name ?? '').trim() ? 'Product name is required' : '',
       categoryId: !formData.categoryId ? 'Please select a category' : '',
-      price: !formData.price && formData.price !== 0 ? 'Price is required' : '',
-      stock: formData.stockEnabled && (formData.stock === '' || formData.stock == null) ? 'Enter stock quantity or disable stock tracking' : ''
+      variants: variants.length === 0 ? 'At least one variant is required' :
+        variants.some(v => !String(v.label ?? '').trim()) ? 'All variants must have a label' :
+        variants.some(v => v.basePrice === '' || isNaN(parseFloat(v.basePrice))) ? 'All variants must have a valid base price' : '',
     };
     setFormErrors(errors);
-    if (errors.name || errors.categoryId || errors.price || errors.stock) return;
+    if (errors.name || errors.categoryId || errors.variants) return;
 
-    const normalizedImages = normalizeImageList(formData.images).filter(Boolean);
     const productData = {
-      ...formData,
+      name: String(formData.name).trim(),
+      slug: String(formData.slug ?? '').trim() || undefined,
       categoryId: parseInt(formData.categoryId, 10),
-      price: parseFloat(formData.price),
-      stock: formData.stockEnabled ? parseFloat(formData.stock) : 0,
-      thumbnail: formData.thumbnail || null,
-      images: normalizedImages,
-      quantityDiscountsOverride: parseQuantityDiscounts(formData.quantityDiscountsOverride)
+      description: String(formData.description ?? '').trim() || undefined,
+      hidden: formData.hidden ?? false,
+      vipOnly: formData.vipOnly ?? false,
+      images: (formData.images ?? [])
+        .filter(img => img.url?.trim())
+        .map((img, i) => ({ ...(img.id ? { id: img.id } : {}), url: img.url.trim(), role: img.role ?? 'GALLERY', sortOrder: i })),
+      variants: variants.map(v => ({
+        ...(v.id ? { id: v.id } : {}),
+        label: String(v.label).trim(),
+        sku: String(v.sku ?? '').trim() || undefined,
+        pricingMode: v.pricingMode ?? 'UNIT',
+        basePrice: parseFloat(v.basePrice),
+        stock: v.stockEnabled ? parseFloat(v.stock) : 0,
+        stockEnabled: v.stockEnabled ?? false,
+        isDefault: v.isDefault ?? false,
+        active: v.active !== false,
+        quantityOptions: (v.quantityOptions ?? [])
+          .filter(opt => opt.quantity !== '' && !isNaN(parseFloat(opt.quantity)))
+          .map((opt, i) => ({ ...(opt.id ? { id: opt.id } : {}), quantity: parseFloat(opt.quantity), sortOrder: i })),
+        priceBreaks: (v.priceBreaks ?? [])
+          .filter(pb => pb.minQuantity !== '' && pb.unitPrice !== '' && !isNaN(parseFloat(pb.minQuantity)) && !isNaN(parseFloat(pb.unitPrice)))
+          .map(pb => ({ ...(pb.id ? { id: pb.id } : {}), minQuantity: parseFloat(pb.minQuantity), unitPrice: parseFloat(pb.unitPrice) })),
+      })),
     };
-
-    // Keep `image` omitted when empty; backend validation accepts optional strings here, but `image: null` breaks product create/update.
-    if (normalizedImages[0]) {
-      productData.image = normalizedImages[0];
-    } else if (typeof productData.image !== 'string' || productData.image.trim() === '') {
-      delete productData.image;
-    }
 
     try {
       if (editingId) {
@@ -493,44 +543,22 @@ function ManageProductsPanel() {
       return;
     }
 
-    setFormData({
-      name: '',
-      categoryId: '',
-      price: '',
-      description: '',
-      thumbnail: '',
-      images: [''],
-      stock: '',
-      stockEnabled: false,
-      hidden: false,
-      quantityDiscountsOverride: ''
-    });
+    setFormData(resetFormData());
     setCategoryQuery('');
-    setFormErrors({ name: '', categoryId: '', price: '', stock: '' });
+    setFormErrors({ name: '', categoryId: '', variants: '' });
   };
 
   const setFormDataAndClearErrors = (next) => {
     setFormData(typeof next === 'function' ? next(formData) : next);
-    setFormErrors({ name: '', categoryId: '', price: '', stock: '' });
+    setFormErrors({ name: '', categoryId: '', variants: '' });
   };
 
   const handleCancel = () => {
     setEditingId(null);
     setShowAddForm(false);
-    setFormData({
-      name: '',
-      categoryId: '',
-      price: '',
-      description: '',
-      thumbnail: '',
-      images: [''],
-      stock: '',
-      stockEnabled: false,
-      hidden: false,
-      quantityDiscountsOverride: ''
-    });
+    setFormData(resetFormData());
     setCategoryQuery('');
-    setFormErrors({ name: '', categoryId: '', price: '', stock: '' });
+    setFormErrors({ name: '', categoryId: '', variants: '' });
   };
 
   const handleDeleteClick = (productId, productName) => {
@@ -608,44 +636,15 @@ function ManageProductsPanel() {
     await persistSortOrder(next);
   };
 
-  const addImageField = () => {
-    setFormData({ ...formData, images: [...formData.images, ''] });
-  };
-
-  const removeImageField = (index) => {
-    const newImages = formData.images.filter((_, i) => i !== index);
-    setFormData({ ...formData, images: normalizeImageList(newImages) });
-  };
-
-  const updateImageField = (index, value) => {
-    const newImages = [...formData.images];
-    newImages[index] = value;
-    setFormData({ ...formData, images: normalizeImageList(newImages) });
-  };
-
   const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
-  const [cropState, setCropState] = useState(null); // { file, index }
+  const [cropState, setCropState] = useState(null);
 
-  const isVideo = (file) => file.type.startsWith('video/');
+  const isVideoFile = (file) => file.type.startsWith('video/');
 
   const handleImageUpload = (index, event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
     event.target.value = '';
-
-    if (index === 'thumbnail') {
-      const file = files[0];
-      if (!isSupportedImageFile(file)) {
-        showNotification(UNSUPPORTED_IMAGE_MESSAGE, 'error');
-        return;
-      }
-      if (isVideo(file)) {
-        performUpload('thumbnail', file);
-      } else {
-        setCropState({ file, index: 'thumbnail' });
-      }
-      return;
-    }
 
     const unsupportedFile = files.find((file) => !isSupportedMediaFile(file));
     if (unsupportedFile) {
@@ -654,11 +653,10 @@ function ManageProductsPanel() {
     }
 
     if (files.length > 1) {
-      // Multiple files: upload all directly without crop
       performMultiUpload(index, files);
     } else {
       const file = files[0];
-      if (isVideo(file)) {
+      if (isVideoFile(file)) {
         performUpload(index, file);
       } else {
         setCropState({ file, index });
@@ -670,14 +668,13 @@ function ManageProductsPanel() {
     setUploadingImageIndex(startIndex);
     try {
       const { urls } = await uploadApi.uploadFiles(files);
-      // Replace startIndex slot with first URL, append rest
       setFormData(prev => {
-        const newImages = [...normalizeImageList(prev.images)];
-        newImages[startIndex] = urls[0];
-        if (urls.length > 1) {
-          newImages.push(...urls.slice(1));
-        }
-        return { ...prev, images: normalizeImageList(newImages) };
+        const imgs = [...(prev.images ?? [])];
+        imgs[startIndex] = { ...imgs[startIndex], url: urls[0] };
+        urls.slice(1).forEach((u, offset) => {
+          imgs.push({ url: u, role: 'GALLERY', sortOrder: imgs.length + offset });
+        });
+        return { ...prev, images: imgs };
       });
       showNotification(`${urls.length} image${urls.length > 1 ? 's' : ''} uploaded successfully`, 'success');
     } catch (err) {
@@ -691,15 +688,11 @@ function ManageProductsPanel() {
     setUploadingImageIndex(index);
     try {
       const { url } = await uploadApi.uploadFile(file);
-      if (index === 'thumbnail') {
-        setFormData(prev => ({ ...prev, thumbnail: url }));
-      } else {
-        setFormData(prev => {
-          const newImages = [...normalizeImageList(prev.images)];
-          newImages[index] = url;
-          return { ...prev, images: normalizeImageList(newImages) };
-        });
-      }
+      setFormData(prev => {
+        const imgs = [...(prev.images ?? [])];
+        imgs[index] = { ...(imgs[index] ?? { role: 'GALLERY', sortOrder: index }), url };
+        return { ...prev, images: imgs };
+      });
       showNotification('Image uploaded successfully', 'success');
     } catch (err) {
       showNotification(err.message || 'Failed to upload image', 'error');
@@ -874,9 +867,6 @@ function ManageProductsPanel() {
               getCategoryLabel={getCategoryLabel}
               onSave={handleSave}
               onCancel={handleCancel}
-              addImageField={addImageField}
-              removeImageField={removeImageField}
-              updateImageField={updateImageField}
               handleImageUpload={handleImageUpload}
               uploadingImageIndex={uploadingImageIndex}
               formErrors={formErrors}
