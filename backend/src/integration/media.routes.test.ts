@@ -231,15 +231,14 @@ describe('media routes integration', () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: 'Bad Discount Product',
+        name: 'Missing Variants Product',
         categoryId: 2,
-        price: 12,
-        quantityDiscountsOverride: [{ quantity: 2, type: 'percent', value: 150 }],
+        // variants array is required — omitting it triggers the validator
       }),
     });
 
     expect(response.status).toBe(400);
-    expect(body.errors[0].msg).toBe('Percent discounts cannot exceed 100');
+    expect(body.errors[0].msg).toBe('At least one variant is required');
     expect(productService.createProduct).not.toHaveBeenCalled();
   });
 
@@ -250,10 +249,11 @@ describe('media routes integration', () => {
     const payload = {
       name: 'Media Product',
       categoryId: 2,
-      price: 12,
-      thumbnail: '/api/uploads/thumb.webp',
-      image: '/api/uploads/primary.webp',
-      images: ['/api/uploads/primary.webp', '/api/uploads/gallery.webp'],
+      variants: [{ label: 'Default', basePrice: 12, stock: 0, stockEnabled: false, isDefault: true, active: true, pricingMode: 'UNIT', quantityOptions: [], priceBreaks: [] }],
+      images: [
+        { url: '/api/uploads/thumb.webp', role: 'THUMBNAIL', sortOrder: 0 },
+        { url: '/api/uploads/gallery.webp', role: 'GALLERY', sortOrder: 1 },
+      ],
     };
 
     const { response, body } = await requestJson(server, '/api/products', {
@@ -280,9 +280,8 @@ describe('media routes integration', () => {
     const payload = {
       name: 'Thumbnail Only Product',
       categoryId: 2,
-      price: 12,
-      thumbnail: '/api/uploads/thumb.webp',
-      images: [],
+      variants: [{ label: 'Default', basePrice: 12, stock: 0, stockEnabled: false, isDefault: true, active: true, pricingMode: 'UNIT', quantityOptions: [], priceBreaks: [] }],
+      images: [{ url: '/api/uploads/thumb.webp', role: 'THUMBNAIL', sortOrder: 0 }],
     };
 
     const { response, body } = await requestJson(server, '/api/products', {
