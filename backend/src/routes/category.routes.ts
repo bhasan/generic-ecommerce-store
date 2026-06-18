@@ -4,7 +4,6 @@ import categoryController from '../controllers/category.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeManagement } from '../middleware/role.middleware';
 import { asyncHandler } from '../utils/asyncHandler.util';
-import { quantityDiscountValidators } from '../validators/quantityDiscount.validator';
 
 const router = Router();
 
@@ -19,10 +18,6 @@ router.post(
     body('description').optional().isString(),
     body('parentId').optional({ nullable: true }).isInt({ min: 1 }).toInt(),
     body('sortOrder').optional().isInt().toInt(),
-    body('allowedQuantities').optional().isArray(),
-    body('allowedQuantities.*').optional().isFloat(),
-    body('quantityDiscounts').optional().isArray(),
-    ...quantityDiscountValidators('quantityDiscounts'),
   ],
   asyncHandler(categoryController.createCategory)
 );
@@ -36,10 +31,6 @@ router.put(
     body('description').optional().isString(),
     body('parentId').optional({ nullable: true }).isInt({ min: 1 }).toInt(),
     body('sortOrder').optional().isInt().toInt(),
-    body('allowedQuantities').optional().isArray(),
-    body('allowedQuantities.*').optional().isFloat(),
-    body('quantityDiscounts').optional().isArray(),
-    ...quantityDiscountValidators('quantityDiscounts'),
   ],
   asyncHandler(categoryController.updateCategory)
 );
