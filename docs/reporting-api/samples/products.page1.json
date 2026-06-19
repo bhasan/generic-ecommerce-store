@@ -1,0 +1,35 @@
+{
+  "data": [
+    {
+      "id": "prod_123",
+      "sku": null,
+      "barcode": null,
+      "name": "Sample Product",
+      "description": "Example product payload for downstream consumers reporting.",
+      "category_id": "cat_10",
+      "category_name": "Accessories",
+      "brand": null,
+      "status": "active",
+      "price": 19.99,
+      "cost": null,
+      "inventory_quantity": 12,
+      "created_at": "2026-06-01T15:00:00Z",
+      "updated_at": "2026-06-16T10:00:00Z",
+      "deleted_at": null,
+      "variants": []
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 100,
+    "has_next": false,
+    "next_page": null
+  },
+  "meta": {
+    "request_id": "req_sample_products",
+    "generated_at": "2026-06-16T10:00:00Z",
+    "source_system": "online_store",
+    "provider_key": "ONLINE_STORE",
+    "schema_version": "2026-06-online-store-reporting-v1"
+  }
+}

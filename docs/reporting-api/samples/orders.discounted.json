@@ -1,0 +1,68 @@
+{
+  "data": [
+    {
+      "id": "order_10044",
+      "order_number": "10044",
+      "status": "paid",
+      "order_type": "online",
+      "placed_at": "2026-06-16T12:00:00Z",
+      "created_at": "2026-06-16T12:00:00Z",
+      "updated_at": "2026-06-16T12:02:00Z",
+      "deleted_at": null,
+      "subtotal": 47.48,
+      "discount_total": 2.5,
+      "tax_total": 3.51,
+      "shipping_total": 0.0,
+      "grand_total": 50.99,
+      "currency": "USD",
+      "payment_status": "paid",
+      "fulfillment_status": "unfulfilled",
+      "customer_id": null,
+      "line_items": [
+        {
+          "id": "line_4",
+          "order_id": "order_10044",
+          "product_id": "prod_123",
+          "variant_id": null,
+          "sku": null,
+          "barcode": null,
+          "name_snapshot": "Sample Product",
+          "quantity": 2,
+          "unit_price": 24.99,
+          "unit_cost": null,
+          "discount_amount": 2.5,
+          "tax_amount": 3.51,
+          "gross_sales": 49.98,
+          "net_sales": 47.48,
+          "refunded_quantity": 0
+        }
+      ],
+      "payments": [
+        {
+          "id": "pay_3",
+          "order_id": "order_10044",
+          "payment_type": "card",
+          "provider": "authorize_net",
+          "amount": 50.99,
+          "currency": "USD",
+          "status": "captured",
+          "paid_at": "2026-06-16T12:02:00Z",
+          "processor_reference": "txn_safe_reference_2"
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 100,
+    "has_next": false,
+    "next_page": null
+  },
+  "meta": {
+    "request_id": "req_sample_order_discounted",
+    "generated_at": "2026-06-16T12:02:00Z",
+    "source_system": "online_store",
+    "provider_key": "ONLINE_STORE",
+    "schema_version": "2026-06-online-store-reporting-v1"
+  }
+}

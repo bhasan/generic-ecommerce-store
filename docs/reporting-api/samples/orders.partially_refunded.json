@@ -1,0 +1,68 @@
+{
+  "data": [
+    {
+      "id": "order_10046",
+      "order_number": "10046",
+      "status": "partially_refunded",
+      "order_type": "online",
+      "placed_at": "2026-06-16T14:00:00Z",
+      "created_at": "2026-06-16T14:00:00Z",
+      "updated_at": "2026-06-16T15:00:00Z",
+      "deleted_at": null,
+      "subtotal": 49.98,
+      "discount_total": 0.0,
+      "tax_total": 3.7,
+      "shipping_total": 0.0,
+      "grand_total": 53.68,
+      "currency": "USD",
+      "payment_status": "partially_refunded",
+      "fulfillment_status": "unfulfilled",
+      "customer_id": null,
+      "line_items": [
+        {
+          "id": "line_6",
+          "order_id": "order_10046",
+          "product_id": "prod_123",
+          "variant_id": null,
+          "sku": null,
+          "barcode": null,
+          "name_snapshot": "Sample Product",
+          "quantity": 2,
+          "unit_price": 24.99,
+          "unit_cost": null,
+          "discount_amount": 0.0,
+          "tax_amount": 3.7,
+          "gross_sales": 49.98,
+          "net_sales": 24.99,
+          "refunded_quantity": 1
+        }
+      ],
+      "payments": [
+        {
+          "id": "pay_4",
+          "order_id": "order_10046",
+          "payment_type": "card",
+          "provider": "authorize_net",
+          "amount": 53.68,
+          "currency": "USD",
+          "status": "partially_refunded",
+          "paid_at": "2026-06-16T14:01:00Z",
+          "processor_reference": "txn_safe_reference_3"
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 100,
+    "has_next": false,
+    "next_page": null
+  },
+  "meta": {
+    "request_id": "req_sample_order_partial_refund",
+    "generated_at": "2026-06-16T15:00:00Z",
+    "source_system": "online_store",
+    "provider_key": "ONLINE_STORE",
+    "schema_version": "2026-06-online-store-reporting-v1"
+  }
+}
