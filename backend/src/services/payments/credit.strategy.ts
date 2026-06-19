@@ -1,5 +1,4 @@
 import { OrderStatus, PaymentMethodEnum } from '../../../generated/prisma';
-import { AppError } from '../../middleware/error.middleware';
 import { PaymentStrategy, OrderContext } from './PaymentStrategy';
 import creditService from '../credit.service';
 

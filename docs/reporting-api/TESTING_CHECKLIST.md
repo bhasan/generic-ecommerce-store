@@ -1,0 +1,29 @@
+# Online Store Reporting API Testing Checklist
+
+- [ ] Health endpoint returns 200.
+- [ ] All endpoints require auth.
+- [ ] Disabled API returns a controlled error.
+- [ ] Invalid token returns 401.
+- [ ] Pagination works.
+- [ ] `updated_since` works.
+- [ ] `created_since` / `created_until` works.
+- [ ] `placed_since` / `placed_until` works for orders.
+- [ ] All timestamps are UTC ISO-8601.
+- [ ] All money fields use decimal values.
+- [ ] All IDs are stable across repeated calls.
+- [ ] Archived/deleted products are represented where supported.
+- [ ] Cancelled orders are represented.
+- [ ] Partial refunds are represented if supported.
+- [ ] Refunds do not duplicate net sales.
+- [ ] Line item totals reconcile to order subtotal where source fields exist.
+- [ ] Payments reconcile to order `grand_total` or paid amount.
+- [ ] Inventory snapshot values are not presented as movement history.
+- [ ] No card data appears in payloads.
+- [ ] No auth headers appear in logs.
+- [ ] No customer passwords or secrets appear anywhere.
+- [ ] No payment processor credentials appear anywhere.
+- [ ] No `/api/physalia` route paths exist.
+- [ ] No PHYSALIA env vars exist.
+- [ ] No PHYSALIA-specific service/controller/middleware names remain.
+- [ ] Rate limits return 429 with the standard error format.
+- [ ] Error responses include `request_id`.

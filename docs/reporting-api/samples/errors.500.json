@@ -1,0 +1,7 @@
+{
+  "error": {
+    "message": "Internal server error",
+    "code": "INTERNAL_ERROR",
+    "request_id": "req_sample_500"
+  }
+}

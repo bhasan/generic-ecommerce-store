@@ -1,0 +1,56 @@
+{
+  "data": [
+    {
+      "id": "order_10045",
+      "order_number": "10045",
+      "status": "cancelled",
+      "order_type": "online",
+      "placed_at": "2026-06-16T13:00:00Z",
+      "created_at": "2026-06-16T13:00:00Z",
+      "updated_at": "2026-06-16T13:10:00Z",
+      "deleted_at": null,
+      "subtotal": 19.99,
+      "discount_total": 0.0,
+      "tax_total": 1.48,
+      "shipping_total": 0.0,
+      "grand_total": 21.47,
+      "currency": "USD",
+      "payment_status": "cancelled",
+      "fulfillment_status": "cancelled",
+      "customer_id": null,
+      "line_items": [
+        {
+          "id": "line_5",
+          "order_id": "order_10045",
+          "product_id": "prod_124",
+          "variant_id": null,
+          "sku": null,
+          "barcode": null,
+          "name_snapshot": "Second Sample Product",
+          "quantity": 1,
+          "unit_price": 19.99,
+          "unit_cost": null,
+          "discount_amount": 0.0,
+          "tax_amount": 1.48,
+          "gross_sales": 19.99,
+          "net_sales": 0.0,
+          "refunded_quantity": 0
+        }
+      ],
+      "payments": []
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 100,
+    "has_next": false,
+    "next_page": null
+  },
+  "meta": {
+    "request_id": "req_sample_order_cancelled",
+    "generated_at": "2026-06-16T13:10:00Z",
+    "source_system": "online_store",
+    "provider_key": "ONLINE_STORE",
+    "schema_version": "2026-06-online-store-reporting-v1"
+  }
+}
