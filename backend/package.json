@@ -66,5 +66,9 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "axios": "1.18.0",
+    "tar": "7.5.16"
   }
 }

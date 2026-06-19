@@ -5,21 +5,25 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  width: 100%;
 }
 
 .navbar-container {
   max-width: var(--container-max-width);
+  width: 100%;
   margin: 0 auto;
   padding: 0.75rem var(--spacing-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-width: 0;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
   gap: 2rem;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -27,6 +31,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  min-width: 0;
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary-dark) 100%);
@@ -35,6 +40,12 @@
   background-clip: text;
   transition: var(--transition-base);
   white-space: nowrap;
+}
+
+.navbar-brand span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .navbar-brand:hover {
@@ -135,6 +146,8 @@ button.nav-link-icon {
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .navbar-right-auth {
@@ -201,14 +214,14 @@ button.nav-link-icon {
 .mobile-menu {
   display: none;
   position: fixed;
-  top: 60px;
+  top: var(--navbar-mobile-menu-offset, 60px);
   left: 0;
   right: 0;
   background: var(--bg-navbar-mobile);
   border-bottom: 2px solid var(--color-primary-dark);
   padding: var(--spacing-md);
   z-index: var(--z-modal);
-  max-height: calc(100vh - 60px);
+  max-height: calc(100vh - var(--navbar-mobile-menu-offset, 60px));
   overflow-y: auto;
   animation: slideDown var(--transition-fast) ease-out;
 }
@@ -600,6 +613,10 @@ button.nav-link-icon {
 
 /* Tablet screens (768px and below) - show hamburger menu */
 @media (max-width: 768px) {
+  .mobile-menu {
+    --navbar-mobile-menu-offset: 78px;
+  }
+
   .navbar-container {
     gap: 0.5rem;
   }
@@ -622,6 +639,7 @@ button.nav-link-icon {
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
   }
 
   .navbar-brand {

@@ -20,7 +20,7 @@
   - Environment variables from .env
 
 - **docker-compose.dev.yml** - Development with hot reload
-  - Vite dev server on port 5173
+  - Vite dev server on port 5843
   - Backend with ts-node-dev auto-recompile
   - Source code bind mounts for live updates
   - Optional Nginx profile for production-like testing
@@ -63,7 +63,7 @@
 
 ### ✅ Development Experience
 - **Hot reload setup** - Bind mounts for instant updates
-- **Vite dev server** - HMR enabled on port 5173
+- **Vite dev server** - HMR enabled on port 5843
 - **ts-node-dev** - Backend auto-recompile on changes
 - **Docker Compose Watch** - Alternative to bind mounts (see DOCKER_SETUP.md)
 
@@ -96,7 +96,7 @@ docker compose up --pull always
 ```bash
 cp .env.example .env
 docker compose -f docker-compose.dev.yml up
-# Access: http://localhost:5173 (live reload)
+# Access: http://localhost:5843 (live reload)
 ```
 
 ### Production
@@ -115,7 +115,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 - **Backend API**: 3000 (http://localhost:3000/api)
 - **Frontend**: 80 (http://localhost)
 - **Database**: 5432 (postgresql://localhost:5432)
-- **Vite Dev**: 5173 (http://localhost:5173) - dev compose only
+- **Vite Dev**: 5843 (http://localhost:5843) - dev compose only
 
 ## Network & Storage
 - **Network**: `sshtx_network` (bridge driver)

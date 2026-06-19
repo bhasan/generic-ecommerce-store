@@ -62,7 +62,7 @@ docker compose up
 ### Option 3: With Hot Reload
 ```bash
 docker compose -f docker-compose.dev.yml up
-# Access: http://localhost:5173 (Vite) or http://localhost:3000 (API)
+# Access: http://localhost:5843 (Vite) or http://localhost:3000 (API)
 ```
 
 ---

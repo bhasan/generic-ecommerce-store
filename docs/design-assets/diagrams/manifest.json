@@ -1,0 +1,168 @@
+{
+  "generatedAt": "2026-06-14T19:32:43.928Z",
+  "source": "docs/PROJECT_DESIGN.md",
+  "outputDirectory": "docs/design-assets/diagrams",
+  "renderer": "@mermaid-js/mermaid-cli via npx",
+  "diagrams": [
+    {
+      "index": 1,
+      "heading": "Application boundary diagram",
+      "source": ".tmp-mermaid-render/01-application-boundary-diagram.mmd",
+      "svg": "design-assets/diagrams/application-boundary-diagram.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 2,
+      "heading": "Authentication and approval flow",
+      "source": ".tmp-mermaid-render/02-flow-authentication-and-approval.mmd",
+      "svg": "design-assets/diagrams/flow-authentication-and-approval.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 3,
+      "heading": "Browse cart and checkout flow",
+      "source": ".tmp-mermaid-render/03-flow-browse-cart-and-checkout.mmd",
+      "svg": "design-assets/diagrams/flow-browse-cart-and-checkout.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 4,
+      "heading": "Staff order operations flow",
+      "source": ".tmp-mermaid-render/04-flow-staff-order-operations.mmd",
+      "svg": "design-assets/diagrams/flow-staff-order-operations.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 5,
+      "heading": "Product media upload import flow",
+      "source": ".tmp-mermaid-render/05-flow-product-media-upload-import.mmd",
+      "svg": "design-assets/diagrams/flow-product-media-upload-import.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 6,
+      "heading": "Product create edit flow",
+      "source": ".tmp-mermaid-render/06-flow-product-create-edit.mmd",
+      "svg": "design-assets/diagrams/flow-product-create-edit.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 7,
+      "heading": "Delivery route flow",
+      "source": ".tmp-mermaid-render/07-flow-delivery-route.mmd",
+      "svg": "design-assets/diagrams/flow-delivery-route.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 8,
+      "heading": "Admin configuration flow",
+      "source": ".tmp-mermaid-render/08-flow-admin-configuration.mmd",
+      "svg": "design-assets/diagrams/flow-admin-configuration.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 9,
+      "heading": "Reporting export flow",
+      "source": ".tmp-mermaid-render/09-flow-reporting-export.mmd",
+      "svg": "design-assets/diagrams/flow-reporting-export.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 10,
+      "heading": "External integration webhook and print agent flow",
+      "source": ".tmp-mermaid-render/10-flow-external-integration-webhook-and-print-agent.mmd",
+      "svg": "design-assets/diagrams/flow-external-integration-webhook-and-print-agent.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 11,
+      "heading": "Auth endpoint flow",
+      "source": ".tmp-mermaid-render/11-endpoint-group-auth.mmd",
+      "svg": "design-assets/diagrams/endpoint-group-auth.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 12,
+      "heading": "Catalog categories and media endpoint flow",
+      "source": ".tmp-mermaid-render/12-endpoint-group-catalog-categories-media.mmd",
+      "svg": "design-assets/diagrams/endpoint-group-catalog-categories-media.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 13,
+      "heading": "Orders and delivery endpoint flow",
+      "source": ".tmp-mermaid-render/13-endpoint-group-orders-delivery.mmd",
+      "svg": "design-assets/diagrams/endpoint-group-orders-delivery.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 14,
+      "heading": "Users roles and store credit endpoint flow",
+      "source": ".tmp-mermaid-render/14-endpoint-group-users-roles-and-store-credit.mmd",
+      "svg": "design-assets/diagrams/endpoint-group-users-roles-and-store-credit.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 15,
+      "heading": "Dashboard configuration endpoint flow",
+      "source": ".tmp-mermaid-render/15-endpoint-group-dashboard-configuration.mmd",
+      "svg": "design-assets/diagrams/endpoint-group-dashboard-configuration.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 16,
+      "heading": "Contact notifications Make and print agent endpoint flow",
+      "source": ".tmp-mermaid-render/16-endpoint-group-contact-notifications-make-and-print-agent.mmd",
+      "svg": "design-assets/diagrams/endpoint-group-contact-notifications-make-and-print-agent.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 17,
+      "heading": "Application boundary",
+      "source": ".tmp-mermaid-render/17-application-boundary.mmd",
+      "svg": "design-assets/diagrams/application-boundary.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 18,
+      "heading": "Role-gated navigation",
+      "source": ".tmp-mermaid-render/18-role-gated-navigation.mmd",
+      "svg": "design-assets/diagrams/role-gated-navigation.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 19,
+      "heading": "Shared API request pipeline",
+      "source": ".tmp-mermaid-render/19-shared-api-request-pipeline.mmd",
+      "svg": "design-assets/diagrams/shared-api-request-pipeline.svg",
+      "status": "rendered",
+      "exitCode": 0
+    },
+    {
+      "index": 20,
+      "heading": "Rendered data ownership flow",
+      "source": ".tmp-mermaid-render/20-data-ownership-flow.mmd",
+      "svg": "design-assets/diagrams/data-ownership-flow.svg",
+      "status": "rendered",
+      "exitCode": 0
+    }
+  ]
+}
