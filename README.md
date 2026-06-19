@@ -19,7 +19,7 @@ Some older markdown files and examples in the repo were written before the backe
 
 - Node.js v20+
 - Docker v28+
-- npm or yarn
+- npm
 
 ## Docker Compose Structure
 
@@ -40,7 +40,7 @@ Always combine the base file with either the dev or prod override.
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
 ```
 
-Access the local development app at `http://localhost:5173`.
+Access the local development app at `http://localhost:5843`.
 
 Useful dev commands:
 
@@ -62,9 +62,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 
 | Service | Port | Description |
 | --- | --- | --- |
-| Database | 5432 | PostgreSQL database |
+| Database | 15432 host / 5432 container | PostgreSQL database in the local dev override |
 | Backend | 3000 | Express API server in dev override |
-| Web Dev | 5173 | Vite development server |
+| Web Dev | 5843 | Vite development server |
 
 ## First Time Setup
 
@@ -254,6 +254,28 @@ npm --prefix web test
 npm --prefix web run build
 ```
 
+## Documentation Maintenance
+
+Canonical project documentation lives in:
+
+- `README.md`
+- `AGENTS.md`
+- `docs/PROJECT_DESIGN.md`
+- `docs/DESIGN_DOCUMENTATION_INSTRUCTIONS.md`
+- `docs/DOCUMENTATION_AUDIT.md`
+
+When Mermaid diagrams in `docs/PROJECT_DESIGN.md` change, re-render the SVG assets:
+
+```bash
+npm run docs:render-mermaid
+```
+
+On Windows PowerShell, use the `.cmd` shim if script execution policy blocks `npm.ps1`:
+
+```powershell
+npm.cmd run docs:render-mermaid
+```
+
 ### Testing Conventions
 
 - Backend tests live under `backend/src/**/*.test.ts`.
@@ -304,11 +326,15 @@ Run this checklist before treating the notification feature as release-ready.
 
 ## Migration Validation
 
-The repository includes the notification migration SQL at `backend/prisma/migrations/20260402152919_add_notifications/migration.sql`.
+Use the current Prisma commands from `backend/package.json`:
 
-- Local database validation: the SQL migration has been applied successfully to the local Docker Postgres instance and the `notifications` table exists.
-- Official Prisma runner status in this environment: `prisma migrate deploy` still fails with an opaque schema-engine error even when the local Windows schema engine binary is provided directly.
-- Release recommendation: run the official Prisma migration command in the target deployment or CI environment before release and confirm the full migration chain completes there.
+```bash
+npm --prefix backend run prisma:migrate
+```
+
+For production containers, `backend/package.json` runs `npx prisma migrate deploy && node dist/index.js` through `npm run start:prod`.
+
+> Needs verification: migration status should be checked in the target deployment or CI environment before release.
 
 ## Troubleshooting
 
@@ -354,6 +380,8 @@ The repository includes the notification migration SQL at `backend/prisma/migrat
 
 ## Related Docs
 
+- [docs/DOCUMENTATION_AUDIT.md](./docs/DOCUMENTATION_AUDIT.md)
+- [docs/PROJECT_DESIGN.md](./docs/PROJECT_DESIGN.md)
 - [PRODUCTION_DEPLOYMENT.md](./PRODUCTION_DEPLOYMENT.md)
 - [OPERATIONS_PIPELINE.md](./OPERATIONS_PIPELINE.md)
 - [MONITORING.md](./MONITORING.md)

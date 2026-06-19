@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 64 64">
+  <title id="title">External integration</title>
+  <desc id="desc">Connected nodes representing an external integration boundary.</desc>
+  <circle cx="18" cy="32" r="9" fill="#eff6ff" stroke="#1f2937" stroke-width="3"/>
+  <circle cx="46" cy="18" r="9" fill="#f8fafc" stroke="#1f2937" stroke-width="3"/>
+  <circle cx="46" cy="46" r="9" fill="#f8fafc" stroke="#1f2937" stroke-width="3"/>
+  <path d="M26 29l12-6M26 35l12 6" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+</svg>

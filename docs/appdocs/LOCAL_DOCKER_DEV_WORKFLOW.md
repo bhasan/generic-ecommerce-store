@@ -18,7 +18,7 @@ Use this workflow when you want to run the app locally with Docker, hot-reload t
   - Dev-only override that enables:
     - backend dev container with dev dependencies
     - `npm run prisma:seed`
-    - `web-dev` Vite server on port `5173`
+    - `web-dev` Vite server on port `5843`
 
 ## Required Local Env Values
 
@@ -43,7 +43,7 @@ JWT_SECRET=replace-with-local-secret
 JWT_EXPIRES_IN=24h
 PORT=3000
 NODE_ENV=development
-CORS_ORIGIN=http://localhost:5173
+CORS_ORIGIN=http://localhost:5843
 REQUEST_TIMEOUT_MS=10000
 MAKE_WEBHOOK_URL=
 MAKE_API_KEY=
@@ -70,7 +70,7 @@ docker exec smoke-station-delivery-backend npm run prisma:seed
 
 Open:
 
-- Vite dev frontend: `http://localhost:5173`
+- Vite dev frontend: `http://localhost:5843`
 - Backend API: `http://localhost:3000`
 
 ## Rebuild Commands

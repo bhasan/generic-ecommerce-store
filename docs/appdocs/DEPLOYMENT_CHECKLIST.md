@@ -33,7 +33,7 @@ docker compose up
 ### Hot Reload (Optional)
 ```bash
 docker compose -f docker-compose.dev.yml up
-# Access Vite dev server at http://localhost:5173
+# Access Vite dev server at http://localhost:5843
 ```
 
 ## Production Checklist

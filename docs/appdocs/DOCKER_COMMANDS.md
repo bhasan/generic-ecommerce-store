@@ -151,7 +151,7 @@ docker compose -f docker-compose.dev.yml up
 # Follow backend logs
 docker compose -f docker-compose.dev.yml logs -f backend
 
-# Access Vite dev server at http://localhost:5173
+# Access Vite dev server at http://localhost:5843
 ```
 
 ### Using Docker Compose Watch (Alternative)

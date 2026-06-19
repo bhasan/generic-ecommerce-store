@@ -59,7 +59,7 @@ For faster development with automatic recompilation:
 docker compose -f docker-compose.dev.yml up
 
 # 2. Access
-# - Vite dev server: http://localhost:5173
+# - Vite dev server: http://localhost:5843
 # - API: http://localhost:3000/api
 # - Nginx (compiled): http://localhost
 ```
