@@ -2,22 +2,12 @@ import { Router } from 'express';
 import { PaymentSettingsController } from '../controllers/paymentSettings.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeAdmin } from '../middleware/role.middleware';
+import { asyncHandler } from '../utils/asyncHandler.util';
 
 const router = Router();
 const paymentSettingsController = new PaymentSettingsController();
 
-/**
- * @route   GET /api/payment-settings
- * @desc    Get payment settings (admin only)
- * @access  Private (Admin only)
- */
-router.get('/', authenticate, authorizeAdmin, paymentSettingsController.getPaymentSettings);
-
-/**
- * @route   PUT /api/payment-settings
- * @desc    Update payment settings (admin only)
- * @access  Private (Admin only)
- */
-router.put('/', authenticate, authorizeAdmin, paymentSettingsController.updatePaymentSettings);
+router.get('/', authenticate, authorizeAdmin, asyncHandler(paymentSettingsController.getPaymentSettings));
+router.put('/', authenticate, authorizeAdmin, asyncHandler(paymentSettingsController.updatePaymentSettings));
 
 export default router;

@@ -1,0 +1,26 @@
+{
+  "provider_key": "ONLINE_STORE",
+  "source_system": "online_store",
+  "source_display_name": "Online Store",
+  "schema_version": "2026-06-online-store-reporting-v1",
+  "store_timezone": "America/Chicago",
+  "currency": "USD",
+  "supports": {
+    "products": true,
+    "variants": false,
+    "categories": true,
+    "inventory_snapshots": true,
+    "orders": true,
+    "order_line_items": true,
+    "payments": true,
+    "refunds": false,
+    "fulfillments": true,
+    "customers": false,
+    "webhooks": false
+  },
+  "limits": {
+    "max_page_size": 250,
+    "default_page_size": 100,
+    "max_backfill_months": 24
+  }
+}

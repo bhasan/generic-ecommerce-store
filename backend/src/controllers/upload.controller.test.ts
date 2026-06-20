@@ -13,7 +13,18 @@ vi.mock('../utils/fileUtils', () => ({
   UPLOADS_DIR: '/fake/uploads',
 }));
 
-vi.mock('sharp', () => ({ default: vi.fn() }));
+const sharpMock = vi.fn();
+vi.mock('sharp', () => ({ default: sharpMock }));
+
+const brandingServiceMock = {
+  updateBranding: vi.fn(),
+  getBranding: vi.fn(),
+  generateCssBlock: vi.fn(),
+  computeColorVariants: vi.fn(),
+};
+vi.mock('../services/branding.service', () => ({
+  BrandingService: vi.fn(() => brandingServiceMock),
+}));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -41,14 +52,10 @@ describe('importZip', () => {
     vi.clearAllMocks();
   });
 
-  it('calls next with a 400 AppError when no file is attached', async () => {
+  it('throws a 400 AppError when no file is attached', async () => {
     const { default: controller } = await import('./upload.controller');
-    const next = makeNext();
 
-    await controller.importZip(makeReq(), makeRes(), next);
-
-    expect(next).toHaveBeenCalledOnce();
-    expect(next.mock.calls[0][0]).toMatchObject({ statusCode: 400 });
+    await expect(controller.importZip(makeReq(), makeRes())).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it('writes new files and returns the correct imported count', async () => {
@@ -159,5 +166,81 @@ describe('importZip', () => {
 
     expect(res.json).toHaveBeenCalledWith({ imported: 0, skipped: 0 });
     expect(writeSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('uploadFavicon', () => {
+  function makeSharpChain() {
+    const chain: any = {};
+    chain.resize = vi.fn().mockReturnValue(chain);
+    chain.png = vi.fn().mockReturnValue(chain);
+    chain.toFile = vi.fn().mockResolvedValue({});
+    return chain;
+  }
+
+  function makeFileReq(filename = 'source.png') {
+    return { file: { filename } } as any;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sharpMock.mockImplementation(() => makeSharpChain());
+    brandingServiceMock.updateBranding.mockResolvedValue({});
+    vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined as any);
+  });
+
+  it('throws a 400 AppError when no file is attached', async () => {
+    const { default: controller } = await import('./upload.controller');
+
+    await expect(controller.uploadFavicon({ file: undefined } as any, makeRes())).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('generates 16, 32, and 180px PNG variants and returns their URLs', async () => {
+    const { default: controller } = await import('./upload.controller');
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await controller.uploadFavicon(makeFileReq(), res, makeNext());
+
+    expect(res.status).toHaveBeenCalledWith(201);
+    const { urls } = res.json.mock.calls[0][0];
+    expect(Object.keys(urls).sort()).toEqual(['16', '180', '32']);
+    expect(urls['16']).toContain('favicon-16.png');
+    expect(urls['32']).toContain('favicon-32.png');
+    expect(urls['180']).toContain('favicon-180.png');
+  });
+
+  it('appends a ?v= cache-busting timestamp to every favicon URL', async () => {
+    const { default: controller } = await import('./upload.controller');
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await controller.uploadFavicon(makeFileReq(), res, makeNext());
+
+    const { urls } = res.json.mock.calls[0][0];
+    for (const url of Object.values(urls) as string[]) {
+      expect(url).toMatch(/\?v=\d+$/);
+    }
+  });
+
+  it('calls BrandingService.updateBranding with the generated faviconUrls', async () => {
+    const { default: controller } = await import('./upload.controller');
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await controller.uploadFavicon(makeFileReq(), res, makeNext());
+
+    expect(brandingServiceMock.updateBranding).toHaveBeenCalledOnce();
+    const [arg] = brandingServiceMock.updateBranding.mock.calls[0];
+    expect(arg).toHaveProperty('faviconUrls');
+    expect(Object.keys(arg.faviconUrls).sort()).toEqual(['16', '180', '32']);
+  });
+
+  it('deletes the original uploaded file after processing', async () => {
+    const unlinkSpy = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined as any);
+    const { default: controller } = await import('./upload.controller');
+    const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as any;
+
+    await controller.uploadFavicon(makeFileReq('upload-abc.png'), res, makeNext());
+
+    expect(unlinkSpy).toHaveBeenCalledOnce();
+    expect(String(unlinkSpy.mock.calls[0][0])).toContain('upload-abc.png');
   });
 });

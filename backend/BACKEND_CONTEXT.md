@@ -1,3 +1,5 @@
+> Needs verification / Historical context: This document contains older backend architecture and API notes. Current source of truth is `src/routes/*.ts`, `src/services/*.ts`, `prisma/schema.prisma`, and `../docs/PROJECT_DESIGN.md`.
+
 # Smoke Station Backend - Context Documentation
 
 ## Overview

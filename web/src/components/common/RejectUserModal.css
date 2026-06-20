@@ -21,7 +21,7 @@
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 20px 60px var(--color-danger-border);
   animation: slideDown var(--transition-slow) ease-out;
   display: flex;
   flex-direction: column;
@@ -46,7 +46,7 @@
   width: 48px;
   height: 48px;
   border-radius: var(--radius-lg);
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-danger);
   display: flex;
   align-items: center;
@@ -135,7 +135,7 @@
 .rejection-note-textarea:focus {
   outline: none;
   border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
 }
 
 .rejection-note-textarea::placeholder {
@@ -182,7 +182,7 @@
 .btn-modal-reject {
   background: linear-gradient(135deg, var(--color-danger) 0%, var(--color-danger-dark) 100%);
   color: var(--text-on-primary);
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 15px var(--color-danger-border);
 }
 
 .btn-modal-reject:hover {

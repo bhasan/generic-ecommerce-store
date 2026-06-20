@@ -8,9 +8,10 @@ import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
 import * as configApi from '../services/configApi';
 import * as creditApi from '../services/creditApi';
-import { getAuthToken } from '../services/api';
+import { getAuthToken, newSession } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
+import { applyBrandingTokens } from '../utils/colorUtils';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
@@ -104,6 +105,7 @@ export function AppProvider({ children }) {
     venmo: { enabled: false, handle: '' },
   });
   const [storeSettings, setStoreSettings] = useState({ name: '', address: '', phoneNumber: '' });
+  const [branding, setBranding] = useState(null);
   const [creditBalance, setCreditBalance] = useState(0);
   const hasInteractedRef = useRef(false);
   const hasLoadedNotificationsRef = useRef(false);
@@ -136,6 +138,7 @@ export function AppProvider({ children }) {
             }
             setCurrentUser(user);
             setIsAuthenticated(true);
+            newSession();
             // Load credit balance for authenticated users so checkout and header state stay in sync after refresh.
             try {
               const creditData = await creditApi.getUserCredit(user.id);
@@ -185,6 +188,19 @@ export function AppProvider({ children }) {
           setStoreCashappUsername(config.paymentSettings.cashapp?.handle || config.storeCashappUsername || '');
         } else if (typeof config.storeCashappUsername === 'string') {
           setStoreCashappUsername(config.storeCashappUsername);
+        }
+        if (config.branding) {
+          setBranding(config.branding);
+          applyBrandingTokens(config.branding.customColors);
+          if (config.branding.storeName) {
+            document.title = config.branding.storeName;
+          }
+          if (config.branding.faviconUrls?.['32']) {
+            const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
+            link.rel = 'icon';
+            link.href = config.branding.faviconUrls['32'];
+            if (!document.head.contains(link)) document.head.appendChild(link);
+          }
         }
       }
     } catch (e) {
@@ -544,7 +560,8 @@ export function AppProvider({ children }) {
       
       setCurrentUser(user);
       setIsAuthenticated(true);
-      
+      newSession();
+
       // If there's a return path (e.g., guest tried to access orders), go there
       if (returnPath) {
         navigate(returnPath);
@@ -713,7 +730,7 @@ export function AppProvider({ children }) {
   }, []);
 
   // Creates an order, refreshes dependent state, and preserves delivery/profile/payment side effects by method.
-  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress) => {
+  const checkout = async (cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription) => {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
@@ -722,7 +739,7 @@ export function AppProvider({ children }) {
       }));
 
       // Create order via API
-      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress);
+      const newOrder = await ordersApi.createOrder(items, cashAppUsername, deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription);
 
       if (deliveryMethod === DeliveryMethod.DELIVERY) {
         try {
@@ -1242,6 +1259,7 @@ export function AppProvider({ children }) {
     paymentSettings,
     storeSettings,
     loadConfig,
+    branding,
     restoreCart,
     creditBalance,
     refreshCreditBalance,

@@ -6,7 +6,7 @@ import OrdersPage from './OrdersPage';
 import { ROLES } from '../../utils/roles';
 import { OrderStatus } from '../../constants/orderStatuses';
 
-const useAppMock = vi.fn();
+const useAppMock = vi.hoisted(() => vi.fn());
 
 // Mock window.scrollTo since it's not implemented in JSDOM
 window.scrollTo = vi.fn();

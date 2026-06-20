@@ -1,0 +1,8 @@
+{
+  "status": "ok",
+  "service": "online_store_reporting_api",
+  "provider_key": "ONLINE_STORE",
+  "source_system": "online_store",
+  "schema_version": "2026-06-online-store-reporting-v1",
+  "generated_at": "2026-06-16T10:00:00Z"
+}

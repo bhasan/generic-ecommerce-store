@@ -643,6 +643,16 @@ export class UserService {
   }
 
   /**
+   * Get the count of users pending registration approval.
+   * A pending user has approved: false and rejected: false.
+   * This is the single source of truth for this WHERE clause so that
+   * NotificationService and other callers stay in sync.
+   */
+  async getPendingRegistrationCount(): Promise<number> {
+    return prisma.user.count({ where: { approved: false, rejected: false } });
+  }
+
+  /**
    * Get all roles from database
    */
   async getAllRoles() {

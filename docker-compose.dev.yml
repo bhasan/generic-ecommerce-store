@@ -13,6 +13,12 @@ services:
       - ./backend/.env
     environment:
       NODE_ENV: development
+      # Dev override: base compose sets CORS_ORIGIN from the root .env (a prod
+      # placeholder). Card payments build the Authorize.Net iframe communicator URL
+      # from CORS_ORIGIN, so it must point at the dev frontend origin. Authorize.Net
+      # requires https://, so for local card-payment testing set DEV_CORS_ORIGIN to
+      # an https tunnel (e.g. cloudflared) pointing at the frontend.
+      CORS_ORIGIN: ${DEV_CORS_ORIGIN:-http://localhost:5843}
     command: sh -c "npm ci && npm run dev"
     ports:
       - "3000:3000"
@@ -30,7 +36,8 @@ services:
     working_dir: /app/web
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
-      - "5843:5173"
+      # Vite dev server listens on 5843 (see web/vite.config.js server.port)
+      - "5843:5843"
     volumes:
       - ./web:/app/web
       - /app/web/node_modules

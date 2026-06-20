@@ -130,6 +130,47 @@ describe('api service', () => {
     window.removeEventListener('auth:unauthorized', unauthorizedSpy);
   });
 
+  it('does not dispatch backend:unavailable for a request that started before newSession() was called', async () => {
+    let triggerFailure;
+    globalThis.fetch = vi.fn().mockImplementation(
+      () => new Promise((_, reject) => { triggerFailure = () => reject(new TypeError('Failed to fetch')); })
+    );
+
+    const unavailableSpy = vi.fn();
+    window.addEventListener('backend:unavailable', unavailableSpy);
+
+    const { get, newSession } = await import('./api.js');
+
+    // Start request before session changes (captures old session id)
+    const pendingRequest = get('/test', { retries: 0 }).catch((e) => e);
+
+    // Simulate login incrementing the session while old request is still in-flight
+    newSession();
+
+    // Old request finally fails after the session changed
+    triggerFailure();
+    await pendingRequest;
+
+    expect(unavailableSpy).not.toHaveBeenCalled();
+    window.removeEventListener('backend:unavailable', unavailableSpy);
+  });
+
+  it('still dispatches backend:unavailable for a network failure in the current session', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const unavailableSpy = vi.fn();
+    window.addEventListener('backend:unavailable', unavailableSpy);
+
+    const { get, newSession } = await import('./api.js');
+
+    // Simulate previous login; this request starts in the new session
+    newSession();
+    await get('/test', { retries: 0 }).catch(() => {});
+
+    expect(unavailableSpy).toHaveBeenCalledTimes(1);
+    window.removeEventListener('backend:unavailable', unavailableSpy);
+  });
+
   it('still auto-logs out on a 401 for the active session token', async () => {
     localStorage.setItem('authToken', 'token-a');
     localStorage.setItem('userData', JSON.stringify({ id: 1, username: 'customer-one' }));

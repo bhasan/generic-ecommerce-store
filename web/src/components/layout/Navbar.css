@@ -5,28 +5,34 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
+  width: 100%;
 }
 
 .navbar-container {
   max-width: var(--container-max-width);
+  width: 100%;
   margin: 0 auto;
   padding: 0.75rem var(--spacing-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-width: 0;
 }
 
 .navbar-left {
   display: flex;
   align-items: center;
   gap: 2rem;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
 }
 
 .navbar-brand {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  min-width: 0;
   font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-bold);
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary-dark) 100%);
@@ -37,6 +43,12 @@
   white-space: nowrap;
 }
 
+.navbar-brand span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .navbar-brand:hover {
   transform: scale(1.05);
 }
@@ -44,9 +56,11 @@
 .navbar-links {
   display: flex;
   gap: var(--spacing-md);
+  flex: 1 1 auto;
   flex-wrap: nowrap;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
 }
 
 .nav-link {
@@ -55,7 +69,7 @@
   align-items: center;
   gap: 0.375rem;
   padding: var(--spacing-sm) 0.875rem;
-  color: var(--text-secondary);
+  color: var(--nav-item-color);
   border-radius: var(--radius-md);
   transition: var(--transition-all);
   font-weight: var(--font-weight-medium);
@@ -64,8 +78,8 @@
 }
 
 .nav-link:hover {
-  background: var(--bg-hover);
-  color: var(--color-primary-light);
+  background: var(--nav-item-hover-bg);
+  color: var(--nav-item-hover-color);
 }
 
 .nav-link-active {
@@ -79,19 +93,25 @@
   align-items: center;
   justify-content: center;
   padding: var(--spacing-sm);
-  color: var(--text-secondary);
+  color: var(--nav-item-color);
   border-radius: var(--radius-md);
   transition: var(--transition-all);
 }
 
 .nav-link-icon:hover {
-  background: var(--bg-hover);
-  color: var(--color-primary-light);
+  background: var(--nav-item-hover-bg);
+  color: var(--nav-item-hover-color);
 }
 
 .nav-link-icon-active {
   background: var(--color-primary-dark);
   color: var(--text-primary);
+}
+
+button.nav-link-icon {
+  background: transparent;
+  border: none;
+  padding: var(--spacing-sm);
 }
 
 /* Nav link with badge (for messages) */
@@ -129,6 +149,8 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
 .navbar-right-auth {
@@ -195,14 +217,14 @@
 .mobile-menu {
   display: none;
   position: fixed;
-  top: 60px;
+  top: var(--navbar-mobile-menu-offset, 60px);
   left: 0;
   right: 0;
   background: var(--bg-navbar-mobile);
   border-bottom: 2px solid var(--color-primary-dark);
   padding: var(--spacing-md);
   z-index: var(--z-modal);
-  max-height: calc(100vh - 60px);
+  max-height: calc(100vh - var(--navbar-mobile-menu-offset, 60px));
   overflow-y: auto;
   animation: slideDown var(--transition-fast) ease-out;
 }
@@ -349,6 +371,8 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+  max-width: 14rem;
+  min-width: 0;
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-hover);
   border: 1px solid var(--color-primary-dark);
@@ -366,6 +390,11 @@
 
 .profile-name {
   font-size: 0.875rem;
+  min-width: 0;
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .profile-menu {
@@ -405,7 +434,7 @@
   margin-top: 0.5rem;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--color-secondary-bg);
   background: color-mix(in srgb, var(--color-secondary, #10b981) 12%, transparent);
   color: var(--color-secondary, #10b981);
   font-size: 0.75rem;
@@ -420,7 +449,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.25);
+  background: var(--color-secondary-bg-strong);
   background: color-mix(in srgb, var(--color-secondary, #10b981) 25%, transparent);
   font-size: 0.65rem;
   font-weight: 700;
@@ -487,21 +516,44 @@
 }
 
 .profile-menu-logout:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
 /* ==================== RESPONSIVE BREAKPOINTS ==================== */
 
 /* Standard desktop widths - keep the primary nav to one non-overlapping row */
-@media (max-width: 1320px) {
+@media (max-width: 1440px) {
+  .navbar-left {
+    gap: 1rem;
+  }
+
+  .navbar-links {
+    gap: var(--spacing-sm);
+  }
+
   .navbar-links > a[href="/manage-products"] > span,
   .admin-dropdown > .nav-link > span {
     display: none;
   }
 
+  .navbar-links > a[href="/manage-products"],
   .admin-dropdown > .nav-link {
     padding: var(--spacing-sm) 0.75rem;
+  }
+
+  .profile-name {
+    max-width: 8rem;
+  }
+}
+
+@media (max-width: 1320px) {
+  .profile-name {
+    display: none;
+  }
+
+  .profile-button {
+    padding: var(--spacing-sm);
   }
 }
 
@@ -594,6 +646,10 @@
 
 /* Tablet screens (768px and below) - show hamburger menu */
 @media (max-width: 768px) {
+  .mobile-menu {
+    --navbar-mobile-menu-offset: 78px;
+  }
+
   .navbar-container {
     gap: 0.5rem;
   }
@@ -616,6 +672,7 @@
     display: block;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
   }
 
   .navbar-brand {
@@ -710,4 +767,44 @@
     padding: 0.625rem 0.75rem;
     font-size: 0.9375rem;
   }
+}
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .admin-menu-item:hover,
+[data-theme="light"] .admin-menu-item-active,
+[data-theme="light"] .profile-menu-item:hover {
+  color: var(--color-primary);
+}
+
+/* Navbar stays dark in light mode — .nav-link and .nav-link-icon colors are
+   handled by --nav-item-color / --nav-item-hover-* tokens in theme.css. */
+[data-theme="light"] .nav-link-active {
+  color: #fff;
+}
+[data-theme="light"] .profile-button {
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+[data-theme="light"] .profile-button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+[data-theme="light"] .user-name {
+  color: #fff;
+}
+[data-theme="light"] .user-greeting {
+  color: rgba(255, 255, 255, 0.55);
+}
+[data-theme="light"] .hamburger-line {
+  background: #fff;
+}
+[data-theme="light"] .hamburger-btn {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+[data-theme="light"] .hamburger-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+[data-theme="light"] button.nav-link {
+  background: transparent;
+  border: none;
 }

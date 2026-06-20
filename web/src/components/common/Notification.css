@@ -97,3 +97,15 @@
   background: var(--border-color);
   color: var(--text-primary);
 }
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .notification-action-btn {
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .notification-success .notification-icon {
+  color: var(--color-secondary-dark);
+}
+
+[data-theme="light"] .notification-warning .notification-icon {
+  color: var(--color-warning-dark);
+}

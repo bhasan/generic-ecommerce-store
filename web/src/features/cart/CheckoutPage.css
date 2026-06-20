@@ -201,7 +201,7 @@
 
 /* Payment Section */
 .payment-info-box {
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--color-primary-bg);
   border: 1px solid var(--color-primary-dark);
   border-radius: 0.75rem;
   padding: 1.5rem;
@@ -238,7 +238,7 @@
 .payment-preview {
   margin-top: 0.5rem;
   padding: 0.75rem;
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-secondary-bg);
   border: 1px solid var(--color-secondary);
   border-radius: 0.5rem;
   color: var(--color-secondary);
@@ -270,7 +270,7 @@
   gap: 0.75rem;
   margin-top: 1.5rem;
   padding: 1rem;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   border: 1px solid var(--color-danger);
   border-radius: 0.5rem;
   color: var(--color-danger);
@@ -372,7 +372,7 @@
 
 .btn-place-order:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(124, 58, 237, 0.5);
+  box-shadow: 0 10px 30px var(--color-primary-shadow);
 }
 
 .btn-place-order:disabled {
@@ -513,7 +513,7 @@
 
 .delivery-blocked-hint {
   font-size: 0.85rem;
-  color: #b45309;
+  color: var(--color-warning-dark);
   text-align: left;
   margin: 0;
   padding: 0.875rem 1rem;
@@ -570,24 +570,24 @@
 .delivery-eligibility-banner-fallback {
   background: rgba(59, 130, 246, 0.11);
   border-color: rgba(59, 130, 246, 0.22);
-  color: #1d4ed8;
+  color: var(--color-info-dark);
 }
 
 .delivery-method-toggle .toggle-btn:hover:not(.active) {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
   color: var(--color-primary-light);
 }
 
 .delivery-method-toggle .toggle-btn.active {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
   transform: scale(1.02);
 }
 
 /* Pickup Location Info */
 .pickup-location-info {
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--color-primary-bg);
   border: 1px solid var(--color-primary-dark);
   border-radius: 0.75rem;
   padding: 2rem;
@@ -638,11 +638,152 @@
 
 .payment-method-option.selected {
   border-color: var(--color-primary);
-  background: rgba(124, 58, 237, 0.05);
+  background: var(--color-primary-bg);
 }
 
 .payment-method-option input[type="radio"] {
   accent-color: var(--color-primary);
+}
+
+.payment-method-card {
+  justify-content: space-between;
+}
+
+.payment-method-card-label {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.payment-method-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--border-radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.payment-method-option.selected .payment-method-badge {
+  background: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.payment-method-detail {
+  margin-top: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md);
+  font-size: 0.9rem;
+}
+
+.payment-cc-info p {
+  margin: 0 0 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.payment-cc-info p:last-child {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.checkout-retry-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  padding: var(--spacing-md);
+  animation: fadeIn var(--transition-fast) ease-in;
+}
+
+.payment-retry-card {
+  width: 100%;
+  max-width: 440px;
+  padding: var(--spacing-xl) var(--spacing-lg) var(--spacing-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-top: 4px solid var(--color-warning);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  text-align: center;
+  animation: slideDown var(--transition-slow) ease-out;
+}
+
+.payment-retry-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--spacing-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-2xl);
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-radius: var(--radius-full);
+}
+
+.payment-retry-card h3 {
+  margin: 0 0 var(--spacing-xs);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.payment-retry-card p {
+  margin: 0 0 var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-relaxed);
+  color: var(--text-secondary);
+}
+
+.payment-retry-order-info {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.payment-retry-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.payment-retry-actions .btn-primary,
+.payment-retry-actions .btn-secondary {
+  width: 100%;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+}
+
+/* The base .btn-secondary uses a transparent border, which is invisible on the
+   card's surface — give it a visible outline so it reads as a button. */
+.payment-retry-actions .btn-secondary {
+  border-color: var(--border-color);
+}
+
+.payment-retry-actions .btn-secondary:hover {
+  border-color: var(--color-primary);
+  background: var(--bg-hover);
 }
 
 .payment-credit-confirm {
@@ -682,14 +823,14 @@
 }
 
 .pickup-sub-btn:hover:not(.active) {
-  background: rgba(124, 58, 237, 0.08);
+  background: var(--color-primary-bg);
   color: var(--color-primary-light);
 }
 
 .pickup-sub-btn.active {
   background: var(--color-primary);
   color: white;
-  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.2);
+  box-shadow: 0 2px 6px var(--color-primary-bg-strong);
 }
 
 .curbside-form {
@@ -705,3 +846,87 @@
   margin-bottom: 1rem;
 }
 
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .btn-back:hover,
+[data-theme="light"] .progress-step-active,
+[data-theme="light"] .section-header,
+[data-theme="light"] .checkout-item-total,
+[data-theme="light"] .summary-total span:last-child,
+[data-theme="light"] .pickup-location-info h4,
+[data-theme="light"] .delivery-method-toggle .toggle-btn:hover:not(.active),
+[data-theme="light"] .pickup-sub-btn:hover:not(.active) {
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .shipping-free {
+  color: var(--color-secondary-dark) !important;
+}
+
+/* ── Authorize.Net hosted card payment modal ──────────────────────────────
+   The modal has a fixed (viewport-capped) height. The hosted-payment iframe
+   fills the body and scrolls its own content, so there is a single scrollbar —
+   the form's own — instead of the iframe element scrolling inside a separately
+   scrollable body (which produced two scrollbars). */
+.send-payment-modal {
+  background: var(--bg-dashboard-sidebar);
+  border: 2px solid var(--color-primary-dark);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: min(96vw, 720px);
+  height: min(90vh, 860px);
+  overflow: hidden;
+  box-shadow: var(--shadow-xl);
+  display: flex;
+  flex-direction: column;
+  animation: slideDown var(--transition-slow) ease-out;
+}
+
+.send-payment-modal .modal-header {
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.send-payment-modal .modal-header h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.send-payment-modal .modal-body {
+  padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.send-payment-modal .modal-body iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.send-payment-modal .modal-verifying,
+.send-payment-modal .modal-verify-error {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.send-payment-modal .modal-footer {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.send-payment-modal .modal-footer p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}

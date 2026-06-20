@@ -8,7 +8,7 @@ import OrdersPage from './OrdersPage';
 window.scrollTo = vi.fn();
 import { ROLES } from '../../utils/roles';
 
-const useAppMock = vi.fn();
+const useAppMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),

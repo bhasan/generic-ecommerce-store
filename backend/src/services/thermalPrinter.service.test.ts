@@ -185,7 +185,7 @@ TOTAL                               $21.64
     expect(body.receipt.text).toContain('DELIVERY ADDRESS');
   });
 
-  it('prints curbside pickup orders with vehicle info section', async () => {
+  it('prints curbside pickup orders with vehicle info section (new vehicleDescription column)', async () => {
     prismaMock.order.findUnique.mockResolvedValue({
       id: 95,
       userId: 8,
@@ -195,7 +195,8 @@ TOTAL                               $21.64
       updatedAt: new Date('2026-04-09T19:00:00.000Z'),
       deliveryMethod: 'CURBSIDE',
       paymentMethod: 'EXTERNAL',
-      deliveryAddress: 'CURBSIDE: Silver Camry',
+      deliveryAddress: null,
+      vehicleDescription: 'Silver Camry',
     });
     prismaMock.user.findUnique.mockResolvedValue({
       id: 8,
@@ -217,7 +218,7 @@ TOTAL                               $21.64
     const body = printJobService.createPrintJob.mock.calls[0][0].payload;
     expect(body.receipt.text).toContain('*** CURBSIDE PICKUP ***');
     expect(body.receipt.text).toContain('CURBSIDE VEHICLE INFO');
-    expect(body.receipt.text).toContain('CURBSIDE: SILVER CAMRY');
+    expect(body.receipt.text).toContain('SILVER CAMRY');
   });
 
 

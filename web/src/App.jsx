@@ -28,6 +28,7 @@ import DashboardPage from './features/dashboard/DashboardPage';
 import StoreCreditPage from './features/credits/StoreCreditPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import OrderHistoryPage from './features/orders/OrderHistoryPage';
+import WebsiteManagementPage from './features/website/WebsiteManagementPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
 
@@ -140,6 +141,15 @@ function AppContent() {
               <OrderHistoryPage />
             </ProtectedRoute>
           } />
+
+          <Route
+            path="/website-management"
+            element={
+              <ProtectedRoute roles={[ROLES.ADMIN]}>
+                <WebsiteManagementPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
           <Route path="/delivery-dashboard" element={

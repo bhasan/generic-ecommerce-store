@@ -14,6 +14,10 @@ By default only the Docker images are pushed. Config files (docker-compose.yml,
 docker-compose.prod.yml, nginx/nginx.prod.conf) are left untouched on the server
 unless --sync-config is given.
 
+This helper is tarball-based. For production it requires the server-side
+docker-compose.shared-edge.override.yml file so Smoke Station keeps the shared
+public edge networks and mounts.
+
 Options:
   --sync-config     Also compare and (after confirmation) upload changed config
                     files, backing up the server copy first.
@@ -67,6 +71,7 @@ WEB_TAR="$DOCKER_DIR/web.tar"
 
 SSH_USER="${SSH_USER:-root}"
 REMOTE_DIR="/docker/smoke-station"
+REMOTE_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.shared-edge.override.yml"
 # Config files synced (relative to PROJECT_ROOT and REMOTE_DIR) when --sync-config
 # is passed. Paths with subdirs (e.g. nginx/) must already exist on the server.
 CONFIG_FILES=(docker-compose.yml docker-compose.prod.yml nginx/nginx.prod.conf)
@@ -104,6 +109,10 @@ ssh -fNM -o ControlMaster=yes -o ControlPath="$SSH_SOCKET" -o ControlPersist=600
 trap 'ssh -O exit -o ControlPath="$SSH_SOCKET" "$SSH_USER@$SERVER_IP" 2>/dev/null || true' EXIT
 
 SSH_OPTS=(-o ControlMaster=no -o ControlPath="$SSH_SOCKET")
+
+echo ""
+echo "==> Verifying required shared-edge Compose override on server..."
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && test -f docker-compose.shared-edge.override.yml && $REMOTE_COMPOSE config --quiet"
 
 if [[ "$SKIP_UPLOAD" == "false" ]]; then
   echo ""
@@ -186,7 +195,12 @@ fi
 
 # --- Confirm compose up ---
 echo ""
-read -rp "Run 'docker compose up -d backend web' on server? [y/N] " confirm_up
+echo ""
+echo "==> Checking Prisma migration status before backend recreation..."
+echo "    If this reports pending migrations, stop and take a DB backup first."
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE run --rm --no-deps backend npx prisma migrate status"
+
+read -rp "Run shared-edge 'docker compose up -d --no-deps --no-build --force-recreate backend web' on server? [y/N] " confirm_up
 if [[ "$confirm_up" != "y" && "$confirm_up" != "Y" ]]; then
   echo "Skipped compose up. Images are loaded and ready."
   exit 0
@@ -194,12 +208,12 @@ fi
 
 echo ""
 echo "==> [3/4] Starting services on server..."
-ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd /docker/smoke-station && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d backend web"
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-deps --no-build --force-recreate backend web"
 
 if [[ "$NGINX_SYNCED" == "true" ]]; then
   echo ""
   echo "==> nginx config changed; force-recreating web to pick up the bind-mounted conf..."
-  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd /docker/smoke-station && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate web"
+  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-deps --no-build --force-recreate web"
 fi
 
 echo ""

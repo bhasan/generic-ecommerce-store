@@ -107,7 +107,7 @@
 .product-modal-close:hover {
   border-color: var(--color-danger);
   color: var(--color-danger);
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
 }
 
 /* Body */
@@ -194,3 +194,5 @@
     padding: 0.5rem;
   }
 }
+
+[data-theme="light"] .product-modal-btn:hover { color: var(--color-primary); }

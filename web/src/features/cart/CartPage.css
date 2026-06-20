@@ -136,8 +136,8 @@
 }
 
 .btn-remove-item {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-border);
   color: var(--color-danger);
   padding: 0.75rem;
   border-radius: 0.5rem;
@@ -146,7 +146,7 @@
 }
 
 .btn-remove-item:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: var(--color-danger-bg-strong);
   border-color: var(--color-danger);
 }
 
@@ -217,7 +217,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 15px var(--color-primary-border);
 }
 
 .btn-checkout:disabled {
@@ -229,7 +229,7 @@
 
 .btn-checkout:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 8px 25px var(--color-primary-shadow);
 }
 
 .checkout-note {
@@ -312,14 +312,25 @@
 }
 
 .delivery-method-toggle .toggle-btn:hover:not(.active) {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
   color: var(--color-primary-light);
 }
 
 .delivery-method-toggle .toggle-btn.active {
   background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 12px var(--color-primary-border);
   transform: scale(1.02);
 }
 
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .cart-item-price,
+[data-theme="light"] .cart-item-total,
+[data-theme="light"] .delivery-method-toggle .toggle-btn:hover:not(.active) {
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .shipping-free {
+  color: var(--color-secondary-dark);
+}

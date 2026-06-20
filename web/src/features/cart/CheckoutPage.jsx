@@ -1,10 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
+import { checkoutFlowReducer, initialCheckoutFlow, CheckoutFlowState } from './checkout/checkoutMachine';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
-import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertTriangle, RefreshCw } from 'lucide-react';
 import SendPaymentModal from '../../components/common/SendPaymentModal';
+import AuthorizeNetPaymentModal from './AuthorizeNetPaymentModal';
+import * as ordersApi from '../../services/ordersApi';
 import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
@@ -14,6 +17,12 @@ import {
   normalizeDeliveryAddress,
   parseAddress,
 } from '../../utils/address';
+import { getFulfillmentEntry } from './checkout/fulfillmentRegistry';
+import { getPaymentEntry } from './checkout/paymentRegistry';
+import ErrorMessage from './checkout/ErrorMessage';
+import PaymentSelector from './checkout/PaymentSelector';
+import PaymentDetails from './checkout/PaymentDetails';
+import FulfillmentSelector from './checkout/FulfillmentSelector';
 
 // Creates the empty delivery-check state used before validation starts or after it is reset.
 const createInitialEligibilityState = () => ({
@@ -56,23 +65,28 @@ function CheckoutPage() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [cashAppUsername, setCashAppUsername] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(PaymentMethod.EXTERNAL);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSendPaymentModal, setShowSendPaymentModal] = useState(false);
-  const [pendingOrderState, setPendingOrderState] = useState(null);
-  const [orderCancelled, setOrderCancelled] = useState(false);
-  const [orderCompleted, setOrderCompleted] = useState(false);
+  const [flow, dispatchFlow] = useReducer(checkoutFlowReducer, initialCheckoutFlow);
   const [errors, setErrors] = useState({});
   const [deliveryEligibility, setDeliveryEligibility] = useState(createInitialEligibilityState);
   const latestEligibilityRequestRef = useRef(0);
   const prefilledAddressKeyRef = useRef('');
   const hasUsedImmediatePrefillCheckRef = useRef(false);
 
+  const isSubmitting = flow.state === CheckoutFlowState.SUBMITTING;
+  const showSendPaymentModal = flow.state === CheckoutFlowState.AWAITING_PAYMENT;
+  const pendingOrderState = flow.state === CheckoutFlowState.AWAITING_PAYMENT ? flow.orderState : null;
+  const orderCancelled = flow.state === CheckoutFlowState.CANCELLED;
+  const orderCompleted = flow.state === CheckoutFlowState.SUCCESS;
+  const ccPaymentModal = flow.state === CheckoutFlowState.CC_PAYMENT ? flow.ccModal : null;
+  const paymentRetryOrder = flow.state === CheckoutFlowState.RETRY ? flow.retryOrder : null;
+
   const isPickup = deliveryMethod === DeliveryMethod.PICKUP || deliveryMethod === DeliveryMethod.CURBSIDE;
   const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
   const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
   const isInStorePayment = selectedPaymentMethod === PaymentMethod.IN_STORE;
   const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
-  const showPaymentSelector = creditBalance > 0 || isPickup;
+  const isCCPayment = selectedPaymentMethod === PaymentMethod.CC;
+  const showPaymentSelector = creditBalance > 0 || isPickup || paymentSettings?.cc_payment?.enabled;
 
   const clearVehicleError = (fieldName) => {
     setErrors((prev) => ({
@@ -197,12 +211,18 @@ function CheckoutPage() {
   }, [isDelivery, isInStorePayment]);
 
   useEffect(() => {
-    if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted) {
+    if (cart.length === 0 && flow.state === CheckoutFlowState.EDITING) {
       navigate('/cart');
     }
-  }, [cart.length, isSubmitting, pendingOrderState, showSendPaymentModal, orderCancelled, orderCompleted, navigate]);
+  }, [cart.length, flow.state, navigate]);
 
-  if (cart.length === 0 && !isSubmitting && !pendingOrderState && !showSendPaymentModal && !orderCancelled && !orderCompleted) {
+  useEffect(() => {
+    if (flow.state === CheckoutFlowState.SUCCESS && flow.orderState) {
+      navigate('/order-success', { state: flow.orderState });
+    }
+  }, [flow.state, flow.orderState, navigate]);
+
+  if (cart.length === 0 && flow.state === CheckoutFlowState.EDITING) {
     return null;
   }
 
@@ -215,55 +235,27 @@ function CheckoutPage() {
     }));
   };
 
-  // Validates address, payment, delivery eligibility, and credit rules before any order request is submitted.
+  // Validates all form fields through the fulfillment and payment registries.
   const validateForm = () => {
-    const newErrors = {};
+    const fulfillmentCtx = {
+      normalizedAddress,
+      vehicleDetails,
+      deliveryMinimumBlocked,
+      minimumDeliveryOrder,
+      deliveryAddressComplete,
+      deliveryEligibility,
+    };
+    const paymentCtx = {
+      paymentSettings,
+      cashAppUsername,
+      creditBalance,
+      total,
+      isPickup,
+    };
 
-    if (deliveryMethod === DeliveryMethod.CURBSIDE) {
-      if (!vehicleDetails.makeModel.trim()) {
-        newErrors.makeModel = 'Vehicle make and model is required';
-      }
-      if (!vehicleDetails.color.trim()) {
-        newErrors.color = 'Vehicle color is required';
-      }
-    }
-
-    if (isDelivery) {
-      if (!normalizedAddress.street) newErrors.street = 'Street address is required';
-      if (!normalizedAddress.city) newErrors.city = 'City is required';
-      if (!normalizedAddress.state) newErrors.state = 'State is required';
-      if (!normalizedAddress.zipCode) {
-        newErrors.zipCode = 'ZIP code is required';
-      } else if (!/^\d{5}$/.test(normalizedAddress.zipCode)) {
-        newErrors.zipCode = 'ZIP code must contain 5 digits';
-      }
-
-      if (deliveryMinimumBlocked) {
-        newErrors.deliveryEligibility = `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum subtotal.`;
-      } else if (!deliveryAddressComplete) {
-        newErrors.deliveryEligibility = 'Complete the delivery address so we can verify eligibility.';
-      } else if (deliveryEligibility.status === 'checking') {
-        newErrors.deliveryEligibility = 'Delivery eligibility is still being checked.';
-      } else if (deliveryEligibility.status === 'error') {
-        newErrors.deliveryEligibility = deliveryEligibility.error;
-      } else if (!deliveryEligibility.result?.deliverable) {
-        newErrors.deliveryEligibility = deliveryEligibility.result?.message || 'Delivery is not available for this address.';
-      }
-    }
-
-    if (isExternalPayment && paymentSettings?.cashapp?.enabled) {
-      if (!cashAppUsername.trim()) {
-        newErrors.cashAppUsername = 'CashApp username is required';
-      } else if (!cashAppUsername.startsWith('$')) {
-        newErrors.cashAppUsername = 'CashApp username must start with $';
-      } else if (cashAppUsername.length < 2 || cashAppUsername.length > 21) {
-        newErrors.cashAppUsername = 'CashApp username must be between 1-20 characters (excluding $)';
-      }
-    }
-
-    if (isCreditPayment && creditBalance < total) {
-      newErrors.credit = `Insufficient credit balance. You have $${creditBalance.toFixed(2)} but the order total is $${total.toFixed(2)}.`;
-    }
+    let newErrors = {};
+    getFulfillmentEntry(deliveryMethod)?.validate(fulfillmentCtx, newErrors);
+    getPaymentEntry(selectedPaymentMethod)?.validate(paymentCtx, newErrors);
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -273,19 +265,19 @@ function CheckoutPage() {
   const handlePlaceOrder = async () => {
     if (!validateForm()) return;
 
-    setIsSubmitting(true);
+    dispatchFlow({ type: 'SUBMIT' });
 
     try {
       const itemsForSuccess = [...cart];
-      const curbsideDetails = deliveryMethod === DeliveryMethod.CURBSIDE
-        ? `CURBSIDE: ${vehicleDetails.color.trim()} ${vehicleDetails.makeModel.trim()}`
-        : undefined;
+      const fulfillmentCtx = { normalizedAddress, vehicleDetails };
+      const fulfillmentPayload = getFulfillmentEntry(deliveryMethod)?.buildPayload(fulfillmentCtx) ?? {};
 
       const newOrder = await checkout(
         cashAppUsername,
         deliveryMethod,
         selectedPaymentMethod,
-        isDelivery ? normalizedAddress : curbsideDetails
+        fulfillmentPayload.deliveryAddress,
+        fulfillmentPayload.vehicleDescription,
       );
 
       const orderState = {
@@ -294,7 +286,7 @@ function CheckoutPage() {
         deliveryAddress: isDelivery
           ? (newOrder.deliveryAddress || formatDeliveryAddress(normalizedAddress))
           : deliveryMethod === DeliveryMethod.CURBSIDE
-            ? curbsideDetails
+            ? `${vehicleDetails.color.trim()} ${vehicleDetails.makeModel.trim()}`
             : 'Store Pickup',
         pickupLocation: isPickup ? pickupLocation : null,
         addressDetails: normalizedAddress,
@@ -307,99 +299,60 @@ function CheckoutPage() {
         paymentMethod: selectedPaymentMethod
       };
 
-      if (!isExternalPayment) {
-        setOrderCompleted(true);
-        navigate('/order-success', { state: orderState });
+      if (isCCPayment) {
+        try {
+          const { token, paymentFormUrl } = await ordersApi.getPaymentToken(newOrder.id);
+          dispatchFlow({
+            type: 'ORDER_CREATED_CC',
+            orderState,
+            ccModal: { token, paymentFormUrl, orderId: newOrder.id, amount: total, items: itemsForSuccess },
+          });
+        } catch {
+          try {
+            await deleteOrder(newOrder.id, { silent: true });
+          } finally {
+            restoreCart(itemsForSuccess);
+            dispatchFlow({ type: 'SUBMIT_ERROR' });
+            setErrors((prev) => ({ ...prev, payment: 'Could not initialize card payment. Please try again.' }));
+          }
+        }
+        return;
+      }
+
+      if (isExternalPayment) {
+        dispatchFlow({ type: 'ORDER_CREATED_EXTERNAL', orderState });
       } else {
-        setPendingOrderState(orderState);
-        setShowSendPaymentModal(true);
+        dispatchFlow({ type: 'ORDER_CREATED_IMMEDIATE', orderState });
       }
     } catch {
       // Error is already handled in AppContext.
-    } finally {
-      setIsSubmitting(false);
+      dispatchFlow({ type: 'SUBMIT_ERROR' });
     }
   };
 
   // Finalizes the external-payment handoff after the user confirms they sent payment.
   const handleSendPaymentDone = () => {
-    setOrderCompleted(true);
-    setShowSendPaymentModal(false);
+    dispatchFlow({ type: 'EXTERNAL_PAYMENT_CONFIRMED' });
     if (pendingOrderState) {
       navigate('/order-success', { state: pendingOrderState });
-      setPendingOrderState(null);
     }
   };
 
   // Cancels the pending external-payment order and restores the cart even if deleteOrder fails.
   const handleSendPaymentCancel = async () => {
-    setOrderCancelled(true);
+    const snapshot = pendingOrderState;
+    dispatchFlow({ type: 'CANCEL' });
     try {
-      if (pendingOrderState?.order?.id) {
-        await deleteOrder(pendingOrderState.order.id, { silent: true });
+      if (snapshot?.order?.id) {
+        await deleteOrder(snapshot.order.id, { silent: true });
       }
     } catch {
-      // Cancellation should still close the modal and restore the cart even if cleanup fails.
+      // Cancellation should still restore the cart even if cleanup fails.
     } finally {
-      if (pendingOrderState?.items?.length) {
-        restoreCart(pendingOrderState.items);
+      if (snapshot?.items?.length) {
+        restoreCart(snapshot.items);
       }
-      setShowSendPaymentModal(false);
-      setPendingOrderState(null);
     }
-  };
-
-  // Chooses the most specific delivery status message so disabled-delivery reasons beat generic minimum-order text.
-  const renderDeliveryEligibilityMessage = () => {
-    if (!isDelivery) return null;
-
-    if (deliveryMinimumBlocked) {
-      return (
-        <p className="delivery-blocked-hint">
-          Delivery requires a ${minimumDeliveryOrder.toFixed(2)} minimum (${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)
-        </p>
-      );
-    }
-
-    if (!deliveryAddressComplete) {
-      return (
-        <p className="delivery-check-hint">
-          Enter your full address to check whether it is within our {deliveryRadiusMiles.toFixed(2)} mile delivery area.
-        </p>
-      );
-    }
-
-    if (deliveryEligibility.status === 'checking') {
-      return <p className="delivery-check-hint">Checking delivery eligibility for this address...</p>;
-    }
-
-    if (deliveryEligibility.status === 'error') {
-      return (
-        <div className="delivery-eligibility-banner delivery-eligibility-banner-warning">
-          <AlertCircle size={16} />
-          <span>{deliveryEligibility.error}</span>
-        </div>
-      );
-    }
-
-    if (!deliveryEligibility.result) {
-      return null;
-    }
-
-    const toneClass = deliveryEligibility.result.deliverable
-      ? (deliveryEligibility.result.deliveryZoneSource === 'ZIP_FALLBACK'
-        ? 'delivery-eligibility-banner-fallback'
-        : 'delivery-eligibility-banner-success')
-      : (deliveryEligibility.result.deliveryZoneStatus === 'UNVERIFIED'
-        ? 'delivery-eligibility-banner-warning'
-        : 'delivery-eligibility-banner-error');
-
-    return (
-      <div className={`delivery-eligibility-banner ${toneClass}`}>
-        <AlertCircle size={16} />
-        <span>{deliveryEligibility.result.message}</span>
-      </div>
-    );
   };
 
   return (
@@ -434,6 +387,42 @@ function CheckoutPage() {
         paymentSettings={paymentSettings}
       />
 
+      {ccPaymentModal && (
+        <AuthorizeNetPaymentModal
+          orderId={ccPaymentModal.orderId}
+          token={ccPaymentModal.token}
+          paymentFormUrl={ccPaymentModal.paymentFormUrl}
+          amount={ccPaymentModal.amount}
+          onSuccess={() => {
+            dispatchFlow({ type: 'PAYMENT_CONFIRMED' });
+          }}
+          onFailure={(reason) => {
+            dispatchFlow({
+              type: 'PAYMENT_FAILED',
+              retryOrder: {
+                orderId: ccPaymentModal.orderId,
+                amount: ccPaymentModal.amount,
+                items: ccPaymentModal.items,
+                orderState: flow.orderState,
+                reason,
+              },
+            });
+          }}
+          onClose={() => {
+            dispatchFlow({
+              type: 'PAYMENT_FAILED',
+              retryOrder: {
+                orderId: ccPaymentModal.orderId,
+                amount: ccPaymentModal.amount,
+                items: ccPaymentModal.items,
+                orderState: flow.orderState,
+                reason: 'Payment not completed — you can retry below.',
+              },
+            });
+          }}
+        />
+      )}
+
       <div className="checkout-content">
         <div className="checkout-main">
           <div className="checkout-section surface-card">
@@ -467,134 +456,29 @@ function CheckoutPage() {
             </div>
             <div className="payment-info-box">
               {showPaymentSelector && (
-                <div className="form-group">
-                  <label className="payment-method-select-label">Payment Method</label>
-                  <div className="payment-method-options">
-                    {creditBalance > 0 && (
-                      <label className={`payment-method-option ${isCreditPayment ? 'selected' : ''}`}>
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value={PaymentMethod.CREDIT}
-                          checked={isCreditPayment}
-                          onChange={() => {
-                            setSelectedPaymentMethod(PaymentMethod.CREDIT);
-                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
-                          }}
-                        />
-                        <span>Store Credit (${creditBalance.toFixed(2)} available)</span>
-                      </label>
-                    )}
-                    <label className={`payment-method-option ${isExternalPayment ? 'selected' : ''}`}>
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value={PaymentMethod.EXTERNAL}
-                        checked={isExternalPayment}
-                        onChange={() => {
-                          setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
-                          setErrors({ ...errors, credit: '' });
-                        }}
-                      />
-                      <span>Pay via CashApp / Zelle / Venmo</span>
-                    </label>
-                    {isPickup && (
-                      <label className={`payment-method-option ${isInStorePayment ? 'selected' : ''}`}>
-                        <input
-                          type="radio"
-                          name="paymentMethod"
-                          value={PaymentMethod.IN_STORE}
-                          checked={isInStorePayment}
-                          onChange={() => {
-                            setSelectedPaymentMethod(PaymentMethod.IN_STORE);
-                            setErrors({ ...errors, credit: '', cashAppUsername: '' });
-                          }}
-                        />
-                        <span>Pay in Store</span>
-                      </label>
-                    )}
-                  </div>
-                  {errors.credit && (
-                    <span className="error-message">
-                      <AlertCircle size={14} />
-                      {errors.credit}
-                    </span>
-                  )}
-                </div>
+                <PaymentSelector
+                  ctx={{ paymentSettings, creditBalance, isPickup }}
+                  selected={selectedPaymentMethod}
+                  onChange={(method) => {
+                    setSelectedPaymentMethod(method);
+                    setErrors((prev) => ({ ...prev, credit: '', cashAppUsername: '' }));
+                  }}
+                  errors={errors}
+                />
               )}
-
-              {isExternalPayment && (
-                <>
-                  {paymentSettings?.cashapp?.enabled && (
-                    <div className="form-group">
-                      <label htmlFor="cashapp">Payment will be received from (your payment username):</label>
-                      <input
-                        id="cashapp"
-                        type="text"
-                        value={cashAppUsername}
-                        onChange={(e) => {
-                          let value = e.target.value;
-                          if (value && !value.startsWith('$')) {
-                            value = '$' + value;
-                          }
-                          setCashAppUsername(value);
-                          if (errors.cashAppUsername) {
-                            setErrors({ ...errors, cashAppUsername: '' });
-                          }
-                        }}
-                        placeholder="$username"
-                        className={`form-input ${errors.cashAppUsername ? 'form-error' : ''}`}
-                      />
-                      {errors.cashAppUsername && (
-                        <span className="error-message">
-                          <AlertCircle size={14} />
-                          {errors.cashAppUsername}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {paymentSettings?.cashapp?.enabled && (
-                    <div className="payment-method-info">
-                      <p className="payment-instructions">
-                        <strong>CashApp:</strong> Send payment to <strong>{paymentSettings.cashapp.handle}</strong>
-                      </p>
-                    </div>
-                  )}
-
-                  {paymentSettings?.zelle?.enabled && (
-                    <div className="payment-method-info">
-                      <p className="payment-instructions">
-                        <strong>Zelle:</strong> Send payment to <strong>{paymentSettings.zelle.handle}</strong>
-                      </p>
-                    </div>
-                  )}
-
-                  {paymentSettings?.venmo?.enabled && (
-                    <div className="payment-method-info">
-                      <p className="payment-instructions">
-                        <strong>Venmo:</strong> Send payment to <strong>{paymentSettings.venmo.handle}</strong>
-                      </p>
-                    </div>
-                  )}
-
-                  <p className="payment-memo-hint">
-                    After "Place Order" is clicked, you will get an order number. Put that in the memo.
-                  </p>
-                </>
-              )}
-
-              {isCreditPayment && (
-                <div className="payment-credit-confirm">
-                  <p>Your store credit balance of <strong>${creditBalance.toFixed(2)}</strong> will be used to pay for this order.</p>
-                </div>
-              )}
-
-              {isInStorePayment && (
-                <div className="payment-credit-confirm">
-                  <p>You'll pay <strong>${total.toFixed(2)}</strong> when you arrive to pick up your order.</p>
-                </div>
-              )}
+              <PaymentDetails
+                paymentMethod={selectedPaymentMethod}
+                paymentSettings={paymentSettings}
+                cashAppUsername={cashAppUsername}
+                onCashAppChange={(value) => {
+                  setCashAppUsername(value);
+                  setErrors((prev) => ({ ...prev, cashAppUsername: '' }));
+                }}
+                creditBalance={creditBalance}
+                total={total}
+                errors={errors}
+              />
+              <ErrorMessage message={errors.payment} />
             </div>
           </div>
 
@@ -603,220 +487,23 @@ function CheckoutPage() {
               <MapPin size={20} />
               <h3>Delivery Method</h3>
             </div>
-
-            <div className="delivery-method-toggle delivery-method-toggle-large">
-              <button
-                type="button"
-                onClick={() => !deliveryBlocked && setDeliveryMethod(DeliveryMethod.DELIVERY)}
-                className={`toggle-btn ${isDelivery ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
-                disabled={deliveryBlocked}
-                title={deliveryBlocked ? deliveryBlockedReason : undefined}
-              >
-                Delivery
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeliveryMethod(DeliveryMethod.PICKUP)}
-                className={`toggle-btn ${isPickup ? 'active' : ''}`}
-              >
-                Pick Up
-              </button>
-            </div>
-            {deliveryBlocked && (
-              <p className="delivery-blocked-hint">{deliveryBlockedReason}</p>
-            )}
-
-            {isDelivery ? (
-              <div className="address-form">
-                <div className="form-group">
-                  <label htmlFor="street">Street Address *</label>
-                  <input
-                    id="street"
-                    type="text"
-                    value={address.street}
-                    onChange={(e) => {
-                      setAddress({ ...address, street: e.target.value });
-                      clearAddressError('street');
-                    }}
-                    placeholder="123 Main Street"
-                    className={`form-input ${errors.street ? 'form-error' : ''}`}
-                  />
-                  {errors.street && (
-                    <span className="error-message">
-                      <AlertCircle size={14} />
-                      {errors.street}
-                    </span>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="apartment">Apartment, Suite, etc. (Optional)</label>
-                  <input
-                    id="apartment"
-                    type="text"
-                    value={address.apartment}
-                    onChange={(e) => {
-                      setAddress({ ...address, apartment: e.target.value });
-                      setErrors((prev) => ({ ...prev, deliveryEligibility: '' }));
-                    }}
-                    placeholder="Apt 4B"
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="city">City *</label>
-                    <input
-                      id="city"
-                      type="text"
-                      value={address.city}
-                      onChange={(e) => {
-                        setAddress({ ...address, city: e.target.value });
-                        clearAddressError('city');
-                      }}
-                      placeholder="Houston"
-                      className={`form-input ${errors.city ? 'form-error' : ''}`}
-                    />
-                    {errors.city && (
-                      <span className="error-message">
-                        <AlertCircle size={14} />
-                        {errors.city}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="form-group form-group-state">
-                    <label htmlFor="state">State *</label>
-                    <select
-                      id="state"
-                      value={address.state}
-                      onChange={(e) => {
-                        setAddress({ ...address, state: e.target.value });
-                        clearAddressError('state');
-                      }}
-                      className={`form-input ${errors.state ? 'form-error' : ''}`}
-                    >
-                      <option value="TX">TX</option>
-                    </select>
-                    {errors.state && (
-                      <span className="error-message">
-                        <AlertCircle size={14} />
-                        {errors.state}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="form-group form-group-zip">
-                    <label htmlFor="zipCode">ZIP Code *</label>
-                    <input
-                      id="zipCode"
-                      type="text"
-                      value={address.zipCode}
-                      onChange={(e) => {
-                        setAddress({ ...address, zipCode: e.target.value });
-                        clearAddressError('zipCode');
-                      }}
-                      placeholder="77083"
-                      className={`form-input ${errors.zipCode ? 'form-error' : ''}`}
-                    />
-                    {errors.zipCode && (
-                      <span className="error-message">
-                        <AlertCircle size={14} />
-                        {errors.zipCode}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {renderDeliveryEligibilityMessage()}
-
-                {errors.deliveryEligibility && (
-                  <span className="error-message">
-                    <AlertCircle size={14} />
-                    {errors.deliveryEligibility}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="pickup-location-info">
-                <h4>Store Pickup Location</h4>
-                <p className="pickup-address">{pickupLocation || '123 Smoke Station Ave, Dallas, TX 75001'}</p>
-                
-                <div className="pickup-sub-method">
-                  <div className="pickup-sub-toggle">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeliveryMethod(DeliveryMethod.PICKUP);
-                        setErrors(prev => ({ ...prev, makeModel: '', color: '' }));
-                      }}
-                      className={`pickup-sub-btn ${deliveryMethod === DeliveryMethod.PICKUP ? 'active' : ''}`}
-                    >
-                      In-Store Pickup
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeliveryMethod(DeliveryMethod.CURBSIDE)}
-                      className={`pickup-sub-btn ${deliveryMethod === DeliveryMethod.CURBSIDE ? 'active' : ''}`}
-                    >
-                      Curbside Pickup
-                    </button>
-                  </div>
-                </div>
-
-                {deliveryMethod === DeliveryMethod.CURBSIDE ? (
-                  <div className="curbside-form">
-                    <p className="pickup-note" style={{ marginBottom: '1rem' }}>Please provide vehicle details so we can bring your order out to you.</p>
-                    <div className="form-row" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                      <div className="form-group">
-                        <label htmlFor="vehicleMakeModel" style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', fontWeight: 500 }}>Vehicle Make & Model *</label>
-                        <input
-                          id="vehicleMakeModel"
-                          type="text"
-                          value={vehicleDetails.makeModel}
-                          onChange={(e) => {
-                            setVehicleDetails(prev => ({ ...prev, makeModel: e.target.value }));
-                            clearVehicleError('makeModel');
-                          }}
-                          placeholder="e.g. Toyota Camry"
-                          className={`form-input ${errors.makeModel ? 'form-error' : ''}`}
-                        />
-                        {errors.makeModel && (
-                          <span className="error-message">
-                            <AlertCircle size={14} />
-                            {errors.makeModel}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="form-group">
-                        <label htmlFor="vehicleColor" style={{ display: 'block', textAlign: 'left', marginBottom: '0.5rem', fontWeight: 500 }}>Vehicle Color *</label>
-                        <input
-                          id="vehicleColor"
-                          type="text"
-                          value={vehicleDetails.color}
-                          onChange={(e) => {
-                            setVehicleDetails(prev => ({ ...prev, color: e.target.value }));
-                            clearVehicleError('color');
-                          }}
-                          placeholder="e.g. Silver"
-                          className={`form-input ${errors.color ? 'form-error' : ''}`}
-                        />
-                        {errors.color && (
-                          <span className="error-message">
-                            <AlertCircle size={14} />
-                            {errors.color}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="pickup-note">We'll email you when your order is ready for pickup.</p>
-                )}
-              </div>
-            )}
+            <FulfillmentSelector
+              deliveryMethod={deliveryMethod}
+              onDeliveryMethodChange={setDeliveryMethod}
+              address={address}
+              onAddressChange={setAddress}
+              vehicleDetails={vehicleDetails}
+              onVehicleDetailsChange={setVehicleDetails}
+              errors={errors}
+              onClearAddressError={clearAddressError}
+              onClearVehicleError={clearVehicleError}
+              deliveryBlocked={deliveryBlocked}
+              deliveryBlockedReason={deliveryBlockedReason}
+              deliveryRadiusMiles={deliveryRadiusMiles}
+              deliveryAddressComplete={deliveryAddressComplete}
+              deliveryEligibility={deliveryEligibility}
+              pickupLocation={pickupLocation}
+            />
           </div>
 
           <div className="checkout-section surface-card">
@@ -866,7 +553,9 @@ function CheckoutPage() {
                 ? 'Processing...'
                 : deliveryEligibility.status === 'checking'
                   ? 'Checking delivery...'
-                  : 'Place Order'}
+                  : isCCPayment
+                    ? 'Place Order & Pay →'
+                    : 'Place Order'}
             </button>
 
             <p className="checkout-note">{
@@ -877,6 +566,63 @@ function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {paymentRetryOrder && (
+        <div className="checkout-retry-overlay">
+          <div className="payment-retry-card">
+            <div className="payment-retry-icon"><AlertTriangle size={28} /></div>
+            <h3>Payment Unsuccessful</h3>
+            <p>{paymentRetryOrder.reason || 'Your card could not be processed. Your order has been saved.'}</p>
+            <div className="payment-retry-order-info">
+              <span>Order #{paymentRetryOrder.orderId}</span>
+              <span>Total: ${paymentRetryOrder.amount?.toFixed(2)}</span>
+            </div>
+            <div className="payment-retry-actions">
+              <button
+                className="btn-primary"
+                onClick={async () => {
+                  try {
+                    const { token, paymentFormUrl } = await ordersApi.getPaymentToken(paymentRetryOrder.orderId);
+                    dispatchFlow({
+                      type: 'ORDER_CREATED_CC',
+                      orderState: paymentRetryOrder.orderState,
+                      ccModal: {
+                        token,
+                        paymentFormUrl,
+                        orderId: paymentRetryOrder.orderId,
+                        amount: paymentRetryOrder.amount,
+                        items: paymentRetryOrder.items,
+                      },
+                    });
+                  } catch {
+                    setErrors((prev) => ({ ...prev, payment: 'Could not retry payment. Please contact support.' }));
+                  }
+                }}
+              >
+                <RefreshCw size={16} /> Retry Card Payment
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={async () => {
+                  try {
+                    await deleteOrder(paymentRetryOrder.orderId, { silent: true });
+                  } catch {
+                    // Restore the cart even if cleanup fails — matches handleSendPaymentCancel.
+                  } finally {
+                    if (paymentRetryOrder.items?.length) {
+                      restoreCart(paymentRetryOrder.items);
+                    }
+                    dispatchFlow({ type: 'SUBMIT_ERROR' });
+                    setSelectedPaymentMethod(PaymentMethod.EXTERNAL);
+                  }
+                }}
+              >
+                Switch to CashApp / Zelle / Venmo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -70,3 +70,7 @@
     padding: 0.5rem 0.75rem;
   }
 }
+
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .category-nav-btn:hover,
+[data-theme="light"] .category-nav-btn.active { color: var(--color-primary); }

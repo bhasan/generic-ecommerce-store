@@ -1,19 +1,8 @@
-import { get, post, put, del } from './api';
+import { createResourceApi } from './createResourceApi';
 
-export const getAllCategories = async () => {
-  return get('/categories');
-};
+const api = createResourceApi('/categories', 'category');
 
-export const createCategory = async (data) => {
-  const response = await post('/categories', data);
-  return response.category || response;
-};
-
-export const updateCategory = async (id, data) => {
-  const response = await put(`/categories/${id}`, data);
-  return response.category || response;
-};
-
-export const deleteCategory = async (id) => {
-  return del(`/categories/${id}`);
-};
+export const getAllCategories = api.getAll;
+export const createCategory = api.create;
+export const updateCategory = api.update;
+export const deleteCategory = api.remove;

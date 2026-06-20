@@ -6,14 +6,29 @@ import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { logger } from '../utils/logger';
 import { StructuredDeliveryAddress } from '../utils/address.util';
-import creditService from './credit.service';
-import { DeliveryEligibilityService } from './deliveryEligibility.service';
-import { OrderingConstraintsService } from './orderingConstraints.service';
+import { getPaymentStrategy } from './payments/registry';
+import { getFulfillmentStrategy } from './fulfillment/registry';
+import { PaymentMethodEnum, DeliveryMethodEnum } from '../../generated/prisma';
 import { notificationEventsService } from './notificationEvents.service';
 import { thermalPrinterService } from './thermalPrinter.service';
+import { PaymentSettingsService } from './paymentSettings.service';
+import { authorizeNetService } from './authorizenet.service';
 
-const orderingConstraintsService = new OrderingConstraintsService();
-const deliveryEligibilityService = new DeliveryEligibilityService();
+const paymentSettingsService = new PaymentSettingsService();
+
+// Resolves the Authorize.net communicator.html callback URL from server config only.
+// Never uses client-supplied values — the Origin header is attacker-controlled and
+// accepting it would let an adversary redirect the payment callback to their domain.
+function resolveCommunicatorUrl(): string {
+  const corsOrigin = process.env.CORS_ORIGIN;
+  if (!corsOrigin) {
+    throw new AppError(
+      'Card payments are unavailable: CORS_ORIGIN is not configured',
+      503
+    );
+  }
+  return `${corsOrigin}/communicator.html`;
+}
 
 interface CreateOrderData {
   userId: number;
@@ -23,7 +38,10 @@ interface CreateOrderData {
   }>;
   cashAppUsername?: string;
   deliveryMethod: typeof DeliveryMethod[keyof typeof DeliveryMethod];
+  /** For DELIVERY orders. */
   deliveryAddress?: StructuredDeliveryAddress;
+  /** For CURBSIDE orders — free-form display string (e.g. "Silver Toyota Camry"). */
+  vehicleDescription?: string;
   paymentMethod?: typeof PaymentMethod[keyof typeof PaymentMethod];
 }
 
@@ -41,6 +59,17 @@ interface PrintOrderReceiptData {
     userId?: number | null;
     username?: string | null;
   };
+}
+
+// Single source for the notify+print side-effects fired when an order becomes active.
+// Used by createOrder (non-CC) and confirmCardPayment (CC, deferred until payment confirmed).
+async function dispatchOrderCreatedEffects(orderId: number, userId: number): Promise<void> {
+  await notificationEventsService.notifyOrderCreated(orderId, userId);
+  try {
+    await thermalPrinterService.dispatchReceipt(orderId, 'ORDER_CREATED', { userId });
+  } catch (printerError) {
+    logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, { orderId, userId });
+  }
 }
 
 export class OrderService {
@@ -476,9 +505,11 @@ export class OrderService {
    */
   // Creates an order, enforces stock and delivery rules, persists delivery snapshots, and triggers notifications/printing.
   async createOrder(data: CreateOrderData) {
-    const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, paymentMethod } = data;
-    const effectivePaymentMethod = paymentMethod || PaymentMethod.EXTERNAL;
-    const isCredit = effectivePaymentMethod === PaymentMethod.CREDIT;
+    const { userId, items, cashAppUsername, deliveryMethod, deliveryAddress, vehicleDescription, paymentMethod } = data;
+    const effectivePaymentMethod = (paymentMethod || PaymentMethod.EXTERNAL) as PaymentMethodEnum;
+    const paymentStrategy = getPaymentStrategy(effectivePaymentMethod);
+    const fulfillmentStrategy = getFulfillmentStrategy(deliveryMethod as DeliveryMethodEnum);
+    const effectiveDeliveryAddress = deliveryAddress;
 
     logger.info('Creating new order', {
       userId,
@@ -501,9 +532,8 @@ export class OrderService {
       throw new AppError('Order must contain at least one item', 400);
     }
 
-    if (effectivePaymentMethod === PaymentMethod.IN_STORE && deliveryMethod !== DeliveryMethod.PICKUP && deliveryMethod !== DeliveryMethod.CURBSIDE) {
-      throw new AppError('Pay in store is only available for pickup and curbside orders', 400);
-    }
+    // Early compatibility check (no total needed): catches e.g. IN_STORE+DELIVERY before any DB work.
+    paymentStrategy.validate({ userId, deliveryMethod, cashAppUsername, total: 0 });
 
     // Update user's CashApp username if provided (ensures orders page shows correct payment info)
     if (cashAppUsername?.trim()) {
@@ -569,34 +599,14 @@ export class OrderService {
       };
     });
 
-      const orderingConstraints = await orderingConstraintsService.getOrderingConstraints();
-      const { minimumDeliveryOrder, minimumDeliveryOrderEnabled } = orderingConstraints;
-
-      let deliveryEligibility: Awaited<ReturnType<typeof deliveryEligibilityService.checkDeliveryEligibility>> | null = null;
-      if (deliveryMethod === DeliveryMethod.DELIVERY) {
-        if (!deliveryAddress) {
-          throw new AppError('Delivery address is required for delivery orders', 400);
-        }
-
-        if (minimumDeliveryOrderEnabled && subtotal < minimumDeliveryOrder) {
-          throw new AppError(`Minimum order of $${minimumDeliveryOrder.toFixed(2)} required for delivery`, 400);
-        }
-
-        deliveryEligibility = await deliveryEligibilityService.checkDeliveryEligibility(deliveryAddress);
-        if (!deliveryEligibility.deliverable) {
-          throw new AppError(
-            deliveryEligibility.message,
-            400,
-            deliveryEligibility.deliveryZoneStatus === 'OUT_OF_ZONE'
-              ? 'DELIVERY_OUT_OF_ZONE'
-              : 'DELIVERY_UNVERIFIED'
-          );
-        }
-      }
+      await fulfillmentStrategy.validate({ userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal });
 
       // Calculate tax and final total
       const tax = Number((subtotal * DEFAULT_TAX_RATE).toFixed(2));
       const total = subtotal + tax;
+
+      // Validate payment method now that total is known (e.g. credit balance check).
+      paymentStrategy.validate({ userId, deliveryMethod, cashAppUsername, total });
 
       // Create order with items
       logger.info('Creating order record in database', {
@@ -613,20 +623,11 @@ export class OrderService {
           data: {
             userId,
             total,
-            status: OrderStatus.PENDING,
+            status: paymentStrategy.initialStatus(),
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
-            ...(deliveryEligibility ? {
-              deliveryAddress: deliveryEligibility.canonicalAddress,
-              deliveryZoneStatus: deliveryEligibility.deliveryZoneStatus,
-              deliveryEligibilitySource: deliveryEligibility.deliveryZoneSource,
-              deliveryDistanceMiles: deliveryEligibility.distanceMiles,
-              deliveryThresholdMiles: deliveryEligibility.thresholdMiles,
-              deliveryZoneCheckedAt: deliveryEligibility.checkedAt,
-            } : {}),
-            ...(deliveryMethod === DeliveryMethod.CURBSIDE && typeof deliveryAddress === 'string' ? {
-              deliveryAddress: deliveryAddress,
-            } : {}),
+            ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal }),
+            paymentHandle: cashAppUsername?.trim() || null,
           }
         });
 
@@ -661,22 +662,11 @@ export class OrderService {
           }
         }
 
-        if (deliveryMethod === DeliveryMethod.DELIVERY && deliveryEligibility?.canonicalAddress) {
-          await tx.user.update({
-            where: { id: userId },
-            data: {
-              address: deliveryEligibility.canonicalAddress,
-              deliveryZoneStatus: deliveryEligibility.deliveryZoneStatus,
-              deliveryZoneSource: deliveryEligibility.deliveryZoneSource,
-              deliveryZoneDistanceMiles: deliveryEligibility.distanceMiles,
-              deliveryZoneCheckedAt: deliveryEligibility.checkedAt,
-            }
-          });
+        if (fulfillmentStrategy.applyInTransaction) {
+          await fulfillmentStrategy.applyInTransaction(tx, newOrder.id, userId, { userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal });
         }
 
-        if (isCredit) {
-          await creditService.useCredit(userId, total, newOrder.id, tx);
-        }
+        await paymentStrategy.applyInTransaction(tx, newOrder.id, { userId, deliveryMethod, cashAppUsername, total });
 
         return {
           newOrder,
@@ -730,16 +720,8 @@ export class OrderService {
         stockUpdatesCount: stockUpdates.length,
       });
 
-      await notificationEventsService.notifyOrderCreated(order.id, userId);
-      try {
-        await thermalPrinterService.dispatchReceipt(order.id, 'ORDER_CREATED', {
-          userId,
-        });
-      } catch (printerError) {
-        logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, {
-          orderId: order.id,
-          userId,
-        });
+      if (paymentStrategy.notifiesOnCreate()) {
+        await dispatchOrderCreatedEffects(order.id, userId);
       }
 
       return {
@@ -794,13 +776,18 @@ export class OrderService {
           throw new AppError('Delivery drivers can only mark orders as DELIVERED', 403);
         }
         // Delivery drivers can only mark READY_FOR_DELIVERY orders as DELIVERED
-        if (order.status !== OrderStatus.READY_FOR_DELIVERY) {
-          logger.warn('Order status update denied: delivery driver can only update READY_FOR_DELIVERY orders', {
+        // Drivers complete the handoff once an order is ready for or out for delivery.
+        // OUT_FOR_DELIVERY is the state staff dispatch into (and the only one whose
+        // card exposes the "mark delivered" control on the driver dashboard), so it
+        // must be deliverable — otherwise drivers cannot finish a delivery in the UI.
+        const deliverableFrom: OrderStatus[] = [OrderStatus.READY_FOR_DELIVERY, OrderStatus.OUT_FOR_DELIVERY];
+        if (!deliverableFrom.includes(order.status as OrderStatus)) {
+          logger.warn('Order status update denied: order is not in a deliverable state', {
             orderId,
             currentStatus: order.status,
             attemptedStatus: data.status,
           });
-          throw new AppError('Can only mark READY_FOR_DELIVERY orders as DELIVERED', 400);
+          throw new AppError('Can only mark orders that are ready for or out for delivery as DELIVERED', 400);
         }
       }
 
@@ -902,6 +889,12 @@ export class OrderService {
         throw new AppError(`Invalid quantity for ${product.name}`, 400);
       }
 
+      // Stock check before transaction
+      if (product.stockEnabled && product.stock < data.quantity) {
+        logger.warn('Add item failed: insufficient stock', { orderId, productId: data.productId, stock: product.stock, requested: data.quantity });
+        throw new AppError(`Insufficient stock for ${product.name}`, 400);
+      }
+
       // Create new order item
       const discountRules = this.resolveQuantityDiscounts(product);
       const unitPrice = this.resolveDiscountedUnitPrice(product.price, data.quantity, discountRules);
@@ -913,27 +906,10 @@ export class OrderService {
         price: unitPrice,
       });
 
-      const orderItem = await prisma.orderItem.create({
-        data: {
-          orderId,
-          productId: data.productId,
-          quantity: data.quantity,
-          price: unitPrice,
-          addedAfterSubmission: true
-        }
-      });
-
-      logger.info('Order item created in database', {
-        orderItemId: orderItem.id,
-        orderId,
-        productId: data.productId,
-        quantity: data.quantity,
-      });
-
       // Recalculate order total
       const oldTotal = order.total;
       const newTotal = order.total + (unitPrice * data.quantity);
-      
+
       logger.debug('Updating order total', {
         orderId,
         oldTotal,
@@ -941,9 +917,37 @@ export class OrderService {
         itemCost: unitPrice * data.quantity,
       });
 
-      await prisma.order.update({
-        where: { id: orderId },
-        data: { total: newTotal }
+      const { orderItem } = await prisma.$transaction(async (tx) => {
+        const orderItem = await tx.orderItem.create({
+          data: {
+            orderId,
+            productId: data.productId,
+            quantity: data.quantity,
+            price: unitPrice,
+            addedAfterSubmission: true
+          }
+        });
+
+        await tx.order.update({
+          where: { id: orderId },
+          data: { total: newTotal }
+        });
+
+        if (product.stockEnabled) {
+          await tx.productItem.update({
+            where: { id: product.id },
+            data: { stock: { decrement: data.quantity } }
+          });
+        }
+
+        return { orderItem, newTotal };
+      });
+
+      logger.info('Order item created in database', {
+        orderItemId: orderItem.id,
+        orderId,
+        productId: data.productId,
+        quantity: data.quantity,
       });
 
       logger.info('Order item added successfully', {
@@ -1115,11 +1119,8 @@ export class OrderService {
         total: order.total,
       });
 
-      // Auto-refund credit if this was a credit-paid order
-      if (order.paymentMethod === PaymentMethod.CREDIT) {
-        logger.info('Auto-refunding credit for deleted credit order', { orderId, userId: order.userId, total: order.total });
-        await creditService.refundCredit(order.userId, order.total, orderId, 'Order cancelled');
-      }
+      const deletePaymentStrategy = getPaymentStrategy(order.paymentMethod as PaymentMethodEnum);
+      await deletePaymentStrategy.refundOnDelete(orderId, order.userId, order.total);
 
       return { message: 'Order deleted successfully' };
     } catch (error) {
@@ -1187,6 +1188,7 @@ export class OrderService {
         data: {
           status: OrderStatus.ARRIVED,
           deliveryAddress: updatedAddress,
+          parkingSpot: parkingSpot.trim(),
         }
       });
 
@@ -1221,6 +1223,64 @@ export class OrderService {
       logger.error('Failed customer arrive update', error, { orderId, userId });
       throw error;
     }
+  }
+
+  async getPaymentToken(orderId: number, userId: number): Promise<{ token: string; paymentFormUrl: string }> {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+
+    if (!order) throw new AppError('Order not found', 404);
+    if (order.userId !== userId) throw new AppError('Not authorized', 403);
+    if (order.paymentMethod !== PaymentMethod.CC) throw new AppError('Order is not a card payment', 400);
+    if (order.status !== OrderStatus.PENDING_PAYMENT) throw new AppError('Order is not awaiting payment', 400);
+
+    const settings = await paymentSettingsService.getPaymentSettings();
+    if (!settings.cc_payment?.enabled) throw new AppError('Card payments are not enabled', 400);
+
+    const communicatorUrl = resolveCommunicatorUrl();
+
+    const token = await authorizeNetService.getHostedPageToken(
+      orderId,
+      order.total,
+      communicatorUrl,
+      settings.cc_payment
+    );
+
+    // Accept Hosted requires the token to be submitted via an HTTP POST form field
+    // (name="token") to this URL — passing it as a GET query param yields
+    // "Missing or invalid token". The frontend renders an auto-submitting form.
+    const paymentFormUrl = settings.cc_payment.sandboxMode
+      ? 'https://test.authorize.net/payment/payment'
+      : 'https://accept.authorize.net/payment/payment';
+
+    return { token, paymentFormUrl };
+  }
+
+  async confirmCardPayment(orderId: number, userId: number, transId: string): Promise<{ id: number; status: string }> {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+
+    if (!order) throw new AppError('Order not found', 404);
+    if (order.userId !== userId) throw new AppError('Not authorized', 403);
+    if (order.paymentMethod !== PaymentMethod.CC) throw new AppError('Order is not a card payment', 400);
+    if (order.status !== OrderStatus.PENDING_PAYMENT) throw new AppError('Order is not awaiting payment', 400);
+
+    // Replay protection: the same transaction must not confirm two orders.
+    // The @unique constraint on transactionId is the hard backstop; this check gives a clean error.
+    const duplicate = await prisma.order.findFirst({
+      where: { transactionId: transId, NOT: { id: orderId } },
+    });
+    if (duplicate) throw new AppError('This payment has already been applied to another order', 400);
+
+    const settings = await paymentSettingsService.getPaymentSettings();
+    await authorizeNetService.verifyTransaction(transId, order.total, orderId, settings.cc_payment);
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: { status: OrderStatus.PENDING, transactionId: transId },
+    });
+
+    await dispatchOrderCreatedEffects(orderId, userId);
+
+    return { id: updated.id, status: updated.status };
   }
 }
 

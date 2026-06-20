@@ -3,7 +3,8 @@ import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest } from '../../utils/roles';
-import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home } from 'lucide-react';
+import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home, Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { useTheme, THEME_CYCLE } from '../../hooks/useTheme';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
@@ -23,7 +24,13 @@ function Navbar() {
     toggleNotificationsMuted,
     handleNotificationsPanelOpen,
     orders,
+    branding,
   } = useApp();
+  const { theme, setTheme } = useTheme();
+  const THEME_ICONS = { dark: Moon, light: Sun, system: Monitor };
+  const THEME_LABELS = { dark: 'Dark theme (click for light)', light: 'Light theme (click for system)', system: 'System theme (click for dark)' };
+  const ThemeIcon = THEME_ICONS[theme];
+
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -214,6 +221,20 @@ function Navbar() {
                 <CheckCircle size={16} />
                 <span>Orders History</span>
               </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate('/website-management');
+                    setShowAdminMenu(false);
+                    setShowMobileMenu(false);
+                  }}
+                  className={`admin-menu-item ${location.pathname === '/website-management' ? 'admin-menu-item-active' : ''}`}
+                >
+                  <Globe size={16} />
+                  <span>Website Management</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -227,7 +248,10 @@ function Navbar() {
         <div className="navbar-container">
           <div className="navbar-left">
             <Link to="/" className="navbar-brand">
-              <span>Smoke Station HTX</span>
+              {branding?.logoUrl
+                ? <img src={branding.logoUrl} alt={branding.storeName || 'Store'} className="navbar-logo" style={{ height: 32, objectFit: 'contain' }} />
+                : <span>{branding?.storeName || 'Store'}</span>
+              }
             </Link>
 
             {/* Desktop Navigation Links */}
@@ -327,6 +351,16 @@ function Navbar() {
                 )}
               </div>
             )}
+
+            {/* Theme toggle — cycles dark → light → system */}
+            <button
+              className="nav-link-icon"
+              onClick={() => setTheme(THEME_CYCLE[theme])}
+              title={THEME_LABELS[theme]}
+              aria-label={THEME_LABELS[theme]}
+            >
+              <ThemeIcon size={20} />
+            </button>
 
             {/* Help link - right side, after profile */}
             {!isGuest && (

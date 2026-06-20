@@ -15,7 +15,15 @@ import { OrderingConstraints, OrderingConstraintsService } from './orderingConst
 
 const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json';
 const DEFAULT_GEOCODING_TIMEOUT_MS = 5000;
-const DEFAULT_STORE_ADDRESS = '9400 S Texas 6 Suite C, Houston, TX 77083';
+const STORE_ADDRESS_TTL_MS = 5 * 60 * 1000;
+
+// Module-level so all service instances share one cache (multiple singletons exist in the codebase).
+let _cachedStoreAddress: string | null = null;
+let _storeAddressCacheExpiresAt = 0;
+
+export function invalidateStoreAddressCache(): void {
+  _cachedStoreAddress = null;
+}
 
 const orderingConstraintsService = new OrderingConstraintsService();
 
@@ -100,6 +108,25 @@ const haversineMiles = (
 };
 
 export class DeliveryEligibilityService {
+  private async getStoreAddress(): Promise<string> {
+    const now = Date.now();
+    if (_cachedStoreAddress !== null && now < _storeAddressCacheExpiresAt) {
+      return _cachedStoreAddress;
+    }
+    const row = await prisma.uiSetting.findUnique({ where: { key: 'store_settings' } });
+    const address = (
+      row?.value &&
+      typeof row.value === 'object' &&
+      typeof (row.value as { address?: unknown }).address === 'string' &&
+      (row.value as { address: string }).address.trim()
+    )
+      ? (row.value as { address: string }).address
+      : '';
+    _cachedStoreAddress = address;
+    _storeAddressCacheExpiresAt = now + STORE_ADDRESS_TTL_MS;
+    return address;
+  }
+
   async checkDeliveryEligibility(deliveryAddress: StructuredDeliveryAddress): Promise<DeliveryEligibilityResult> {
     const constraints = await orderingConstraintsService.getOrderingConstraints();
     return this.evaluateStructuredAddress(deliveryAddress, constraints);
@@ -344,18 +371,14 @@ export class DeliveryEligibilityService {
   }
 
   private async resolveStoreOriginAddress(): Promise<AddressResolution> {
-    const row = await prisma.uiSetting.findUnique({
-      where: { key: 'store_settings' },
-    });
-
-    const address = (
-      row?.value
-      && typeof row.value === 'object'
-      && typeof (row.value as { address?: unknown }).address === 'string'
-    )
-      ? (row.value as { address: string }).address
-      : DEFAULT_STORE_ADDRESS;
-
+    const address = await this.getStoreAddress();
+    if (!address) {
+      return {
+        kind: 'invalid_address',
+        zipCode: null,
+        reason: 'Store address is not configured.',
+      };
+    }
     return this.resolveFreeformAddress(address);
   }
 

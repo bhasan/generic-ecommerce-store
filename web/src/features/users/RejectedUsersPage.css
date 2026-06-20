@@ -17,7 +17,7 @@
 
 .rejected-user-card {
   background: var(--bg-tertiary);
-  border: 2px solid rgba(239, 68, 68, 0.3);
+  border: 2px solid var(--color-danger-border);
   border-radius: 0.75rem;
   padding: 1.5rem;
   transition: all 0.2s ease;
@@ -25,7 +25,7 @@
 
 .rejected-user-card:hover {
   border-color: rgba(239, 68, 68, 0.5);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 4px 12px var(--color-danger-bg);
 }
 
 .rejected-user-header {
@@ -61,7 +61,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-danger);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;

@@ -1,0 +1,7 @@
+{
+  "error": {
+    "message": "Rate limit exceeded",
+    "code": "RATE_LIMITED",
+    "request_id": "req_sample_429"
+  }
+}

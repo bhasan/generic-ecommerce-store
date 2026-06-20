@@ -5,7 +5,7 @@
 .notification-button {
   position: relative;
   padding: var(--spacing-sm);
-  color: var(--text-secondary);
+  color: var(--nav-item-color);
   transition: var(--transition-all);
   border-radius: var(--radius-md);
   background: transparent;
@@ -14,8 +14,8 @@
 }
 
 .notification-button:hover {
-  background: var(--bg-hover);
-  color: var(--color-primary-light);
+  background: var(--nav-item-hover-bg);
+  color: var(--nav-item-hover-color);
 }
 
 .notification-badge {
@@ -165,7 +165,7 @@
 
 /* Pickup Item Styling */
 .notification-item-pickup {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.1) 100%);
+  background: linear-gradient(135deg, var(--color-secondary-bg-strong) 0%, var(--color-secondary-bg) 100%);
   border: 1px solid var(--color-success);
   position: relative;
   overflow: hidden;
@@ -173,7 +173,7 @@
 }
 
 .notification-item-pickup:hover {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(16, 185, 129, 0.15) 100%);
+  background: linear-gradient(135deg, var(--color-secondary-bg-strong) 0%, var(--color-secondary-bg-strong) 100%);
 }
 
 .notification-item-pickup::after {
@@ -204,7 +204,7 @@
   justify-content: center;
   color: var(--color-success);
   padding: var(--spacing-xs);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--color-secondary-bg);
   border-radius: var(--radius-full);
   animation: bell-ring 3s infinite;
 }
@@ -253,7 +253,7 @@
 }
 
 .notification-item-unread {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-hover);
 }
 
 .notification-item-dot {
@@ -312,3 +312,4 @@
     right: -6px;
   }
 }
+

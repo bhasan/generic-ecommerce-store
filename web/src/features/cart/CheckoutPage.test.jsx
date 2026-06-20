@@ -5,12 +5,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CheckoutPage from './CheckoutPage';
 import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 
-const checkoutMock = vi.fn();
-const checkDeliveryEligibilityMock = vi.fn();
-const deleteOrderMock = vi.fn();
-const restoreCartMock = vi.fn();
-
-const useAppMock = vi.fn();
+const checkoutMock = vi.hoisted(() => vi.fn());
+const checkDeliveryEligibilityMock = vi.hoisted(() => vi.fn());
+const deleteOrderMock = vi.hoisted(() => vi.fn());
+const restoreCartMock = vi.hoisted(() => vi.fn());
+const useAppMock = vi.hoisted(() => vi.fn());
 
 vi.mock('../../context/AppContext', () => ({
   useApp: () => useAppMock(),
@@ -73,7 +72,7 @@ describe('CheckoutPage', () => {
     fireEvent.click(screen.getByLabelText(/store credit/i));
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined, undefined));
     expect(await screen.findByText('Order success page')).toBeInTheDocument();
   });
 
@@ -125,7 +124,7 @@ describe('CheckoutPage', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.EXTERNAL, undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.EXTERNAL, undefined, undefined));
     expect(await screen.findByText(/order placed successfully/i)).toBeInTheDocument();
     expect(screen.getAllByText(/\$SmokeStationHQ/).length).toBeGreaterThan(0);
   });
@@ -269,7 +268,8 @@ describe('CheckoutPage', () => {
         '$customer-one',
         DeliveryMethod.PICKUP,
         PaymentMethod.IN_STORE,
-        undefined
+        undefined,
+        undefined,
       ));
 
       // SendPaymentModal should NOT appear — go directly to success page
@@ -363,8 +363,86 @@ describe('CheckoutPage', () => {
         '$customer-one',
         'CURBSIDE',
         PaymentMethod.EXTERNAL,
-        'CURBSIDE: Silver Toyota Camry'
+        undefined,
+        'Silver Toyota Camry',
       ));
+    });
+  });
+
+  describe('fulfillment × payment submission matrix', () => {
+    // Covers every delivery method / payment method combination so a registry change
+    // that forgets to wire one path gets caught immediately.
+    const matrix = [
+      {
+        label: 'PICKUP × CREDIT',
+        paymentMethod: PaymentMethod.CREDIT,
+        selectPayment: (screen) => fireEvent.click(screen.getByLabelText(/store credit/i)),
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined, undefined],
+        expectedOutcome: 'success',
+      },
+      {
+        label: 'PICKUP × IN_STORE',
+        paymentMethod: PaymentMethod.IN_STORE,
+        selectPayment: (screen) => fireEvent.click(screen.getByRole('radio', { name: /pay in store/i })),
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.PICKUP, PaymentMethod.IN_STORE, undefined, undefined],
+        expectedOutcome: 'success',
+      },
+      {
+        label: 'PICKUP × EXTERNAL',
+        paymentMethod: PaymentMethod.EXTERNAL,
+        selectPayment: () => { /* already default */ },
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.PICKUP, PaymentMethod.EXTERNAL, undefined, undefined],
+        expectedOutcome: 'send-payment-modal',
+      },
+      {
+        label: 'CURBSIDE × EXTERNAL',
+        deliverySetup: (screen) => {
+          fireEvent.click(screen.getByRole('button', { name: /curbside pickup/i }));
+          fireEvent.change(screen.getByLabelText(/vehicle make & model/i), { target: { value: 'Toyota Camry' } });
+          fireEvent.change(screen.getByLabelText(/vehicle color/i), { target: { value: 'Silver' } });
+        },
+        selectPayment: () => {},
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.CURBSIDE, PaymentMethod.EXTERNAL, undefined, 'Silver Toyota Camry'],
+        expectedOutcome: 'send-payment-modal',
+      },
+      {
+        label: 'CURBSIDE × IN_STORE',
+        deliverySetup: (screen) => {
+          fireEvent.click(screen.getByRole('button', { name: /curbside pickup/i }));
+          fireEvent.change(screen.getByLabelText(/vehicle make & model/i), { target: { value: 'Honda Civic' } });
+          fireEvent.change(screen.getByLabelText(/vehicle color/i), { target: { value: 'Blue' } });
+        },
+        selectPayment: (screen) => fireEvent.click(screen.getByRole('radio', { name: /pay in store/i })),
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.CURBSIDE, PaymentMethod.IN_STORE, undefined, 'Blue Honda Civic'],
+        expectedOutcome: 'success',
+      },
+      {
+        label: 'CURBSIDE × CREDIT',
+        deliverySetup: (screen) => {
+          fireEvent.click(screen.getByRole('button', { name: /curbside pickup/i }));
+          fireEvent.change(screen.getByLabelText(/vehicle make & model/i), { target: { value: 'Ford F-150' } });
+          fireEvent.change(screen.getByLabelText(/vehicle color/i), { target: { value: 'Red' } });
+        },
+        selectPayment: (screen) => fireEvent.click(screen.getByLabelText(/store credit/i)),
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.CURBSIDE, PaymentMethod.CREDIT, undefined, 'Red Ford F-150'],
+        expectedOutcome: 'success',
+      },
+    ];
+
+    it.each(matrix)('$label — calls checkout with correct args and reaches expected outcome', async ({ deliverySetup, selectPayment, expectedCheckoutArgs, expectedOutcome }) => {
+      renderCheckout();
+
+      if (deliverySetup) deliverySetup(screen);
+      selectPayment(screen);
+      fireEvent.click(screen.getByRole('button', { name: /place order/i }));
+
+      await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith(...expectedCheckoutArgs));
+
+      if (expectedOutcome === 'success') {
+        expect(await screen.findByText('Order success page')).toBeInTheDocument();
+      } else if (expectedOutcome === 'send-payment-modal') {
+        expect(await screen.findByText(/order placed successfully/i)).toBeInTheDocument();
+      }
     });
   });
 });

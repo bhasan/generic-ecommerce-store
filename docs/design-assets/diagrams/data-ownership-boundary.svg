@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" viewBox="0 0 720 220">
+  <title id="title">Data ownership boundary</title>
+  <desc id="desc">High-level boundary between browser state, Express API, PostgreSQL, uploads, print agent, and Make webhooks.</desc>
+  <style>
+    text { font-family: Arial, sans-serif; fill: #111827; }
+    .box { fill: #f8fafc; stroke: #1f2937; stroke-width: 2; rx: 8; }
+    .store { fill: #ecfdf5; stroke: #047857; stroke-width: 2; rx: 8; }
+    .ext { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 8; }
+    .line { stroke: #4b5563; stroke-width: 2.5; marker-end: url(#arrow); }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0l10 5-10 5z" fill="#4b5563"/>
+    </marker>
+  </defs>
+  <rect class="box" x="24" y="40" width="140" height="72"/>
+  <text x="94" y="72" text-anchor="middle" font-size="16" font-weight="700">React client</text>
+  <text x="94" y="94" text-anchor="middle" font-size="12">localStorage cart/auth</text>
+  <rect class="box" x="220" y="40" width="140" height="72"/>
+  <text x="290" y="72" text-anchor="middle" font-size="16" font-weight="700">Express API</text>
+  <text x="290" y="94" text-anchor="middle" font-size="12">routes, auth, services</text>
+  <rect class="store" x="416" y="24" width="140" height="60"/>
+  <text x="486" y="52" text-anchor="middle" font-size="16" font-weight="700">PostgreSQL</text>
+  <text x="486" y="72" text-anchor="middle" font-size="12">Prisma models</text>
+  <rect class="store" x="416" y="112" width="140" height="60"/>
+  <text x="486" y="140" text-anchor="middle" font-size="16" font-weight="700">Uploads</text>
+  <text x="486" y="160" text-anchor="middle" font-size="12">product media files</text>
+  <rect class="ext" x="612" y="24" width="88" height="60"/>
+  <text x="656" y="52" text-anchor="middle" font-size="15" font-weight="700">Make</text>
+  <text x="656" y="72" text-anchor="middle" font-size="12">webhooks</text>
+  <rect class="ext" x="612" y="112" width="88" height="60"/>
+  <text x="656" y="140" text-anchor="middle" font-size="15" font-weight="700">Print agent</text>
+  <text x="656" y="160" text-anchor="middle" font-size="12">polling</text>
+  <path class="line" d="M164 76h56"/>
+  <path class="line" d="M360 66l56-12"/>
+  <path class="line" d="M360 92l56 38"/>
+  <path class="line" d="M556 54h56"/>
+  <path class="line" d="M556 142h56"/>
+</svg>

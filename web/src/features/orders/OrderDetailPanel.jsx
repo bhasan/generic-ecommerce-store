@@ -245,9 +245,7 @@ function OrderDetailPanel({
                     <MapPin size={14} className="customer-info-icon" />
                     <span className="customer-info-label">Vehicle Info:</span>
                     <span className="customer-info-value">
-                      {order.deliveryAddress 
-                        ? (order.deliveryAddress.replace(/^CURBSIDE(:\s*|\s*\|\s*|$)/i, '') || 'CURBSIDE') 
-                        : 'CURBSIDE'}
+                      {order.vehicleDescription || order.deliveryAddress?.replace(/^CURBSIDE(:\s*|\s*\|\s*|$)/i, '') || 'CURBSIDE'}
                     </span>
                   </div>
                 ) : (

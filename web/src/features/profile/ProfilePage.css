@@ -8,7 +8,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
   border: 1px solid var(--color-primary-dark);
   border-radius: 0.5rem;
   color: var(--text-primary);
@@ -18,7 +18,7 @@
 }
 
 .profile-button:hover {
-  background: rgba(124, 58, 237, 0.2);
+  background: var(--color-primary-bg-strong);
   border-color: var(--color-primary);
 }
 
@@ -79,7 +79,7 @@
 }
 
 .profile-menu-item:hover {
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
   color: var(--color-primary-light);
 }
 
@@ -88,7 +88,7 @@
 }
 
 .profile-menu-logout:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: var(--color-danger-bg);
   color: var(--color-danger);
 }
 
@@ -124,7 +124,7 @@
 .profile-avatar {
   width: 100px;
   height: 100px;
-  background: rgba(124, 58, 237, 0.1);
+  background: var(--color-primary-bg);
   border: 3px solid var(--color-primary-dark);
   border-radius: 50%;
   display: flex;
@@ -184,12 +184,12 @@
   font-size: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+  box-shadow: 0 4px 15px var(--color-primary-border);
 }
 
 .btn-save-profile:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 8px 25px var(--color-primary-shadow);
 }
 
 .profile-sidebar {
@@ -335,4 +335,14 @@
   .form-group-zip {
     width: 100%;
   }
+}
+/* ── Light mode contrast overrides ───────────────────────────────────────── */
+[data-theme="light"] .profile-menu-item:hover,
+[data-theme="light"] .profile-info-box svg,
+[data-theme="light"] .profile-password-section .form-section-label svg {
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .stat-active {
+  color: var(--color-secondary-dark);
 }

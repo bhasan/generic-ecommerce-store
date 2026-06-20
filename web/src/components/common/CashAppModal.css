@@ -113,7 +113,7 @@
 .cashapp-form-input:focus {
   outline: none;
   border-color: var(--color-secondary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 3px var(--color-secondary-bg);
 }
 
 .cashapp-form-input::placeholder {
@@ -126,7 +126,7 @@
 
 .cashapp-input-error:focus {
   border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
 }
 
 .cashapp-error-message {
@@ -178,7 +178,7 @@
 .btn-cashapp-save:hover:not(:disabled) {
   opacity: 0.9;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 12px var(--color-secondary-border);
 }
 
 .btn-cashapp-cancel:disabled,

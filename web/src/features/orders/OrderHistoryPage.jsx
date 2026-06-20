@@ -6,6 +6,7 @@ import { Package, History, ChevronDown } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
 
 const STATUS_OPTIONS = [
+  { value: 'PENDING_PAYMENT', label: 'Awaiting Payment' },
   { value: 'PENDING', label: 'Pending' },
   { value: 'APPROVED', label: 'Approved' },
   { value: 'NOT_FULFILLING', label: 'Rejected' },

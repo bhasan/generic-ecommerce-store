@@ -1,56 +1,14 @@
-import { get, post, put, del } from './api';
+import { get } from './api';
+import { createResourceApi } from './createResourceApi';
 
-/**
- * Get all products
- * @returns {Promise<Array>} Array of product objects
- */
-export const getAllProducts = async () => {
-  return get('/products');
-};
+const api = createResourceApi('/products', 'product');
 
-/**
- * Get product by ID
- * @param {number} id - Product ID
- * @returns {Promise<object>} Product object
- */
-export const getProductById = async (id) => {
-  return get(`/products/${id}`);
-};
+export const getAllProducts = api.getAll;
+export const getProductById = api.getById;
+export const createProduct = api.create;
+export const updateProduct = api.update;
+export const deleteProduct = api.remove;
 
-/**
- * Create product
- * @param {object} data - Product data {name, categoryId, price, description?, image?, images?, stock?, stockEnabled?, hidden?}
- * @returns {Promise<object>} Created product object
- */
-export const createProduct = async (data) => {
-  const response = await post('/products', data);
-  return response.product || response;
-};
-
-/**
- * Update product
- * @param {number} id - Product ID
- * @param {object} data - Update data (all fields optional)
- * @returns {Promise<object>} Updated product object
- */
-export const updateProduct = async (id, data) => {
-  const response = await put(`/products/${id}`, data);
-  return response.product || response;
-};
-
-/**
- * Delete product
- * @param {number} id - Product ID
- * @returns {Promise<object>} Success message
- */
-export const deleteProduct = async (id) => {
-  return del(`/products/${id}`);
-};
-
-/**
- * Download all products + images as a ZIP archive.
- * Triggers a browser file download.
- */
 export const downloadProductsZip = async () => {
   // apiClient returns the raw Response for non-JSON content types
   const response = await get('/products/export-zip', { retries: 0 });
@@ -65,4 +23,3 @@ export const downloadProductsZip = async () => {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 };
-

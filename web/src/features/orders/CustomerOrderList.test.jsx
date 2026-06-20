@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 // Mock react-router-dom navigate
-const mockNavigate = vi.fn();
+const mockNavigate = vi.hoisted(() => vi.fn());
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return { ...actual, useNavigate: () => mockNavigate };
@@ -12,7 +12,7 @@ vi.mock('react-router-dom', async () => {
 // HeaderDivider has no meaningful output to assert on
 vi.mock('../../components/common/HeaderDivider', () => ({ default: () => null }));
 
-const mockNotifyArrival = vi.fn();
+const mockNotifyArrival = vi.hoisted(() => vi.fn());
 vi.mock('../../context/AppContext', () => ({
   useApp: () => ({
     notifyArrival: mockNotifyArrival

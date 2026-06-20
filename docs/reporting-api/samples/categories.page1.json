@@ -1,0 +1,26 @@
+{
+  "data": [
+    {
+      "id": "cat_10",
+      "name": "Accessories",
+      "parent_id": null,
+      "status": "active",
+      "created_at": "2026-06-01T15:00:00Z",
+      "updated_at": "2026-06-16T10:00:00Z",
+      "deleted_at": null
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 100,
+    "has_next": false,
+    "next_page": null
+  },
+  "meta": {
+    "request_id": "req_sample_categories",
+    "generated_at": "2026-06-16T10:00:00Z",
+    "source_system": "online_store",
+    "provider_key": "ONLINE_STORE",
+    "schema_version": "2026-06-online-store-reporting-v1"
+  }
+}

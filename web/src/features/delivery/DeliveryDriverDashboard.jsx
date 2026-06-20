@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './DeliveryDriverDashboard.css';
 import * as ordersApi from '../../services/ordersApi';
 import { useApp } from '../../context/AppContext';
+import { hasAnyRole, ROLES } from '../../utils/roles';
 import { Truck, Package, MapPin, CheckCircle, Edit, X, Plus } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
 
@@ -9,7 +10,10 @@ const MAX_ROUTE_ORDERS = 5;
 const DELIVERY_REFRESH_INTERVAL_MS = 60000;
 
 function DeliveryDriverDashboard() {
-  const { showNotification } = useApp();
+  const { showNotification, currentUser } = useApp();
+  // Route-building (READY_FOR_DELIVERY → OUT_FOR_DELIVERY) is a staff dispatch action;
+  // drivers may only complete deliveries the backend rejects their route edits with 403.
+  const canManageOrders = hasAnyRole(currentUser, [ROLES.EMPLOYEE, ROLES.MANAGEMENT, ROLES.ADMIN]);
   const [readyOrders, setReadyOrders] = useState([]);
   const [routeOrders, setRouteOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -241,7 +245,7 @@ function DeliveryDriverDashboard() {
                 {routeOrders.length > 0 ? `${routeOrders.length}/${MAX_ROUTE_ORDERS} orders` : 'No active route'}
               </p>
             </div>
-            {routeOrders.length > 0 && !isEditingRoute && (
+            {routeOrders.length > 0 && !isEditingRoute && canManageOrders && (
               <button
                 onClick={() => setIsEditingRoute(true)}
                 className="btn-edit-route"
@@ -274,7 +278,7 @@ function DeliveryDriverDashboard() {
               <div className="empty-state-small">
                 <Truck size={32} className="empty-icon" />
                 <p>No active route</p>
-                {!isEditingRoute && (
+                {!isEditingRoute && canManageOrders && (
                   <button
                     onClick={() => setIsEditingRoute(true)}
                     className="btn-start-route"
