@@ -103,7 +103,7 @@
 }
 
 .stock-badge.in-stock {
-  background: rgba(16, 185, 129, 0.2);
+  background: var(--color-secondary-bg-strong);
   color: var(--color-secondary);
   border: 1px solid var(--color-secondary);
 }
@@ -349,7 +349,7 @@
 }
 
 .price-savings {
-  background: rgba(16, 185, 129, 0.2);
+  background: var(--color-secondary-bg-strong);
   color: var(--color-secondary);
   padding: 0.25rem 0.75rem;
   border-radius: 999px;

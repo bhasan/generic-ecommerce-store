@@ -4,6 +4,7 @@ import { isGuest, ROLES } from '../../utils/roles';
 import { X, ExternalLink, Link, ShoppingCart, ChevronLeft, ChevronRight, PlayCircle, AlertCircle, Tag } from 'lucide-react';
 import ProductMediaModal from './ProductMediaModal';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
+import './ProductsShared.css';
 import './ProductItemModal.css';
 
 const isVideo = (url) => {

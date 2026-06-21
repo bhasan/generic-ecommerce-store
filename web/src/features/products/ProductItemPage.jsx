@@ -5,6 +5,7 @@ import { isGuest } from '../../utils/roles';
 import { ArrowLeft, ShoppingCart, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
 import ProductMediaModal from './ProductMediaModal';
+import './ProductsShared.css';
 import './ProductItemPage.css';
 import { hasRole } from '../../utils/roles';
 

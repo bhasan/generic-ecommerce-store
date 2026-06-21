@@ -37,7 +37,7 @@ function SortableImageRow({ id, index, image, uploadingImageIndex, handleImageUp
           value={getDisplayName(image.url ?? '')}
           readOnly
           className="form-input"
-          style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderColor: 'transparent', color: 'var(--text-secondary)', pointerEvents: 'none' }}
+          style={{ backgroundColor: 'var(--bg-primary)', borderColor: 'transparent', color: 'var(--text-secondary)', pointerEvents: 'none' }}
           title={image.url ?? ''}
         />
         <label className={`btn-upload-image ${uploadingImageIndex === index ? 'btn-upload-image-loading' : ''}`}>
