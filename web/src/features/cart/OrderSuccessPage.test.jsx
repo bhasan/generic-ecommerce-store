@@ -250,6 +250,91 @@ describe('OrderSuccessPage', () => {
     });
   });
 
+  describe('Pickup Location card', () => {
+    it('shows actual pickupLocation address for PICKUP orders instead of "Store Pickup"', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.PICKUP,
+        deliveryAddress: 'Store Pickup',
+        pickupLocation: '101 Example Ave, Springfield',
+        paymentMethod: PaymentMethod.CREDIT,
+      });
+      expect(screen.getAllByText('101 Example Ave, Springfield').length).toBeGreaterThan(0);
+      expect(screen.queryByText('Store Pickup')).not.toBeInTheDocument();
+    });
+
+    it('shows "Curbside Pickup" heading for CURBSIDE orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.CURBSIDE,
+        deliveryAddress: 'Red Honda Civic',
+        paymentMethod: PaymentMethod.CREDIT,
+      });
+      expect(screen.getByText('Curbside Pickup')).toBeInTheDocument();
+    });
+
+    it('shows vehicle description for CURBSIDE orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.CURBSIDE,
+        deliveryAddress: 'Red Honda Civic',
+        paymentMethod: PaymentMethod.CREDIT,
+      });
+      expect(screen.getAllByText('Red Honda Civic').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Payment Information — edge cases', () => {
+    it('shows "Paid by card" for CC payment instead of blank', () => {
+      renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.CC, paymentSnapshot: null });
+      expect(screen.getByText(/paid by card/i)).toBeInTheDocument();
+    });
+
+    it('shows memo instruction with order ID for EXTERNAL payment', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentMethod: PaymentMethod.EXTERNAL,
+        order: { id: 42, createdAt: new Date().toISOString() },
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      expect(screen.getByText(/memo/i)).toBeInTheDocument();
+      expect(screen.getByText(/#42/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("What's Next — CURBSIDE", () => {
+    it('shows curbside steps (not delivery steps) for CURBSIDE orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.CURBSIDE,
+        deliveryAddress: 'Red Honda Civic',
+        paymentMethod: PaymentMethod.EXTERNAL,
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      expect(screen.queryByText(/track your delivery/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/curbside/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("What's Next — IN_STORE location", () => {
+    it('shows pickup location address in IN_STORE steps', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.PICKUP,
+        deliveryAddress: 'Store Pickup',
+        pickupLocation: '101 Example Ave',
+        paymentMethod: PaymentMethod.IN_STORE,
+      });
+      expect(screen.getAllByText('101 Example Ave').length).toBeGreaterThan(0);
+    });
+  });
+
   it('calls setCart to clear cart on mount', () => {
     const setCart = vi.fn();
     useAppMock.mockReturnValue({ ...baseAppState, setCart });
