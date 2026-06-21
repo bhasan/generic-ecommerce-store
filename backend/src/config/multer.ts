@@ -1,9 +1,7 @@
-import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import { Request } from 'express';
-
-const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+import { UPLOADS_DIR } from '../utils/fileUtils';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for videos
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
 

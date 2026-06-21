@@ -23,13 +23,14 @@ export class ContactController {
       select: { phoneNumber: true },
     });
 
+    const parsedOrderId = orderId ? parseInt(orderId, 10) : null;
     const savedMessage = await contactMessageService.createMessage({
       userId,
       userName: username,
       userEmail: username,
       userPhone: user?.phoneNumber || undefined,
       subject,
-      orderId: orderId ? parseInt(orderId, 10) : null,
+      orderId: parsedOrderId,
       message,
     });
 
@@ -39,7 +40,7 @@ export class ContactController {
       requestId: req.requestId,
       actorUserId: userId,
       messageId: savedMessage.id,
-      orderId: orderId ? parseInt(orderId, 10) : null,
+      orderId: parsedOrderId,
       subject,
     });
 

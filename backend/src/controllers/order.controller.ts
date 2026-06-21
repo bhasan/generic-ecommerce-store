@@ -181,7 +181,7 @@ export class OrderController {
   async getPaymentToken(req: Request, res: Response) : Promise<void> {
     const orderId = parseIntParam(req.params.id, res, 'order');
     if (orderId === null) return;
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const result = await orderService.getPaymentToken(orderId, userId);
     res.status(200).json(result);
   }
@@ -190,7 +190,7 @@ export class OrderController {
     const orderId = parseIntParam(req.params.id, res, 'order');
     if (orderId === null) return;
     if (!validateRequest(req, res)) return;
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { transId } = req.body;
     const result = await orderService.confirmCardPayment(orderId, userId, transId);
     res.status(200).json({ message: 'Payment confirmed', order: result });

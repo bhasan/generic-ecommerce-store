@@ -66,12 +66,6 @@
   margin: 0;
 }
 
-.cart-item-category {
-  color: var(--text-tertiary);
-  font-size: 0.875rem;
-  margin: 0;
-}
-
 .cart-item-price {
   color: var(--color-primary-light);
   font-weight: 600;
@@ -176,11 +170,6 @@
   justify-content: space-between;
   color: var(--text-secondary);
   font-size: 0.875rem;
-}
-
-.shipping-free {
-  color: var(--color-secondary);
-  font-weight: 600;
 }
 
 .summary-divider {
@@ -329,8 +318,4 @@
 [data-theme="light"] .cart-item-total,
 [data-theme="light"] .delivery-method-toggle .toggle-btn:hover:not(.active) {
   color: var(--color-primary);
-}
-
-[data-theme="light"] .shipping-free {
-  color: var(--color-secondary-dark);
 }
