@@ -30,6 +30,10 @@ const baseOrderData = {
   cashAppUsername: '$customer',
   paymentMethod: PaymentMethod.EXTERNAL,
   specialInstructions: '',
+  paymentSnapshot: {
+    methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+    senderHandle: '$customer',
+  },
 };
 
 const baseAppState = {
@@ -75,10 +79,67 @@ describe('OrderSuccessPage', () => {
     expect(screen.getAllByText('$22.00').length).toBeGreaterThan(0);
   });
 
-  it('shows CashApp payment info for EXTERNAL payment', () => {
-    renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.EXTERNAL });
-    expect(screen.getByText(/payment will be sent to cashapp/i)).toBeInTheDocument();
-    expect(screen.getAllByText('$customer').length).toBeGreaterThan(0);
+  describe('Payment Information block — EXTERNAL payment', () => {
+    it('shows CashApp receiver handle and sender handle', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      expect(screen.getAllByText(/cashapp/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('$StoreHandle').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('$customer').length).toBeGreaterThan(0);
+    });
+
+    it('shows Zelle receiver handle without a sender row', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'zelle', label: 'Zelle', handle: 'store@email.com' }],
+          senderHandle: null,
+        },
+      });
+      expect(screen.getAllByText(/zelle/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('store@email.com').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/your handle/i)).not.toBeInTheDocument();
+    });
+
+    it('shows Venmo receiver handle without a sender row', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'venmo', label: 'Venmo', handle: '@StoreVenmo' }],
+          senderHandle: null,
+        },
+      });
+      expect(screen.getAllByText(/venmo/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('@StoreVenmo').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/your handle/i)).not.toBeInTheDocument();
+    });
+
+    it('shows all enabled methods when multiple are configured', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [
+            { type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' },
+            { type: 'zelle', label: 'Zelle', handle: 'store@email.com' },
+          ],
+          senderHandle: '$customer',
+        },
+      });
+      expect(screen.getAllByText(/cashapp/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('$StoreHandle').length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/zelle/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('store@email.com').length).toBeGreaterThan(0);
+    });
+
+    it('does not show "payment will be sent to CashApp" hardcoded sentence', () => {
+      renderSuccessPage({ ...baseOrderData });
+      expect(screen.queryByText(/payment will be sent to cashapp/i)).not.toBeInTheDocument();
+    });
   });
 
   it('shows "Paid with store credit" for CREDIT payment', () => {
@@ -161,6 +222,32 @@ describe('OrderSuccessPage', () => {
     expect(screen.queryByText(/send payment/i)).not.toBeInTheDocument();
     expect(screen.getByText(/check your orders page/i)).toBeInTheDocument();
     expect(screen.getByText(/track your delivery/i)).toBeInTheDocument();
+  });
+
+  describe("What's Next — Send Payment step method names", () => {
+    it('mentions Zelle in the Send Payment step when Zelle is the payment method', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'zelle', label: 'Zelle', handle: 'store@email.com' }],
+          senderHandle: null,
+        },
+      });
+      expect(screen.getAllByText(/zelle/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('store@email.com').length).toBeGreaterThan(0);
+    });
+
+    it('mentions Venmo in the Send Payment step when Venmo is the payment method', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'venmo', label: 'Venmo', handle: '@StoreVenmo' }],
+          senderHandle: null,
+        },
+      });
+      expect(screen.getAllByText(/venmo/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('@StoreVenmo').length).toBeGreaterThan(0);
+    });
   });
 
   it('calls setCart to clear cart on mount', () => {

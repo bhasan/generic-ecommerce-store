@@ -140,9 +140,18 @@ function OrderSuccessPage() {
                 Paid with store credit.
               </p>
             ) : (
-              <p className="detail-text">
-                Payment will be sent to CashApp: <strong>{orderData.cashAppUsername}</strong>
-              </p>
+              <div className="detail-text">
+                {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
+                  <div key={type} className="payment-method-summary">
+                    <strong>{label}</strong> — Receiver: <strong>{handle}</strong>
+                  </div>
+                ))}
+                {orderData.paymentSnapshot?.senderHandle && (
+                  <div className="payment-sender">
+                    Your handle: <strong>{orderData.paymentSnapshot.senderHandle}</strong>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -185,7 +194,9 @@ function OrderSuccessPage() {
                     <div className="step-number">1</div>
                     <div className="step-content">
                       <h4>Send Payment</h4>
-                      <p>Please send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{orderData.cashAppUsername}</strong> via CashApp.</p>
+                      {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
+                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -213,7 +224,9 @@ function OrderSuccessPage() {
                     <div className="step-number">1</div>
                     <div className="step-content">
                       <h4>Send Payment</h4>
-                      <p>Please send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{orderData.cashAppUsername}</strong> via CashApp.</p>
+                      {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
+                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                      ))}
                     </div>
                   </div>
                 )}
