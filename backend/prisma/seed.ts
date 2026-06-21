@@ -278,10 +278,30 @@ async function seed() {
     }),
   ]);
 
+  // Multi-variant product used by e2e variant tests
+  await prisma.product.create({
+    data: {
+      name: 'Flow Test Hoodie', slug: 'flow-test-hoodie', categoryId: accessoriesCategory.id,
+      description: 'Comfortable hoodie in three sizes for testing variant selection.',
+      hidden: false,
+      images: {
+        create: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400', role: 'THUMBNAIL', sortOrder: 0 }],
+      },
+      variants: {
+        create: [
+          { label: 'Small',  sku: 'SKU-hoodie-S', pricingMode: 'UNIT', basePrice: 29.99, stock: 10, stockEnabled: true,  isDefault: true,  active: true, sortOrder: 0 },
+          { label: 'Medium', sku: 'SKU-hoodie-M', pricingMode: 'UNIT', basePrice: 34.99, stock: 5,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 1 },
+          { label: 'Large',  sku: 'SKU-hoodie-L', pricingMode: 'UNIT', basePrice: 34.99, stock: 0,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 2 },
+        ],
+      },
+    },
+    include: { variants: true },
+  });
+
   // The default variant for each product (used by order items below).
   const defaultVariant = (p: (typeof products)[number]) => p.variants[0];
 
-  console.log(`✅ Created ${products.length} products`);
+  console.log(`✅ Created ${products.length + 1} products`);
 
   console.log('⭐ Creating reviews...');
 
@@ -380,7 +400,7 @@ async function seed() {
   console.log('');
   console.log('📋 Summary:');
   console.log(`   Users: 9`);
-  console.log(`   Products: ${products.length}`);
+  console.log(`   Products: ${products.length + 1}`);
   console.log(`   Reviews: 3`);
   console.log(`   Orders: 2`);
   console.log('');
