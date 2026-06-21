@@ -4,7 +4,7 @@ import './CartPage.css';
 import { useApp } from '../../context/AppContext';
 import { DeliveryMethod } from '../../constants/orderMethods';
 import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
-import { getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
+import { getAllowedQuantities, getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
 
@@ -24,12 +24,6 @@ function CartPage() {
     }
   }, [deliveryBlocked, deliveryMethod]);
 
-  const resolveAllowedQuantities = (item) => {
-    if (!item.quantityOptions?.length) return [];
-    return [...item.quantityOptions]
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-      .map(opt => Number(opt.quantity));
-  };
 
   if (cart.length === 0) {
     return (
@@ -58,7 +52,7 @@ function CartPage() {
           {cart.map(item => (
             (() => {
               const imageSrc = getProductImageSrc(item);
-              const allowed = resolveAllowedQuantities(item);
+              const allowed = getAllowedQuantities(item);
               const unitPrice = getDiscountedUnitPrice(item, item.quantity);
               return (
                 <div key={item.variantId} className="cart-item surface-card">

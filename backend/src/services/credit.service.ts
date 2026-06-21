@@ -129,7 +129,7 @@ export class CreditService {
     userId: number,
     amount: number,
     orderId: number,
-    tx: Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
+    tx: CreditClient
   ) {
     await this.applyCreditChange(
       tx,

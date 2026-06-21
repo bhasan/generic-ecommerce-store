@@ -74,6 +74,11 @@ async function dispatchOrderCreatedEffects(orderId: number, userId: number): Pro
 }
 
 // Orders now carry their items via relations; one include shape feeds every read path.
+const sumOrderItems = (items: { unitPrice: Prisma.Decimal; quantity: number; voided?: boolean }[]) =>
+  items
+    .filter((item) => !item.voided)
+    .reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
+
 const orderItemsInclude = {
   items: {
     orderBy: { id: 'asc' as const },
@@ -698,9 +703,7 @@ export class OrderService {
     });
 
     if (order) {
-      const newTotal = orderItems
-        .filter(item => !item.voided)
-        .reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
+      const newTotal = sumOrderItems(orderItems);
 
       await prisma.order.update({
         where: { id: orderId },
@@ -755,9 +758,7 @@ export class OrderService {
 
       if (order) {
         const oldTotal = order.total;
-        const newTotal = orderItems
-          .filter(item => !item.voided)
-          .reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
+        const newTotal = sumOrderItems(orderItems);
 
         logger.debug('Recalculating order total after item deletion', {
           orderId,

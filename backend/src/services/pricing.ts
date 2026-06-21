@@ -20,12 +20,16 @@ export interface PricingVariant {
  * downstream money math stays exact.
  */
 export function resolveUnitPrice(variant: PricingVariant, quantity: number): Prisma.Decimal {
-  const applicable = (variant.priceBreaks ?? [])
-    .map((b) => ({ minQuantity: toNumber(b.minQuantity), unitPrice: b.unitPrice }))
-    .filter((b) => b.minQuantity <= quantity + EPSILON)
-    .sort((a, b) => b.minQuantity - a.minQuantity);
-
-  const chosen = applicable.length > 0 ? applicable[0].unitPrice : variant.basePrice;
+  // priceBreaks arrive sorted ascending by minQuantity (Prisma orderBy).
+  // Walk in reverse to find the largest eligible break without sorting again.
+  const breaks = variant.priceBreaks ?? [];
+  let chosen = variant.basePrice;
+  for (let i = breaks.length - 1; i >= 0; i--) {
+    if (toNumber(breaks[i].minQuantity) <= quantity + EPSILON) {
+      chosen = breaks[i].unitPrice;
+      break;
+    }
+  }
   return new Prisma.Decimal(chosen);
 }
 

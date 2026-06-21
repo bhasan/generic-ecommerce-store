@@ -12,6 +12,7 @@ import { getAuthToken, newSession } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
 import { applyBrandingTokens } from '../utils/colorUtils';
+import { getAllowedQuantities } from '../features/products/productsHelpers';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
@@ -637,9 +638,7 @@ export function AppProvider({ children }) {
   const addToCart = (product, variant, quantity) => {
     setCart(prev => {
       const existing = prev.find(item => item.variantId === variant.id);
-      const allowedQuantities = (variant.quantityOptions ?? [])
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-        .map(opt => Number(opt.quantity));
+      const allowedQuantities = getAllowedQuantities(variant);
 
       let requestedQuantity = quantity;
       if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {

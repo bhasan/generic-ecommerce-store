@@ -18,6 +18,7 @@ vi.mock('../products/ProductImage', () => ({
 }));
 
 vi.mock('../products/productsHelpers', () => ({
+  getAllowedQuantities: (item) => (item.quantityOptions ?? []).map((o) => Number(o.quantity)),
   getDiscountedUnitPrice: (item) => item.price,
   getProductCategoryLabel: (item) => item.category?.name ?? '',
   getProductImageSrc: () => '/placeholder.png',

@@ -285,13 +285,19 @@ export class ProductService {
         const variants = this.withSingleDefault(data.variants);
         const keptIds = variants.filter((v) => v.id).map((v) => v.id!) as number[];
 
-        await tx.productVariant.updateMany({
-          where: { productId: id, id: { notIn: keptIds.length ? keptIds : [-1] } },
-          data: { active: false },
-        });
+        if (keptIds.length > 0) {
+          await tx.productVariant.updateMany({
+            where: { productId: id, id: { notIn: keptIds } },
+            data: { active: false },
+          });
+        } else {
+          await tx.productVariant.updateMany({
+            where: { productId: id },
+            data: { active: false },
+          });
+        }
 
-        for (let i = 0; i < variants.length; i++) {
-          const v = variants[i];
+        await Promise.all(variants.map(async (v, i) => {
           if (v.id) {
             await tx.productVariant.update({
               where: { id: v.id },
@@ -326,7 +332,7 @@ export class ProductService {
               data: { productId: id, ...this.buildVariantCreate(v, productSlug, i) },
             });
           }
-        }
+        }));
       }
 
       return tx.product.findUnique({ where: { id }, include: productInclude });
