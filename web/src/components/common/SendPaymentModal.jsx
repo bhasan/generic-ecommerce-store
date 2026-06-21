@@ -55,16 +55,20 @@ function SendPaymentModal({ isOpen, onDone, onCancel, pendingOrderState, storeCa
             </div>
 
             {/* CashApp */}
-            {(paymentSettings?.cashapp?.enabled ?? true) && (
-              <div className="send-payment-method-card">
-                <p className="send-payment-method-handle">
-                  <strong>CashApp</strong> — Send to:{' '}
-                  <strong className="send-payment-method-handle-value">
-                    {paymentSettings?.cashapp?.handle || storeCashappUsername || 'Loading...'}
-                  </strong>
-                </p>
-              </div>
-            )}
+            {(() => {
+              const cashappHandle = paymentSettings?.cashapp?.handle || storeCashappUsername;
+              const cashappEnabled = paymentSettings?.cashapp?.enabled ?? true;
+              return cashappEnabled && cashappHandle ? (
+                <div className="send-payment-method-card">
+                  <p className="send-payment-method-handle">
+                    <strong>CashApp</strong> — Send to:{' '}
+                    <strong className="send-payment-method-handle-value">
+                      {cashappHandle}
+                    </strong>
+                  </p>
+                </div>
+              ) : null;
+            })()}
 
             {/* Zelle */}
             {paymentSettings?.zelle?.enabled && (
