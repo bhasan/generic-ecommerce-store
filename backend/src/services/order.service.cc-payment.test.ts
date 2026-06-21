@@ -1,4 +1,6 @@
-import { OrderStatus } from '../../generated/prisma';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { OrderStatus, Prisma } from '../../generated/prisma';
+const D = (n: number) => new Prisma.Decimal(n);
 import { PaymentMethod } from '../constants/orderMethods';
 
 // ── Shared mocks ──────────────────────────────────────────────────────────────
@@ -55,7 +57,7 @@ const enabledCCSettings = {
 const basePendingOrder = {
   id: 42,
   userId: 7,
-  total: 35.50,
+  total: D(35.50),
   paymentMethod: PaymentMethod.CC,
   status: OrderStatus.PENDING_PAYMENT,
 };
@@ -164,7 +166,7 @@ describe('getPaymentToken', () => {
 
     expect(authorizeNetServiceMock.getHostedPageToken).toHaveBeenCalledWith(
       42,
-      basePendingOrder.total,
+      basePendingOrder.total.toNumber(),
       'https://shop.example.com/communicator.html',
       enabledCCSettings,
     );
@@ -253,7 +255,7 @@ describe('confirmCardPayment', () => {
 
     expect(authorizeNetServiceMock.verifyTransaction).toHaveBeenCalledWith(
       'txn_ok',
-      basePendingOrder.total,
+      basePendingOrder.total.toNumber(),
       42,
       enabledCCSettings,
     );

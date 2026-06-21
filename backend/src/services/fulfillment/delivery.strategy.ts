@@ -32,7 +32,7 @@ export class DeliveryFulfillmentStrategy implements FulfillmentStrategy {
       throw new AppError(
         eligibility.message,
         400,
-        eligibility.deliveryZoneStatus === 'OUT_OF_ZONE' ? 'DELIVERY_OUT_OF_ZONE' : 'DELIVERY_UNVERIFIED',
+        eligibility.deliveryStatus === 'OUT_OF_ZONE' ? 'DELIVERY_OUT_OF_ZONE' : 'DELIVERY_UNVERIFIED',
       );
     }
   }
@@ -41,11 +41,11 @@ export class DeliveryFulfillmentStrategy implements FulfillmentStrategy {
     if (!this.lastEligibility) return {};
     return {
       deliveryAddress: this.lastEligibility.canonicalAddress ?? undefined,
-      deliveryZoneStatus: (this.lastEligibility.deliveryZoneStatus as DeliveryZoneStatus) ?? null,
-      deliveryEligibilitySource: (this.lastEligibility.deliveryZoneSource as DeliveryEligibilitySource) ?? null,
+      deliveryStatus: (this.lastEligibility.deliveryStatus as DeliveryZoneStatus) ?? null,
+      deliverySource: (this.lastEligibility.deliverySource as DeliveryEligibilitySource) ?? null,
       deliveryDistanceMiles: this.lastEligibility.distanceMiles ?? null,
       deliveryThresholdMiles: this.lastEligibility.thresholdMiles ?? null,
-      deliveryZoneCheckedAt: this.lastEligibility.checkedAt ?? null,
+      deliveryCheckedAt: this.lastEligibility.checkedAt ?? null,
     };
   }
 
@@ -55,10 +55,10 @@ export class DeliveryFulfillmentStrategy implements FulfillmentStrategy {
       where: { id: userId },
       data: {
         address: this.lastEligibility.canonicalAddress,
-        deliveryZoneStatus: this.lastEligibility.deliveryZoneStatus,
-        deliveryZoneSource: this.lastEligibility.deliveryZoneSource,
-        deliveryZoneDistanceMiles: this.lastEligibility.distanceMiles,
-        deliveryZoneCheckedAt: this.lastEligibility.checkedAt,
+        deliveryStatus: this.lastEligibility.deliveryStatus,
+        deliverySource: this.lastEligibility.deliverySource,
+        deliveryDistanceMiles: this.lastEligibility.distanceMiles,
+        deliveryCheckedAt: this.lastEligibility.checkedAt,
       },
     });
   }

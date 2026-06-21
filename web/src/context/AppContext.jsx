@@ -12,11 +12,12 @@ import { getAuthToken, newSession } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
 import { applyBrandingTokens } from '../utils/colorUtils';
+import { getAllowedQuantities } from '../features/products/productsHelpers';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 // Context for authentication and global state
 const AppContext = createContext();
-const CART_STORAGE_KEY = 'cartData';
+const CART_STORAGE_KEY = 'cartData_v2';
 
 const parsePollingInterval = (rawValue, fallback) => {
   const parsed = Number.parseInt(rawValue ?? '', 10);
@@ -628,27 +629,17 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Resolves product quantity rules with product overrides winning over category defaults.
-  const resolveAllowedQuantities = (product) => {
-    // Product-level overrides win so category defaults do not mask product-specific selling rules.
-    if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
-      return product.allowedQuantitiesOverride;
-    }
-    return product.category?.allowedQuantities || [];
-  };
-
-  // Compares quantities with decimal-safe tolerance so 0.25-style increments do not fail exact checks.
   const isQuantityAllowed = (quantity, allowedQuantities) => {
     return allowedQuantities.some((allowed) => Math.abs(allowed - quantity) < 1e-9);
   };
 
-  // Adds or increments a cart item while normalizing invalid picks to the closest allowed quantity step.
-  const addToCart = (product, quantity) => {
+  // Adds or increments a cart item keyed by variantId.
+  // variant must include: { id, label, basePrice, pricingMode, quantityOptions, priceBreaks, stockEnabled, stock }
+  const addToCart = (product, variant, quantity) => {
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
-      const allowedQuantities = resolveAllowedQuantities(product);
+      const existing = prev.find(item => item.variantId === variant.id);
+      const allowedQuantities = getAllowedQuantities(variant);
 
-      // Normalize empty or invalid quantity picks into the closest allowed step for this product.
       let requestedQuantity = quantity;
       if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0) {
         if (allowedQuantities.length > 0) {
@@ -674,16 +665,32 @@ export function AppProvider({ children }) {
             : allowedQuantities[0])
         : desiredQuantity;
 
+      const cartItem = {
+        id: variant.id,
+        variantId: variant.id,
+        productId: product.id,
+        variantLabel: variant.label,
+        name: product.name,
+        basePrice: Number(variant.basePrice),
+        pricingMode: variant.pricingMode,
+        quantityOptions: variant.quantityOptions ?? [],
+        priceBreaks: variant.priceBreaks ?? [],
+        stockEnabled: variant.stockEnabled,
+        stock: Number(variant.stock),
+        categoryId: product.categoryId,
+        images: product.images ?? [],
+      };
+
       if (existing) {
         return prev.map(item =>
-          item.id === product.id
+          item.variantId === variant.id
             ? { ...item, quantity: nextQuantity }
             : item
         );
       }
-      return [...prev, { ...product, quantity: nextQuantity }];
+      return [...prev, { ...cartItem, quantity: nextQuantity }];
     });
-    
+
     showNotification(
       `${product.name} added to cart!`,
       'success',
@@ -697,20 +704,20 @@ export function AppProvider({ children }) {
     );
   };
 
-  // Removes one cart line item entirely by product id.
-  const removeFromCart = (productId) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
+  // Removes one cart line item entirely by variantId.
+  const removeFromCart = (variantId) => {
+    setCart(prev => prev.filter(item => item.variantId !== variantId));
   };
 
   // Updates a cart line quantity and removes the item if the incoming quantity is empty, invalid, or <= 0.
-  const updateCartQuantity = (productId, quantity) => {
+  const updateCartQuantity = (variantId, quantity) => {
     const normalizedQuantity = typeof quantity === 'string' ? parseFloat(quantity) : quantity;
     if (!Number.isFinite(normalizedQuantity) || normalizedQuantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(variantId);
       return;
     }
-    setCart(prev => prev.map(item => 
-      item.id === productId ? { ...item, quantity: normalizedQuantity } : item
+    setCart(prev => prev.map(item =>
+      item.variantId === variantId ? { ...item, quantity: normalizedQuantity } : item
     ));
   };
 
@@ -734,7 +741,7 @@ export function AppProvider({ children }) {
     try {
       // Convert cart items to API format
       const items = cart.map(item => ({
-        productId: item.id,
+        variantId: item.variantId,
         quantity: item.quantity
       }));
 
@@ -956,22 +963,9 @@ export function AppProvider({ children }) {
     }
   };
 
-  // Adds an order item while supporting both the new `(orderId, productId, quantity)` and legacy object call shapes.
-  const addItemToOrder = async (orderId, productIdOrItem, quantity) => {
+  const addItemToOrder = async (orderId, variantId, quantity) => {
     try {
-      // Accept both legacy and current call shapes so older order-editing UI still reaches the same API.
-      let productId, itemQuantity;
-      if (typeof productIdOrItem === 'object' && productIdOrItem.productId) {
-        // Old format: addItemToOrder(orderId, { productId, quantity, price })
-        productId = productIdOrItem.productId;
-        itemQuantity = productIdOrItem.quantity;
-      } else {
-        // New format: addItemToOrder(orderId, productId, quantity)
-        productId = productIdOrItem;
-        itemQuantity = quantity;
-      }
-
-      await ordersApi.addItemToOrder(orderId, productId, itemQuantity);
+      await ordersApi.addItemToOrder(orderId, variantId, quantity);
       
       // Refresh orders list
       const ordersData = await ordersApi.getAllOrders();

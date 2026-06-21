@@ -235,54 +235,6 @@
   line-height: 1.5;
 }
 
-.payment-preview {
-  margin-top: 0.5rem;
-  padding: 0.75rem;
-  background: var(--color-secondary-bg);
-  border: 1px solid var(--color-secondary);
-  border-radius: 0.5rem;
-  color: var(--color-secondary);
-  font-size: 0.875rem;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  cursor: pointer;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-top: 0.125rem;
-  cursor: pointer;
-  accent-color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.payment-warning {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-  padding: 1rem;
-  background: var(--color-danger-bg);
-  border: 1px solid var(--color-danger);
-  border-radius: 0.5rem;
-  color: var(--color-danger);
-}
-
-.payment-warning p {
-  margin: 0;
-  font-size: 0.875rem;
-  font-weight: 500;
-  line-height: 1.5;
-}
-
 /* Checkout Sidebar */
 .checkout-sidebar {
   position: sticky;
@@ -320,10 +272,6 @@
 .summary-row span:last-child {
   font-weight: 600;
   color: var(--text-primary);
-}
-
-.shipping-free {
-  color: var(--color-secondary) !important;
 }
 
 .summary-divider {
@@ -448,19 +396,6 @@
 
 .form-group-state input {
   text-transform: uppercase;
-}
-
-.order-confirmation-details {
-  text-align: left;
-}
-
-.order-confirmation-details p {
-  margin: 0.5rem 0;
-  line-height: 1.5;
-}
-
-.order-confirmation-details strong {
-  color: var(--text-primary);
 }
 
 /* Mobile responsive */
@@ -857,10 +792,6 @@
 [data-theme="light"] .delivery-method-toggle .toggle-btn:hover:not(.active),
 [data-theme="light"] .pickup-sub-btn:hover:not(.active) {
   color: var(--color-primary);
-}
-
-[data-theme="light"] .shipping-free {
-  color: var(--color-secondary-dark) !important;
 }
 
 /* ── Authorize.Net hosted card payment modal ──────────────────────────────

@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 const prismaMock = {
   category: {
     findUnique: vi.fn(),
@@ -6,7 +7,7 @@ const prismaMock = {
     delete: vi.fn(),
     count: vi.fn(),
   },
-  productItem: {
+  product: {
     count: vi.fn(),
   },
 };
@@ -44,7 +45,7 @@ describe('category service logging', () => {
   it('logs category deletion without changing message', async () => {
     prismaMock.category.findUnique.mockResolvedValue({ id: 3, name: 'Cigars', parentId: null });
     prismaMock.category.count.mockResolvedValue(0);
-    prismaMock.productItem.count.mockResolvedValue(0);
+    prismaMock.product.count.mockResolvedValue(0);
     prismaMock.category.delete.mockResolvedValue({});
     const { CategoryService } = await import('./category.service');
     const service = new CategoryService();

@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest } from '../../utils/roles';
-import { ArrowLeft, Star, ShoppingCart, Package, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
-import ProductReviews from '../../components/product/ProductReviews';
-import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts, getDiscountedUnitPrice } from './productsHelpers';
+import { ArrowLeft, ShoppingCart, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
 import ProductMediaModal from './ProductMediaModal';
+import './ProductsShared.css';
 import './ProductItemPage.css';
 import { hasRole } from '../../utils/roles';
 
@@ -14,52 +14,35 @@ const isVideo = (url) => {
   return url.match(/\.(mp4|webm)$/i);
 };
 
-function QuantityDiscountsTable({ product, discounts }) {
-  if (!discounts || discounts.length === 0) return null;
-
-  const sortedDiscounts = [...discounts].sort((a, b) => a.quantity - b.quantity);
+function PriceBreaksTable({ variant }) {
+  const breaks = variant?.priceBreaks ?? [];
+  if (breaks.length === 0) return null;
+  const sorted = [...breaks].sort((a, b) => Number(a.minQuantity) - Number(b.minQuantity));
 
   return (
     <div className="quantity-discounts-table">
       <div className="discounts-header">
         <Tag size={16} />
-        <span>Quantity Discounts</span>
+        <span>Quantity Pricing</span>
       </div>
       <div className="discounts-list">
-        {sortedDiscounts.map((discount, index) => {
-          const discountLabel = discount.type === 'percent'
-            ? `${discount.value}% off`
-            : `$${discount.value.toFixed(2)} off`;
-
-          return (
-            <div key={index} className="discount-tier">
-              <span className="discount-qty">Buy {discount.quantity}:</span>
-              <span className="discount-value">{discountLabel}</span>
-            </div>
-          );
-        })}
+        {sorted.map((pb, i) => (
+          <div key={i} className="discount-tier">
+            <span className="discount-qty">{Number(pb.minQuantity)}+:</span>
+            <span className="discount-value">${Number(pb.unitPrice).toFixed(2)} each</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function DynamicPriceDisplay({ product, quantity, discounts }) {
-  const basePrice = product.price;
+function DynamicPriceDisplay({ variant, quantity }) {
+  const basePrice = Number(variant?.basePrice ?? 0);
+  const unitPrice = getDiscountedUnitPrice(variant, quantity);
+  const totalPrice = unitPrice * quantity;
+  const hasDiscount = unitPrice < basePrice;
   const originalTotal = basePrice * quantity;
-
-  const matchingDiscount = discounts.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
-
-  let totalSavings = 0;
-  if (matchingDiscount) {
-    if (matchingDiscount.type === 'percent') {
-      totalSavings = originalTotal * (matchingDiscount.value / 100);
-    } else {
-      totalSavings = matchingDiscount.value;
-    }
-  }
-
-  const totalPrice = Math.max(0, originalTotal - totalSavings);
-  const hasDiscount = totalSavings > 0;
 
   return (
     <div className="dynamic-price-display">
@@ -68,17 +51,17 @@ function DynamicPriceDisplay({ product, quantity, discounts }) {
           <div className="price-row price-total-row">
             <span className="price-label">Total ({quantity} items):</span>
             <span className="price-original">${originalTotal.toFixed(2)}</span>
-            <span className="price-arrow">â†’</span>
+            <span className="price-arrow">→</span>
             <span className="price-total">${totalPrice.toFixed(2)}</span>
           </div>
           <div className="price-row">
-            <span className="price-savings">Save ${totalSavings.toFixed(2)}</span>
+            <span className="price-savings">Save ${(originalTotal - totalPrice).toFixed(2)}</span>
           </div>
         </>
       ) : (
         <div className="price-row price-total-row">
           <span className="price-label">Total ({quantity} items):</span>
-          <span className="price-total">${originalTotal.toFixed(2)}</span>
+          <span className="price-total">${totalPrice.toFixed(2)}</span>
         </div>
       )}
     </div>
@@ -92,14 +75,13 @@ function ProductItemPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
-  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
 
   const product = products.find(p => p.id === parseInt(id));
 
-  const allowedQuantities =
-    product?.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
-      ? product.allowedQuantitiesOverride
-      : product?.category?.allowedQuantities || [];
+  const activeVariants = (product?.variants ?? []).filter(v => v.active);
+  const selectedVariant = activeVariants.find(v => v.id === selectedVariantId) ?? getDefaultVariant(product);
+  const allowedQuantities = selectedVariant ? getAllowedQuantities(selectedVariant) : [];
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -107,12 +89,19 @@ function ProductItemPage() {
   }, [id]);
 
   useEffect(() => {
+    if (product) {
+      const def = getDefaultVariant(product);
+      setSelectedVariantId(def?.id ?? null);
+    }
+  }, [product?.id]);
+
+  useEffect(() => {
     if (allowedQuantities.length > 0) {
       setSelectedQuantity(allowedQuantities[0]);
     } else {
       setSelectedQuantity(1);
     }
-  }, [product?.id, allowedQuantities.length]);
+  }, [selectedVariant?.id, allowedQuantities.length]);
 
   if (isLoadingProducts) {
     return (
@@ -140,8 +129,6 @@ function ProductItemPage() {
     );
   }
 
-  // Use the shared helper here so hidden-product gating stays aligned with the
-  // repo's mixed legacy/new role representations.
   if (product.hidden && (hasRole(currentUser, 'CUSTOMER') || isGuest(currentUser))) {
     return (
       <div className="product-item-container">
@@ -158,23 +145,15 @@ function ProductItemPage() {
     );
   }
 
-  const baseImages =
-    product.images && product.images.length > 0
-      ? product.images
-      : product.image
-        ? [product.image]
-        : [fallbackImage];
-
-  const images = product.thumbnail && product.thumbnail !== baseImages[0]
-    ? [product.thumbnail, ...baseImages.filter(img => img !== product.thumbnail)]
-    : baseImages;
-  const showStock = product.stockEnabled !== false;
-  const isOutOfStock = showStock && product.stock === 0;
-
-  const quantityDiscounts = resolveQuantityDiscounts(product);
+  const images = getProductAllImages(product);
+  const showStock = selectedVariant?.stockEnabled !== false;
+  const isOutOfStock = showStock && Number(selectedVariant?.stock ?? 0) === 0;
+  const basePrice = Number(selectedVariant?.basePrice ?? 0);
 
   const handleAddToCart = () => {
-    addToCart(product, selectedQuantity);
+    if (selectedVariant) {
+      addToCart(product, selectedVariant, selectedQuantity);
+    }
   };
 
   return (
@@ -205,20 +184,16 @@ function ProductItemPage() {
                 autoPlay
                 muted
                 loop
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
+                onError={(e) => { e.target.style.display = 'none'; }}
               />
             ) : (
               <img
-                src={images[selectedImageIndex]}
+                src={images[selectedImageIndex] ?? PRODUCT_FALLBACK_IMAGE}
                 alt={product.name}
                 className="main-product-image"
                 style={{ cursor: 'pointer' }}
                 onClick={() => setMediaModalOpen(true)}
-                onError={(e) => {
-                  e.target.src = fallbackImage;
-                }}
+                onError={(e) => { e.target.src = PRODUCT_FALLBACK_IMAGE; }}
               />
             )}
 
@@ -231,13 +206,6 @@ function ProductItemPage() {
                 <ChevronRight size={24} />
               </button>
             )}
-            {/* HIDDEN: Stock badge - may re-enable later */}
-            {/* {showStock && (
-              <div className={`stock-badge ${isOutOfStock ? 'out-of-stock' : product.stock <= 10 ? 'low-stock' : 'in-stock'}`}>
-                <Package size={16} />
-                {isOutOfStock ? 'Out of Stock' : product.stock <= 10 ? `Only ${product.stock} left` : 'In Stock'}
-              </div>
-            )} */}
           </div>
 
           {images.length > 1 && (
@@ -250,13 +218,7 @@ function ProductItemPage() {
                 >
                   {isVideo(img) ? (
                     <>
-                      <video
-                        src={img}
-                        className="thumbnail"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
+                      <video src={img} className="thumbnail" onError={(e) => { e.target.style.display = 'none'; }} />
                       <div className="video-thumbnail-overlay">
                         <PlayCircle size={20} color="white" />
                       </div>
@@ -267,9 +229,7 @@ function ProductItemPage() {
                       alt={`${product.name} ${index + 1}`}
                       className="thumbnail"
                       loading={index === selectedImageIndex ? 'eager' : 'lazy'}
-                      onError={(e) => {
-                        e.target.src = fallbackImage;
-                      }}
+                      onError={(e) => { e.target.src = PRODUCT_FALLBACK_IMAGE; }}
                     />
                   )}
                 </div>
@@ -283,23 +243,32 @@ function ProductItemPage() {
           <h1 className="product-title">{product.name}</h1>
 
           <div className="product-price-display">
-            ${product.price.toFixed(2)}
-            {quantityDiscounts.length > 0 && <span className="price-per-unit">/ each</span>}
+            ${basePrice.toFixed(2)}
+            {(selectedVariant?.priceBreaks?.length ?? 0) > 0 && (
+              <span className="price-per-unit">/ each</span>
+            )}
           </div>
 
-          <QuantityDiscountsTable product={product} discounts={quantityDiscounts} />
+          {activeVariants.length > 1 && (
+            <div className="variant-selector">
+              <label className="quantity-label">Option</label>
+              <div className="variant-buttons">
+                {activeVariants.map(v => (
+                  <button
+                    key={v.id}
+                    className={`variant-btn${v.id === selectedVariant?.id ? ' variant-btn-active' : ''}`}
+                    onClick={() => setSelectedVariantId(v.id)}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <PriceBreaksTable variant={selectedVariant} />
 
           <p className="product-description-full">{product.description}</p>
-
-          {/* HIDDEN: Stock Information - may re-enable later */}
-          {/* {showStock && (
-            <div className="stock-info">
-              <div className={`stock-indicator ${isOutOfStock ? 'indicator-out' : product.stock <= 10 ? 'indicator-low' : 'indicator-in'}`}></div>
-              <span className="stock-text">
-                {isOutOfStock ? 'Out of stock' : product.stock <= 10 ? `Low stock - only ${product.stock} remaining` : 'In stock'}
-              </span>
-            </div>
-          )} */}
 
           <div className="quantity-selector">
             <label className="quantity-label">Quantity</label>
@@ -309,10 +278,8 @@ function ProductItemPage() {
                 onChange={(e) => setSelectedQuantity(parseFloat(e.target.value))}
                 className="quantity-select"
               >
-                {allowedQuantities.map((quantity) => (
-                  <option key={quantity} value={quantity}>
-                    {quantity}
-                  </option>
+                {allowedQuantities.map((qty) => (
+                  <option key={qty} value={qty}>{qty}</option>
                 ))}
               </select>
             ) : (
@@ -327,15 +294,11 @@ function ProductItemPage() {
             )}
           </div>
 
-          <DynamicPriceDisplay
-            product={product}
-            quantity={selectedQuantity}
-            discounts={quantityDiscounts}
-          />
+          <DynamicPriceDisplay variant={selectedVariant} quantity={selectedQuantity} />
 
           <button
             onClick={handleAddToCart}
-            disabled={isOutOfStock || selectedQuantity <= 0}
+            disabled={isOutOfStock || selectedQuantity <= 0 || !selectedVariant}
             className="btn-add-to-cart-large"
           >
             <ShoppingCart size={20} />
@@ -350,12 +313,6 @@ function ProductItemPage() {
           )}
         </div>
       </div>
-
-      {/* HIDDEN: Reviews Section - may re-enable later */}
-      {/* <div className="reviews-section">
-        <h2 className="reviews-section-title">Customer Reviews</h2>
-        <ProductReviews productId={product.id} />
-      </div> */}
 
       {mediaModalOpen && (
         <ProductMediaModal

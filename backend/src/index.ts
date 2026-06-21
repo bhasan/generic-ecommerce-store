@@ -31,20 +31,22 @@ import { BrandingService } from './services/branding.service';
 import { brandingController } from './controllers/branding.controller';
 import { asyncHandler } from './utils/asyncHandler.util';
 import brandingRoutes from './routes/branding.routes';
+import { parsePositiveInt } from './utils/request.util';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
+import { serializeDecimal } from './middleware/serializeDecimal.middleware';
 import { authLimiter, generalLimiter, readWriteLimiter } from './middleware/rateLimit.middleware';
 
 // Load environment variables
 dotenv.config();
 
 const app: Application = express();
-const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS || '1', 10);
-app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : 1);
+const trustProxyHops = parsePositiveInt(process.env.TRUST_PROXY_HOPS, 1);
+app.set('trust proxy', trustProxyHops);
 const PORT = process.env.PORT || 3000;
-const REQUEST_TIMEOUT_MS = parseInt(process.env.REQUEST_TIMEOUT_MS || '30000', 10);
+const REQUEST_TIMEOUT_MS = parsePositiveInt(process.env.REQUEST_TIMEOUT_MS, 30000);
 
 // ========================================
 // SECURITY MIDDLEWARE
@@ -102,6 +104,9 @@ app.use((req, res, next) => {
 
 // Request logging (must be after body parsing to capture request body)
 app.use(requestLogger);
+
+// Convert Prisma Decimal money fields to numbers in every JSON response
+app.use(serializeDecimal);
 
 // ========================================
 // ROUTES

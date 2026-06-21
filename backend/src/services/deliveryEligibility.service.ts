@@ -54,8 +54,8 @@ type AddressResolution = ResolvedAddress | ProviderUnavailableAddress | InvalidA
 
 export interface DeliveryEligibilityResult {
   deliverable: boolean;
-  deliveryZoneStatus: DeliveryZoneStatus;
-  deliveryZoneSource: DeliveryEligibilitySource;
+  deliveryStatus: DeliveryZoneStatus;
+  deliverySource: DeliveryEligibilitySource;
   distanceMiles: number | null;
   thresholdMiles: number;
   message: string;
@@ -64,10 +64,10 @@ export interface DeliveryEligibilityResult {
 }
 
 export interface DeliveryZoneMetadata {
-  deliveryZoneStatus: DeliveryZoneStatus;
-  deliveryZoneSource: DeliveryEligibilitySource;
-  deliveryZoneDistanceMiles: number | null;
-  deliveryZoneCheckedAt: Date;
+  deliveryStatus: DeliveryZoneStatus;
+  deliverySource: DeliveryEligibilitySource;
+  deliveryDistanceMiles: number | null;
+  deliveryCheckedAt: Date;
 }
 
 interface ParsedGoogleResult {
@@ -142,10 +142,10 @@ export class DeliveryEligibilityService {
     const result = await this.evaluateFreeformAddress(trimmedAddress, constraints);
 
     return {
-      deliveryZoneStatus: result.deliveryZoneStatus,
-      deliveryZoneSource: result.deliveryZoneSource,
-      deliveryZoneDistanceMiles: result.distanceMiles,
-      deliveryZoneCheckedAt: result.checkedAt,
+      deliveryStatus: result.deliveryStatus,
+      deliverySource: result.deliverySource,
+      deliveryDistanceMiles: result.distanceMiles,
+      deliveryCheckedAt: result.checkedAt,
     };
   }
 
@@ -190,8 +190,8 @@ export class DeliveryEligibilityService {
     if (!isStructuredDeliveryAddressComplete(normalizedAddress)) {
       return {
         deliverable: false,
-        deliveryZoneStatus: DeliveryZoneStatus.UNVERIFIED,
-        deliveryZoneSource: DeliveryEligibilitySource.NONE,
+        deliveryStatus: DeliveryZoneStatus.UNVERIFIED,
+        deliverySource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
         message: 'Enter your full delivery address so we can verify eligibility.',
@@ -252,8 +252,8 @@ export class DeliveryEligibilityService {
 
       return {
         deliverable: false,
-        deliveryZoneStatus: DeliveryZoneStatus.UNVERIFIED,
-        deliveryZoneSource: DeliveryEligibilitySource.NONE,
+        deliveryStatus: DeliveryZoneStatus.UNVERIFIED,
+        deliverySource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
         message,
@@ -277,8 +277,8 @@ export class DeliveryEligibilityService {
     if (storeResolution.kind !== 'resolved') {
       return {
         deliverable: false,
-        deliveryZoneStatus: DeliveryZoneStatus.UNVERIFIED,
-        deliveryZoneSource: DeliveryEligibilitySource.NONE,
+        deliveryStatus: DeliveryZoneStatus.UNVERIFIED,
+        deliverySource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
         message: 'We cannot check delivery for this address right now. Please contact the store.',
@@ -298,8 +298,8 @@ export class DeliveryEligibilityService {
 
     return {
       deliverable: inZone,
-      deliveryZoneStatus: inZone ? DeliveryZoneStatus.IN_ZONE : DeliveryZoneStatus.OUT_OF_ZONE,
-      deliveryZoneSource: addressResolution.source,
+      deliveryStatus: inZone ? DeliveryZoneStatus.IN_ZONE : DeliveryZoneStatus.OUT_OF_ZONE,
+      deliverySource: addressResolution.source,
       distanceMiles,
       thresholdMiles: constraints.deliveryRadiusMiles,
       message: inZone
@@ -326,8 +326,8 @@ export class DeliveryEligibilityService {
     if (!constraints.offlineZipFallbackEnabled) {
       return {
         deliverable: false,
-        deliveryZoneStatus: DeliveryZoneStatus.UNVERIFIED,
-        deliveryZoneSource: DeliveryEligibilitySource.NONE,
+        deliveryStatus: DeliveryZoneStatus.UNVERIFIED,
+        deliverySource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
         message: 'We cannot check delivery for this address right now. Please try again in a few minutes.',
@@ -339,8 +339,8 @@ export class DeliveryEligibilityService {
     if (!zipCode) {
       return {
         deliverable: false,
-        deliveryZoneStatus: DeliveryZoneStatus.UNVERIFIED,
-        deliveryZoneSource: DeliveryEligibilitySource.NONE,
+        deliveryStatus: DeliveryZoneStatus.UNVERIFIED,
+        deliverySource: DeliveryEligibilitySource.NONE,
         distanceMiles: null,
         thresholdMiles: constraints.deliveryRadiusMiles,
         message: 'We could not confirm delivery for this address. Please check the ZIP code and try again.',
@@ -358,8 +358,8 @@ export class DeliveryEligibilityService {
 
     return {
       deliverable,
-      deliveryZoneStatus: deliverable ? DeliveryZoneStatus.IN_ZONE : DeliveryZoneStatus.OUT_OF_ZONE,
-      deliveryZoneSource: DeliveryEligibilitySource.ZIP_FALLBACK,
+      deliveryStatus: deliverable ? DeliveryZoneStatus.IN_ZONE : DeliveryZoneStatus.OUT_OF_ZONE,
+      deliverySource: DeliveryEligibilitySource.ZIP_FALLBACK,
       distanceMiles: null,
       thresholdMiles: constraints.deliveryRadiusMiles,
       message: deliverable

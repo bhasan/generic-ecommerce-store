@@ -170,12 +170,6 @@
 }
 
 /* Form Fields */
-.product-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-}
-
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -346,13 +340,6 @@
   overflow-y: auto;
 }
 
-/* Checkbox Group */
-.checkbox-group {
-  display: flex;
-  gap: 2rem;
-  align-items: center;
-}
-
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -368,56 +355,6 @@
   height: 1.25rem;
   cursor: pointer;
   accent-color: var(--color-primary);
-}
-
-/* Number Input */
-.number-input-wrapper {
-  position: relative;
-}
-
-.number-input-wrapper.disabled {
-  opacity: 0.5;
-}
-
-.number-input-wrapper.disabled .form-input {
-  cursor: not-allowed;
-  background: var(--bg-primary);
-}
-
-.stock-disabled-label {
-  position: absolute;
-  top: -1.25rem;
-  left: 0;
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
-  font-style: italic;
-}
-
-/* Visibility Toggle */
-.visibility-toggle {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: var(--color-primary-bg);
-  border: 1px solid var(--color-primary-dark);
-  border-radius: 0.5rem;
-}
-
-.visibility-toggle input[type="checkbox"] {
-  width: 1.25rem;
-  height: 1.25rem;
-  cursor: pointer;
-  accent-color: var(--color-primary);
-}
-
-.visibility-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-primary);
-  font-weight: 500;
-  cursor: pointer;
 }
 
 /* Image Fields */
@@ -449,14 +386,6 @@
 .image-input-group .form-input {
   flex: 1;
   min-width: 200px;
-}
-
-.image-upload-separator {
-  color: var(--text-tertiary);
-  font-size: 0.875rem;
-  font-weight: 500;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .image-input-group .btn-upload-image {
@@ -547,7 +476,6 @@
 }
 
 .btn-save,
-.btn-cancel-form,
 .btn-cancel {
   display: flex;
   align-items: center;
@@ -571,17 +499,6 @@
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
-.btn-cancel-form {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-}
-
-.btn-cancel-form:hover {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
 .btn-cancel {
   background: transparent;
   border: 1px solid var(--border-color);
@@ -598,17 +515,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
-}
-
-
-.editing-product-card {
-  grid-column: 1 / -1;
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 2px solid var(--color-primary);
-  border-radius: 1rem;
-  padding: 2rem;
-  box-shadow: 0 10px 40px var(--color-primary-border);
-  animation: slideDown 0.3s ease-out;
 }
 
 /* Product Actions */

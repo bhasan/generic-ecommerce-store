@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { DeliveryMethod, PaymentMethod } from './orderMethods';
 
 describe('orderMethods constants', () => {

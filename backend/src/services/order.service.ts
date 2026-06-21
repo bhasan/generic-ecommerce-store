@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { OrderStatus } from '../../generated/prisma';
+import { OrderStatus, Prisma } from '../../generated/prisma';
+import { resolveUnitPrice, isQuantityAllowed } from './pricing';
 import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
@@ -33,7 +34,7 @@ function resolveCommunicatorUrl(): string {
 interface CreateOrderData {
   userId: number;
   items: Array<{
-    productId: number;
+    variantId: number;
     quantity: number;
   }>;
   cashAppUsername?: string;
@@ -50,7 +51,7 @@ interface UpdateOrderStatusData {
 }
 
 interface AddOrderItemData {
-  productId: number;
+  variantId: number;
   quantity: number;
 }
 
@@ -72,63 +73,43 @@ async function dispatchOrderCreatedEffects(orderId: number, userId: number): Pro
   }
 }
 
+// Orders now carry their items via relations; one include shape feeds every read path.
+const sumOrderItems = (items: { unitPrice: Prisma.Decimal; quantity: number; voided?: boolean }[]) =>
+  items
+    .filter((item) => !item.voided)
+    .reduce((sum, item) => sum.add(item.unitPrice.mul(item.quantity)), new Prisma.Decimal(0));
+
+const orderItemsInclude = {
+  items: {
+    orderBy: { id: 'asc' as const },
+    include: { variant: { include: { product: { include: { images: true } } } } },
+  },
+};
+
+// Normalize an included order item into the response shape, preferring the stored
+// snapshots (productName/variantLabel/unitPrice) and adding a display image + a `price`
+// alias for backward compatibility.
+function shapeOrderItem(item: any) {
+  const product = item.variant?.product ?? null;
+  const images: Array<{ url: string; role: string }> = product?.images ?? [];
+  const image = images.find((i) => i.role === 'THUMBNAIL')?.url ?? images[0]?.url ?? null;
+  return {
+    id: item.id,
+    variantId: item.variantId,
+    productId: product?.id ?? null,
+    productName: item.productName,
+    variantLabel: item.variantLabel,
+    productImage: image,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    price: item.unitPrice,
+    voided: item.voided,
+    addedAfterSubmission: item.addedAfterSubmission,
+    product: product ? { id: product.id, name: product.name, image } : null,
+  };
+}
+
 export class OrderService {
-  // Normalizes raw discount-rule data into valid numeric quantity rules and drops malformed entries.
-  private normalizeQuantityDiscounts(value: unknown) {
-    if (!Array.isArray(value)) return [];
-    return value
-      .map((entry) => {
-        if (!entry || typeof entry !== 'object') return null;
-        const quantity = Number((entry as any).quantity);
-        const type = (entry as any).type;
-        const discountValue = Number((entry as any).value);
-        if (!Number.isFinite(quantity) || quantity <= 0) return null;
-        if (type !== 'percent' && type !== 'fixed') return null;
-        if (!Number.isFinite(discountValue) || discountValue < 0) return null;
-        if (type === 'percent' && discountValue > 100) return null;
-        return { quantity, type, value: discountValue };
-      })
-      .filter(Boolean) as Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>;
-  }
-
-  // Resolves allowed quantity steps with product overrides taking precedence over category defaults.
-  private resolveAllowedQuantities(product: { allowedQuantitiesOverride?: number[]; category?: { allowedQuantities?: number[] } }) {
-    if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
-      return product.allowedQuantitiesOverride;
-    }
-    return product.category?.allowedQuantities ?? [];
-  }
-
-  // Resolves quantity discount rules with product overrides winning so category defaults do not mask them.
-  private resolveQuantityDiscounts(product: {
-    quantityDiscountsOverride?: unknown;
-    category?: { quantityDiscounts?: unknown };
-  }) {
-    const override = this.normalizeQuantityDiscounts(product.quantityDiscountsOverride);
-    if (override.length > 0) return override;
-    return this.normalizeQuantityDiscounts(product.category?.quantityDiscounts);
-  }
-
-  // Applies the matching quantity discount to a base price and never returns a negative unit price.
-  private resolveDiscountedUnitPrice(
-    basePrice: number,
-    quantity: number,
-    rules: Array<{ quantity: number; type: 'percent' | 'fixed'; value: number }>
-  ) {
-    const match = rules.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
-    if (!match) return basePrice;
-    const discount =
-      match.type === 'percent'
-        ? basePrice * (match.value / 100)
-        : match.value;
-    return Math.max(0, basePrice - discount);
-  }
-
-  // Compares quantities with decimal tolerance so fractional allowed quantities stay reliable.
-  private isQuantityAllowed(quantity: number, allowedQuantities: number[]) {
-    return allowedQuantities.some((allowed) => Math.abs(allowed - quantity) < 1e-9);
-  }
-
   /**
    * Get all orders (with user filtering for customers)
    * @param limit  Optional max number of orders to return
@@ -149,71 +130,23 @@ export class OrderService {
     try {
       const orders = await prisma.order.findMany({
         where,
-        orderBy: {
-          createdAt: 'desc'
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, username: true, phoneNumber: true, address: true } },
+          ...orderItemsInclude,
         },
         ...(limit !== undefined && { take: limit }),
         ...(offset !== undefined && { skip: offset }),
       });
 
-      logger.info('Orders retrieved from database', {
-        userId,
-        orderCount: orders.length,
-        orderIds: orders.map(o => o.id),
-      });
-
-      // Fetch users for orders
-      const userIds = [...new Set(orders.map(o => o.userId))];
-      logger.debug('Fetching users for orders', { userIds });
-
-      // Keep order payloads free of payment handles unless a future approved use case requires them explicitly.
-      const users = await prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, username: true, phoneNumber: true, address: true }
-      });
-      const userMap = new Map(users.map(u => [u.id, u]));
-
-      // Fetch order items
-      const orderIds = orders.map(o => o.id);
-      logger.debug('Fetching order items', { orderIds });
-
-      const orderItems = await prisma.orderItem.findMany({
-        where: { orderId: { in: orderIds } }
-      });
-
-      // Fetch products for order items
-      const productIds = [...new Set(orderItems.map(item => item.productId))];
-      logger.debug('Fetching products for order items', { productIds });
-
-      const products = await prisma.productItem.findMany({
-        where: { id: { in: productIds } },
-        include: { category: true }
-      });
-      const productMap = new Map(products.map(p => [p.id, p]));
-
-      // Group items by order and attach products
-      const itemsByOrder = new Map<number, any[]>();
-      for (const item of orderItems) {
-        if (!itemsByOrder.has(item.orderId)) {
-          itemsByOrder.set(item.orderId, []);
-        }
-        itemsByOrder.get(item.orderId)!.push({
-          ...item,
-          product: productMap.get(item.productId) || null
-        });
-      }
-
-      // Join orders with users and items
-      const result = orders.map(order => ({
+      const result = orders.map((order) => ({
         ...order,
-        user: userMap.get(order.userId) || null,
-        items: itemsByOrder.get(order.id) || []
+        items: order.items.map(shapeOrderItem),
       }));
 
       logger.info('Orders retrieval completed', {
         userId,
         totalOrders: result.length,
-        totalItems: orderItems.length,
       });
 
       return result;
@@ -233,72 +166,18 @@ export class OrderService {
   // Returns delivered orders enriched with user and item snapshots for delivery-history style views.
   async getDeliveredOrders() {
     const orders = await prisma.order.findMany({
-      where: {
-        status: 'DELIVERED'
+      where: { status: 'DELIVERED' },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        user: { select: { id: true, username: true, address: true, phoneNumber: true } },
+        ...orderItemsInclude,
       },
-      orderBy: {
-        updatedAt: 'desc' // Latest first
-      }
     });
 
-    // Fetch users for orders
-    const userIds = [...new Set(orders.map(o => o.userId))];
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, username: true, address: true, phoneNumber: true }
-    });
-    const userMap = new Map(users.map(u => [u.id, u]));
-
-    // Fetch order items
-    const orderIds = orders.map(o => o.id);
-    const orderItems = await prisma.orderItem.findMany({
-      where: { orderId: { in: orderIds } }
-    });
-
-    // Fetch products for order items
-    const productIds = [...new Set(orderItems.map(oi => oi.productId))];
-    const products = await prisma.productItem.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, name: true, price: true, image: true }
-    });
-    const productMap = new Map(products.map(p => [p.id, p]));
-
-    // Group items by order
-    const itemsByOrder = new Map<number, typeof orderItems>();
-    for (const item of orderItems) {
-      if (!itemsByOrder.has(item.orderId)) {
-        itemsByOrder.set(item.orderId, []);
-      }
-      itemsByOrder.get(item.orderId)!.push(item);
-    }
-
-    return orders.map(order => {
-      const user = userMap.get(order.userId);
-      const items = itemsByOrder.get(order.id) || [];
-      
-      return {
-        ...order,
-        user: user ? {
-          id: user.id,
-          username: user.username,
-          address: user.address,
-          phoneNumber: user.phoneNumber
-        } : null,
-        items: items.map(item => {
-          const product = productMap.get(item.productId);
-          return {
-            id: item.id,
-            productId: item.productId,
-            productName: product?.name || 'Unknown Product',
-            productImage: product?.image || null,
-            quantity: item.quantity,
-            price: item.price,
-            voided: item.voided,
-            addedAfterSubmission: item.addedAfterSubmission
-          };
-        })
-      };
-    });
+    return orders.map((order) => ({
+      ...order,
+      items: order.items.map(shapeOrderItem),
+    }));
   }
 
   /**
@@ -306,74 +185,7 @@ export class OrderService {
    */
   // Returns orders currently out for delivery with attached user and item details for driver/staff tracking.
   async getOutForDeliveryOrders() {
-    const orders = await prisma.order.findMany({
-      where: {
-        status: 'OUT_FOR_DELIVERY'
-      },
-      orderBy: {
-        createdAt: 'asc' // Oldest first
-      }
-    });
-
-    // Fetch users for orders
-    const userIds = [...new Set(orders.map(o => o.userId))];
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, username: true, address: true, phoneNumber: true }
-    });
-    const userMap = new Map(users.map(u => [u.id, u]));
-
-    // Fetch order items
-    const orderIds = orders.map(o => o.id);
-    const orderItems = await prisma.orderItem.findMany({
-      where: { orderId: { in: orderIds } }
-    });
-
-    // Fetch products for order items
-    const productIds = [...new Set(orderItems.map(oi => oi.productId))];
-    const products = await prisma.productItem.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, name: true, price: true, image: true }
-    });
-    const productMap = new Map(products.map(p => [p.id, p]));
-
-    // Group order items by order
-    const itemsByOrder = new Map<number, typeof orderItems>();
-    for (const item of orderItems) {
-      if (!itemsByOrder.has(item.orderId)) {
-        itemsByOrder.set(item.orderId, []);
-      }
-      itemsByOrder.get(item.orderId)!.push(item);
-    }
-
-    // Format orders with user and items
-    return orders.map(order => {
-      const user = userMap.get(order.userId);
-      const items = itemsByOrder.get(order.id) || [];
-
-      return {
-        ...order,
-        user: user ? {
-          id: user.id,
-          username: user.username,
-          address: user.address,
-          phoneNumber: user.phoneNumber
-        } : null,
-        items: items.map(item => {
-          const product = productMap.get(item.productId);
-          return {
-            id: item.id,
-            productId: item.productId,
-            productName: product?.name || 'Unknown Product',
-            productImage: product?.image || null,
-            quantity: item.quantity,
-            price: item.price,
-            voided: item.voided,
-            addedAfterSubmission: item.addedAfterSubmission
-          };
-        })
-      };
-    });
+    return this.getOrdersByStatusForDrivers('OUT_FOR_DELIVERY');
   }
 
   /**
@@ -381,74 +193,24 @@ export class OrderService {
    */
   // Returns orders ready for delivery with enough related data for dispatching and handoff screens.
   async getReadyForDeliveryOrders() {
+    return this.getOrdersByStatusForDrivers('READY_FOR_DELIVERY');
+  }
+
+  // Shared driver/staff list: orders in a status, oldest first, with user + item snapshots.
+  private async getOrdersByStatusForDrivers(status: OrderStatus) {
     const orders = await prisma.order.findMany({
-      where: {
-        status: 'READY_FOR_DELIVERY'
+      where: { status },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        user: { select: { id: true, username: true, address: true, phoneNumber: true } },
+        ...orderItemsInclude,
       },
-      orderBy: {
-        createdAt: 'asc' // Oldest first
-      }
     });
 
-    // Fetch users for orders
-    const userIds = [...new Set(orders.map(o => o.userId))];
-    const users = await prisma.user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, username: true, address: true, phoneNumber: true }
-    });
-    const userMap = new Map(users.map(u => [u.id, u]));
-
-    // Fetch order items
-    const orderIds = orders.map(o => o.id);
-    const orderItems = await prisma.orderItem.findMany({
-      where: { orderId: { in: orderIds } }
-    });
-
-    // Fetch products for order items
-    const productIds = [...new Set(orderItems.map(oi => oi.productId))];
-    const products = await prisma.productItem.findMany({
-      where: { id: { in: productIds } },
-      select: { id: true, name: true, price: true, image: true }
-    });
-    const productMap = new Map(products.map(p => [p.id, p]));
-
-    // Group order items by order
-    const itemsByOrder = new Map<number, typeof orderItems>();
-    for (const item of orderItems) {
-      if (!itemsByOrder.has(item.orderId)) {
-        itemsByOrder.set(item.orderId, []);
-      }
-      itemsByOrder.get(item.orderId)!.push(item);
-    }
-
-    // Format orders with user and items
-    return orders.map(order => {
-      const user = userMap.get(order.userId);
-      const items = itemsByOrder.get(order.id) || [];
-
-      return {
-        ...order,
-        user: user ? {
-          id: user.id,
-          username: user.username,
-          address: user.address,
-          phoneNumber: user.phoneNumber
-        } : null,
-        items: items.map(item => {
-          const product = productMap.get(item.productId);
-          return {
-            id: item.id,
-            productId: item.productId,
-            productName: product?.name || 'Unknown Product',
-            productImage: product?.image || null,
-            quantity: item.quantity,
-            price: item.price,
-            voided: item.voided,
-            addedAfterSubmission: item.addedAfterSubmission
-          };
-        })
-      };
-    });
+    return orders.map((order) => ({
+      ...order,
+      items: order.items.map(shapeOrderItem),
+    }));
   }
 
   /**
@@ -457,7 +219,11 @@ export class OrderService {
   // Returns one order with role-aware access control and the related user/item data needed by detail views.
   async getOrderById(orderId: number, userId: number, userRoles: RoleName[]) {
     const order = await prisma.order.findUnique({
-      where: { id: orderId }
+      where: { id: orderId },
+      include: {
+        user: { select: { id: true, username: true, phoneNumber: true, address: true } },
+        ...orderItemsInclude,
+      },
     });
 
     if (!order) {
@@ -469,34 +235,9 @@ export class OrderService {
       throw new AppError('Access denied', 403);
     }
 
-    // Fetch user
-    const user = await prisma.user.findUnique({
-      where: { id: order.userId },
-      select: { id: true, username: true, phoneNumber: true, address: true }
-    });
-
-    // Fetch order items
-    const orderItems = await prisma.orderItem.findMany({
-      where: { orderId }
-    });
-
-    // Fetch products for order items
-    const productIds = [...new Set(orderItems.map(item => item.productId))];
-    const products = await prisma.productItem.findMany({
-      where: { id: { in: productIds } }
-    });
-    const productMap = new Map(products.map(p => [p.id, p]));
-
-    // Attach products to items
-    const itemsWithProducts = orderItems.map(item => ({
-      ...item,
-      product: productMap.get(item.productId) || null
-    }));
-
     return {
       ...order,
-      user: user || null,
-      items: itemsWithProducts
+      items: order.items.map(shapeOrderItem),
     };
   }
 
@@ -514,7 +255,7 @@ export class OrderService {
     logger.info('Creating new order', {
       userId,
       itemCount: items?.length || 0,
-      items: items?.map(i => ({ productId: i.productId, quantity: i.quantity })),
+      items: items?.map(i => ({ variantId: i.variantId, quantity: i.quantity })),
       deliveryMethod,
       paymentMethod: effectivePaymentMethod,
     });
@@ -544,58 +285,51 @@ export class OrderService {
       logger.debug('Updated user CashApp username for order', { userId });
     }
 
-    // Fetch product details and calculate total
-    const productIds = items.map(item => item.productId);
-    logger.debug('Fetching products for order creation', { productIds });
+    // Fetch variant details (with product + pricing) and calculate total
+    const variantIds = items.map(item => item.variantId);
+    logger.debug('Fetching variants for order creation', { variantIds });
 
     try {
-      const products = await prisma.productItem.findMany({
-        where: { id: { in: productIds } },
-        include: { category: true }
+      const variants = await prisma.productVariant.findMany({
+        where: { id: { in: variantIds }, active: true },
+        include: { product: true, quantityOptions: true, priceBreaks: true },
       });
+      const variantMap = new Map(variants.map(v => [v.id, v]));
 
-      logger.debug('Products fetched for order', {
-        requestedCount: productIds.length,
-        foundCount: products.length,
-        productIds: products.map(p => p.id),
-      });
-
-      if (products.length !== items.length) {
-        logger.warn('Order creation failed: some products not found', {
+      if (variants.length !== new Set(variantIds).size) {
+        logger.warn('Order creation failed: some variants not found', {
           userId,
-          requestedProductIds: productIds,
-          foundProductIds: products.map(p => p.id),
+          requestedVariantIds: variantIds,
+          foundVariantIds: variants.map(v => v.id),
         });
         throw new AppError('Some products not found', 404);
       }
 
-    // Calculate total and prepare order items
+    // Calculate total and prepare order items (unit price resolved via pricing.ts)
     let subtotal = 0;
     const orderItems = items.map(item => {
-      const product = products.find(p => p.id === item.productId);
-      if (!product) {
-        throw new AppError(`Product ${item.productId} not found`, 404);
+      const variant = variantMap.get(item.variantId);
+      if (!variant) {
+        throw new AppError(`Product variant ${item.variantId} not found`, 404);
       }
 
-      const allowedQuantities = this.resolveAllowedQuantities(product);
-      if (allowedQuantities.length > 0 && !this.isQuantityAllowed(item.quantity, allowedQuantities)) {
-        throw new AppError(`Invalid quantity for ${product.name}`, 400);
+      if (!isQuantityAllowed(variant, item.quantity)) {
+        throw new AppError(`Invalid quantity for ${variant.product.name}`, 400);
       }
 
-      // Check stock if enabled
-      if (product.stockEnabled && product.stock < item.quantity) {
-        throw new AppError(`Insufficient stock for ${product.name}`, 400);
+      if (variant.stockEnabled && variant.stock.toNumber() < item.quantity) {
+        throw new AppError(`Insufficient stock for ${variant.product.name}`, 400);
       }
 
-      const discountRules = this.resolveQuantityDiscounts(product);
-      const unitPrice = this.resolveDiscountedUnitPrice(product.price, item.quantity, discountRules);
-      const itemTotal = unitPrice * item.quantity;
-      subtotal += itemTotal;
+      const unitPrice = resolveUnitPrice(variant, item.quantity);
+      subtotal += unitPrice.toNumber() * item.quantity;
 
       return {
-        productId: product.id,
+        variantId: variant.id,
+        productName: variant.product.name,
+        variantLabel: variant.label,
         quantity: item.quantity,
-        price: unitPrice
+        unitPrice,
       };
     });
 
@@ -622,6 +356,9 @@ export class OrderService {
         const newOrder = await tx.order.create({
           data: {
             userId,
+            subtotal,
+            tax,
+            taxRate: DEFAULT_TAX_RATE,
             total,
             status: paymentStrategy.initialStatus(),
             deliveryMethod,
@@ -636,25 +373,27 @@ export class OrderService {
             tx.orderItem.create({
               data: {
                 orderId: newOrder.id,
-                productId: item.productId,
+                variantId: item.variantId,
+                productName: item.productName,
+                variantLabel: item.variantLabel,
                 quantity: item.quantity,
-                price: item.price
+                unitPrice: item.unitPrice,
               }
             })
           )
         );
 
-        const stockUpdates: Array<{ productId: number; oldStock: number; newStock: number; quantity: number }> = [];
+        const stockUpdates: Array<{ variantId: number; oldStock: number; newStock: number; quantity: number }> = [];
         for (const item of items) {
-          const product = products.find(p => p.id === item.productId);
-          if (product && product.stockEnabled) {
-            const oldStock = product.stock;
-            await tx.productItem.update({
-              where: { id: product.id },
+          const variant = variantMap.get(item.variantId);
+          if (variant && variant.stockEnabled) {
+            const oldStock = variant.stock.toNumber();
+            await tx.productVariant.update({
+              where: { id: variant.id },
               data: { stock: { decrement: item.quantity } }
             });
             stockUpdates.push({
-              productId: product.id,
+              variantId: variant.id,
               oldStock,
               newStock: oldStock - item.quantity,
               quantity: item.quantity,
@@ -695,7 +434,7 @@ export class OrderService {
       logger.info('Order items created in database', {
         orderId: order.id,
         itemCount: createdItems.length,
-        items: createdItems.map(i => ({ id: i.id, productId: i.productId, quantity: i.quantity })),
+        items: createdItems.map(i => ({ id: i.id, variantId: i.variantId, quantity: i.quantity })),
       });
 
       if (stockUpdates.length > 0) {
@@ -705,12 +444,11 @@ export class OrderService {
         });
       }
 
-      // Fetch products for return
-      const productMap = new Map(products.map(p => [p.id, p]));
-      const itemsWithProducts = createdItems.map(item => ({
-        ...item,
-        product: productMap.get(item.productId) || null
-      }));
+      // Attach variant/product info for the response using the fetched variants.
+      const itemsWithProducts = createdItems.map(item => {
+        const variant = variantMap.get(item.variantId);
+        return shapeOrderItem({ ...item, variant });
+      });
 
       logger.info('Order creation completed successfully', {
         orderId: order.id,
@@ -731,7 +469,7 @@ export class OrderService {
     } catch (error) {
       logger.error('Failed to create order', error, {
         userId,
-        items: items?.map(i => ({ productId: i.productId, quantity: i.quantity })),
+        items: items?.map(i => ({ variantId: i.variantId, quantity: i.quantity })),
       });
       throw error;
     }
@@ -809,21 +547,13 @@ export class OrderService {
         updatedAt: updatedOrder.updatedAt,
       });
 
-      // Fetch order items with products
+      // Fetch order items with variant/product info
       const orderItems = await prisma.orderItem.findMany({
-        where: { orderId }
+        where: { orderId },
+        include: { variant: { include: { product: { include: { images: true } } } } },
       });
 
-      const productIds = [...new Set(orderItems.map(item => item.productId))];
-      const products = await prisma.productItem.findMany({
-        where: { id: { in: productIds } }
-      });
-      const productMap = new Map(products.map(p => [p.id, p]));
-
-      const itemsWithProducts = orderItems.map(item => ({
-        ...item,
-        product: productMap.get(item.productId) || null
-      }));
+      const itemsWithProducts = orderItems.map(shapeOrderItem);
 
       logger.info('Order status update completed successfully', {
         orderId,
@@ -860,94 +590,66 @@ export class OrderService {
   async addItemToOrder(orderId: number, data: AddOrderItemData) {
     logger.info('Adding item to order', {
       orderId,
-      productId: data.productId,
+      variantId: data.variantId,
       quantity: data.quantity,
     });
 
     try {
-      const order = await prisma.order.findUnique({ 
-        where: { id: orderId }
-      });
+      const order = await prisma.order.findUnique({ where: { id: orderId } });
 
       if (!order) {
-        logger.warn('Add item failed: order not found', { orderId, productId: data.productId });
+        logger.warn('Add item failed: order not found', { orderId, variantId: data.variantId });
         throw new AppError('Order not found', 404);
       }
 
-      const product = await prisma.productItem.findUnique({ 
-        where: { id: data.productId },
-        include: { category: true }
+      const variant = await prisma.productVariant.findUnique({
+        where: { id: data.variantId },
+        include: { product: true, quantityOptions: true, priceBreaks: true },
       });
 
-      if (!product) {
-        logger.warn('Add item failed: product not found', { orderId, productId: data.productId });
+      if (!variant) {
+        logger.warn('Add item failed: variant not found', { orderId, variantId: data.variantId });
         throw new AppError('Product not found', 404);
       }
 
-      const allowedQuantities = this.resolveAllowedQuantities(product);
-      if (allowedQuantities.length > 0 && !this.isQuantityAllowed(data.quantity, allowedQuantities)) {
-        throw new AppError(`Invalid quantity for ${product.name}`, 400);
+      if (!isQuantityAllowed(variant, data.quantity)) {
+        throw new AppError(`Invalid quantity for ${variant.product.name}`, 400);
       }
 
-      // Stock check before transaction
-      if (product.stockEnabled && product.stock < data.quantity) {
-        logger.warn('Add item failed: insufficient stock', { orderId, productId: data.productId, stock: product.stock, requested: data.quantity });
-        throw new AppError(`Insufficient stock for ${product.name}`, 400);
+      if (variant.stockEnabled && variant.stock.toNumber() < data.quantity) {
+        logger.warn('Add item failed: insufficient stock', { orderId, variantId: data.variantId, requested: data.quantity });
+        throw new AppError(`Insufficient stock for ${variant.product.name}`, 400);
       }
 
-      // Create new order item
-      const discountRules = this.resolveQuantityDiscounts(product);
-      const unitPrice = this.resolveDiscountedUnitPrice(product.price, data.quantity, discountRules);
+      const unitPrice = resolveUnitPrice(variant, data.quantity);
 
-      logger.debug('Creating order item', {
-        orderId,
-        productId: data.productId,
-        quantity: data.quantity,
-        price: unitPrice,
-      });
-
-      // Recalculate order total
+      // Recalculate order total (Decimal so money stays exact)
       const oldTotal = order.total;
-      const newTotal = order.total + (unitPrice * data.quantity);
-
-      logger.debug('Updating order total', {
-        orderId,
-        oldTotal,
-        newTotal,
-        itemCost: unitPrice * data.quantity,
-      });
+      const newTotal = order.total.add(unitPrice.mul(data.quantity));
 
       const { orderItem } = await prisma.$transaction(async (tx) => {
         const orderItem = await tx.orderItem.create({
           data: {
             orderId,
-            productId: data.productId,
+            variantId: variant.id,
+            productName: variant.product.name,
+            variantLabel: variant.label,
             quantity: data.quantity,
-            price: unitPrice,
-            addedAfterSubmission: true
+            unitPrice,
+            addedAfterSubmission: true,
           }
         });
 
-        await tx.order.update({
-          where: { id: orderId },
-          data: { total: newTotal }
-        });
+        await tx.order.update({ where: { id: orderId }, data: { total: newTotal } });
 
-        if (product.stockEnabled) {
-          await tx.productItem.update({
-            where: { id: product.id },
+        if (variant.stockEnabled) {
+          await tx.productVariant.update({
+            where: { id: variant.id },
             data: { stock: { decrement: data.quantity } }
           });
         }
 
         return { orderItem, newTotal };
-      });
-
-      logger.info('Order item created in database', {
-        orderItemId: orderItem.id,
-        orderId,
-        productId: data.productId,
-        quantity: data.quantity,
       });
 
       logger.info('Order item added successfully', {
@@ -961,7 +663,7 @@ export class OrderService {
     } catch (error) {
       logger.error('Failed to add item to order', error, {
         orderId,
-        productId: data.productId,
+        variantId: data.variantId,
         quantity: data.quantity,
       });
       throw error;
@@ -1001,9 +703,7 @@ export class OrderService {
     });
 
     if (order) {
-      const newTotal = orderItems
-        .filter(item => !item.voided)
-        .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const newTotal = sumOrderItems(orderItems);
 
       await prisma.order.update({
         where: { id: orderId },
@@ -1034,9 +734,9 @@ export class OrderService {
       logger.debug('Order item found for deletion', {
         orderId,
         itemId,
-        productId: orderItem.productId,
+        variantId: orderItem.variantId,
         quantity: orderItem.quantity,
-        price: orderItem.price,
+        unitPrice: orderItem.unitPrice,
       });
 
       await prisma.orderItem.delete({ where: { id: itemId } });
@@ -1044,7 +744,7 @@ export class OrderService {
       logger.info('Order item deleted from database', {
         orderId,
         itemId,
-        productId: orderItem.productId,
+        variantId: orderItem.variantId,
       });
 
       // Recalculate order total
@@ -1058,9 +758,7 @@ export class OrderService {
 
       if (order) {
         const oldTotal = order.total;
-        const newTotal = orderItems
-          .filter(item => !item.voided)
-          .reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const newTotal = sumOrderItems(orderItems);
 
         logger.debug('Recalculating order total after item deletion', {
           orderId,
@@ -1120,7 +818,7 @@ export class OrderService {
       });
 
       const deletePaymentStrategy = getPaymentStrategy(order.paymentMethod as PaymentMethodEnum);
-      await deletePaymentStrategy.refundOnDelete(orderId, order.userId, order.total);
+      await deletePaymentStrategy.refundOnDelete(orderId, order.userId, order.total.toNumber());
 
       return { message: 'Order deleted successfully' };
     } catch (error) {
@@ -1192,20 +890,12 @@ export class OrderService {
         }
       });
 
-      // Fetch order items with products
+      // Fetch order items with variant/product info
       const orderItems = await prisma.orderItem.findMany({
-        where: { orderId }
+        where: { orderId },
+        include: { variant: { include: { product: { include: { images: true } } } } },
       });
-
-      const productIds = [...new Set(orderItems.map(item => item.productId))];
-      const products = await prisma.productItem.findMany({
-        where: { id: { in: productIds } }
-      });
-      const productMap = new Map(products.map(p => [p.id, p]));
-      const itemsWithProducts = orderItems.map(item => ({
-        ...item,
-        product: productMap.get(item.productId) || null
-      }));
+      const itemsWithProducts = orderItems.map(shapeOrderItem);
 
       // Trigger notification updates
       await notificationEventsService.notifyOrderStatusUpdated(
@@ -1240,7 +930,7 @@ export class OrderService {
 
     const token = await authorizeNetService.getHostedPageToken(
       orderId,
-      order.total,
+      order.total.toNumber(),
       communicatorUrl,
       settings.cc_payment
     );
@@ -1271,7 +961,7 @@ export class OrderService {
     if (duplicate) throw new AppError('This payment has already been applied to another order', 400);
 
     const settings = await paymentSettingsService.getPaymentSettings();
-    await authorizeNetService.verifyTransaction(transId, order.total, orderId, settings.cc_payment);
+    await authorizeNetService.verifyTransaction(transId, order.total.toNumber(), orderId, settings.cc_payment);
 
     const updated = await prisma.order.update({
       where: { id: orderId },

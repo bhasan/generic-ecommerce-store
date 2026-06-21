@@ -24,17 +24,26 @@ const baseProduct = {
   id: 101,
   name: 'Blue Dream',
   description: 'A featured flower product',
-  price: 15,
   hidden: false,
-  stock: 10,
-  stockEnabled: true,
-  image: '/primary.png',
-  images: ['/primary.png', '/secondary.png'],
-  category: {
-    name: 'Flower',
-    allowedQuantities: [1, 2],
-    quantityDiscounts: [{ quantity: 2, type: 'percent', value: 10 }],
-  },
+  images: [
+    { url: '/primary.png', role: 'THUMBNAIL', sortOrder: 0 },
+    { url: '/secondary.png', role: 'GALLERY', sortOrder: 1 },
+  ],
+  variants: [
+    {
+      id: 1001,
+      label: 'Default',
+      basePrice: 15,
+      stock: 10,
+      stockEnabled: true,
+      isDefault: true,
+      active: true,
+      pricingMode: 'UNIT',
+      quantityOptions: [{ quantity: 1, sortOrder: 0 }, { quantity: 2, sortOrder: 1 }],
+      priceBreaks: [{ minQuantity: 2, unitPrice: 13.5 }],
+    },
+  ],
+  category: { name: 'Flower' },
 };
 
 const renderProductPage = () =>
@@ -87,7 +96,7 @@ describe('ProductItemPage behavior', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
 
-    expect(addToCartMock).toHaveBeenCalledWith(expect.objectContaining({ id: 101, hidden: true }), 2);
+    expect(addToCartMock).toHaveBeenCalledWith(expect.objectContaining({ id: 101, hidden: true }), expect.any(Object), 2);
     expect(screen.getByText('Save $3.00')).toBeInTheDocument();
   });
 

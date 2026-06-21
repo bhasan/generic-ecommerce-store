@@ -23,13 +23,14 @@ export class ContactController {
       select: { phoneNumber: true },
     });
 
+    const parsedOrderId = orderId ? parseInt(orderId, 10) : null;
     const savedMessage = await contactMessageService.createMessage({
       userId,
       userName: username,
       userEmail: username,
       userPhone: user?.phoneNumber || undefined,
       subject,
-      orderId: orderId ? parseInt(orderId, 10) : null,
+      orderId: parsedOrderId,
       message,
     });
 
@@ -39,7 +40,7 @@ export class ContactController {
       requestId: req.requestId,
       actorUserId: userId,
       messageId: savedMessage.id,
-      orderId: orderId ? parseInt(orderId, 10) : null,
+      orderId: parsedOrderId,
       subject,
     });
 
@@ -156,11 +157,14 @@ export class ContactController {
     });
 
     // This in-app notification updates the customer's support inbox state.
+    // Skipped when the original sender's account was since deleted (userId nulled).
     // Outbound customer email delivery is handled separately by emailService below.
-    await notificationEventsService.notifyContactReplySent(id, originalMessage.userId, {
-      userId,
-      username: repliedByName,
-    });
+    if (originalMessage.userId !== null) {
+      await notificationEventsService.notifyContactReplySent(id, originalMessage.userId, {
+        userId,
+        username: repliedByName,
+      });
+    }
 
     let emailDelivered = false;
     let responseMessage = 'Reply sent successfully';

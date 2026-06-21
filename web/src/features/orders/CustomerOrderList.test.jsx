@@ -39,8 +39,8 @@ function makeOrder(overrides = {}) {
     createdAt: '2026-04-11T12:00:00Z',
     updatedAt: '2026-04-11T12:05:00Z',
     items: [
-      { id: 10, productId: 1, quantity: 2, voided: false },
-      { id: 11, productId: 2, quantity: 1, voided: false },
+      { id: 10, productId: 1, variantId: 101, productName: 'Blue Dream', variantLabel: 'Default', quantity: 2, voided: false },
+      { id: 11, productId: 2, variantId: 102, productName: 'OG Kush', variantLabel: 'Default', quantity: 1, voided: false },
     ],
     user: { id: 42, username: 'testuser', cashapp: 'testuser' },
     ...overrides,
@@ -182,10 +182,10 @@ describe('CustomerOrderList', () => {
   it('truncates the items summary after 3 products and appends "and N more"', async () => {
     const order = makeOrder({
       items: [
-        { id: 1, productId: 1, quantity: 1, voided: false },
-        { id: 2, productId: 2, quantity: 1, voided: false },
-        { id: 3, productId: 3, quantity: 1, voided: false },
-        { id: 4, productId: 4, quantity: 1, voided: false },
+        { id: 1, productId: 1, variantId: 101, productName: 'Blue Dream', variantLabel: 'Default', quantity: 1, voided: false },
+        { id: 2, productId: 2, variantId: 102, productName: 'OG Kush', variantLabel: 'Default', quantity: 1, voided: false },
+        { id: 3, productId: 3, variantId: 103, productName: 'Sour Diesel', variantLabel: 'Default', quantity: 1, voided: false },
+        { id: 4, productId: 4, variantId: 104, productName: 'Purple Haze', variantLabel: 'Default', quantity: 1, voided: false },
       ],
     });
     await renderList({ orders: [order] });
@@ -195,8 +195,8 @@ describe('CustomerOrderList', () => {
   it('excludes voided items from the summary', async () => {
     const order = makeOrder({
       items: [
-        { id: 1, productId: 1, quantity: 1, voided: false },
-        { id: 2, productId: 2, quantity: 1, voided: true },
+        { id: 1, productId: 1, variantId: 101, productName: 'Blue Dream', variantLabel: 'Default', quantity: 1, voided: false },
+        { id: 2, productId: 2, variantId: 102, productName: 'OG Kush', variantLabel: 'Default', quantity: 1, voided: true },
       ],
     });
     await renderList({ orders: [order] });
@@ -206,7 +206,7 @@ describe('CustomerOrderList', () => {
 
   it('shows "No items" when all items are voided', async () => {
     const order = makeOrder({
-      items: [{ id: 1, productId: 1, quantity: 1, voided: true }],
+      items: [{ id: 1, productId: 1, variantId: 101, productName: 'Blue Dream', variantLabel: 'Default', quantity: 1, voided: true }],
     });
     await renderList({ orders: [order] });
     expect(screen.getByText('No items')).toBeInTheDocument();

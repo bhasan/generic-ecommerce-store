@@ -66,10 +66,10 @@ export class AuthService {
           message: error instanceof Error ? error.message : String(error),
         });
         deliveryZoneMetadata = {
-          deliveryZoneStatus: DeliveryZoneStatus.UNVERIFIED,
-          deliveryZoneSource: DeliveryEligibilitySource.NONE,
-          deliveryZoneDistanceMiles: null,
-          deliveryZoneCheckedAt: new Date(),
+          deliveryStatus: DeliveryZoneStatus.UNVERIFIED,
+          deliverySource: DeliveryEligibilitySource.NONE,
+          deliveryDistanceMiles: null,
+          deliveryCheckedAt: new Date(),
         };
       }
     }
@@ -91,10 +91,10 @@ export class AuthService {
         phoneNumber: phoneNumber || null,
         approved: false, // Requires admin approval
         ...(deliveryZoneMetadata ? {
-          deliveryZoneStatus: deliveryZoneMetadata.deliveryZoneStatus,
-          deliveryZoneSource: deliveryZoneMetadata.deliveryZoneSource,
-          deliveryZoneDistanceMiles: deliveryZoneMetadata.deliveryZoneDistanceMiles,
-          deliveryZoneCheckedAt: deliveryZoneMetadata.deliveryZoneCheckedAt,
+          deliveryStatus: deliveryZoneMetadata.deliveryStatus,
+          deliverySource: deliveryZoneMetadata.deliverySource,
+          deliveryDistanceMiles: deliveryZoneMetadata.deliveryDistanceMiles,
+          deliveryCheckedAt: deliveryZoneMetadata.deliveryCheckedAt,
         } : {}),
       }
     });
@@ -294,10 +294,10 @@ export class AuthService {
     approved?: boolean;
     rejected?: boolean;
     rejectionNote?: string | null;
-    deliveryZoneStatus?: DeliveryZoneStatus | null;
-    deliveryZoneSource?: DeliveryEligibilitySource | null;
-    deliveryZoneDistanceMiles?: number | null;
-    deliveryZoneCheckedAt?: Date | null;
+    deliveryStatus?: DeliveryZoneStatus | null;
+    deliverySource?: DeliveryEligibilitySource | null;
+    deliveryDistanceMiles?: number | null;
+    deliveryCheckedAt?: Date | null;
     createdAt: Date;
     updatedAt?: Date;
     roles: Array<{ role: { name: string } | null }>;
@@ -311,10 +311,10 @@ export class AuthService {
       approved,
       rejected,
       rejectionNote,
-      deliveryZoneStatus,
-      deliveryZoneSource,
-      deliveryZoneDistanceMiles,
-      deliveryZoneCheckedAt,
+      deliveryStatus,
+      deliverySource,
+      deliveryDistanceMiles,
+      deliveryCheckedAt,
       createdAt,
       updatedAt,
     } = user;
@@ -327,10 +327,10 @@ export class AuthService {
       ...(approved !== undefined ? { approved } : {}),
       ...(rejected !== undefined ? { rejected } : {}),
       ...(rejectionNote ? { rejectionNote } : {}),
-      ...(deliveryZoneStatus !== undefined && deliveryZoneStatus !== null ? { deliveryZoneStatus } : {}),
-      ...(deliveryZoneSource !== undefined && deliveryZoneSource !== null ? { deliveryZoneSource } : {}),
-      ...(deliveryZoneDistanceMiles !== undefined && deliveryZoneDistanceMiles !== null ? { deliveryZoneDistanceMiles } : {}),
-      ...(deliveryZoneCheckedAt !== undefined && deliveryZoneCheckedAt !== null ? { deliveryZoneCheckedAt } : {}),
+      ...(deliveryStatus !== undefined && deliveryStatus !== null ? { deliveryStatus } : {}),
+      ...(deliverySource !== undefined && deliverySource !== null ? { deliverySource } : {}),
+      ...(deliveryDistanceMiles !== undefined && deliveryDistanceMiles !== null ? { deliveryDistanceMiles } : {}),
+      ...(deliveryCheckedAt !== undefined && deliveryCheckedAt !== null ? { deliveryCheckedAt } : {}),
       roles: this.toRoleNames(user.roles),
       createdAt,
       ...(updatedAt ? { updatedAt } : {})

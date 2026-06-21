@@ -199,29 +199,6 @@
   border-top: 1px solid var(--border-color);
 }
 
-.product-stock {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-}
-
-.stock-indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--color-secondary);
-}
-
-.stock-indicator-low {
-  background: var(--color-warning);
-}
-
-.stock-indicator-out {
-  background: var(--color-danger);
-}
-
 .product-price {
   font-size: 1.1rem;
   font-weight: var(--font-weight-bold);

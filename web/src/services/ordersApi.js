@@ -69,12 +69,12 @@ export const updateOrderStatus = async (id, status) => {
 /**
  * Add item to order
  * @param {number} orderId - Order ID
- * @param {number} productId - Product ID
+ * @param {number} variantId - Product variant ID
  * @param {number} quantity - Quantity
  * @returns {Promise<object>} Order item object
  */
-export const addItemToOrder = async (orderId, productId, quantity) => {
-  const response = await post(`/orders/${orderId}/items`, { productId, quantity });
+export const addItemToOrder = async (orderId, variantId, quantity) => {
+  const response = await post(`/orders/${orderId}/items`, { variantId, quantity });
   return response.orderItem || response;
 };
 

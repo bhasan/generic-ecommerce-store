@@ -296,7 +296,13 @@ function CheckoutPage() {
         tax,
         total,
         items: itemsForSuccess,
-        paymentMethod: selectedPaymentMethod
+        paymentMethod: selectedPaymentMethod,
+        paymentSnapshot: selectedPaymentMethod === PaymentMethod.EXTERNAL ? {
+          methods: Object.entries(paymentSettings || {})
+            .filter(([, cfg]) => cfg?.enabled && cfg?.handle)
+            .map(([type, cfg]) => ({ type, label: { cashapp: 'CashApp', zelle: 'Zelle', venmo: 'Venmo' }[type] ?? type, handle: cfg.handle })),
+          senderHandle: cashAppUsername || null,
+        } : null,
       };
 
       if (isCCPayment) {

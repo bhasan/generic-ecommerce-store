@@ -43,7 +43,7 @@ const extractTokenFromHeader = vi.hoisted(() =>
 );
 
 const prismaMock = vi.hoisted(() => ({
-  productItem: { findMany: vi.fn() },
+  product: { findMany: vi.fn() },
   category: { findMany: vi.fn() },
 }));
 
@@ -132,30 +132,16 @@ describe('export / import round-trip', () => {
 
   beforeAll(async () => {
     // Two products — one with each test image as thumbnail
-    prismaMock.productItem.findMany.mockResolvedValue([
+    prismaMock.product.findMany.mockResolvedValue([
       {
-        id: 1,
-        name: 'Alpha Product',
-        categoryId: 10,
-        price: 9.99,
-        description: 'First product',
-        stock: 5,
-        stockEnabled: true,
-        thumbnail: `/api/uploads/${FILE_A}`,
-        image: null,
-        images: [],
+        id: 1, name: 'Alpha Product', slug: 'alpha-product', categoryId: 10, description: 'First product',
+        images: [{ url: `/api/uploads/${FILE_A}`, role: 'THUMBNAIL', sortOrder: 0 }],
+        variants: [{ basePrice: { toString: () => '9.99' }, stock: { toString: () => '5' }, stockEnabled: true, isDefault: true }],
       },
       {
-        id: 2,
-        name: 'Beta Product',
-        categoryId: 10,
-        price: 14.99,
-        description: null,
-        stock: 0,
-        stockEnabled: false,
-        thumbnail: `/api/uploads/${FILE_B}`,
-        image: null,
-        images: [],
+        id: 2, name: 'Beta Product', slug: 'beta-product', categoryId: 10, description: null,
+        images: [{ url: `/api/uploads/${FILE_B}`, role: 'THUMBNAIL', sortOrder: 0 }],
+        variants: [{ basePrice: { toString: () => '14.99' }, stock: { toString: () => '0' }, stockEnabled: false, isDefault: true }],
       },
     ]);
     prismaMock.category.findMany.mockResolvedValue([
@@ -186,13 +172,13 @@ describe('export / import round-trip', () => {
     expect(entries.get(`images/${FILE_B}`)).toEqual(CONTENT_B);
   });
 
-  it('products.csv has the correct 10-column header', async () => {
+  it('products.csv has the correct header', async () => {
     const entries = await readZipEntries(zipBuf);
     const csv = entries.get('products.csv')!.toString();
     const header = csv.split('\r\n')[0];
 
     expect(header).toBe(
-      'id,name,categoryName,price,description,stock,stockEnabled,thumbnail,image,images'
+      'id,name,slug,categoryName,price,description,stock,stockEnabled,thumbnail,images'
     );
   });
 

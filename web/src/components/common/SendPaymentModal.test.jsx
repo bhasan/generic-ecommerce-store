@@ -160,4 +160,47 @@ describe('SendPaymentModal', () => {
     renderModal();
     expect(screen.getByText(/sent the payment on cashapp/i)).toBeInTheDocument();
   });
+
+  describe('CashApp handle visibility', () => {
+    it('hides CashApp send-to card when enabled but no handle is configured', () => {
+      renderModal({
+        paymentSettings: { cashapp: { enabled: true, handle: '' }, zelle: { enabled: false }, venmo: { enabled: false } },
+        storeCashappUsername: '',
+      });
+      expect(screen.queryByText(/CashApp.*Send to/i)).not.toBeInTheDocument();
+    });
+
+    it('never shows "Loading..." text', () => {
+      renderModal({
+        paymentSettings: { cashapp: { enabled: true, handle: '' }, zelle: { enabled: false }, venmo: { enabled: false } },
+        storeCashappUsername: '',
+      });
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
+    });
+
+    it('shows CashApp section when enabled and handle comes from storeCashappUsername fallback', () => {
+      renderModal({
+        paymentSettings: { cashapp: { enabled: true, handle: '' }, zelle: { enabled: false }, venmo: { enabled: false } },
+        storeCashappUsername: '$FallbackHandle',
+      });
+      expect(screen.getByText('$FallbackHandle')).toBeInTheDocument();
+    });
+
+    it('hides CashApp section when paymentSettings is empty (not yet loaded)', () => {
+      renderModal({
+        paymentSettings: {},
+        storeCashappUsername: '',
+      });
+      expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
+    });
+
+    it('prefers paymentSettings handle over storeCashappUsername when both are set', () => {
+      renderModal({
+        paymentSettings: { cashapp: { enabled: true, handle: '$PrimaryHandle' }, zelle: { enabled: false }, venmo: { enabled: false } },
+        storeCashappUsername: '$FallbackHandle',
+      });
+      expect(screen.getByText('$PrimaryHandle')).toBeInTheDocument();
+      expect(screen.queryByText('$FallbackHandle')).not.toBeInTheDocument();
+    });
+  });
 });

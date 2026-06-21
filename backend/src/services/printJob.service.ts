@@ -4,19 +4,19 @@ import { logger } from '../utils/logger';
 
 type PrintJobRow = {
   id: number;
-  order_id: number;
+  orderId: number;
   reason: string;
   status: string;
-  payload_json: unknown;
-  created_at: Date;
-  claimed_at: Date | null;
-  completed_at: Date | null;
-  failed_at: Date | null;
-  claimed_by_agent_id: string | null;
-  native_job_id: string | null;
-  attempt_count: number;
-  last_error_code: string | null;
-  last_error_message: string | null;
+  payloadJson: unknown;
+  createdAt: Date;
+  claimedAt: Date | null;
+  completedAt: Date | null;
+  failedAt: Date | null;
+  claimedByAgentId: string | null;
+  nativeJobId: string | null;
+  attemptCount: number;
+  lastErrorCode: string | null;
+  lastErrorMessage: string | null;
 };
 
 interface CreatePrintJobData {
@@ -65,10 +65,10 @@ export class PrintJobService {
       UPDATE "print_jobs"
       SET
         "status" = 'CLAIMED'::"PrintJobStatus",
-        "claimed_by_agent_id" = ${data.agentId},
-        "claimed_at" = NOW(),
-        "completed_at" = NULL,
-        "failed_at" = NULL
+        "claimedByAgentId" = ${data.agentId},
+        "claimedAt" = NOW(),
+        "completedAt" = NULL,
+        "failedAt" = NULL
       WHERE "id" = (
         SELECT "id"
         FROM "print_jobs"
@@ -76,27 +76,27 @@ export class PrintJobService {
           "status" = 'PENDING'::"PrintJobStatus"
           OR (
             "status" = 'CLAIMED'::"PrintJobStatus"
-            AND "claimed_at" < NOW() - INTERVAL '5 minutes'
+            AND "claimedAt" < NOW() - INTERVAL '5 minutes'
           )
-        ORDER BY "created_at" ASC
+        ORDER BY "createdAt" ASC
         FOR UPDATE SKIP LOCKED
         LIMIT 1
       )
       RETURNING
         "id",
-        "order_id",
+        "orderId",
         "reason"::text AS "reason",
         "status"::text AS "status",
-        "payload_json",
-        "created_at",
-        "claimed_at",
-        "completed_at",
-        "failed_at",
-        "claimed_by_agent_id",
-        "native_job_id",
-        "attempt_count",
-        "last_error_code",
-        "last_error_message"
+        "payloadJson",
+        "createdAt",
+        "claimedAt",
+        "completedAt",
+        "failedAt",
+        "claimedByAgentId",
+        "nativeJobId",
+        "attemptCount",
+        "lastErrorCode",
+        "lastErrorMessage"
     `;
 
     const job = rows[0] ? this.mapPrintJobRow(rows[0]) : null;
@@ -174,19 +174,19 @@ export class PrintJobService {
   private mapPrintJobRow(row: PrintJobRow) {
     return {
       id: row.id,
-      orderId: row.order_id,
+      orderId: row.orderId,
       reason: row.reason,
       status: row.status,
-      payloadJson: row.payload_json,
-      createdAt: row.created_at,
-      claimedAt: row.claimed_at,
-      completedAt: row.completed_at,
-      failedAt: row.failed_at,
-      claimedByAgentId: row.claimed_by_agent_id,
-      nativeJobId: row.native_job_id,
-      attemptCount: row.attempt_count,
-      lastErrorCode: row.last_error_code,
-      lastErrorMessage: row.last_error_message,
+      payloadJson: row.payloadJson,
+      createdAt: row.createdAt,
+      claimedAt: row.claimedAt,
+      completedAt: row.completedAt,
+      failedAt: row.failedAt,
+      claimedByAgentId: row.claimedByAgentId,
+      nativeJobId: row.nativeJobId,
+      attemptCount: row.attemptCount,
+      lastErrorCode: row.lastErrorCode,
+      lastErrorMessage: row.lastErrorMessage,
     };
   }
 }

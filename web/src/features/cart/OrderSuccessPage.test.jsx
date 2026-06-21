@@ -30,6 +30,10 @@ const baseOrderData = {
   cashAppUsername: '$customer',
   paymentMethod: PaymentMethod.EXTERNAL,
   specialInstructions: '',
+  paymentSnapshot: {
+    methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+    senderHandle: '$customer',
+  },
 };
 
 const baseAppState = {
@@ -75,10 +79,85 @@ describe('OrderSuccessPage', () => {
     expect(screen.getAllByText('$22.00').length).toBeGreaterThan(0);
   });
 
-  it('shows CashApp payment info for EXTERNAL payment', () => {
-    renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.EXTERNAL });
-    expect(screen.getByText(/payment will be sent to cashapp/i)).toBeInTheDocument();
-    expect(screen.getAllByText('$customer').length).toBeGreaterThan(0);
+  describe('Payment Information block — EXTERNAL payment', () => {
+    it('shows method names joined on one line for a single method', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('CashApp');
+    });
+
+    it('shows method names joined with "/" when multiple methods are enabled', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [
+            { type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' },
+            { type: 'zelle', label: 'Zelle', handle: 'store@email.com' },
+          ],
+          senderHandle: '$customer',
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('CashApp / Zelle');
+    });
+
+    it('shows total amount in the payment card', () => {
+      renderSuccessPage({ ...baseOrderData });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('$22.00');
+    });
+
+    it('does not show receiver handles', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [
+            { type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' },
+            { type: 'zelle', label: 'Zelle', handle: 'store@email.com' },
+          ],
+          senderHandle: '$customer',
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).not.toHaveTextContent('$StoreHandle');
+      expect(paymentCard).not.toHaveTextContent('store@email.com');
+      expect(paymentCard).not.toHaveTextContent(/receiver/i);
+    });
+
+    it('shows sender handle when present', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('$customer');
+    });
+
+    it('does not show a sender row when senderHandle is absent', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'zelle', label: 'Zelle', handle: 'store@email.com' }],
+          senderHandle: null,
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).not.toHaveTextContent(/sender/i);
+    });
+
+    it('does not show "payment will be sent to CashApp" hardcoded sentence', () => {
+      renderSuccessPage({ ...baseOrderData });
+      expect(screen.queryByText(/payment will be sent to cashapp/i)).not.toBeInTheDocument();
+    });
   });
 
   it('shows "Paid with store credit" for CREDIT payment', () => {
@@ -161,6 +240,117 @@ describe('OrderSuccessPage', () => {
     expect(screen.queryByText(/send payment/i)).not.toBeInTheDocument();
     expect(screen.getByText(/check your orders page/i)).toBeInTheDocument();
     expect(screen.getByText(/track your delivery/i)).toBeInTheDocument();
+  });
+
+  describe("What's Next — Send Payment step method names", () => {
+    it('mentions Zelle in the Send Payment step when Zelle is the payment method', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'zelle', label: 'Zelle', handle: 'store@email.com' }],
+          senderHandle: null,
+        },
+      });
+      expect(screen.getAllByText(/zelle/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('store@email.com').length).toBeGreaterThan(0);
+    });
+
+    it('mentions Venmo in the Send Payment step when Venmo is the payment method', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'venmo', label: 'Venmo', handle: '@StoreVenmo' }],
+          senderHandle: null,
+        },
+      });
+      expect(screen.getAllByText(/venmo/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('@StoreVenmo').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Pickup Location card', () => {
+    it('shows actual pickupLocation address for PICKUP orders instead of "Store Pickup"', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.PICKUP,
+        deliveryAddress: 'Store Pickup',
+        pickupLocation: '101 Example Ave, Springfield',
+        paymentMethod: PaymentMethod.CREDIT,
+      });
+      expect(screen.getAllByText('101 Example Ave, Springfield').length).toBeGreaterThan(0);
+      expect(screen.queryByText('Store Pickup')).not.toBeInTheDocument();
+    });
+
+    it('shows "Curbside Pickup" heading for CURBSIDE orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.CURBSIDE,
+        deliveryAddress: 'Red Honda Civic',
+        paymentMethod: PaymentMethod.CREDIT,
+      });
+      expect(screen.getByText('Curbside Pickup')).toBeInTheDocument();
+    });
+
+    it('shows vehicle description for CURBSIDE orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.CURBSIDE,
+        deliveryAddress: 'Red Honda Civic',
+        paymentMethod: PaymentMethod.CREDIT,
+      });
+      expect(screen.getAllByText('Red Honda Civic').length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Payment Information — edge cases', () => {
+    it('shows "Paid by card" for CC payment instead of blank', () => {
+      renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.CC, paymentSnapshot: null });
+      expect(screen.getByText(/paid by card/i)).toBeInTheDocument();
+    });
+
+    it('does not show memo instruction in the Payment Information card', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentMethod: PaymentMethod.EXTERNAL,
+        order: { id: 42, createdAt: new Date().toISOString() },
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).not.toHaveTextContent(/memo/i);
+    });
+  });
+
+  describe("What's Next — CURBSIDE", () => {
+    it('shows curbside steps (not delivery steps) for CURBSIDE orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.CURBSIDE,
+        deliveryAddress: 'Red Honda Civic',
+        paymentMethod: PaymentMethod.EXTERNAL,
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      expect(screen.queryByText(/track your delivery/i)).not.toBeInTheDocument();
+      expect(screen.getByText(/curbside/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("What's Next — IN_STORE location", () => {
+    it('shows pickup location address in IN_STORE steps', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        deliveryMethod: DeliveryMethod.PICKUP,
+        deliveryAddress: 'Store Pickup',
+        pickupLocation: '101 Example Ave',
+        paymentMethod: PaymentMethod.IN_STORE,
+      });
+      expect(screen.getAllByText('101 Example Ave').length).toBeGreaterThan(0);
+    });
   });
 
   it('calls setCart to clear cart on mount', () => {

@@ -143,7 +143,7 @@ describe('order routes integration', () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        items: [{ productId: 7, quantity: 1 }],
+        items: [{ variantId: 7, quantity: 1 }],
       }),
     });
 
@@ -159,7 +159,7 @@ describe('order routes integration', () => {
     orderService.createOrder.mockResolvedValue({ id: 900, total: 42.5, status: 'PENDING' });
 
     const payload = {
-      items: [{ productId: 7, quantity: 2 }],
+      items: [{ variantId: 7, quantity: 2 }],
       cashAppUsername: '$customer-one',
       deliveryMethod: DeliveryMethod.PICKUP,
       paymentMethod: PaymentMethod.EXTERNAL,
@@ -193,8 +193,8 @@ describe('order routes integration', () => {
     verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
     deliveryEligibilityService.checkDeliveryEligibility.mockResolvedValue({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'ZIP_FALLBACK',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'ZIP_FALLBACK',
       distanceMiles: null,
       thresholdMiles: 5,
       message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
@@ -221,8 +221,8 @@ describe('order routes integration', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'ZIP_FALLBACK',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'ZIP_FALLBACK',
       distanceMiles: null,
       thresholdMiles: 5,
       message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
@@ -277,7 +277,7 @@ describe('order routes integration', () => {
         Authorization: 'Bearer customer-token',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ productId: 7, quantity: 1 }),
+      body: JSON.stringify({ variantId: 7, quantity: 1 }),
     });
 
     expect(response.status).toBe(403);
@@ -370,7 +370,7 @@ describe('order routes integration', () => {
     orderService.createOrder.mockResolvedValue({ id: 901, total: 10.83, status: 'PENDING' });
 
     const payload = {
-      items: [{ productId: 3, quantity: 1 }],
+      items: [{ variantId: 3, quantity: 1 }],
       deliveryMethod: DeliveryMethod.PICKUP,
       paymentMethod: PaymentMethod.IN_STORE,
     };
@@ -408,7 +408,7 @@ describe('order routes integration', () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        items: [{ productId: 1, quantity: 1 }],
+        items: [{ variantId: 1, quantity: 1 }],
         paymentMethod: 'CASH',
       }),
     });

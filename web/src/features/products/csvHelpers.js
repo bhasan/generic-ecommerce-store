@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 
-// Columns written to the full product export (includes image filenames)
-const EXPORT_FIELDS = ['id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled', 'thumbnail', 'image', 'images'];
+// Columns written to the full product export (matches backend productExport.service.ts)
+const EXPORT_FIELDS = ['id', 'name', 'slug', 'categoryName', 'price', 'description', 'stock', 'stockEnabled', 'thumbnail', 'images'];
 
 // Columns used for the import template (image import is not supported)
 const TEMPLATE_FIELDS = ['id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled'];
@@ -32,18 +32,23 @@ export function exportProductsToCsv(products, categories) {
 
   const urlToFilename = (url) => url?.split('/').pop() ?? '';
 
-  const rows = products.map(p => ({
-    id: p.id,
-    name: p.name,
-    categoryName: categoryMap[p.categoryId ?? p.category?.id] ?? '',
-    price: p.price,
-    description: p.description ?? '',
-    stock: p.stock ?? 0,
-    stockEnabled: p.stockEnabled ?? false,
-    thumbnail: urlToFilename(p.thumbnail),
-    image: urlToFilename(p.image),
-    images: (p.images ?? []).map(urlToFilename).filter(Boolean).join(';'),
-  }));
+  const rows = products.map(p => {
+    const thumbImg = (p.images ?? []).find(img => img.role === 'THUMBNAIL');
+    const galleryImgs = (p.images ?? []).filter(img => img.role !== 'THUMBNAIL');
+    const defaultVariant = (p.variants ?? []).find(v => v.isDefault && v.active) ?? (p.variants ?? [])[0];
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug ?? '',
+      categoryName: categoryMap[p.categoryId ?? p.category?.id] ?? '',
+      price: Number(defaultVariant?.basePrice ?? 0),
+      description: p.description ?? '',
+      stock: Number(defaultVariant?.stock ?? 0),
+      stockEnabled: defaultVariant?.stockEnabled ?? false,
+      thumbnail: urlToFilename(thumbImg?.url),
+      images: galleryImgs.map(img => urlToFilename(img.url)).filter(Boolean).join(';'),
+    };
+  });
 
   const csv = Papa.unparse(rows, { columns: EXPORT_FIELDS });
   const date = new Date().toISOString().slice(0, 10);
@@ -198,10 +203,19 @@ export function validateAndTransformRows(rows, existingProducts, categories) {
         payload: {
           name,
           categoryId: matchedCategory.id,
-          price,
           description: String(row.description ?? '').trim() || undefined,
-          stock,
-          stockEnabled,
+          variants: [{
+            label: 'Default',
+            sku: `CSV-${name.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}-${Date.now()}`,
+            pricingMode: 'UNIT',
+            basePrice: price,
+            stock,
+            stockEnabled,
+            isDefault: true,
+            active: true,
+            quantityOptions: [],
+            priceBreaks: [],
+          }],
         },
         warnings,
       });

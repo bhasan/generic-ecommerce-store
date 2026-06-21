@@ -15,7 +15,7 @@ async function seed() {
   await prisma.review.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
-  await prisma.productItem.deleteMany();
+  await prisma.product.deleteMany();
   await prisma.category.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.user.deleteMany();
@@ -212,62 +212,96 @@ async function seed() {
 
   console.log('📦 Creating products...');
 
+  // Each seed product gets one default UNIT variant (price/stock live on the variant)
+  // plus a thumbnail image, matching the post-migration catalog shape.
+  const makeProduct = (data: {
+    name: string;
+    slug: string;
+    categoryId: number;
+    description: string;
+    image: string;
+    price: number;
+    stock: number;
+    stockEnabled: boolean;
+  }) =>
+    prisma.product.create({
+      data: {
+        name: data.name,
+        slug: data.slug,
+        categoryId: data.categoryId,
+        description: data.description,
+        hidden: false,
+        images: {
+          create: [{ url: data.image, role: 'THUMBNAIL', sortOrder: 0 }],
+        },
+        variants: {
+          create: [{
+            label: 'Default',
+            sku: `SKU-${data.slug}`,
+            pricingMode: 'UNIT',
+            basePrice: data.price,
+            stock: data.stock,
+            stockEnabled: data.stockEnabled,
+            isDefault: true,
+            active: true,
+            sortOrder: 0,
+          }],
+        },
+      },
+      include: { variants: true },
+    });
+
   const products = await Promise.all([
-    prisma.productItem.create({
-      data: {
-        name: 'Wireless Headphones',
-        categoryId: electronicsCategory.id,
-        price: 99.99,
-        description: 'High-quality wireless headphones with noise cancellation',
-        image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
-        images: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400'],
-        stock: 15,
-        stockEnabled: true,
-        hidden: false
-      }
+    makeProduct({
+      name: 'Wireless Headphones', slug: 'wireless-headphones', categoryId: electronicsCategory.id,
+      description: 'High-quality wireless headphones with noise cancellation',
+      image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
+      price: 99.99, stock: 15, stockEnabled: true,
     }),
-    prisma.productItem.create({
-      data: {
-        name: 'Smart Watch',
-        categoryId: electronicsCategory.id,
-        price: 199.99,
-        description: 'Feature-rich smartwatch with health tracking',
-        image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
-        images: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400'],
-        stock: 8,
-        stockEnabled: true,
-        hidden: false
-      }
+    makeProduct({
+      name: 'Smart Watch', slug: 'smart-watch', categoryId: electronicsCategory.id,
+      description: 'Feature-rich smartwatch with health tracking',
+      image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
+      price: 199.99, stock: 8, stockEnabled: true,
     }),
-    prisma.productItem.create({
-      data: {
-        name: 'Laptop Bag',
-        categoryId: accessoriesCategory.id,
-        price: 49.99,
-        description: 'Durable laptop bag with multiple compartments',
-        image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400',
-        images: ['https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400'],
-        stock: 20,
-        stockEnabled: true,
-        hidden: false
-      }
+    makeProduct({
+      name: 'Laptop Bag', slug: 'laptop-bag', categoryId: accessoriesCategory.id,
+      description: 'Durable laptop bag with multiple compartments',
+      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400',
+      price: 49.99, stock: 20, stockEnabled: true,
     }),
-    prisma.productItem.create({
-      data: {
-        name: 'USB-C Cable',
-        categoryId: accessoriesCategory.id,
-        price: 14.99,
-        description: 'Fast charging USB-C cable',
-        image: 'https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=400',
-        images: ['https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=400'],
-        stock: 0,
-        stockEnabled: false,
-        hidden: false
-      }
-    })
+    makeProduct({
+      name: 'USB-C Cable', slug: 'usb-c-cable', categoryId: accessoriesCategory.id,
+      description: 'Fast charging USB-C cable',
+      image: 'https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=400',
+      price: 14.99, stock: 0, stockEnabled: false,
+    }),
   ]);
 
-  console.log(`✅ Created ${products.length} products`);
+  // Multi-variant product used by e2e variant tests
+  await prisma.product.create({
+    data: {
+      name: 'Flow Test Hoodie', slug: 'flow-test-hoodie', categoryId: accessoriesCategory.id,
+      description: 'Comfortable hoodie in three sizes for testing variant selection.',
+      hidden: false,
+      images: {
+        create: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400', role: 'THUMBNAIL', sortOrder: 0 }],
+      },
+      variants: {
+        create: [
+          { label: 'Small',  sku: 'SKU-hoodie-S', pricingMode: 'UNIT', basePrice: 29.99, stock: 10, stockEnabled: true,  isDefault: true,  active: true, sortOrder: 0 },
+          { label: 'Medium', sku: 'SKU-hoodie-M', pricingMode: 'UNIT', basePrice: 34.99, stock: 5,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 1 },
+          { label: 'Large',  sku: 'SKU-hoodie-L', pricingMode: 'UNIT', basePrice: 34.99, stock: 0,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 2 },
+        ],
+      },
+    },
+    include: { variants: true },
+  });
+
+  // The default variant for each product (used by order items below).
+  const defaultVariant = (p: (typeof products)[number]) => p.variants[0];
+
+  console.log(`✅ Created ${products.length + 1} products`);
 
   console.log('⭐ Creating reviews...');
 
@@ -279,9 +313,7 @@ async function seed() {
       comment: 'Amazing sound quality! Best headphones I have ever owned.',
       helpful: 12,
       notHelpful: 1,
-      flagged: false,
-      votedByHelpful: [],
-      votedByNotHelpful: []
+      flagged: false
     }
   });
 
@@ -293,9 +325,7 @@ async function seed() {
       comment: 'Very comfortable for long listening sessions.',
       helpful: 8,
       notHelpful: 0,
-      flagged: false,
-      votedByHelpful: [],
-      votedByNotHelpful: []
+      flagged: false
     }
   });
 
@@ -307,9 +337,7 @@ async function seed() {
       comment: 'Perfect for work from home!',
       helpful: 15,
       notHelpful: 2,
-      flagged: false,
-      votedByHelpful: [],
-      votedByNotHelpful: []
+      flagged: false
     }
   });
 
@@ -328,9 +356,11 @@ async function seed() {
   await prisma.orderItem.create({
     data: {
       orderId: order1.id,
-      productId: products[0].id,
+      variantId: defaultVariant(products[0]).id,
+      productName: products[0].name,
+      variantLabel: defaultVariant(products[0]).label,
       quantity: 1,
-      price: products[0].price
+      unitPrice: defaultVariant(products[0]).basePrice
     }
   });
 
@@ -346,15 +376,19 @@ async function seed() {
     data: [
       {
         orderId: order2.id,
-        productId: products[1].id,
+        variantId: defaultVariant(products[1]).id,
+        productName: products[1].name,
+        variantLabel: defaultVariant(products[1]).label,
         quantity: 1,
-        price: products[1].price
+        unitPrice: defaultVariant(products[1]).basePrice
       },
       {
         orderId: order2.id,
-        productId: products[3].id,
+        variantId: defaultVariant(products[3]).id,
+        productName: products[3].name,
+        variantLabel: defaultVariant(products[3]).label,
         quantity: 1,
-        price: products[3].price
+        unitPrice: defaultVariant(products[3]).basePrice
       }
     ]
   });
@@ -366,7 +400,7 @@ async function seed() {
   console.log('');
   console.log('📋 Summary:');
   console.log(`   Users: 9`);
-  console.log(`   Products: ${products.length}`);
+  console.log(`   Products: ${products.length + 1}`);
   console.log(`   Reviews: 3`);
   console.log(`   Orders: 2`);
   console.log('');

@@ -40,8 +40,8 @@ function OrderDetailPanel({
   onSaveEdit,
   onCancelEdit,
   addingItemToOrderId,
-  newItemProductId,
-  setNewItemProductId,
+  newItemVariantId,
+  setNewItemVariantId,
   newItemQuantity,
   setNewItemQuantity,
   onAddItem,
@@ -58,7 +58,6 @@ function OrderDetailPanel({
   onDeleteOrder,
   onPrintReceipt,
   showConfirmDialog,
-  getProductName,
   getStatusIcon,
   getStatusClass,
   getStatusLabel,
@@ -93,7 +92,7 @@ function OrderDetailPanel({
     order.deliveryDistanceMiles !== null && order.deliveryDistanceMiles !== undefined
       ? `${order.deliveryDistanceMiles.toFixed(2)} miles`
       : null,
-    order.deliveryEligibilitySource === 'ZIP_FALLBACK'
+    order.deliverySource === 'ZIP_FALLBACK'
       ? 'ZIP fallback'
       : null,
   ].filter(Boolean).join(' | ');
@@ -280,7 +279,10 @@ function OrderDetailPanel({
                   >
                     <div className="order-item-info">
                       <span className="order-item-name">
-                        {getProductName(item.productId)}
+                        {item.productName ?? 'Unknown Product'}
+                        {item.variantLabel && item.variantLabel !== 'Default' && (
+                          <span className="order-item-variant"> — {item.variantLabel}</span>
+                        )}
                         {item.voided && <span className="order-item-badge badge-voided">Voided</span>}
                         {item.addedAfterSubmission && <span className="order-item-badge badge-added">Added</span>}
                       </span>
@@ -288,13 +290,13 @@ function OrderDetailPanel({
                     </div>
                     <div className="order-item-right">
                       <span className="order-item-price">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        ${(Number(item.unitPrice ?? item.price ?? 0) * item.quantity).toFixed(2)}
                       </span>
                       {isEditing && !item.voided && (
                         <div className="order-item-actions">
                           <button
                             type="button"
-                            onClick={() => onVoidItem(order.id, itemId, getProductName(item.productId))}
+                            onClick={() => onVoidItem(order.id, itemId, item.productName ?? 'item')}
                             className="btn-item-action btn-item-void"
                             title="Void"
                           >
@@ -302,7 +304,7 @@ function OrderDetailPanel({
                           </button>
                           <button
                             type="button"
-                            onClick={() => onDeleteItem(order.id, itemId, getProductName(item.productId))}
+                            onClick={() => onDeleteItem(order.id, itemId, item.productName ?? 'item')}
                             className="btn-item-action btn-item-delete"
                             title="Delete"
                           >
@@ -323,13 +325,17 @@ function OrderDetailPanel({
                     <div className="add-item-field">
                       <label>Product</label>
                       <select
-                        value={newItemProductId}
-                        onChange={(e) => setNewItemProductId(e.target.value)}
+                        value={newItemVariantId}
+                        onChange={(e) => setNewItemVariantId(e.target.value)}
                       >
                         <option value="">Select a product</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name} - ${p.price.toFixed(2)}</option>
-                        ))}
+                        {products.flatMap((p) =>
+                          (p.variants ?? []).filter(v => v.active).map(v => (
+                            <option key={v.id} value={v.id}>
+                              {p.name}{v.label !== 'Default' ? ` — ${v.label}` : ''} — ${Number(v.basePrice).toFixed(2)}
+                            </option>
+                          ))
+                        )}
                       </select>
                     </div>
                     <div className="add-item-field add-item-field-qty">
@@ -345,7 +351,7 @@ function OrderDetailPanel({
                       type="button"
                       onClick={() => onAddItem(order.id)}
                       className="btn-add-item"
-                      disabled={!newItemProductId}
+                      disabled={!newItemVariantId}
                     >
                       <Plus size={16} />
                       Add

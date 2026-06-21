@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest, ROLES } from '../../utils/roles';
 import { X, ExternalLink, Link, ShoppingCart, ChevronLeft, ChevronRight, PlayCircle, AlertCircle, Tag } from 'lucide-react';
 import ProductMediaModal from './ProductMediaModal';
-import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, resolveQuantityDiscounts } from './productsHelpers';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
+import './ProductsShared.css';
 import './ProductItemModal.css';
 
 const isVideo = (url) => {
@@ -17,14 +17,21 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [mediaModalOpen, setMediaModalOpen] = useState(false);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [copied, setCopied] = useState(false);
 
   const product = products.find(p => p.id === parseInt(productId));
 
-  const allowedQuantities =
-    product?.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0
-      ? product.allowedQuantitiesOverride
-      : product?.category?.allowedQuantities || [];
+  const activeVariants = (product?.variants ?? []).filter(v => v.active);
+  const selectedVariant = activeVariants.find(v => v.id === selectedVariantId) ?? getDefaultVariant(product);
+  const allowedQuantities = selectedVariant ? getAllowedQuantities(selectedVariant) : [];
+
+  useEffect(() => {
+    if (product) {
+      const def = getDefaultVariant(product);
+      setSelectedVariantId(def?.id ?? null);
+    }
+  }, [product?.id]);
 
   useEffect(() => {
     if (allowedQuantities.length > 0) {
@@ -32,7 +39,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
     } else {
       setSelectedQuantity(1);
     }
-  }, [product?.id, allowedQuantities.length]);
+  }, [selectedVariant?.id, allowedQuantities.length]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -73,43 +80,24 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
     return null;
   }
 
-  const fallbackImage = PRODUCT_FALLBACK_IMAGE;
-  const baseImages =
-    product.images && product.images.length > 0
-      ? product.images
-      : product.image
-        ? [product.image]
-        : [fallbackImage];
-
-  const images = product.thumbnail && product.thumbnail !== baseImages[0]
-    ? [product.thumbnail, ...baseImages.filter(img => img !== product.thumbnail)]
-    : baseImages;
-
-  const showStock = product.stockEnabled !== false;
-  const isOutOfStock = showStock && product.stock === 0;
-  const quantityDiscounts = resolveQuantityDiscounts(product);
+  const images = getProductAllImages(product);
+  const showStock = selectedVariant?.stockEnabled !== false;
+  const isOutOfStock = showStock && Number(selectedVariant?.stock ?? 0) === 0;
+  const basePrice = Number(selectedVariant?.basePrice ?? 0);
+  const unitPrice = selectedVariant ? getDiscountedUnitPrice(selectedVariant, selectedQuantity) : basePrice;
+  const totalPrice = unitPrice * selectedQuantity;
+  const originalTotal = basePrice * selectedQuantity;
+  const hasDiscount = unitPrice < basePrice;
 
   const handleAddToCart = () => {
-    addToCart(product, selectedQuantity);
+    if (selectedVariant) addToCart(product, selectedVariant, selectedQuantity);
   };
 
-  const originalTotal = product.price * selectedQuantity;
-  const matchingDiscount = quantityDiscounts.find((rule) => Math.abs(rule.quantity - selectedQuantity) < 1e-9);
-  let totalSavings = 0;
-  if (matchingDiscount) {
-    if (matchingDiscount.type === 'percent') {
-      totalSavings = originalTotal * (matchingDiscount.value / 100);
-    } else {
-      totalSavings = matchingDiscount.value;
-    }
-  }
-  const totalPrice = Math.max(0, originalTotal - totalSavings);
-  const hasDiscount = totalSavings > 0;
+  const priceBreaks = selectedVariant?.priceBreaks ?? [];
 
   return (
     <div className="product-modal-backdrop" onClick={onClose}>
       <div className="product-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Modal Header */}
         <div className="product-modal-header">
           <span className="product-modal-title">{product.name}</span>
           <div className="product-modal-actions">
@@ -127,9 +115,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
           </div>
         </div>
 
-        {/* Modal Body */}
         <div className="product-modal-body">
-          {/* Image Gallery */}
           <div className="product-modal-gallery">
             <div className="product-modal-main-image-container">
               {images.length > 1 && (
@@ -143,22 +129,15 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
               )}
 
               {isVideo(images[selectedImageIndex]) ? (
-                <video
-                  src={images[selectedImageIndex]}
-                  className="product-modal-main-image"
-                  controls
-                  autoPlay
-                  muted
-                  loop
-                />
+                <video src={images[selectedImageIndex]} className="product-modal-main-image" controls autoPlay muted loop />
               ) : (
                 <img
-                  src={images[selectedImageIndex]}
+                  src={images[selectedImageIndex] ?? PRODUCT_FALLBACK_IMAGE}
                   alt={product.name}
                   className="product-modal-main-image"
                   style={{ cursor: 'pointer' }}
                   onClick={() => setMediaModalOpen(true)}
-                  onError={(e) => { e.target.src = fallbackImage; }}
+                  onError={(e) => { e.target.src = PRODUCT_FALLBACK_IMAGE; }}
                 />
               )}
 
@@ -184,16 +163,14 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
                     {isVideo(img) ? (
                       <>
                         <video src={img} className="thumbnail" />
-                        <div className="video-thumbnail-overlay">
-                          <PlayCircle size={16} color="white" />
-                        </div>
+                        <div className="video-thumbnail-overlay"><PlayCircle size={16} color="white" /></div>
                       </>
                     ) : (
                       <img
                         src={img}
                         alt={`${product.name} ${index + 1}`}
                         className="thumbnail"
-                        onError={(e) => { e.target.src = fallbackImage; }}
+                        onError={(e) => { e.target.src = PRODUCT_FALLBACK_IMAGE; }}
                       />
                     )}
                   </div>
@@ -202,29 +179,43 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
             )}
           </div>
 
-          {/* Product Info */}
           <div className="product-modal-info">
             <div className="product-category-badge">{getProductCategoryLabel(product)}</div>
             <h2 className="product-modal-product-title">{product.name}</h2>
 
             <div className="product-price-display">
-              ${product.price.toFixed(2)}
-              {quantityDiscounts.length > 0 && <span className="price-per-unit">/ each</span>}
+              ${basePrice.toFixed(2)}
+              {priceBreaks.length > 0 && <span className="price-per-unit">/ each</span>}
             </div>
 
-            {quantityDiscounts.length > 0 && (
+            {activeVariants.length > 1 && (
+              <div className="variant-selector">
+                <label className="quantity-label">Option</label>
+                <div className="variant-buttons">
+                  {activeVariants.map(v => (
+                    <button
+                      key={v.id}
+                      className={`variant-btn${v.id === selectedVariant?.id ? ' variant-btn-active' : ''}`}
+                      onClick={() => setSelectedVariantId(v.id)}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {priceBreaks.length > 0 && (
               <div className="quantity-discounts-table">
                 <div className="discounts-header">
                   <Tag size={16} />
-                  <span>Quantity Discounts</span>
+                  <span>Quantity Pricing</span>
                 </div>
                 <div className="discounts-list">
-                  {[...quantityDiscounts].sort((a, b) => a.quantity - b.quantity).map((discount, index) => (
-                    <div key={index} className="discount-tier">
-                      <span className="discount-qty">Buy {discount.quantity}:</span>
-                      <span className="discount-value">
-                        {discount.type === 'percent' ? `${discount.value}% off` : `$${discount.value.toFixed(2)} off`}
-                      </span>
+                  {[...priceBreaks].sort((a, b) => Number(a.minQuantity) - Number(b.minQuantity)).map((pb, i) => (
+                    <div key={i} className="discount-tier">
+                      <span className="discount-qty">{Number(pb.minQuantity)}+:</span>
+                      <span className="discount-value">${Number(pb.unitPrice).toFixed(2)} each</span>
                     </div>
                   ))}
                 </div>
@@ -267,20 +258,20 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
                     <span className="price-total">${totalPrice.toFixed(2)}</span>
                   </div>
                   <div className="price-row">
-                    <span className="price-savings">Save ${totalSavings.toFixed(2)}</span>
+                    <span className="price-savings">Save ${(originalTotal - totalPrice).toFixed(2)}</span>
                   </div>
                 </>
               ) : (
                 <div className="price-row price-total-row">
                   <span className="price-label">Total ({selectedQuantity} items):</span>
-                  <span className="price-total">${originalTotal.toFixed(2)}</span>
+                  <span className="price-total">${totalPrice.toFixed(2)}</span>
                 </div>
               )}
             </div>
 
             <button
               onClick={handleAddToCart}
-              disabled={isOutOfStock || selectedQuantity <= 0}
+              disabled={isOutOfStock || selectedQuantity <= 0 || !selectedVariant}
               className="btn-add-to-cart-large"
             >
               <ShoppingCart size={20} />

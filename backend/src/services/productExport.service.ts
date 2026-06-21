@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { Response } from 'express';
 import prisma from '../config/database';
-import { collectProductImageUrls, UPLOADS_DIR } from '../utils/fileUtils';
+import { UPLOADS_DIR } from '../utils/fileUtils';
 
 /**
  * Escape a value for inclusion in a CSV cell.
@@ -35,7 +35,13 @@ function buildCsvRow(fields: (string | number | boolean | null | undefined)[]): 
  */
 export async function streamProductsExportZip(res: Response): Promise<void> {
   const [products, categories] = await Promise.all([
-    prisma.productItem.findMany({ orderBy: { id: 'asc' } }),
+    prisma.product.findMany({
+      orderBy: { id: 'asc' },
+      include: {
+        images: { orderBy: { sortOrder: 'asc' } },
+        variants: { where: { isDefault: true }, take: 1 },
+      },
+    }),
     prisma.category.findMany(),
   ]);
 
@@ -49,34 +55,35 @@ export async function streamProductsExportZip(res: Response): Promise<void> {
     return url.split('/').pop() ?? '';
   };
 
-  const CSV_HEADER = 'id,name,categoryName,price,description,stock,stockEnabled,thumbnail,image,images';
+  // Export is scoped to the default variant's price/stock for this phase.
+  const CSV_HEADER = 'id,name,slug,categoryName,price,description,stock,stockEnabled,thumbnail,images';
 
   const csvRows = products.map((p) => {
-    const imagesFilenames = (p.images ?? []).map(urlToFilename).filter(Boolean).join(';');
+    const variant = p.variants[0];
+    const thumbnail = p.images.find((i) => i.role === 'THUMBNAIL')?.url ?? null;
+    const galleryFilenames = p.images
+      .filter((i) => i.role !== 'THUMBNAIL')
+      .map((i) => urlToFilename(i.url))
+      .filter(Boolean)
+      .join(';');
     return buildCsvRow([
       p.id,
       p.name,
+      p.slug,
       categoryMap[p.categoryId] ?? '',
-      p.price,
+      variant ? variant.basePrice.toString() : '',
       p.description ?? '',
-      p.stock,
-      p.stockEnabled,
-      urlToFilename(p.thumbnail),
-      urlToFilename(p.image),
-      imagesFilenames,
+      variant ? variant.stock.toString() : '',
+      variant ? variant.stockEnabled : '',
+      urlToFilename(thumbnail),
+      galleryFilenames,
     ]);
   });
 
   const csvContent = [CSV_HEADER, ...csvRows].join('\r\n') + '\r\n';
 
   // Collect unique image filenames across all products
-  const allImageUrls = products.flatMap((p) =>
-    collectProductImageUrls({
-      thumbnail: p.thumbnail,
-      image: p.image,
-      images: p.images,
-    })
-  );
+  const allImageUrls = products.flatMap((p) => p.images.map((i) => i.url));
   const uniqueFilenames = [...new Set(allImageUrls.map(urlToFilename).filter(Boolean))];
 
   const date = new Date().toISOString().slice(0, 10);

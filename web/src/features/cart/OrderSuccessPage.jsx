@@ -67,7 +67,7 @@ function OrderSuccessPage() {
             <div className="order-items-list">
               {orderData.items.map((item, index) => (
                 (() => {
-                  const imageSrc = getProductImageSrc(item);
+                  const imageSrc = item.productImage || getProductImageSrc(item);
                   return (
                 <div key={index} className="order-success-item">
                   <ProductImage
@@ -76,11 +76,14 @@ function OrderSuccessPage() {
                     className="success-item-image"
                   />
                   <div className="success-item-details">
-                    <h4>{item.name}</h4>
+                    <h4>{item.productName ?? item.name}</h4>
+                    {item.variantLabel && item.variantLabel !== 'Default' && (
+                      <p className="success-item-variant">{item.variantLabel}</p>
+                    )}
                     <p>Quantity: {item.quantity}</p>
                   </div>
                   <div className="success-item-price">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    ${(Number(item.unitPrice ?? item.price ?? 0) * item.quantity).toFixed(2)}
                   </div>
                 </div>
                   );
@@ -108,9 +111,19 @@ function OrderSuccessPage() {
           <div className="detail-card surface-card">
             <div className="detail-header">
               <MapPin size={20} />
-              <h3>{orderData.deliveryMethod === DeliveryMethod.PICKUP ? 'Pickup Location' : 'Delivery Address'}</h3>
+              <h3>
+                {orderData.deliveryMethod === DeliveryMethod.PICKUP
+                  ? 'Pickup Location'
+                  : orderData.deliveryMethod === DeliveryMethod.CURBSIDE
+                    ? 'Curbside Pickup'
+                    : 'Delivery Address'}
+              </h3>
             </div>
-            <p className="detail-text">{orderData.deliveryAddress}</p>
+            <p className="detail-text">
+              {orderData.deliveryMethod === DeliveryMethod.PICKUP
+                ? orderData.pickupLocation || orderData.deliveryAddress
+                : orderData.deliveryAddress}
+            </p>
           </div>
 
           {orderData.specialInstructions && (
@@ -136,10 +149,23 @@ function OrderSuccessPage() {
               <p className="detail-text">
                 Paid with store credit.
               </p>
-            ) : (
+            ) : orderData.paymentMethod === PaymentMethod.CC ? (
               <p className="detail-text">
-                Payment will be sent to CashApp: <strong>{orderData.cashAppUsername}</strong>
+                Paid by card.
               </p>
+            ) : (
+              <div className="detail-text">
+                <div className="payment-method-summary">
+                  <strong>{orderData.paymentSnapshot?.methods?.map(m => m.label).join(' / ')}</strong>
+                  {' — '}
+                  <strong>${orderData.total.toFixed(2)}</strong>
+                </div>
+                {orderData.paymentSnapshot?.senderHandle && (
+                  <div className="payment-sender-row">
+                    Sender: <strong>{orderData.paymentSnapshot.senderHandle}</strong>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -155,7 +181,7 @@ function OrderSuccessPage() {
                   <div className="step-number">1</div>
                   <div className="step-content">
                     <h4>Wait for Pickup Notification</h4>
-                    <p>We'll email you when your order is ready for pickup.</p>
+                    <p>We'll notify you when your order is ready for pickup.</p>
                   </div>
                 </div>
 
@@ -163,7 +189,9 @@ function OrderSuccessPage() {
                   <div className="step-number">2</div>
                   <div className="step-content">
                     <h4>Come Pick Up Your Order</h4>
-                    <p>Head to the store and bring your payment of <strong>${orderData.total.toFixed(2)}</strong>.</p>
+                    <p>
+                      Head to{orderData.pickupLocation ? <> <strong>{orderData.pickupLocation}</strong></> : ' the store'} and bring your payment of <strong>${orderData.total.toFixed(2)}</strong>.
+                    </p>
                   </div>
                 </div>
 
@@ -175,6 +203,28 @@ function OrderSuccessPage() {
                   </div>
                 </div>
               </>
+            ) : orderData.deliveryMethod === DeliveryMethod.CURBSIDE ? (
+              <>
+                {orderData.paymentMethod === PaymentMethod.EXTERNAL && (
+                  <div className="next-step">
+                    <div className="step-number">1</div>
+                    <div className="step-content">
+                      <h4>Send Payment</h4>
+                      {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
+                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                      ))}
+                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
+                    </div>
+                  </div>
+                )}
+                <div className="next-step">
+                  <div className="step-number">{orderData.paymentMethod === PaymentMethod.EXTERNAL ? 2 : 1}</div>
+                  <div className="step-content">
+                    <h4>Head to the Store</h4>
+                    <p>Drive to the store and let us know you've arrived. We'll bring your order to your <strong>{orderData.deliveryAddress}</strong>.</p>
+                  </div>
+                </div>
+              </>
             ) : orderData.deliveryMethod === DeliveryMethod.PICKUP ? (
               <>
                 {orderData.paymentMethod === PaymentMethod.EXTERNAL && (
@@ -182,7 +232,10 @@ function OrderSuccessPage() {
                     <div className="step-number">1</div>
                     <div className="step-content">
                       <h4>Send Payment</h4>
-                      <p>Please send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{orderData.cashAppUsername}</strong> via CashApp.</p>
+                      {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
+                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                      ))}
+                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}
@@ -210,7 +263,10 @@ function OrderSuccessPage() {
                     <div className="step-number">1</div>
                     <div className="step-content">
                       <h4>Send Payment</h4>
-                      <p>Please send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{orderData.cashAppUsername}</strong> via CashApp.</p>
+                      {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
+                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                      ))}
+                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}

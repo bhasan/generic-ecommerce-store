@@ -58,8 +58,8 @@ describe('CheckoutPage', () => {
     checkoutMock.mockResolvedValue({ id: 401, status: 'PLACED' });
     checkDeliveryEligibilityMock.mockResolvedValue({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING',
       distanceMiles: 2.4,
       thresholdMiles: 5,
       message: 'Delivery available. This address is 2.40 miles from the store.',
@@ -182,8 +182,8 @@ describe('CheckoutPage', () => {
   it('blocks place-order when the delivery precheck returns out of zone', async () => {
     checkDeliveryEligibilityMock.mockResolvedValue({
       deliverable: false,
-      deliveryZoneStatus: 'OUT_OF_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING',
+      deliveryStatus: 'OUT_OF_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING',
       distanceMiles: 7.1,
       thresholdMiles: 5,
       message: 'This address is 7.10 miles away, outside the 5.00 mile delivery radius.',

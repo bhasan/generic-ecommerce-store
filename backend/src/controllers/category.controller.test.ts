@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import categoryController from './category.controller';
 import categoryService from '../services/category.service';
 import { validationResult } from 'express-validator';

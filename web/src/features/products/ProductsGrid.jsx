@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { getProductImageSrc, getProductAllImages, getDiscountedUnitPrice, resolveQuantityDiscounts } from './productsHelpers';
+import { getProductImageSrc, getProductAllImages, getDiscountedUnitPrice, getAllowedQuantities, getDefaultVariant } from './productsHelpers';
 import ProductQuantityActions from './ProductQuantityActions';
 import ProductCard from './ProductCard';
 import ProductListItem from './ProductListItem';
+
 function ProductsGrid({
   products,
   viewMode,
@@ -13,36 +14,35 @@ function ProductsGrid({
 }) {
   const [quantities, setQuantities] = useState({});
 
-  const resolveAllowedQuantities = (product) => {
-    if (product.allowedQuantitiesOverride && product.allowedQuantitiesOverride.length > 0) {
-      return product.allowedQuantitiesOverride;
-    }
-    return product.category?.allowedQuantities || [];
-  };
+  const getVariant = (product) => getDefaultVariant(product);
 
   const getQuantityValue = (product) => {
-    if (quantities[product.id] !== undefined) return quantities[product.id];
-    const allowed = resolveAllowedQuantities(product);
+    const variant = getVariant(product);
+    const key = variant?.id ?? product.id;
+    if (quantities[key] !== undefined) return quantities[key];
+    const allowed = variant ? getAllowedQuantities(variant) : [];
     return allowed.length > 0 ? allowed[0] : 1;
   };
 
-  const updateQuantity = (productId, value) => {
-    setQuantities((prev) => ({ ...prev, [productId]: value }));
+  const updateQuantity = (variantId, value) => {
+    setQuantities((prev) => ({ ...prev, [variantId]: value }));
   };
 
   const renderProductCard = (product) => {
+    const variant = getVariant(product);
     const mainImage = getProductImageSrc(product);
     const allImages = getProductAllImages(product);
-    const showStock = product.stockEnabled !== false;
-    const allowedQuantities = resolveAllowedQuantities(product);
+    const showStock = variant?.stockEnabled !== false;
+    const allowedQuantities = variant ? getAllowedQuantities(variant) : [];
     const quantityValue = getQuantityValue(product);
-    const discountedPrice = getDiscountedUnitPrice(product, quantityValue);
-    const hasDiscount = discountedPrice < product.price;
+    const basePrice = Number(variant?.basePrice ?? 0);
+    const discountedPrice = variant ? getDiscountedUnitPrice(variant, quantityValue) : basePrice;
+    const hasDiscount = discountedPrice < basePrice;
 
     return (
       <ProductCard
         key={product.id}
-        product={product}
+        product={{ ...product, price: basePrice }}
         imageSrc={mainImage}
         images={allImages}
         categoryLabel={getCategoryLabel(product)}
@@ -54,12 +54,12 @@ function ProductsGrid({
         <ProductQuantityActions
           allowedQuantities={allowedQuantities}
           quantityValue={quantityValue}
-          onQuantityChange={(value) => updateQuantity(product.id, value)}
+          onQuantityChange={(value) => updateQuantity(variant?.id ?? product.id, value)}
           onAddToCart={(e) => {
             e.stopPropagation();
-            onAddToCart(product, quantityValue);
+            onAddToCart(product, variant, quantityValue);
           }}
-          addDisabled={showStock && product.stock === 0}
+          addDisabled={showStock && Number(variant?.stock ?? 0) === 0}
           onStopPropagation={(e) => e.stopPropagation()}
         />
       </ProductCard>
@@ -67,17 +67,19 @@ function ProductsGrid({
   };
 
   const renderProductListItem = (product) => {
+    const variant = getVariant(product);
     const mainImage = getProductImageSrc(product);
-    const showStock = product.stockEnabled !== false;
-    const allowedQuantities = resolveAllowedQuantities(product);
+    const showStock = variant?.stockEnabled !== false;
+    const allowedQuantities = variant ? getAllowedQuantities(variant) : [];
     const quantityValue = getQuantityValue(product);
-    const discountedPrice = getDiscountedUnitPrice(product, quantityValue);
-    const hasDiscount = discountedPrice < product.price;
+    const basePrice = Number(variant?.basePrice ?? 0);
+    const discountedPrice = variant ? getDiscountedUnitPrice(variant, quantityValue) : basePrice;
+    const hasDiscount = discountedPrice < basePrice;
 
     return (
       <ProductListItem
         key={product.id}
-        product={product}
+        product={{ ...product, price: basePrice, stock: Number(variant?.stock ?? 0) }}
         imageSrc={mainImage}
         categoryLabel={getCategoryLabel(product)}
         showStock={showStock}
@@ -90,12 +92,12 @@ function ProductsGrid({
         <ProductQuantityActions
           allowedQuantities={allowedQuantities}
           quantityValue={quantityValue}
-          onQuantityChange={(value) => updateQuantity(product.id, value)}
+          onQuantityChange={(value) => updateQuantity(variant?.id ?? product.id, value)}
           onAddToCart={(e) => {
             e.stopPropagation();
-            onAddToCart(product, quantityValue);
+            onAddToCart(product, variant, quantityValue);
           }}
-          addDisabled={showStock && product.stock === 0}
+          addDisabled={showStock && Number(variant?.stock ?? 0) === 0}
           onStopPropagation={(e) => e.stopPropagation()}
         />
       </ProductListItem>

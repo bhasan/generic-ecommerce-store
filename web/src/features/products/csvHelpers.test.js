@@ -82,8 +82,10 @@ describe('validateAndTransformRows', () => {
       expect(row.payload).toMatchObject({
         name: 'New Product',
         categoryId: 1,
-        price: 9.99,
         description: 'A tasty thing',
+      });
+      expect(row.payload.variants[0]).toMatchObject({
+        basePrice: 9.99,
         stock: 50,
         stockEnabled: true,
       });
@@ -110,13 +112,13 @@ describe('validateAndTransformRows', () => {
     it('defaults stock to 0 when omitted', () => {
       const row = { ...VALID_ROW, stock: '' };
       const { valid } = validateAndTransformRows([row], EXISTING_PRODUCTS, CATEGORIES);
-      expect(valid[0].payload.stock).toBe(0);
+      expect(valid[0].payload.variants[0].stock).toBe(0);
     });
 
     it('defaults stockEnabled to false when omitted', () => {
       const row = { ...VALID_ROW, stockEnabled: '' };
       const { valid } = validateAndTransformRows([row], EXISTING_PRODUCTS, CATEGORIES);
-      expect(valid[0].payload.stockEnabled).toBe(false);
+      expect(valid[0].payload.variants[0].stockEnabled).toBe(false);
     });
   });
 
@@ -285,21 +287,21 @@ describe('exportProductsToCsv', () => {
   it('export header includes all 10 columns including image fields', () => {
     // PapaParse omits the header when data is empty, so pass one product to force header generation
     const products = [
-      { id: 1, name: 'Cola', categoryId: 1, price: 2.5, stock: 10, stockEnabled: true,
-        thumbnail: null, image: null, images: [] },
+      { id: 1, name: 'Cola', categoryId: 1, images: [], variants: [{ basePrice: 2.5, stock: 10, stockEnabled: true, isDefault: true, active: true }] },
     ];
     const csv = captureExportCsv(products, CATEGORIES);
     const header = csv.split('\n')[0].replace(/\r$/, '');
     expect(header.split(',')).toEqual([
-      'id', 'name', 'categoryName', 'price', 'description', 'stock', 'stockEnabled',
-      'thumbnail', 'image', 'images',
+      'id', 'name', 'slug', 'categoryName', 'price', 'description', 'stock', 'stockEnabled',
+      'thumbnail', 'images',
     ]);
   });
 
   it('extracts bare filename from thumbnail URL', () => {
     const products = [
-      { id: 1, name: 'Cola', categoryId: 1, price: 2.5, stock: 10, stockEnabled: true,
-        thumbnail: '/api/uploads/thumb-abc.webp', image: null, images: [] },
+      { id: 1, name: 'Cola', categoryId: 1,
+        images: [{ url: '/api/uploads/thumb-abc.webp', role: 'THUMBNAIL', sortOrder: 0 }],
+        variants: [{ basePrice: 2.5, stock: 10, stockEnabled: true, isDefault: true, active: true }] },
     ];
     const csv = captureExportCsv(products, CATEGORIES);
     expect(csv).toContain('thumb-abc.webp');
@@ -308,9 +310,12 @@ describe('exportProductsToCsv', () => {
 
   it('joins multiple images with semicolons', () => {
     const products = [
-      { id: 2, name: 'Chips', categoryId: 2, price: 1.5, stock: 5, stockEnabled: false,
-        thumbnail: null, image: null,
-        images: ['/api/uploads/a.webp', '/api/uploads/b.webp'] },
+      { id: 2, name: 'Chips', categoryId: 2,
+        images: [
+          { url: '/api/uploads/a.webp', role: 'GALLERY', sortOrder: 0 },
+          { url: '/api/uploads/b.webp', role: 'GALLERY', sortOrder: 1 },
+        ],
+        variants: [{ basePrice: 1.5, stock: 5, stockEnabled: false, isDefault: true, active: true }] },
     ];
     const csv = captureExportCsv(products, CATEGORIES);
     expect(csv).toContain('a.webp;b.webp');
@@ -318,13 +323,13 @@ describe('exportProductsToCsv', () => {
 
   it('outputs empty strings for image columns when product has no images', () => {
     const products = [
-      { id: 3, name: 'Water', categoryId: 1, price: 1.0, stock: 0, stockEnabled: false,
-        thumbnail: null, image: null, images: [] },
+      { id: 3, name: 'Water', categoryId: 1, images: [],
+        variants: [{ basePrice: 1.0, stock: 0, stockEnabled: false, isDefault: true, active: true }] },
     ];
     const csv = captureExportCsv(products, CATEGORIES);
-    // Data row should end with ,,, (thumbnail, image, images all empty)
+    // Data row should end with ,, (thumbnail, images both empty — no separate image column)
     const dataRow = csv.split('\n')[1]?.replace(/\r$/, '') ?? '';
-    expect(dataRow).toMatch(/,,,$/);
+    expect(dataRow).toMatch(/,,$/);
   });
 });
 

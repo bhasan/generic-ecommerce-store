@@ -19,10 +19,9 @@ const isVideoMime = (mime: string) => mime.startsWith('video/');
 async function processImage(file: any): Promise<string> {
   if (isVideoMime(file.mimetype)) return file.filename;
 
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  const inputPath = path.join(uploadsDir, file.filename);
+  const inputPath = path.join(UPLOADS_DIR, file.filename);
   const webpFilename = file.filename.replace(/\.[^.]+$/, '.webp');
-  const outputPath = path.join(uploadsDir, webpFilename);
+  const outputPath = path.join(UPLOADS_DIR, webpFilename);
 
   await sharp(inputPath)
     .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, { fit: 'inside', withoutEnlargement: true })
@@ -57,29 +56,20 @@ export class UploadController {
   }
 
   async getImages(_req: Request, res: Response) : Promise<void> {
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-
-    if (!fs.existsSync(uploadsDir)) {
+    if (!fs.existsSync(UPLOADS_DIR)) {
       res.status(200).json({ images: [] });
       return;
     }
 
-    const files = await fs.promises.readdir(uploadsDir);
-    const images = [];
-
-    for (const file of files) {
-      const filePath = path.join(uploadsDir, file);
-      const stats = await fs.promises.stat(filePath);
-      if (stats.isFile()) {
-        images.push({
-          url: `/api/uploads/${file}`,
-          filename: file,
-          size: stats.size,
-          createdAt: stats.birthtime,
-        });
-      }
-    }
-
+    const files = await fs.promises.readdir(UPLOADS_DIR);
+    const statResults = await Promise.all(
+      files.map(async (file) => {
+        const filePath = path.join(UPLOADS_DIR, file);
+        const stats = await fs.promises.stat(filePath);
+        return stats.isFile() ? { url: `/api/uploads/${file}`, filename: file, size: stats.size, createdAt: stats.birthtime } : null;
+      })
+    );
+    const images = statResults.filter((x): x is NonNullable<typeof x> => x !== null);
     images.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     res.status(200).json({ images });
   }
@@ -123,25 +113,21 @@ export class UploadController {
     if (!req.file) {
       throw new AppError('No file uploaded. Please select an image.', 400);
     }
-    const uploadsDir = path.join(process.cwd(), 'uploads');
     const sizes: Array<{ key: '16' | '32' | '180'; size: number }> = [
       { key: '16', size: 16 },
       { key: '32', size: 32 },
       { key: '180', size: 180 },
     ];
-    const inputPath = path.join(uploadsDir, req.file.filename);
+    const inputPath = path.join(UPLOADS_DIR, req.file.filename);
     const faviconUrls: { '16': string; '32': string; '180': string } = { '16': '', '32': '', '180': '' };
 
     const version = Date.now();
-    for (const { key, size } of sizes) {
+    await Promise.all(sizes.map(async ({ key, size }) => {
       const outFilename = `favicon-${size}.png`;
-      const outPath = path.join(uploadsDir, outFilename);
-      await sharp(inputPath)
-        .resize(size, size, { fit: 'cover' })
-        .png()
-        .toFile(outPath);
+      const outPath = path.join(UPLOADS_DIR, outFilename);
+      await sharp(inputPath).resize(size, size, { fit: 'cover' }).png().toFile(outPath);
       faviconUrls[key] = `/api/uploads/${outFilename}?v=${version}`;
-    }
+    }));
 
     await fs.promises.unlink(inputPath);
     const brandingService = new BrandingService();
@@ -158,8 +144,7 @@ export class UploadController {
 
     // Prevent directory traversal
     const safeFilename = path.basename(filename);
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    const filePath = path.join(uploadsDir, safeFilename);
+    const filePath = path.join(UPLOADS_DIR, safeFilename);
 
     if (!fs.existsSync(filePath)) {
       throw new AppError('Image not found.', 404);
