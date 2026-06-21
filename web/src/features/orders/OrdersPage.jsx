@@ -351,7 +351,7 @@ function OrdersPage({ forceCustomerView = false }) {
       const isPayInStore = order?.paymentMethod === 'IN_STORE';
       setConfirmDialog({
         title: 'Take Payment in Store',
-        message: `Order Total: $${order.total.toFixed(2)}\n\nâš ï¸ REMINDER: Please ensure payment has been collected before proceeding.`,
+        message: `Order Total: $${order.total.toFixed(2)}\n\n⚠️ REMINDER: Please ensure payment has been collected before proceeding.`,
         confirmLabel: 'Paid',
         confirmVariant: 'success',
         onConfirm: () => performStatusUpdate(orderId, newStatus)
