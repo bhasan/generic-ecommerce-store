@@ -155,19 +155,16 @@ function OrderSuccessPage() {
               </p>
             ) : (
               <div className="detail-text">
-                {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
-                  <div key={type} className="payment-method-summary">
-                    <strong>{label}</strong> — Receiver: <strong>{handle}</strong>
-                  </div>
-                ))}
+                <div className="payment-method-summary">
+                  <strong>{orderData.paymentSnapshot?.methods?.map(m => m.label).join(' / ')}</strong>
+                  {' — '}
+                  <strong>${orderData.total.toFixed(2)}</strong>
+                </div>
                 {orderData.paymentSnapshot?.senderHandle && (
-                  <div className="payment-sender">
-                    Your handle: <strong>{orderData.paymentSnapshot.senderHandle}</strong>
+                  <div className="payment-sender-row">
+                    Sender: <strong>{orderData.paymentSnapshot.senderHandle}</strong>
                   </div>
                 )}
-                <div className="payment-memo-reminder">
-                  Include <strong>#{orderId}</strong> in your payment memo.
-                </div>
               </div>
             )}
           </div>
@@ -216,6 +213,7 @@ function OrderSuccessPage() {
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
                         <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
+                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}
@@ -237,6 +235,7 @@ function OrderSuccessPage() {
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
                         <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
+                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}
@@ -267,6 +266,7 @@ function OrderSuccessPage() {
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
                         <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
+                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}

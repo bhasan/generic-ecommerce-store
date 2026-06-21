@@ -80,7 +80,7 @@ describe('OrderSuccessPage', () => {
   });
 
   describe('Payment Information block — EXTERNAL payment', () => {
-    it('shows CashApp receiver handle and sender handle', () => {
+    it('shows method names joined on one line for a single method', () => {
       renderSuccessPage({
         ...baseOrderData,
         paymentSnapshot: {
@@ -88,38 +88,11 @@ describe('OrderSuccessPage', () => {
           senderHandle: '$customer',
         },
       });
-      expect(screen.getAllByText(/cashapp/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText('$StoreHandle').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('$customer').length).toBeGreaterThan(0);
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('CashApp');
     });
 
-    it('shows Zelle receiver handle without a sender row', () => {
-      renderSuccessPage({
-        ...baseOrderData,
-        paymentSnapshot: {
-          methods: [{ type: 'zelle', label: 'Zelle', handle: 'store@email.com' }],
-          senderHandle: null,
-        },
-      });
-      expect(screen.getAllByText(/zelle/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText('store@email.com').length).toBeGreaterThan(0);
-      expect(screen.queryByText(/your handle/i)).not.toBeInTheDocument();
-    });
-
-    it('shows Venmo receiver handle without a sender row', () => {
-      renderSuccessPage({
-        ...baseOrderData,
-        paymentSnapshot: {
-          methods: [{ type: 'venmo', label: 'Venmo', handle: '@StoreVenmo' }],
-          senderHandle: null,
-        },
-      });
-      expect(screen.getAllByText(/venmo/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText('@StoreVenmo').length).toBeGreaterThan(0);
-      expect(screen.queryByText(/your handle/i)).not.toBeInTheDocument();
-    });
-
-    it('shows all enabled methods when multiple are configured', () => {
+    it('shows method names joined with "/" when multiple methods are enabled', () => {
       renderSuccessPage({
         ...baseOrderData,
         paymentSnapshot: {
@@ -130,10 +103,55 @@ describe('OrderSuccessPage', () => {
           senderHandle: '$customer',
         },
       });
-      expect(screen.getAllByText(/cashapp/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText('$StoreHandle').length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/zelle/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText('store@email.com').length).toBeGreaterThan(0);
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('CashApp / Zelle');
+    });
+
+    it('shows total amount in the payment card', () => {
+      renderSuccessPage({ ...baseOrderData });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('$22.00');
+    });
+
+    it('does not show receiver handles', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [
+            { type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' },
+            { type: 'zelle', label: 'Zelle', handle: 'store@email.com' },
+          ],
+          senderHandle: '$customer',
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).not.toHaveTextContent('$StoreHandle');
+      expect(paymentCard).not.toHaveTextContent('store@email.com');
+      expect(paymentCard).not.toHaveTextContent(/receiver/i);
+    });
+
+    it('shows sender handle when present', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'cashapp', label: 'CashApp', handle: '$StoreHandle' }],
+          senderHandle: '$customer',
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).toHaveTextContent('$customer');
+    });
+
+    it('does not show a sender row when senderHandle is absent', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentSnapshot: {
+          methods: [{ type: 'zelle', label: 'Zelle', handle: 'store@email.com' }],
+          senderHandle: null,
+        },
+      });
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).not.toHaveTextContent(/sender/i);
     });
 
     it('does not show "payment will be sent to CashApp" hardcoded sentence', () => {
@@ -290,7 +308,7 @@ describe('OrderSuccessPage', () => {
       expect(screen.getByText(/paid by card/i)).toBeInTheDocument();
     });
 
-    it('shows memo instruction with order ID for EXTERNAL payment', () => {
+    it('does not show memo instruction in the Payment Information card', () => {
       renderSuccessPage({
         ...baseOrderData,
         paymentMethod: PaymentMethod.EXTERNAL,
@@ -300,8 +318,8 @@ describe('OrderSuccessPage', () => {
           senderHandle: '$customer',
         },
       });
-      expect(screen.getByText(/memo/i)).toBeInTheDocument();
-      expect(screen.getByText(/#42/i)).toBeInTheDocument();
+      const paymentCard = screen.getByText('Payment Information').closest('.detail-card');
+      expect(paymentCard).not.toHaveTextContent(/memo/i);
     });
   });
 
