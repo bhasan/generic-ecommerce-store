@@ -149,7 +149,7 @@ const installApiMock = ({
       });
     }
 
-    if (method === 'GET' && url.pathname === '/api/credits/1') {
+    if (method === 'GET' && url.pathname === '/api/storecredit/1') {
       return jsonResponse({ balance: 0 });
     }
 

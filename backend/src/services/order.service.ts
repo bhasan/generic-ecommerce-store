@@ -111,6 +111,29 @@ function shapeOrderItem(item: any) {
   };
 }
 
+function shapeStatusEvents(events: any[]) {
+  return events.map(event => ({
+    id: event.id,
+    fromStatus: event.fromStatus ?? null,
+    toStatus: event.toStatus,
+    changedBy: event.changedBy ?? null,
+    note: event.note ?? null,
+    createdAt: event.createdAt.toISOString(),
+  }));
+}
+
+function shapePayments(payments: any[]) {
+  return payments.map(payment => ({
+    id: payment.id,
+    method: payment.method,
+    status: payment.status,
+    amount: Number(payment.amount),
+    transactionId: payment.transactionId ?? null,
+    paymentHandle: payment.paymentHandle ?? null,
+    createdAt: payment.createdAt.toISOString(),
+  }));
+}
+
 export class OrderService {
   /**
    * Get all orders (with user filtering for customers)
@@ -242,22 +265,8 @@ export class OrderService {
     return {
       ...order,
       items: order.items.map(shapeOrderItem),
-      statusEvents: order.statusEvents.map(event => ({
-        id: event.id,
-        fromStatus: event.fromStatus ?? null,
-        toStatus: event.toStatus,
-        changedBy: event.changedBy ?? null,
-        note: event.note ?? null,
-        createdAt: event.createdAt.toISOString(),
-      })),
-      payments: order.payments.map(payment => ({
-        id: payment.id,
-        method: payment.method,
-        status: payment.status,
-        amount: Number(payment.amount),
-        transactionId: payment.transactionId ?? null,
-        createdAt: payment.createdAt.toISOString(),
-      })),
+      statusEvents: shapeStatusEvents(order.statusEvents),
+      payments: shapePayments(order.payments),
     };
   }
 
@@ -481,37 +490,21 @@ export class OrderService {
         await dispatchOrderCreatedEffects(order.id, userId);
       }
 
-      // Re-fetch the full order so the response includes payments and statusEvents
-      // created by the payment strategy inside the same transaction.
+      // Re-fetch so payments/statusEvents written by the payment strategy
+      // inside the same transaction are visible in the response.
       const fullOrder = await prisma.order.findUnique({
         where: { id: order.id },
         include: {
-          ...orderItemsInclude,
           statusEvents: { orderBy: { createdAt: 'asc' } },
           payments: true,
         },
       });
 
       return {
-        ...fullOrder!,
+        ...order,
         items: itemsWithProducts,
-        statusEvents: (fullOrder?.statusEvents ?? []).map(event => ({
-          id: event.id,
-          fromStatus: event.fromStatus ?? null,
-          toStatus: event.toStatus,
-          changedBy: event.changedBy ?? null,
-          note: event.note ?? null,
-          createdAt: event.createdAt.toISOString(),
-        })),
-        payments: (fullOrder?.payments ?? []).map(payment => ({
-          id: payment.id,
-          method: payment.method,
-          status: payment.status,
-          amount: Number(payment.amount),
-          transactionId: payment.transactionId ?? null,
-          paymentHandle: (payment as any).paymentHandle ?? null,
-          createdAt: payment.createdAt.toISOString(),
-        })),
+        statusEvents: shapeStatusEvents(fullOrder?.statusEvents ?? []),
+        payments: shapePayments(fullOrder?.payments ?? []),
       };
     } catch (error) {
       logger.error('Failed to create order', error, {
@@ -645,23 +638,8 @@ export class OrderService {
       return {
         ...updatedOrder,
         items: itemsWithProducts,
-        statusEvents: (fullUpdated?.statusEvents ?? []).map(event => ({
-          id: event.id,
-          fromStatus: event.fromStatus ?? null,
-          toStatus: event.toStatus,
-          changedBy: event.changedBy ?? null,
-          note: event.note ?? null,
-          createdAt: event.createdAt.toISOString(),
-        })),
-        payments: (fullUpdated?.payments ?? []).map(payment => ({
-          id: payment.id,
-          method: payment.method,
-          status: payment.status,
-          amount: Number(payment.amount),
-          transactionId: payment.transactionId ?? null,
-          paymentHandle: (payment as any).paymentHandle ?? null,
-          createdAt: payment.createdAt.toISOString(),
-        })),
+        statusEvents: shapeStatusEvents(fullUpdated?.statusEvents ?? []),
+        payments: shapePayments(fullUpdated?.payments ?? []),
       };
     } catch (error) {
       logger.error('Failed to update order status', error, {
