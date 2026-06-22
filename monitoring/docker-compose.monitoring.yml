@@ -21,13 +21,10 @@ services:
     container_name: smoke-station-prometheus
     restart: unless-stopped
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.template:ro
+      - ./monitoring/prometheus/entrypoint.sh:/entrypoint.sh:ro
       - prometheus-data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--storage.tsdb.retention.time=7d'
-      - '--web.enable-lifecycle'
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
     environment:
       PROMETHEUS_REMOTE_WRITE_URL: ${PROMETHEUS_REMOTE_WRITE_URL}
       PROMETHEUS_USERNAME: ${PROMETHEUS_USERNAME}
