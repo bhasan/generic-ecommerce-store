@@ -15,7 +15,7 @@ const logger = vi.hoisted(() => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(),
 
 // Service stubs so that *authorized* requests pass through the controller without
 // touching a database. Forbidden/unauthenticated requests never reach these.
-const creditService = vi.hoisted(() => ({ addCredit: vi.fn().mockResolvedValue({ id: 1 }) }));
+const storeCreditService = vi.hoisted(() => ({ addCredit: vi.fn().mockResolvedValue({ id: 1 }) }));
 const userService = vi.hoisted(() => ({
   getAllUsers: vi.fn().mockResolvedValue([]),
   deleteUser: vi.fn().mockResolvedValue({ message: 'deleted' }),
@@ -35,7 +35,7 @@ const storeSettingsService = vi.hoisted(() => ({
 
 vi.mock('../utils/jwt.util', () => ({ verifyToken, extractTokenFromHeader }));
 vi.mock('../utils/logger', () => ({ logger }));
-vi.mock('../services/store-credit.service', () => ({ default: creditService }));
+vi.mock('../services/store-credit.service', () => ({ default: storeCreditService }));
 vi.mock('../services/user.service', () => ({ default: userService }));
 vi.mock('../services/order.service', () => ({ default: orderService }));
 vi.mock('../services/orderingConstraints.service', () => ({

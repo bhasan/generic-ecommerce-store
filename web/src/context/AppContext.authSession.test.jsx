@@ -71,7 +71,7 @@ vi.mock('../services/ordersApi', () => ordersApi);
 vi.mock('../services/categoriesApi', () => categoriesApi);
 vi.mock('../services/notificationsApi', () => notificationsApi);
 vi.mock('../services/configApi', () => configApi);
-vi.mock('../services/creditApi', () => creditApi);
+vi.mock('../services/storeCreditApi', () => creditApi);
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
   return {
