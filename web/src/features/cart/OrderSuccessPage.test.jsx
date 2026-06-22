@@ -359,4 +359,34 @@ describe('OrderSuccessPage', () => {
     renderSuccessPage();
     expect(setCart).toHaveBeenCalledWith([]);
   });
+
+  describe('CC payment — transaction ID from payments[]', () => {
+    it('shows transaction ID from payments[0].transactionId for CC orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentMethod: PaymentMethod.CC,
+        paymentSnapshot: null,
+        order: {
+          id: 99,
+          createdAt: new Date().toISOString(),
+          payments: [{ id: 1, method: 'CC', status: 'SETTLED', amount: 22, transactionId: 'txn_xyz789' }],
+        },
+      });
+      expect(screen.getByText(/txn_xyz789/)).toBeInTheDocument();
+    });
+
+    it('shows nothing for transaction ID when payments is empty for CC orders', () => {
+      renderSuccessPage({
+        ...baseOrderData,
+        paymentMethod: PaymentMethod.CC,
+        paymentSnapshot: null,
+        order: {
+          id: 99,
+          createdAt: new Date().toISOString(),
+          payments: [],
+        },
+      });
+      expect(screen.queryByText(/txn_/)).not.toBeInTheDocument();
+    });
+  });
 });

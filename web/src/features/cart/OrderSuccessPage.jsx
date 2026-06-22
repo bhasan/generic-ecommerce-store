@@ -152,6 +152,9 @@ function OrderSuccessPage() {
             ) : orderData.paymentMethod === PaymentMethod.CC ? (
               <p className="detail-text">
                 Paid by card.
+                {orderData.order?.payments?.[0]?.transactionId && (
+                  <> Transaction ID: <strong>{orderData.order.payments[0].transactionId}</strong></>
+                )}
               </p>
             ) : (
               <div className="detail-text">
