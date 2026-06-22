@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { OrderStatus, Prisma } from '../../generated/prisma';
+import { OrderStatus, Prisma, PaymentStatus } from '../../generated/prisma';
 import { resolveUnitPrice, isQuantityAllowed } from './pricing';
 import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
@@ -576,6 +576,13 @@ export class OrderService {
         newStatus: updatedOrder.status,
         updatedAt: updatedOrder.updatedAt,
       });
+
+      if (data.status === OrderStatus.APPROVED && order.paymentMethod === PaymentMethodEnum.EXTERNAL) {
+        await prisma.payment.updateMany({
+          where: { orderId, status: PaymentStatus.PENDING },
+          data: { status: PaymentStatus.SETTLED },
+        });
+      }
 
       // Fetch order items with variant/product info
       const orderItems = await prisma.orderItem.findMany({

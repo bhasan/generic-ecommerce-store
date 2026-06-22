@@ -9,6 +9,7 @@ const prismaMock = vi.hoisted(() => ({
   productVariant: { findMany: vi.fn(), update: vi.fn() },
   order: { create: vi.fn() },
   orderItem: { create: vi.fn() },
+  payment: { create: vi.fn() },
   $transaction: vi.fn(),
 }));
 

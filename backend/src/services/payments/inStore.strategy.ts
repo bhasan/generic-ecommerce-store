@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentMethodEnum } from '../../../generated/prisma';
+import { OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../../../generated/prisma';
 import { AppError } from '../../middleware/error.middleware';
 import { DeliveryMethod } from '../../constants/orderMethods';
 import { PaymentStrategy, OrderContext } from './PaymentStrategy';
@@ -16,8 +16,16 @@ export class InStorePaymentStrategy implements PaymentStrategy {
     return OrderStatus.PENDING;
   }
 
-  async applyInTransaction(_tx: any, _orderId: number, _ctx: OrderContext): Promise<void> {
-    // No in-transaction side-effects for in-store payment.
+  async applyInTransaction(tx: any, orderId: number, ctx: OrderContext): Promise<void> {
+    await tx.payment.create({
+      data: {
+        orderId,
+        method: PaymentMethodEnum.IN_STORE,
+        status: PaymentStatus.PENDING,
+        amount: new Prisma.Decimal(ctx.total),
+        paymentHandle: null,
+      },
+    });
   }
 
   notifiesOnCreate(): boolean {

@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentMethodEnum } from '../../../generated/prisma';
+import { OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../../../generated/prisma';
 import { PaymentStrategy, OrderContext } from './PaymentStrategy';
 import creditService from '../credit.service';
 
@@ -18,6 +18,15 @@ export class CreditPaymentStrategy implements PaymentStrategy {
 
   async applyInTransaction(tx: any, orderId: number, ctx: OrderContext): Promise<void> {
     await creditService.useCredit(ctx.userId, ctx.total, orderId, tx);
+    await tx.payment.create({
+      data: {
+        orderId,
+        method: PaymentMethodEnum.CREDIT,
+        status: PaymentStatus.SETTLED,
+        amount: new Prisma.Decimal(ctx.total),
+        paymentHandle: null,
+      },
+    });
   }
 
   notifiesOnCreate(): boolean {

@@ -43,6 +43,10 @@ const prismaMock = {
   orderStatusEvent: {
     create: vi.fn(),
   },
+  payment: {
+    create: vi.fn(),
+    updateMany: vi.fn(),
+  },
   $transaction: vi.fn(),
 };
 
@@ -797,5 +801,64 @@ describe('getOrderById', () => {
     const service = new OrderService();
     // userId 99 != order.userId 42, role is CUSTOMER only
     await expect(service.getOrderById(100, 99, ['CUSTOMER'])).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe('updateOrderStatus — EXTERNAL payment settlement', () => {
+  const makeOrder = (paymentMethod: string, status: string) => ({
+    id: 77,
+    userId: 5,
+    status,
+    total: D(10),
+    paymentMethod,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
+      const updated = { id: 77, userId: 5, status: OrderStatus.APPROVED, updatedAt: new Date() };
+      prismaMock.order.update.mockResolvedValue(updated);
+      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+      return [updated, { id: 1 }];
+    });
+    prismaMock.orderItem.findMany.mockResolvedValue([]);
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it('settles PENDING payments when EXTERNAL order is APPROVED', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.EXTERNAL, OrderStatus.PENDING));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.APPROVED }, ['MANAGEMENT']);
+
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { orderId: 77, status: 'PENDING' },
+      data: { status: 'SETTLED' },
+    });
+  });
+
+  it('does NOT call payment.updateMany for non-EXTERNAL orders on APPROVED', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.CREDIT, OrderStatus.PENDING));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.APPROVED }, ['MANAGEMENT']);
+
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call payment.updateMany for EXTERNAL orders on non-APPROVED status', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.EXTERNAL, OrderStatus.PENDING));
+    prismaMock.$transaction.mockImplementation(async () => {
+      const updated = { id: 77, userId: 5, status: OrderStatus.READY_FOR_DELIVERY, updatedAt: new Date() };
+      return [updated, { id: 1 }];
+    });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.READY_FOR_DELIVERY }, ['MANAGEMENT']);
+
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
   });
 });
