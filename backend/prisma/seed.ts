@@ -9,7 +9,7 @@ async function seed() {
   await prisma.notification.deleteMany();
   await prisma.contactMessage.deleteMany();
   await prisma.announcement.deleteMany();
-  await prisma.creditTransaction.deleteMany();
+  await prisma.storeCreditTransaction.deleteMany();
   await prisma.uiSetting.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.review.deleteMany();
