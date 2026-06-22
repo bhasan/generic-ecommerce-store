@@ -220,14 +220,14 @@ function OrderDetailPanel({
                           ? 'payment-store' 
                           : (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING')
                             ? 'payment-verify'
-                            : (order.paymentMethod === 'CREDIT' || order.paymentMethod === 'EXTERNAL')
+                            : (order.paymentMethod === 'STORE_CREDIT' || order.paymentMethod === 'EXTERNAL')
                               ? 'payment-paid'
                               : 'payment-none'
                       }`}>
                         {order.paymentMethod === 'IN_STORE' ? 'Pay In Store' :
                          (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING') ? 'Verify External Payment' :
                          (order.paymentMethod === 'EXTERNAL' ? 'External Payment (Paid)' : 
-                          order.paymentMethod === 'CREDIT' ? 'Store Credit (Paid)' : 'No payment method')}
+                          order.paymentMethod === 'STORE_CREDIT' ? 'Store Credit (Paid)' : 'No payment method')}
                       </span>
                     </div>
                     {order.user.phoneNumber && (

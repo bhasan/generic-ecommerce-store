@@ -414,7 +414,7 @@ describe('order routes integration', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(body.errors[0].msg).toBe('Payment method must be EXTERNAL, CREDIT, or IN_STORE');
+    expect(body.errors[0].msg).toBe('Payment method must be EXTERNAL, STORE_CREDIT, or IN_STORE');
     expect(orderService.createOrder).not.toHaveBeenCalled();
   });
 

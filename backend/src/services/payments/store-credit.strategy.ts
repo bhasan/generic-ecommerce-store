@@ -1,14 +1,14 @@
 import { OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../../../generated/prisma';
 import { PaymentStrategy, OrderContext } from './PaymentStrategy';
-import creditService from '../credit.service';
+import storeCreditService from '../store-credit.service';
 
-export class CreditPaymentStrategy implements PaymentStrategy {
-  readonly method = PaymentMethodEnum.CREDIT;
+export class StoreCreditPaymentStrategy implements PaymentStrategy {
+  readonly method = PaymentMethodEnum.STORE_CREDIT;
 
   validate(_ctx: OrderContext): void {
-    // Balance enforcement happens inside applyInTransaction via creditService.useCredit(),
+    // Balance enforcement happens inside applyInTransaction via storeCreditService.useCredit(),
     // which reads the live DB balance inside the transaction. Pre-checking here would require
-    // an extra DB round-trip and creditBalance is not available in CreateOrderData.
+    // an extra DB round-trip and storeCreditBalance is not available in CreateOrderData.
     // The frontend paymentRegistry already provides the UX-level guard.
   }
 
@@ -17,11 +17,11 @@ export class CreditPaymentStrategy implements PaymentStrategy {
   }
 
   async applyInTransaction(tx: any, orderId: number, ctx: OrderContext): Promise<void> {
-    await creditService.useCredit(ctx.userId, ctx.total, orderId, tx);
+    await storeCreditService.useCredit(ctx.userId, ctx.total, orderId, tx);
     await tx.payment.create({
       data: {
         orderId,
-        method: PaymentMethodEnum.CREDIT,
+        method: PaymentMethodEnum.STORE_CREDIT,
         status: PaymentStatus.SETTLED,
         amount: new Prisma.Decimal(ctx.total),
         paymentHandle: null,
@@ -34,6 +34,6 @@ export class CreditPaymentStrategy implements PaymentStrategy {
   }
 
   async refundOnDelete(orderId: number, userId: number, total: number): Promise<void> {
-    await creditService.refundCredit(userId, total, orderId, 'Order cancelled');
+    await storeCreditService.refundCredit(userId, total, orderId, 'Order cancelled');
   }
 }

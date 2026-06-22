@@ -6,7 +6,7 @@ export const DeliveryMethod = {
 
 export const PaymentMethod = {
   EXTERNAL: 'EXTERNAL',
-  CREDIT: 'CREDIT',
+  STORE_CREDIT: 'STORE_CREDIT',
   IN_STORE: 'IN_STORE',
   CC: 'CC',
 };

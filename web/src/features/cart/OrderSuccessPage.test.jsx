@@ -161,7 +161,7 @@ describe('OrderSuccessPage', () => {
   });
 
   it('shows "Paid with store credit" for CREDIT payment', () => {
-    renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.CREDIT });
+    renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.STORE_CREDIT });
     expect(screen.getByText(/paid with store credit/i)).toBeInTheDocument();
   });
 
@@ -220,7 +220,7 @@ describe('OrderSuccessPage', () => {
       deliveryMethod: DeliveryMethod.PICKUP,
       deliveryAddress: 'Store Pickup',
       pickupLocation: '101 Example Ave',
-      paymentMethod: PaymentMethod.CREDIT,
+      paymentMethod: PaymentMethod.STORE_CREDIT,
     });
     expect(screen.queryByText(/send payment/i)).not.toBeInTheDocument();
     expect(screen.getByText(/wait for pickup notification/i)).toBeInTheDocument();
@@ -236,7 +236,7 @@ describe('OrderSuccessPage', () => {
   });
 
   it('shows delivery "What\'s Next" steps for DELIVERY with CREDIT payment', () => {
-    renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.CREDIT });
+    renderSuccessPage({ ...baseOrderData, paymentMethod: PaymentMethod.STORE_CREDIT });
     expect(screen.queryByText(/send payment/i)).not.toBeInTheDocument();
     expect(screen.getByText(/check your orders page/i)).toBeInTheDocument();
     expect(screen.getByText(/track your delivery/i)).toBeInTheDocument();
@@ -275,7 +275,7 @@ describe('OrderSuccessPage', () => {
         deliveryMethod: DeliveryMethod.PICKUP,
         deliveryAddress: 'Store Pickup',
         pickupLocation: '101 Example Ave, Springfield',
-        paymentMethod: PaymentMethod.CREDIT,
+        paymentMethod: PaymentMethod.STORE_CREDIT,
       });
       expect(screen.getAllByText('101 Example Ave, Springfield').length).toBeGreaterThan(0);
       expect(screen.queryByText('Store Pickup')).not.toBeInTheDocument();
@@ -286,7 +286,7 @@ describe('OrderSuccessPage', () => {
         ...baseOrderData,
         deliveryMethod: DeliveryMethod.CURBSIDE,
         deliveryAddress: 'Red Honda Civic',
-        paymentMethod: PaymentMethod.CREDIT,
+        paymentMethod: PaymentMethod.STORE_CREDIT,
       });
       expect(screen.getByText('Curbside Pickup')).toBeInTheDocument();
     });
@@ -296,7 +296,7 @@ describe('OrderSuccessPage', () => {
         ...baseOrderData,
         deliveryMethod: DeliveryMethod.CURBSIDE,
         deliveryAddress: 'Red Honda Civic',
-        paymentMethod: PaymentMethod.CREDIT,
+        paymentMethod: PaymentMethod.STORE_CREDIT,
       });
       expect(screen.getAllByText('Red Honda Civic').length).toBeGreaterThan(0);
     });

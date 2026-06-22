@@ -82,7 +82,7 @@ function CheckoutPage() {
 
   const isPickup = deliveryMethod === DeliveryMethod.PICKUP || deliveryMethod === DeliveryMethod.CURBSIDE;
   const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
-  const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
+  const isStoreCreditPayment = selectedPaymentMethod === PaymentMethod.STORE_CREDIT;
   const isInStorePayment = selectedPaymentMethod === PaymentMethod.IN_STORE;
   const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
   const isCCPayment = selectedPaymentMethod === PaymentMethod.CC;
@@ -565,7 +565,7 @@ function CheckoutPage() {
             </button>
 
             <p className="checkout-note">{
-              isCreditPayment ? 'Store credit will be deducted from your balance when you place this order.'
+              isStoreCreditPayment ? 'Store credit will be deducted from your balance when you place this order.'
                 : isInStorePayment ? 'Have your payment ready when you arrive to pick up your order.'
                   : 'By placing this order, you agree to send payment via the method(s) shown above'
             }</p>

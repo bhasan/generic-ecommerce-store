@@ -40,7 +40,7 @@ router.post(
     body('items.*.variantId').isInt().withMessage('Valid variant ID is required'),
     body('items.*.quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
     body('cashAppUsername').optional().isString().withMessage('CashApp username must be a string'),
-    body('paymentMethod').optional().isIn(Object.values(PaymentMethod)).withMessage('Payment method must be EXTERNAL, CREDIT, or IN_STORE'),
+    body('paymentMethod').optional().isIn(Object.values(PaymentMethod)).withMessage('Payment method must be EXTERNAL, STORE_CREDIT, or IN_STORE'),
     body('deliveryMethod').isIn(Object.values(DeliveryMethod)).withMessage('Delivery method must be DELIVERY or PICKUP'),
     ...conditionalDeliveryAddressValidators,
     body('vehicleDescription').optional().isString().trim().notEmpty().withMessage('Vehicle description must be a non-empty string'),

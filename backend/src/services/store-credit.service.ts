@@ -4,29 +4,29 @@ import { AppError } from '../middleware/error.middleware';
 import { logger } from '../utils/logger';
 
 // A Prisma client or interactive-transaction client — both expose the models we touch.
-type CreditClient = Pick<typeof prisma, 'user' | 'creditTransaction'>;
+type StoreCreditClient = Pick<typeof prisma, 'user' | 'storeCreditTransaction'>;
 
-interface CreditChangeFields {
+interface StoreCreditChangeFields {
   type: 'ADDED' | 'USED' | 'REFUNDED' | 'REMOVED';
   note?: string;
   orderId?: number;
   createdBy?: number;
 }
 
-export class CreditService {
+export class StoreCreditService {
   async getUserCreditBalance(userId: number): Promise<number> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { creditBalance: true }
+      select: { storeCreditBalance: true }
     });
     if (!user) {
       throw new AppError('User not found', 404);
     }
-    return user.creditBalance.toNumber();
+    return user.storeCreditBalance.toNumber();
   }
 
   async getCreditTransactions(userId: number) {
-    const transactions = await prisma.creditTransaction.findMany({
+    const transactions = await prisma.storeCreditTransaction.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' }
     });
@@ -56,34 +56,34 @@ export class CreditService {
   /**
    * Applies a signed credit delta atomically: reads the current balance, computes the
    * resulting balance, writes a ledger entry with `balanceAfter`, and updates the cached
-   * `creditBalance` — all in Decimal so money never drifts.
+   * `storeCreditBalance` — all in Decimal so money never drifts.
    */
-  private async applyCreditChange(
-    client: CreditClient,
+  private async applyStoreCreditChange(
+    client: StoreCreditClient,
     userId: number,
     delta: Prisma.Decimal,
-    fields: CreditChangeFields,
+    fields: StoreCreditChangeFields,
     insufficientMessage?: string
   ) {
     const user = await client.user.findUnique({
       where: { id: userId },
-      select: { creditBalance: true }
+      select: { storeCreditBalance: true }
     });
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    const newBalance = user.creditBalance.add(delta);
+    const newBalance = user.storeCreditBalance.add(delta);
     if (newBalance.isNegative()) {
       throw new AppError(insufficientMessage ?? 'Insufficient credit balance', 400);
     }
 
     await client.user.update({
       where: { id: userId },
-      data: { creditBalance: newBalance }
+      data: { storeCreditBalance: newBalance }
     });
 
-    return client.creditTransaction.create({
+    return client.storeCreditTransaction.create({
       data: { userId, amount: delta, balanceAfter: newBalance, ...fields }
     });
   }
@@ -96,7 +96,7 @@ export class CreditService {
     logger.info('Adding credit to user', { userId, amount, createdBy });
 
     const transaction = await prisma.$transaction((tx) =>
-      this.applyCreditChange(tx, userId, new Prisma.Decimal(amount), { type: 'ADDED', note, createdBy })
+      this.applyStoreCreditChange(tx, userId, new Prisma.Decimal(amount), { type: 'ADDED', note, createdBy })
     );
 
     logger.info('Credit added successfully', { userId, amount, transactionId: transaction.id });
@@ -112,7 +112,7 @@ export class CreditService {
 
     const delta = new Prisma.Decimal(amount).negated();
     const transaction = await prisma.$transaction((tx) =>
-      this.applyCreditChange(
+      this.applyStoreCreditChange(
         tx,
         userId,
         delta,
@@ -129,9 +129,9 @@ export class CreditService {
     userId: number,
     amount: number,
     orderId: number,
-    tx: CreditClient
+    tx: StoreCreditClient
   ) {
-    await this.applyCreditChange(
+    await this.applyStoreCreditChange(
       tx,
       userId,
       new Prisma.Decimal(amount).negated(),
@@ -143,7 +143,7 @@ export class CreditService {
     logger.info('Refunding credit to user', { userId, amount, orderId });
 
     const transaction = await prisma.$transaction((tx) =>
-      this.applyCreditChange(tx, userId, new Prisma.Decimal(amount), { type: 'REFUNDED', orderId, note })
+      this.applyStoreCreditChange(tx, userId, new Prisma.Decimal(amount), { type: 'REFUNDED', orderId, note })
     );
 
     logger.info('Credit refunded successfully', { userId, amount, orderId, transactionId: transaction.id });
@@ -151,25 +151,25 @@ export class CreditService {
   }
 
   /**
-   * Audit helper: the cached `creditBalance` should equal the sum of all ledger entries.
+   * Audit helper: the cached `storeCreditBalance` should equal the sum of all ledger entries.
    * (Legacy balances seeded without a ledger history will report as unreconciled.)
    */
   async reconcileBalance(userId: number) {
     const [user, agg] = await Promise.all([
-      prisma.user.findUnique({ where: { id: userId }, select: { creditBalance: true } }),
-      prisma.creditTransaction.aggregate({ where: { userId }, _sum: { amount: true } })
+      prisma.user.findUnique({ where: { id: userId }, select: { storeCreditBalance: true } }),
+      prisma.storeCreditTransaction.aggregate({ where: { userId }, _sum: { amount: true } })
     ]);
     if (!user) {
       throw new AppError('User not found', 404);
     }
     const ledgerSum = agg._sum.amount ?? new Prisma.Decimal(0);
     return {
-      cachedBalance: user.creditBalance.toNumber(),
+      cachedBalance: user.storeCreditBalance.toNumber(),
       ledgerSum: ledgerSum.toNumber(),
-      reconciled: user.creditBalance.equals(ledgerSum)
+      reconciled: user.storeCreditBalance.equals(ledgerSum)
     };
   }
 }
 
-export default new CreditService();
-
+export const storeCreditService = new StoreCreditService();
+export default storeCreditService;

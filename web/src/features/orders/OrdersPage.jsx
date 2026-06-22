@@ -657,7 +657,7 @@ function OrdersPage({ forceCustomerView = false }) {
                     const isPickup = order.deliveryMethod === 'PICKUP' || order.deliveryMethod === 'CURBSIDE';
                     const isPayInStore = order.paymentMethod === 'IN_STORE';
                     const isExternal = order.paymentMethod === 'EXTERNAL';
-                    const isPaid = order.paymentMethod === 'CREDIT' || (isExternal && order.status !== 'PENDING');
+                    const isPaid = order.paymentMethod === 'STORE_CREDIT' || (isExternal && order.status !== 'PENDING');
                     const needsVerification = isExternal && order.status === 'PENDING';
 
                     const isArrived = order.status === 'ARRIVED';

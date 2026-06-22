@@ -87,7 +87,7 @@ vi.mock('../utils/logger', () => ({
   logger,
 }));
 
-vi.mock('./credit.service', () => ({
+vi.mock('./store-credit.service', () => ({
   default: creditService,
 }));
 
@@ -839,7 +839,7 @@ describe('updateOrderStatus — EXTERNAL payment settlement', () => {
   });
 
   it('does NOT call payment.updateMany for non-EXTERNAL orders on APPROVED', async () => {
-    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.CREDIT, OrderStatus.PENDING));
+    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.STORE_CREDIT, OrderStatus.PENDING));
 
     const { OrderService } = await import('./order.service');
     const service = new OrderService();

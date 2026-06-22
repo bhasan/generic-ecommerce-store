@@ -3,7 +3,7 @@ import { PaymentMethodEnum, OrderStatus, PaymentStatus, Prisma } from '../../../
 import { getPaymentStrategy } from './registry';
 import { DeliveryMethod } from '../../constants/orderMethods';
 
-vi.mock('../credit.service', () => ({
+vi.mock('../store-credit.service', () => ({
   default: {
     useCredit: vi.fn(),
     refundCredit: vi.fn(),
@@ -56,10 +56,10 @@ describe('PaymentStrategy registry', () => {
     });
   });
 
-  describe('CreditPaymentStrategy', () => {
-    const strategy = getPaymentStrategy(PaymentMethodEnum.CREDIT);
+  describe('StoreCreditPaymentStrategy', () => {
+    const strategy = getPaymentStrategy(PaymentMethodEnum.STORE_CREDIT);
 
-    it('has correct method', () => expect(strategy.method).toBe(PaymentMethodEnum.CREDIT));
+    it('has correct method', () => expect(strategy.method).toBe(PaymentMethodEnum.STORE_CREDIT));
     it('initialStatus is PENDING', () => expect(strategy.initialStatus()).toBe(OrderStatus.PENDING));
     it('notifiesOnCreate is true', () => expect(strategy.notifiesOnCreate()).toBe(true));
 
@@ -74,7 +74,7 @@ describe('PaymentStrategy registry', () => {
       expect(tx.payment.create).toHaveBeenCalledWith({
         data: {
           orderId: 42,
-          method: PaymentMethodEnum.CREDIT,
+          method: PaymentMethodEnum.STORE_CREDIT,
           status: PaymentStatus.SETTLED,
           amount: new Prisma.Decimal(30),
           paymentHandle: null,

@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import creditService from '../services/credit.service';
+import storeCreditService from '../services/store-credit.service';
 import { hasAnyRole } from '../constants/roles';
 import { validateRequest, parseIntParam } from '../utils/request.util';
 
-export class CreditController {
+export class StoreCreditController {
   async getBalance(req: Request, res: Response) : Promise<void> {
     const targetUserId = parseIntParam(req.params.userId, res, 'user');
     if (targetUserId === null) return;
@@ -14,7 +14,7 @@ export class CreditController {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
-    const balance = await creditService.getUserCreditBalance(targetUserId);
+    const balance = await storeCreditService.getUserCreditBalance(targetUserId);
     res.json({ userId: targetUserId, balance });
   }
 
@@ -28,7 +28,7 @@ export class CreditController {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
-    const transactions = await creditService.getCreditTransactions(targetUserId);
+    const transactions = await storeCreditService.getCreditTransactions(targetUserId);
     res.json(transactions);
   }
 
@@ -38,8 +38,8 @@ export class CreditController {
     if (targetUserId === null) return;
     const { amount, note } = req.body;
     const createdBy = req.user!.userId;
-    const transaction = await creditService.addCredit(targetUserId, amount, note, createdBy);
-    const newBalance = await creditService.getUserCreditBalance(targetUserId);
+    const transaction = await storeCreditService.addCredit(targetUserId, amount, note, createdBy);
+    const newBalance = await storeCreditService.getUserCreditBalance(targetUserId);
     res.status(201).json({ transaction, newBalance });
   }
 
@@ -49,10 +49,10 @@ export class CreditController {
     if (targetUserId === null) return;
     const { amount, note } = req.body;
     const createdBy = req.user!.userId;
-    const transaction = await creditService.removeCredit(targetUserId, amount, note, createdBy);
-    const newBalance = await creditService.getUserCreditBalance(targetUserId);
+    const transaction = await storeCreditService.removeCredit(targetUserId, amount, note, createdBy);
+    const newBalance = await storeCreditService.getUserCreditBalance(targetUserId);
     res.status(201).json({ transaction, newBalance });
   }
 }
 
-export default new CreditController();
+export default new StoreCreditController();

@@ -7,7 +7,7 @@ import * as ordersApi from '../services/ordersApi';
 import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
 import * as configApi from '../services/configApi';
-import * as creditApi from '../services/creditApi';
+import * as creditApi from '../services/storeCreditApi';
 import { getAuthToken, newSession } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
@@ -758,18 +758,18 @@ export function AppProvider({ children }) {
           setIsAuthenticated(true);
         } catch (profileError) {
           console.warn('Failed to refresh profile after delivery order:', profileError);
-          if (paymentMethod !== PaymentMethod.CREDIT) {
+          if (paymentMethod !== PaymentMethod.STORE_CREDIT) {
             const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
             setCurrentUser(updatedUserData);
             localStorage.setItem('userData', JSON.stringify(updatedUserData));
           }
         }
-      } else if (paymentMethod !== PaymentMethod.CREDIT) {
+      } else if (paymentMethod !== PaymentMethod.STORE_CREDIT) {
         // Persist the latest payment handle so checkout, profile, and later orders show the same value.
         const updatedUserData = { ...currentUser, cashapp: cashAppUsername };
         setCurrentUser(updatedUserData);
         localStorage.setItem('userData', JSON.stringify(updatedUserData));
-      } else if (paymentMethod === PaymentMethod.CREDIT) {
+      } else if (paymentMethod === PaymentMethod.STORE_CREDIT) {
         // Refresh credit balance after credit payment
         await refreshCreditBalance(currentUser.id);
       }

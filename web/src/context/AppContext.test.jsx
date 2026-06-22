@@ -70,7 +70,7 @@ vi.mock('../services/ordersApi', () => ordersApi);
 vi.mock('../services/categoriesApi', () => categoriesApi);
 vi.mock('../services/notificationsApi', () => notificationsApi);
 vi.mock('../services/configApi', () => configApi);
-vi.mock('../services/creditApi', () => creditApi);
+vi.mock('../services/storeCreditApi', () => creditApi);
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
   return {
@@ -106,7 +106,7 @@ function ContextHarness() {
       <div data-testid="notification">{app.notification?.message || ''}</div>
       <div data-testid="cart-count">{app.cart.length}</div>
       <button onClick={() => app.addToCart(sampleProducts[0], sampleProducts[0].variants[0], 1)}>Add To Cart</button>
-      <button onClick={() => app.checkout('', 'PICKUP', 'CREDIT')}>Checkout With Credit</button>
+      <button onClick={() => app.checkout('', 'PICKUP', 'STORE_CREDIT')}>Checkout With Credit</button>
       <button onClick={() => app.markNotificationRead(11)}>Mark Notification Read</button>
       <button onClick={() => app.login('driver', 'driver123')}>Trigger Login</button>
       <button onClick={() => app.notifyArrival(111, 'Spot X')}>Notify Arrival</button>
@@ -256,7 +256,7 @@ describe('AppContext', () => {
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('5');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
     expect(localStorage.getItem('cartData_v2')).toBeNull();
-    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ variantId: 1001, quantity: 1 }], '', 'PICKUP', 'CREDIT', undefined, undefined);
+    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ variantId: 1001, quantity: 1 }], '', 'PICKUP', 'STORE_CREDIT', undefined, undefined);
   });
 
   it('persists cart changes to localStorage after adding an item', async () => {

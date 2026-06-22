@@ -36,7 +36,7 @@ vi.mock('./orderingConstraints.service', () => ({
 vi.mock('./notificationEvents.service', () => ({
   notificationEventsService: notificationEventsMock,
 }));
-vi.mock('./credit.service', () => ({ default: { useCredit: vi.fn() } }));
+vi.mock('./store-credit.service', () => ({ default: { useCredit: vi.fn() } }));
 
 describe('order service — IN_STORE payment', () => {
   beforeEach(() => vi.clearAllMocks());

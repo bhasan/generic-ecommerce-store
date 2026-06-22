@@ -35,7 +35,7 @@ const storeSettingsService = vi.hoisted(() => ({
 
 vi.mock('../utils/jwt.util', () => ({ verifyToken, extractTokenFromHeader }));
 vi.mock('../utils/logger', () => ({ logger }));
-vi.mock('../services/credit.service', () => ({ default: creditService }));
+vi.mock('../services/store-credit.service', () => ({ default: creditService }));
 vi.mock('../services/user.service', () => ({ default: userService }));
 vi.mock('../services/order.service', () => ({ default: orderService }));
 vi.mock('../services/orderingConstraints.service', () => ({

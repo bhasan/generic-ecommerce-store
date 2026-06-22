@@ -48,7 +48,7 @@ vi.mock('./deliveryEligibility.service', () => ({
 vi.mock('./notificationEvents.service', () => ({
   notificationEventsService: notificationEventsMock,
 }));
-vi.mock('./credit.service', () => ({ default: creditServiceMock }));
+vi.mock('./store-credit.service', () => ({ default: creditServiceMock }));
 vi.mock('./thermalPrinter.service', () => ({
   thermalPrinterService: { dispatchReceipt: vi.fn() },
 }));
@@ -90,7 +90,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'DELIVERY × CREDIT',
     deliveryMethod: DeliveryMethod.DELIVERY,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     deliveryAddress: DELIVERY_ADDRESS,
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
@@ -113,7 +113,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'PICKUP × CREDIT',
     deliveryMethod: DeliveryMethod.PICKUP,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
   },
@@ -140,7 +140,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'CURBSIDE × CREDIT',
     deliveryMethod: DeliveryMethod.CURBSIDE,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     vehicleDescription: 'Blue Honda Civic',
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,

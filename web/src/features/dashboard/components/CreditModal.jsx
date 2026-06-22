@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Wallet } from 'lucide-react';
-import * as creditApi from '../../../services/creditApi';
+import * as creditApi from '../../../services/storeCreditApi';
 import './CreditModal.css';
 
 function CreditModal({ user, onClose, onCreditAdded }) {
@@ -97,7 +97,7 @@ function CreditModal({ user, onClose, onCreditAdded }) {
     }
   };
 
-  const balance = typeof user.creditBalance === 'number' ? user.creditBalance : 0;
+  const balance = typeof user.storeCreditBalance === 'number' ? user.storeCreditBalance : 0;
 
   return (
     <div className="modal-overlay" onClick={onClose}>

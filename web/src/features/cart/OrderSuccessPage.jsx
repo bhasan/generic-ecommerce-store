@@ -145,7 +145,7 @@ function OrderSuccessPage() {
               <p className="detail-text">
                 Pay <strong>${orderData.total.toFixed(2)}</strong> when you arrive to pick up your order.
               </p>
-            ) : orderData.paymentMethod === PaymentMethod.CREDIT ? (
+            ) : orderData.paymentMethod === PaymentMethod.STORE_CREDIT ? (
               <p className="detail-text">
                 Paid with store credit.
               </p>

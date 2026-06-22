@@ -228,7 +228,7 @@ describe('Orders Workflow Integration', () => {
       const order = {
         id: 3002,
         status: OrderStatus.PENDING,
-        paymentMethod: 'CREDIT',
+        paymentMethod: 'STORE_CREDIT',
         deliveryMethod: 'DELIVERY',
         user: { username: 'test' },
         total: 10,

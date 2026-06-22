@@ -39,7 +39,7 @@ vi.mock('./authorizenet.service', () => ({
 }));
 vi.mock('./notificationEvents.service', () => ({ notificationEventsService }));
 vi.mock('./thermalPrinter.service', () => ({ thermalPrinterService }));
-vi.mock('./credit.service', () => ({ default: { useCredit: vi.fn(), refundCredit: vi.fn() } }));
+vi.mock('./store-credit.service', () => ({ default: { useCredit: vi.fn(), refundCredit: vi.fn() } }));
 vi.mock('./orderingConstraints.service', () => ({
   OrderingConstraintsService: vi.fn(() => ({ getOrderingConstraints: vi.fn() })),
 }));
