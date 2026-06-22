@@ -10,7 +10,7 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 const prismaMock = vi.hoisted(() => ({
   user: { update: vi.fn() },
   productVariant: { findMany: vi.fn(), update: vi.fn() },
-  order: { create: vi.fn() },
+  order: { create: vi.fn(), findUnique: vi.fn() },
   orderItem: { create: vi.fn() },
   payment: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -181,6 +181,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
     });
     deliveryEligibilityMock.checkDeliveryEligibility.mockResolvedValue(DELIVERABLE_RESULT);
     creditServiceMock.useCredit.mockResolvedValue(undefined);
+    prismaMock.order.findUnique.mockResolvedValue({ statusEvents: [], payments: [] });
   });
 
   it.each(matrix)('$label', async ({ deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription, creditBalance, expectedStatus, expectedFields }) => {

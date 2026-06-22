@@ -7,7 +7,7 @@ import { Prisma } from '../../generated/prisma';
 const prismaMock = vi.hoisted(() => ({
   user: { update: vi.fn() },
   productVariant: { findMany: vi.fn(), update: vi.fn() },
-  order: { create: vi.fn() },
+  order: { create: vi.fn(), findUnique: vi.fn() },
   orderItem: { create: vi.fn() },
   payment: { create: vi.fn() },
   $transaction: vi.fn(),
@@ -73,6 +73,7 @@ describe('order service — IN_STORE payment', () => {
     prismaMock.order.create.mockResolvedValue(createdOrder);
     prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 42, variantId: 7, quantity: 1, unitPrice: new Prisma.Decimal(10) });
     prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
+    prismaMock.order.findUnique.mockResolvedValue({ statusEvents: [], payments: [] });
     notificationEventsMock.notifyOrderCreated.mockResolvedValue(undefined);
 
     const { default: orderService } = await import('./order.service');

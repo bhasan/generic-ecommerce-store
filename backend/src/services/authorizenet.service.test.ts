@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
+import { Prisma } from '../../generated/prisma';
 import { AuthorizeNetService } from './authorizenet.service';
 
 // Mock prisma so Payment.create calls don't hit DB
@@ -245,6 +246,52 @@ describe('AuthorizeNetService', () => {
       expect(call.data.orderId).toBe(42);
       expect(call.data.status).toBe('SETTLED');
       expect(call.data.transactionId).toBe('txn-123');
+    });
+
+    it('rejects with a user-friendly 400 when the transactionId already exists (P2002 duplicate)', async () => {
+      mockGetTransactionResponse = {
+        getMessages: () => ({ getResultCode: () => 'Ok' }),
+        getTransaction: () => ({
+          getTransactionStatus: () => 'settledSuccessfully',
+          getSettleAmount: () => '41.14',
+          getAuthAmount: () => null,
+          getOrder: () => ({ getInvoiceNumber: () => '42' }),
+        }),
+      };
+
+      const p2002 = new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.0.0',
+        meta: { target: ['transactionId'] },
+      });
+      vi.mocked(prisma.payment.create).mockRejectedValueOnce(p2002);
+
+      await expect(
+        new AuthorizeNetService(mockSDK).verifyTransaction('txn-dup', 41.14, 42, sandboxSettings)
+      ).rejects.toMatchObject({
+        message: 'This payment has already been applied to an order',
+        statusCode: 400,
+      });
+    });
+
+    it('stores only whitelisted gateway fields in gatewayResponse (no PII)', async () => {
+      mockGetTransactionResponse = {
+        getMessages: () => ({ getResultCode: () => 'Ok' }),
+        getTransaction: () => ({
+          getTransactionStatus: () => 'settledSuccessfully',
+          getSettleAmount: () => '41.14',
+          getAuthAmount: () => null,
+          getOrder: () => ({ getInvoiceNumber: () => '42' }),
+        }),
+      };
+
+      await new AuthorizeNetService(mockSDK).verifyTransaction('txn-999', 41.14, 42, sandboxSettings);
+
+      const call = vi.mocked(prisma.payment.create).mock.calls[0][0];
+      const gw = call.data.gatewayResponse as Record<string, unknown>;
+      expect(Object.keys(gw).sort()).toEqual(
+        ['authCode', 'responseCode', 'settleAmount', 'submitTimeUTC', 'transactionStatus'].sort()
+      );
     });
   });
 });

@@ -70,7 +70,7 @@ const createServer = async () => {
     req.requestId = 'req-rbac';
     next();
   });
-  app.use('/api/credits', creditRoutes);
+  app.use('/api/storecredit', creditRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/orders', orderRoutes);
   app.use('/api/ordering-constraints', orderingConstraintsRoutes);
@@ -114,9 +114,9 @@ interface Case {
 // (authorizeManagement, authorizeAdmin, and the delivery-board allowlist).
 const cases: Case[] = [
   {
-    label: 'POST /api/credits/:id/add (management)',
+    label: 'POST /api/storecredit/:id/add (management)',
     method: 'POST',
-    path: '/api/credits/5/add',
+    path: '/api/storecredit/5/add',
     validBody: { amount: 10 },
     authorized: 'MANAGEMENT',
     forbidden: ['CUSTOMER', 'EMPLOYEE', 'DELIVERY_DRIVER'],
