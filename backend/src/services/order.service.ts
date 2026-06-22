@@ -384,7 +384,6 @@ export class OrderService {
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
             ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal }),
-            paymentHandle: cashAppUsername?.trim() || null,
           }
         });
 
