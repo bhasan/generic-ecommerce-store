@@ -328,6 +328,19 @@ describe('order service notifications', () => {
     // $transaction is called with an array of two Prisma operation promises
     expect(Array.isArray(txArgs)).toBe(true);
     expect(txArgs).toHaveLength(2);
+
+    // orderStatusEvent.create is called synchronously when building the transaction array,
+    // so we can assert directly on the mock call args.
+    expect(prismaMock.orderStatusEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromStatus: OrderStatus.PENDING,
+          toStatus: OrderStatus.APPROVED,
+          changedBy: 42,
+          note: 'Approved by manager',
+        }),
+      }),
+    );
   });
 
   it('queues a manual reprint for an existing order', async () => {
