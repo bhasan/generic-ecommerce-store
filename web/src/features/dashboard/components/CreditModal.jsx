@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Wallet } from 'lucide-react';
-import * as creditApi from '../../../services/storeCreditApi';
+import * as storeCreditApi from '../../../services/storeCreditApi';
 import './CreditModal.css';
 
 function CreditModal({ user, onClose, onCreditAdded }) {
@@ -18,7 +18,7 @@ function CreditModal({ user, onClose, onCreditAdded }) {
     const load = async () => {
       setIsLoadingTx(true);
       try {
-        const data = await creditApi.getCreditTransactions(user.id);
+        const data = await storeCreditApi.getStoreCreditTransactions(user.id);
         setTransactions(data);
       } catch {
         // Non-fatal
@@ -30,7 +30,7 @@ function CreditModal({ user, onClose, onCreditAdded }) {
   }, [user.id]);
 
   const refreshTransactions = async () => {
-    const data = await creditApi.getCreditTransactions(user.id);
+    const data = await storeCreditApi.getStoreCreditTransactions(user.id);
     setTransactions(data);
   };
 
@@ -44,7 +44,7 @@ function CreditModal({ user, onClose, onCreditAdded }) {
     setAddError('');
     setIsSubmitting(true);
     try {
-      const result = await creditApi.addCredit(user.id, parsed, addNote.trim() || undefined);
+      const result = await storeCreditApi.addCredit(user.id, parsed, addNote.trim() || undefined);
       onCreditAdded(user.id, result.newBalance);
       setAddAmount('');
       setAddNote('');
@@ -64,7 +64,7 @@ function CreditModal({ user, onClose, onCreditAdded }) {
     setRemoveError('');
     setIsSubmitting(true);
     try {
-      const result = await creditApi.removeCredit(user.id, parsed, removeNote.trim() || undefined);
+      const result = await storeCreditApi.removeCredit(user.id, parsed, removeNote.trim() || undefined);
       onCreditAdded(user.id, result.newBalance);
       setRemoveAmount('');
       setRemoveNote('');

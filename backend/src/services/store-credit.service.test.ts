@@ -211,7 +211,7 @@ describe('StoreCreditService', () => {
     });
   });
 
-  describe('getCreditTransactions', () => {
+  describe('getStoreCreditTransactions', () => {
     it('annotates each transaction with the staff username and returns numeric money', async () => {
       prismaMock.storeCreditTransaction.findMany.mockResolvedValue([
         { id: 1, userId: 7, amount: D(25), balanceAfter: D(25), type: 'ADDED', createdBy: 2 },
@@ -220,7 +220,7 @@ describe('StoreCreditService', () => {
       prismaMock.user.findMany.mockResolvedValue([{ id: 2, username: 'manager' }]);
       const service = await makeService();
 
-      const result = await service.getCreditTransactions(7);
+      const result = await service.getStoreCreditTransactions(7);
 
       expect(result[0].createdByUsername).toBe('manager');
       expect(result[0].amount).toBe(25);
@@ -238,7 +238,7 @@ describe('StoreCreditService', () => {
       ]);
       const service = await makeService();
 
-      const result = await service.getCreditTransactions(7);
+      const result = await service.getStoreCreditTransactions(7);
 
       expect(result[0].createdByUsername).toBeNull();
       expect(prismaMock.user.findMany).not.toHaveBeenCalled();

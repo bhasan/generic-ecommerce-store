@@ -5,7 +5,7 @@ export const getUserCredit = async (userId) => {
   return response;
 };
 
-export const getCreditTransactions = async (userId) => {
+export const getStoreCreditTransactions = async (userId) => {
   const response = await get(`/credits/${userId}/transactions`);
   return response;
 };

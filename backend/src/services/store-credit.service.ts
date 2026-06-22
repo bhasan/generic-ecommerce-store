@@ -25,7 +25,7 @@ export class StoreCreditService {
     return user.storeCreditBalance.toNumber();
   }
 
-  async getCreditTransactions(userId: number) {
+  async getStoreCreditTransactions(userId: number) {
     const transactions = await prisma.storeCreditTransaction.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' }

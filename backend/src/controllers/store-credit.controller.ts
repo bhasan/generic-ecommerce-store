@@ -28,7 +28,7 @@ export class StoreCreditController {
       res.status(403).json({ error: 'Access denied' });
       return;
     }
-    const transactions = await storeCreditService.getCreditTransactions(targetUserId);
+    const transactions = await storeCreditService.getStoreCreditTransactions(targetUserId);
     res.json(transactions);
   }
 
