@@ -14,6 +14,7 @@ const logger = vi.hoisted(() => ({
   warn: vi.fn(),
   error: vi.fn(),
   debug: vi.fn(),
+  logEvent: vi.fn(),
 }));
 const orderService = vi.hoisted(() => ({
   getAllOrders: vi.fn(),
