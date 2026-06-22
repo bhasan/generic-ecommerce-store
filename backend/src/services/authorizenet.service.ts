@@ -136,9 +136,20 @@ export class AuthorizeNetService {
             status: PaymentStatus.SETTLED,
             amount: settled,
             transactionId: transId,
-            gatewayResponse: txn as any,
+            gatewayResponse: {
+              transactionStatus: txn.getTransactionStatus?.() ?? null,
+              responseCode: txn.getResponseCode?.() ?? null,
+              authCode: txn.getAuthCode?.() ?? null,
+              settleAmount: txn.getSettleAmount?.() ?? null,
+              submitTimeUTC: txn.getSubmitTimeUTC?.() ?? null,
+            } as Prisma.InputJsonValue,
           },
-        }).then(() => resolve()).catch(reject);
+        }).then(() => resolve()).catch((err) => {
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+            return reject(new AppError('This payment has already been applied to an order', 400));
+          }
+          return reject(err);
+        });
       });
     });
   }

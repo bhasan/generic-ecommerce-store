@@ -59,7 +59,10 @@ router.post(
 router.patch(
   '/:id/status',
   authenticate,
-  [body('status').isIn(Object.values(OrderStatus)).withMessage('Invalid order status')],
+  [
+    body('status').isIn(Object.values(OrderStatus)).withMessage('Invalid order status'),
+    body('note').optional().isString().isLength({ max: 500 }).withMessage('Note must be a string under 500 characters'),
+  ],
   asyncHandler(orderController.updateOrderStatus)
 );
 
