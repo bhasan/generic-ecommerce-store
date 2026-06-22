@@ -134,7 +134,7 @@ export class AuthorizeNetService {
             orderId: expectedOrderId,
             method: PaymentMethodEnum.CC,
             status: PaymentStatus.SETTLED,
-            amount: settled.toFixed(),
+            amount: settled,
             transactionId: transId,
             gatewayResponse: txn as any,
           },
