@@ -681,3 +681,121 @@ describe('order service notifications', () => {
     });
   });
 });
+
+describe('getOrderById', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns an order response that includes shaped statusEvents[] and payments[] arrays', async () => {
+    const now = new Date('2024-06-01T12:00:00Z');
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 99,
+      userId: 7,
+      status: OrderStatus.APPROVED,
+      total: D(25),
+      paymentMethod: PaymentMethod.CARD,
+      deliveryMethod: 'DELIVERY',
+      deliveryAddress: null,
+      cashAppUsername: null,
+      vehicleDescription: null,
+      note: null,
+      createdAt: now,
+      updatedAt: now,
+      user: { id: 7, username: 'alice', phoneNumber: null, address: null },
+      items: [],
+      statusEvents: [
+        {
+          id: 1,
+          orderId: 99,
+          fromStatus: null,
+          toStatus: OrderStatus.PENDING,
+          changedBy: null,
+          note: 'Order placed',
+          createdAt: now,
+        },
+        {
+          id: 2,
+          orderId: 99,
+          fromStatus: OrderStatus.PENDING,
+          toStatus: OrderStatus.APPROVED,
+          changedBy: 3,
+          note: null,
+          createdAt: now,
+        },
+      ],
+      payments: [
+        {
+          id: 10,
+          orderId: 99,
+          method: PaymentMethod.CARD,
+          status: 'APPROVED',
+          amount: D(25),
+          transactionId: 'txn_xyz',
+          createdAt: now,
+        },
+      ],
+    });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    const result = await service.getOrderById(99, 7, ['CUSTOMER']);
+
+    expect(result.statusEvents).toHaveLength(2);
+    expect(result.statusEvents[0]).toMatchObject({
+      id: 1,
+      fromStatus: null,
+      toStatus: OrderStatus.PENDING,
+      changedBy: null,
+      note: 'Order placed',
+      createdAt: now.toISOString(),
+    });
+    expect(result.statusEvents[1]).toMatchObject({
+      fromStatus: OrderStatus.PENDING,
+      toStatus: OrderStatus.APPROVED,
+      changedBy: 3,
+    });
+
+    expect(result.payments).toHaveLength(1);
+    expect(result.payments[0]).toMatchObject({
+      id: 10,
+      method: PaymentMethod.CARD,
+      status: 'APPROVED',
+      amount: 25,
+      transactionId: 'txn_xyz',
+      createdAt: now.toISOString(),
+    });
+  });
+
+  it('throws 404 when order does not exist', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(null);
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await expect(service.getOrderById(999, 1, ['ADMIN'])).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('throws 403 when a customer tries to view another user\'s order', async () => {
+    const now = new Date();
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 100,
+      userId: 42,
+      status: OrderStatus.PENDING,
+      total: D(10),
+      paymentMethod: PaymentMethod.EXTERNAL,
+      deliveryMethod: 'DELIVERY',
+      deliveryAddress: null,
+      cashAppUsername: null,
+      vehicleDescription: null,
+      note: null,
+      createdAt: now,
+      updatedAt: now,
+      user: { id: 42, username: 'bob', phoneNumber: null, address: null },
+      items: [],
+      statusEvents: [],
+      payments: [],
+    });
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    // userId 99 != order.userId 42, role is CUSTOMER only
+    await expect(service.getOrderById(100, 99, ['CUSTOMER'])).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
