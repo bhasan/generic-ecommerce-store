@@ -114,7 +114,7 @@ export class OrderController {
       res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
       return;
     }
-    const order = await orderService.updateOrderStatus(id, req.body, userRoles);
+    const order = await orderService.updateOrderStatus(id, { ...req.body, changedBy: req.user.userId }, userRoles);
     res.status(200).json({ message: 'Order status updated successfully', order });
   }
 

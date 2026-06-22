@@ -48,6 +48,8 @@ interface CreateOrderData {
 
 interface UpdateOrderStatusData {
   status: OrderStatus;
+  changedBy?: number;
+  note?: string;
 }
 
 interface AddOrderItemData {
@@ -223,6 +225,8 @@ export class OrderService {
       include: {
         user: { select: { id: true, username: true, phoneNumber: true, address: true } },
         ...orderItemsInclude,
+        statusEvents: { orderBy: { createdAt: 'asc' } },
+        payments: true,
       },
     });
 
@@ -535,10 +539,21 @@ export class OrderService {
         newStatus: data.status,
       });
 
-      const updatedOrder = await prisma.order.update({
-        where: { id: orderId },
-        data: { status: data.status }
-      });
+      const [updatedOrder] = await prisma.$transaction([
+        prisma.order.update({
+          where: { id: orderId },
+          data: { status: data.status },
+        }),
+        prisma.orderStatusEvent.create({
+          data: {
+            orderId,
+            fromStatus: order.status,
+            toStatus: data.status,
+            changedBy: data.changedBy ?? null,
+            note: data.note ?? null,
+          },
+        }),
+      ]);
 
       logger.info('Order status updated in database', {
         orderId,

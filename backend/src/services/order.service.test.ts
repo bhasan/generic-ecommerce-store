@@ -40,6 +40,9 @@ const prismaMock = {
     findMany: vi.fn(),
     findUnique: vi.fn(),
   },
+  orderStatusEvent: {
+    create: vi.fn(),
+  },
   $transaction: vi.fn(),
 };
 
@@ -162,7 +165,12 @@ describe('getAllOrders', () => {
 describe('order service notifications', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
+    // Default: handle both array form (used by updateOrderStatus) and callback form (used by createOrder/addItemToOrder).
+    prismaMock.$transaction.mockImplementation(async (opsOrCallback: unknown) => {
+      if (typeof opsOrCallback === 'function') return opsOrCallback(prismaMock);
+      if (Array.isArray(opsOrCallback)) return Promise.all(opsOrCallback);
+      return opsOrCallback;
+    });
     orderingConstraintsInstance.getOrderingConstraints.mockResolvedValue({
       minimumDeliveryOrder: 0,
       minimumDeliveryOrderEnabled: false,
@@ -261,6 +269,7 @@ describe('order service notifications', () => {
       status: OrderStatus.READY_FOR_DELIVERY,
       updatedAt: new Date('2024-01-02'),
     });
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
     prismaMock.orderItem.findMany.mockResolvedValue([
       { id: 1, orderId: 77, productId: 3, quantity: 1, price: 10, voided: false },
     ]);
@@ -279,6 +288,46 @@ describe('order service notifications', () => {
       OrderStatus.READY_FOR_DELIVERY,
       OrderStatus.APPROVED,
     );
+  });
+
+  it('creates an OrderStatusEvent row with correct fromStatus, toStatus, changedBy, and note on status update', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 77,
+      userId: 5,
+      status: OrderStatus.PENDING,
+      total: D(10),
+      paymentMethod: PaymentMethod.EXTERNAL,
+    });
+    const updatedOrderResult = {
+      id: 77,
+      userId: 5,
+      status: OrderStatus.APPROVED,
+      updatedAt: new Date('2024-01-02'),
+    };
+    // $transaction receives an array of Prisma operations; return [updatedOrder, event]
+    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
+      // ops is an array of Prisma promises; resolve them by calling the underlying mocks
+      prismaMock.order.update.mockResolvedValue(updatedOrderResult);
+      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+      return [updatedOrderResult, { id: 1 }];
+    });
+    prismaMock.orderItem.findMany.mockResolvedValue([]);
+    prismaMock.productVariant.findMany.mockResolvedValue([]);
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.updateOrderStatus(77, {
+      status: OrderStatus.APPROVED,
+      changedBy: 42,
+      note: 'Approved by manager',
+    }, ['MANAGEMENT']);
+
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+    const txArgs = prismaMock.$transaction.mock.calls[0][0];
+    // $transaction is called with an array of two Prisma operation promises
+    expect(Array.isArray(txArgs)).toBe(true);
+    expect(txArgs).toHaveLength(2);
   });
 
   it('queues a manual reprint for an existing order', async () => {
@@ -569,6 +618,7 @@ describe('order service notifications', () => {
       prismaMock.order.update.mockResolvedValue({
         id: 50, userId: 5, status: OrderStatus.DELIVERED, updatedAt: new Date(),
       });
+      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
       prismaMock.orderItem.findMany.mockResolvedValue([]);
       prismaMock.productVariant.findMany.mockResolvedValue([]);
     };
