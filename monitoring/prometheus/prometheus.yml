@@ -1,0 +1,23 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    app: smoke-station-delivery
+
+scrape_configs:
+  - job_name: backend
+    static_configs:
+      - targets: ['backend:3000']
+    metrics_path: /metrics
+
+# Remote write to Grafana Cloud Prometheus.
+# To switch to self-hosted: remove this entire remote_write block and
+# run a local Grafana instance pointed at this Prometheus instead.
+remote_write:
+  - url: ${PROMETHEUS_REMOTE_WRITE_URL}
+    basic_auth:
+      username: ${PROMETHEUS_USERNAME}
+      password: ${PROMETHEUS_PASSWORD}
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 5

@@ -4,11 +4,12 @@ set -euo pipefail
 SKIP_UPLOAD=false
 SKIP_CHECKLIST=false
 SYNC_CONFIG=false
+NO_MONITORING=false
 SERVER_IP=""
 
 usage() {
   cat <<USAGE
-Usage: $0 <server-ip> [--sync-config] [--skip-upload] [--skip-checklist]
+Usage: $0 <server-ip> [--sync-config] [--skip-upload] [--skip-checklist] [--no-monitoring]
 
 By default only the Docker images are pushed. Config files (docker-compose.yml,
 docker-compose.prod.yml, nginx/nginx.prod.conf) are left untouched on the server
@@ -23,6 +24,8 @@ Options:
                     files, backing up the server copy first.
   --skip-upload     Skip uploading/loading the Docker image tarballs.
   --skip-checklist  Skip the post-deploy hardening checklist.
+  --no-monitoring   Exclude the monitoring stack (Promtail + Prometheus) from
+                    the compose command. Use for rollback or debugging.
 USAGE
 }
 
@@ -38,6 +41,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-checklist)
       SKIP_CHECKLIST=true
+      shift
+      ;;
+    --no-monitoring)
+      NO_MONITORING=true
       shift
       ;;
     -h|--help)
@@ -72,9 +79,20 @@ WEB_TAR="$DOCKER_DIR/web.tar"
 SSH_USER="${SSH_USER:-root}"
 REMOTE_DIR="/docker/smoke-station"
 REMOTE_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.shared-edge.override.yml"
+if [[ "$NO_MONITORING" == "false" ]]; then
+  REMOTE_COMPOSE="$REMOTE_COMPOSE -f monitoring/docker-compose.monitoring.yml"
+fi
 # Config files synced (relative to PROJECT_ROOT and REMOTE_DIR) when --sync-config
 # is passed. Paths with subdirs (e.g. nginx/) must already exist on the server.
-CONFIG_FILES=(docker-compose.yml docker-compose.prod.yml nginx/nginx.prod.conf)
+CONFIG_FILES=(
+  docker-compose.yml docker-compose.prod.yml nginx/nginx.prod.conf
+  monitoring/docker-compose.monitoring.yml
+  monitoring/promtail/config.yml
+  monitoring/prometheus/prometheus.yml
+  .env.example
+  backend/.env.example
+  scripts/sync-env.sh
+)
 
 echo "==> Deploy target: $SSH_USER@$SERVER_IP"
 if [[ "$SKIP_UPLOAD" == "true" ]]; then
@@ -193,6 +211,15 @@ else
   fi
 fi
 
+# --- Sync env files (always runs — backs up and appends missing keys) ---
+echo ""
+echo "==> Syncing env files on server (backup + append missing keys)..."
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "
+  cd '$REMOTE_DIR'
+  bash scripts/sync-env.sh .env.example .env.prod
+  bash scripts/sync-env.sh backend/.env.example backend/.env
+"
+
 # --- Confirm compose up ---
 echo ""
 echo ""
@@ -209,6 +236,12 @@ fi
 echo ""
 echo "==> [3/4] Starting services on server..."
 ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-deps --no-build --force-recreate backend web"
+
+if [[ "$NO_MONITORING" == "false" ]]; then
+  echo ""
+  echo "==> Starting monitoring services (promtail, prometheus)..."
+  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d promtail prometheus"
+fi
 
 if [[ "$NGINX_SYNCED" == "true" ]]; then
   echo ""

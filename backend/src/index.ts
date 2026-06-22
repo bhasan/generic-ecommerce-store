@@ -36,8 +36,10 @@ import { parsePositiveInt } from './utils/request.util';
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 import { requestLogger } from './middleware/logger.middleware';
+import { metricsMiddleware } from './middleware/metrics.middleware';
 import { serializeDecimal } from './middleware/serializeDecimal.middleware';
 import { authLimiter, generalLimiter, readWriteLimiter } from './middleware/rateLimit.middleware';
+import metricsRoute from './routes/metrics';
 
 // Load environment variables
 dotenv.config();
@@ -102,6 +104,9 @@ app.use((req, res, next) => {
 // LOGGING MIDDLEWARE
 // ========================================
 
+// Prometheus metrics collection (before requestLogger so every request is counted)
+app.use(metricsMiddleware);
+
 // Request logging (must be after body parsing to capture request body)
 app.use(requestLogger);
 
@@ -111,6 +116,9 @@ app.use(serializeDecimal);
 // ========================================
 // ROUTES
 // ========================================
+
+// Metrics endpoint (internal only — not proxied by Nginx)
+app.use('/metrics', metricsRoute);
 
 // Health check route
 app.get('/api/health', async (req, res) => {
