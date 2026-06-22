@@ -1,3 +1,5 @@
+import prisma from '../config/database';
+import { PaymentMethodEnum, PaymentStatus, Prisma } from '../../generated/prisma';
 import { AppError } from '../middleware/error.middleware';
 import { CCPaymentSettings } from './paymentSettings.service';
 
@@ -122,12 +124,21 @@ export class AuthorizeNetService {
         }
 
         const rawAmount = txn.getSettleAmount() ?? txn.getAuthAmount() ?? '0';
-        const settledAmount = parseFloat(rawAmount);
-        if (Math.abs(settledAmount - expectedAmount) > 0.01) {
+        const settled = new Prisma.Decimal(rawAmount);
+        if (!settled.equals(new Prisma.Decimal(String(expectedAmount)))) {
           return reject(new AppError('Payment amount mismatch', 400));
         }
 
-        resolve();
+        prisma.payment.create({
+          data: {
+            orderId: expectedOrderId,
+            method: PaymentMethodEnum.CC,
+            status: PaymentStatus.SETTLED,
+            amount: settled.toFixed(),
+            transactionId: transId,
+            gatewayResponse: txn as any,
+          },
+        }).then(() => resolve()).catch(reject);
       });
     });
   }

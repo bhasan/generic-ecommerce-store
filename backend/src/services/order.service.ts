@@ -969,9 +969,9 @@ export class OrderService {
     if (order.status !== OrderStatus.PENDING_PAYMENT) throw new AppError('Order is not awaiting payment', 400);
 
     // Replay protection: the same transaction must not confirm two orders.
-    // The @unique constraint on transactionId is the hard backstop; this check gives a clean error.
-    const duplicate = await prisma.order.findFirst({
-      where: { transactionId: transId, NOT: { id: orderId } },
+    // The @unique constraint on Payment.transactionId is the hard backstop; this check gives a clean error.
+    const duplicate = await prisma.payment.findFirst({
+      where: { transactionId: transId, NOT: { orderId } },
     });
     if (duplicate) throw new AppError('This payment has already been applied to another order', 400);
 
@@ -980,7 +980,7 @@ export class OrderService {
 
     const updated = await prisma.order.update({
       where: { id: orderId },
-      data: { status: OrderStatus.PENDING, transactionId: transId },
+      data: { status: OrderStatus.PENDING },
     });
 
     await dispatchOrderCreatedEffects(orderId, userId);

@@ -2,6 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
 import { AuthorizeNetService } from './authorizenet.service';
 
+// Mock prisma so Payment.create calls don't hit DB
+vi.mock('../config/database', () => ({
+  default: {
+    payment: {
+      create: vi.fn().mockResolvedValue({}),
+    },
+  },
+}));
+
+import prisma from '../config/database';
+
 let mockGetHostedPageResponse: unknown;
 let mockGetTransactionResponse: unknown;
 
@@ -181,6 +192,59 @@ describe('AuthorizeNetService', () => {
       await expect(
         new AuthorizeNetService(mockSDK).verifyTransaction('txn-123', 41.14, 42, sandboxSettings)
       ).rejects.toThrow('Payment is not associated with this order');
+    });
+
+    it('rejects an amount that matches within 0.01 float tolerance but is not exactly equal', async () => {
+      // 41.145 would pass the old Math.abs(...) > 0.01 check but is not exactly 41.14
+      mockGetTransactionResponse = {
+        getMessages: () => ({ getResultCode: () => 'Ok' }),
+        getTransaction: () => ({
+          getTransactionStatus: () => 'settledSuccessfully',
+          getSettleAmount: () => '41.145',
+          getAuthAmount: () => null,
+          getOrder: () => ({ getInvoiceNumber: () => '42' }),
+        }),
+      };
+
+      await expect(
+        new AuthorizeNetService(mockSDK).verifyTransaction('txn-123', 41.14, 42, sandboxSettings)
+      ).rejects.toThrow('Payment amount mismatch');
+    });
+
+    it('accepts an amount that is exactly equal as a Decimal', async () => {
+      mockGetTransactionResponse = {
+        getMessages: () => ({ getResultCode: () => 'Ok' }),
+        getTransaction: () => ({
+          getTransactionStatus: () => 'settledSuccessfully',
+          getSettleAmount: () => '41.14',
+          getAuthAmount: () => null,
+          getOrder: () => ({ getInvoiceNumber: () => '42' }),
+        }),
+      };
+
+      await expect(
+        new AuthorizeNetService(mockSDK).verifyTransaction('txn-123', 41.14, 42, sandboxSettings)
+      ).resolves.toBeUndefined();
+    });
+
+    it('persists a SETTLED Payment row after successful verification', async () => {
+      mockGetTransactionResponse = {
+        getMessages: () => ({ getResultCode: () => 'Ok' }),
+        getTransaction: () => ({
+          getTransactionStatus: () => 'settledSuccessfully',
+          getSettleAmount: () => '41.14',
+          getAuthAmount: () => null,
+          getOrder: () => ({ getInvoiceNumber: () => '42' }),
+        }),
+      };
+
+      await new AuthorizeNetService(mockSDK).verifyTransaction('txn-123', 41.14, 42, sandboxSettings);
+
+      expect(prisma.payment.create).toHaveBeenCalledOnce();
+      const call = vi.mocked(prisma.payment.create).mock.calls[0][0];
+      expect(call.data.orderId).toBe(42);
+      expect(call.data.status).toBe('SETTLED');
+      expect(call.data.transactionId).toBe('txn-123');
     });
   });
 });
