@@ -13,7 +13,10 @@ let remainingRequestIpSamples = Number.isFinite(requestIpDebugSampleSize) && req
  */
 export const requestLogger = (req: Request, res: Response, next: NextFunction): void => {
   const startTime = Date.now();
-  const requestId = `req_${randomUUID()}`;
+  // Prefer the request ID Nginx already generated so the same ID appears in
+  // both the Nginx access log (request_id field) and all backend log lines.
+  // Fall back to a fresh UUID for requests that bypass Nginx (health checks, direct dev calls).
+  const requestId = (req.headers['x-request-id'] as string) || `req_${randomUUID()}`;
   
   // Store request ID for use in response logging
   req.requestId = requestId;

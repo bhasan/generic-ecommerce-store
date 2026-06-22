@@ -2,6 +2,11 @@ services:
   db:
     container_name: smoke-station-delivery-db-prod
     restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
@@ -12,6 +17,11 @@ services:
   backend:
     image: smoke-station-delivery/backend:latest
     container_name: smoke-station-delivery-backend-prod
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -50,6 +60,11 @@ services:
   web:
     image: smoke-station-delivery/web:latest
     container_name: smoke-station-delivery-web-prod
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     build:
       context: .
       dockerfile: nginx/Dockerfile
