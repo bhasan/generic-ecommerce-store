@@ -76,5 +76,15 @@ After deploying with the monitoring stack:
 
 **No metrics in Prometheus:**
 - Check Prometheus is running: `docker logs smoke-station-prometheus`
-- Verify the backend `/metrics` endpoint responds: `docker exec smoke-station-delivery-backend-prod curl -s http://localhost:3000/metrics | head -5`
+- Verify the backend `/metrics` endpoint responds (the image has `wget`, not `curl`):
+  ```bash
+  docker exec smoke-station-delivery-backend-prod wget -qO- http://localhost:3000/metrics | head -5
+  ```
 - Confirm `PROMETHEUS_REMOTE_WRITE_URL` is the full push URL (ends in `/api/prom/push`)
+- Check the entrypoint substituted the URL correctly:
+  ```bash
+  docker exec smoke-station-prometheus cat /tmp/prometheus.yml | grep url
+  ```
+
+**Monitoring containers keep restarting:**
+- They won't — both Promtail and Prometheus stay up even with invalid or empty credentials, logging retries in the background. If a container is actually crash-looping, check `docker logs <container>` for a config parse error, which would indicate a malformed `prometheus.yml` or `promtail/config.yml`.

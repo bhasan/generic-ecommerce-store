@@ -28,7 +28,9 @@ Express backend
 | **Prometheus** | Scrapes `/metrics`, remote-writes to Grafana Cloud | `prom/prometheus:v2.53.0` |
 | **Grafana Cloud** | Hosted Loki + Prometheus + dashboards + alerts | SaaS (free tier) |
 
-The `/metrics` endpoint on the backend is restricted to Docker-internal IPs (`127.x`, `172.x`, `10.x`, `192.168.x`) and is not proxied by Nginx — it is never reachable from the public internet.
+> **Note on Prometheus env var expansion:** Prometheus has no native support for `${VAR}` in its config file. The compose file uses a small `monitoring/prometheus/entrypoint.sh` that preprocesses `prometheus.yml` with `awk` before starting the server — no custom Docker image required.
+
+The `/metrics` endpoint on the backend is restricted to internal IPs using `ipaddr.js` on the raw socket address (not the `X-Forwarded-For` header, which can be spoofed). Only loopback, private, and unique-local ranges are allowed. Nginx also has an explicit `location = /metrics { deny all; }` block as defense-in-depth.
 
 ## Running with monitoring
 
@@ -78,6 +80,19 @@ PROMETHEUS_PASSWORD=
 ```
 
 See [grafana-cloud-setup.md](./grafana-cloud-setup.md) for where to find these values.
+
+## Graceful degradation
+
+If the Grafana Cloud env vars are missing or empty, the monitoring containers start normally but fail to ship data:
+
+| Component | Empty vars behavior |
+|-----------|-------------------|
+| **Backend `/metrics`** | Unaffected — prom-client has no external dependencies |
+| **Promtail** | Starts, retries Loki push every 5s, logs errors, container stays up |
+| **Prometheus** | Starts, logs remote-write errors on each scrape cycle, container stays up |
+| **App (nginx/backend/postgres)** | Completely unaffected — monitoring containers are isolated |
+
+This means you can deploy the full stack before filling in Grafana Cloud credentials. `sync-env.sh` will scaffold the empty keys on first deploy; fill them in on the server and restart the monitoring containers.
 
 ## Memory footprint
 
