@@ -1,14 +1,20 @@
 import { Router, Request, Response } from 'express';
+import * as ipaddr from 'ipaddr.js';
 import { register } from '../middleware/metrics.middleware';
 
 const router = Router();
 
-// Restrict to Docker internal network and loopback — not proxied by Nginx externally
-const ALLOWED_CIDRS = ['127.', '::1', '172.', '10.', '192.168.'];
-
+// Check the raw socket address — never req.ip, which respects trust proxy and
+// can be spoofed via X-Forwarded-For if the allowlist is the only guard.
 function isInternalRequest(req: Request): boolean {
-  const ip = req.ip || req.socket.remoteAddress || '';
-  return ALLOWED_CIDRS.some(prefix => ip.startsWith(prefix));
+  const raw = req.socket.remoteAddress || '';
+  try {
+    const parsed = ipaddr.process(raw); // normalises IPv4-mapped IPv6 (::ffff:x.x.x.x)
+    const range = parsed.range();
+    return range === 'loopback' || range === 'private' || range === 'uniqueLocal';
+  } catch {
+    return false;
+  }
 }
 
 router.get('/', async (req: Request, res: Response) => {
