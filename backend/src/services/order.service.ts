@@ -242,6 +242,22 @@ export class OrderService {
     return {
       ...order,
       items: order.items.map(shapeOrderItem),
+      statusEvents: order.statusEvents.map(event => ({
+        id: event.id,
+        fromStatus: event.fromStatus ?? null,
+        toStatus: event.toStatus,
+        changedBy: event.changedBy ?? null,
+        note: event.note ?? null,
+        createdAt: event.createdAt.toISOString(),
+      })),
+      payments: order.payments.map(payment => ({
+        id: payment.id,
+        method: payment.method,
+        status: payment.status,
+        amount: Number(payment.amount),
+        transactionId: payment.transactionId ?? null,
+        createdAt: payment.createdAt.toISOString(),
+      })),
     };
   }
 

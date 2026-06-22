@@ -265,7 +265,7 @@ describe('order routes integration', () => {
       message: 'Order status updated successfully',
       order: { id: 12, status: 'DELIVERED' },
     });
-    expect(orderService.updateOrderStatus).toHaveBeenCalledWith(12, { status: 'DELIVERED' }, ['DELIVERY_DRIVER']);
+    expect(orderService.updateOrderStatus).toHaveBeenCalledWith(12, { status: 'DELIVERED', changedBy: 22 }, ['DELIVERY_DRIVER']);
   });
 
   it('enforces employee-or-higher access for order item mutations', async () => {
