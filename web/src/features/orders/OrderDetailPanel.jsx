@@ -220,14 +220,14 @@ function OrderDetailPanel({
                           ? 'payment-store' 
                           : (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING')
                             ? 'payment-verify'
-                            : (order.paymentMethod === 'CREDIT' || order.paymentMethod === 'EXTERNAL')
+                            : (order.paymentMethod === 'STORE_CREDIT' || order.paymentMethod === 'EXTERNAL')
                               ? 'payment-paid'
                               : 'payment-none'
                       }`}>
                         {order.paymentMethod === 'IN_STORE' ? 'Pay In Store' :
                          (order.paymentMethod === 'EXTERNAL' && order.status === 'PENDING') ? 'Verify External Payment' :
                          (order.paymentMethod === 'EXTERNAL' ? 'External Payment (Paid)' : 
-                          order.paymentMethod === 'CREDIT' ? 'Store Credit (Paid)' : 'No payment method')}
+                          order.paymentMethod === 'STORE_CREDIT' ? 'Store Credit (Paid)' : 'No payment method')}
                       </span>
                     </div>
                     {order.user.phoneNumber && (
@@ -369,6 +369,62 @@ function OrderDetailPanel({
               </div>
             )}
           </div>
+
+          {order.statusEvents?.length > 0 && (
+            <div className="order-detail-status-timeline">
+              <h4 className="order-detail-block-title">Status Timeline</h4>
+              <div className="status-timeline-list">
+                {order.statusEvents.map((event) => (
+                  <div key={event.id} className="status-timeline-event">
+                    <div className="status-timeline-transition">
+                      {event.fromStatus ? `${event.fromStatus} → ${event.toStatus}` : event.toStatus}
+                    </div>
+                    <div className="status-timeline-meta">
+                      <span className="status-timeline-date">
+                        {new Date(event.createdAt).toLocaleString()}
+                      </span>
+                      <span className="status-timeline-by">
+                        {event.changedBy ? `User #${event.changedBy}` : 'System'}
+                      </span>
+                    </div>
+                    {event.note && (
+                      <div className="status-timeline-note">{event.note}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {order.payments?.length > 0 && (
+            <div className="order-detail-payments">
+              <h4 className="order-detail-block-title">Payment Records</h4>
+              <div className="payment-records-list">
+                {order.payments.map((payment) => (
+                  <div key={payment.id} className="payment-record-row">
+                    <div className="customer-info-row">
+                      <span className="customer-info-label">Method:</span>
+                      <span className="customer-info-value">{payment.method}</span>
+                    </div>
+                    <div className="customer-info-row">
+                      <span className="customer-info-label">Status:</span>
+                      <span className="customer-info-value">{payment.status}</span>
+                    </div>
+                    <div className="customer-info-row">
+                      <span className="customer-info-label">Amount:</span>
+                      <span className="customer-info-value">${Number(payment.amount).toFixed(2)}</span>
+                    </div>
+                    {payment.transactionId && (
+                      <div className="customer-info-row">
+                        <span className="customer-info-label">Transaction ID:</span>
+                        <span className="customer-info-value">{payment.transactionId}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="order-detail-actions">
             <button

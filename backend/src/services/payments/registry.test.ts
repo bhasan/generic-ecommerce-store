@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PaymentMethodEnum, OrderStatus } from '../../../generated/prisma';
+import { PaymentMethodEnum, OrderStatus, PaymentStatus, Prisma } from '../../../generated/prisma';
 import { getPaymentStrategy } from './registry';
 import { DeliveryMethod } from '../../constants/orderMethods';
 
-vi.mock('../credit.service', () => ({
+vi.mock('../store-credit.service', () => ({
   default: {
     useCredit: vi.fn(),
     refundCredit: vi.fn(),
@@ -32,18 +32,54 @@ describe('PaymentStrategy registry', () => {
     it('validate never throws', () => {
       expect(() => strategy.validate({ userId: 1, deliveryMethod: 'DELIVERY', total: 10 })).not.toThrow();
     });
+
+    it('applyInTransaction creates a PENDING payment row with cashAppUsername as paymentHandle', async () => {
+      const tx = { payment: { create: vi.fn() } };
+      await strategy.applyInTransaction(tx, 42, { userId: 1, deliveryMethod: 'DELIVERY', total: 25, cashAppUsername: '$johndoe' });
+      expect(tx.payment.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 42,
+          method: PaymentMethodEnum.EXTERNAL,
+          status: PaymentStatus.PENDING,
+          amount: new Prisma.Decimal(25),
+          paymentHandle: '$johndoe',
+        },
+      });
+    });
+
+    it('applyInTransaction sets paymentHandle to null when cashAppUsername is absent', async () => {
+      const tx = { payment: { create: vi.fn() } };
+      await strategy.applyInTransaction(tx, 42, { userId: 1, deliveryMethod: 'DELIVERY', total: 25 });
+      expect(tx.payment.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ paymentHandle: null }) }),
+      );
+    });
   });
 
-  describe('CreditPaymentStrategy', () => {
-    const strategy = getPaymentStrategy(PaymentMethodEnum.CREDIT);
+  describe('StoreCreditPaymentStrategy', () => {
+    const strategy = getPaymentStrategy(PaymentMethodEnum.STORE_CREDIT);
 
-    it('has correct method', () => expect(strategy.method).toBe(PaymentMethodEnum.CREDIT));
+    it('has correct method', () => expect(strategy.method).toBe(PaymentMethodEnum.STORE_CREDIT));
     it('initialStatus is PENDING', () => expect(strategy.initialStatus()).toBe(OrderStatus.PENDING));
     it('notifiesOnCreate is true', () => expect(strategy.notifiesOnCreate()).toBe(true));
 
     it('validate never throws — balance enforcement is deferred to useCredit in the transaction', () => {
       expect(() => strategy.validate({ userId: 1, deliveryMethod: 'PICKUP', total: 50 })).not.toThrow();
       expect(() => strategy.validate({ userId: 1, deliveryMethod: 'PICKUP', total: 0 })).not.toThrow();
+    });
+
+    it('applyInTransaction creates a SETTLED payment row after useCredit', async () => {
+      const tx = { payment: { create: vi.fn() } };
+      await strategy.applyInTransaction(tx, 42, { userId: 1, deliveryMethod: 'PICKUP', total: 30 });
+      expect(tx.payment.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 42,
+          method: PaymentMethodEnum.STORE_CREDIT,
+          status: PaymentStatus.SETTLED,
+          amount: new Prisma.Decimal(30),
+          paymentHandle: null,
+        },
+      });
     });
   });
 
@@ -64,6 +100,20 @@ describe('PaymentStrategy registry', () => {
 
     it('validate passes for curbside', () => {
       expect(() => strategy.validate({ userId: 1, deliveryMethod: DeliveryMethod.CURBSIDE, total: 10 })).not.toThrow();
+    });
+
+    it('applyInTransaction creates a PENDING payment row', async () => {
+      const tx = { payment: { create: vi.fn() } };
+      await strategy.applyInTransaction(tx, 99, { userId: 1, deliveryMethod: DeliveryMethod.PICKUP, total: 15 });
+      expect(tx.payment.create).toHaveBeenCalledWith({
+        data: {
+          orderId: 99,
+          method: PaymentMethodEnum.IN_STORE,
+          status: PaymentStatus.PENDING,
+          amount: new Prisma.Decimal(15),
+          paymentHandle: null,
+        },
+      });
     });
   });
 

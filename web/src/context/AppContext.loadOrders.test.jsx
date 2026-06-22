@@ -33,7 +33,7 @@ vi.mock('../services/productsApi', () => productsApi);
 vi.mock('../services/categoriesApi', () => categoriesApi);
 vi.mock('../services/notificationsApi', () => notificationsApi);
 vi.mock('../services/configApi', () => configApi);
-vi.mock('../services/creditApi', () => creditApi);
+vi.mock('../services/storeCreditApi', () => creditApi);
 vi.mock('../services/api', () => api);
 
 vi.mock('react-router-dom', async () => {

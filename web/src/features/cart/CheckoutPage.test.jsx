@@ -72,7 +72,7 @@ describe('CheckoutPage', () => {
     fireEvent.click(screen.getByLabelText(/store credit/i));
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined, undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.STORE_CREDIT, undefined, undefined));
     expect(await screen.findByText('Order success page')).toBeInTheDocument();
   });
 
@@ -375,9 +375,9 @@ describe('CheckoutPage', () => {
     const matrix = [
       {
         label: 'PICKUP × CREDIT',
-        paymentMethod: PaymentMethod.CREDIT,
+        paymentMethod: PaymentMethod.STORE_CREDIT,
         selectPayment: (screen) => fireEvent.click(screen.getByLabelText(/store credit/i)),
-        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined, undefined],
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.PICKUP, PaymentMethod.STORE_CREDIT, undefined, undefined],
         expectedOutcome: 'success',
       },
       {
@@ -424,7 +424,7 @@ describe('CheckoutPage', () => {
           fireEvent.change(screen.getByLabelText(/vehicle color/i), { target: { value: 'Red' } });
         },
         selectPayment: (screen) => fireEvent.click(screen.getByLabelText(/store credit/i)),
-        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.CURBSIDE, PaymentMethod.CREDIT, undefined, 'Red Ford F-150'],
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.CURBSIDE, PaymentMethod.STORE_CREDIT, undefined, 'Red Ford F-150'],
         expectedOutcome: 'success',
       },
     ];

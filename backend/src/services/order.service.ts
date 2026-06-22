@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
-import { OrderStatus, Prisma } from '../../generated/prisma';
+import { OrderStatus, Prisma, PaymentStatus } from '../../generated/prisma';
 import { resolveUnitPrice, isQuantityAllowed } from './pricing';
 import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
@@ -48,6 +48,8 @@ interface CreateOrderData {
 
 interface UpdateOrderStatusData {
   status: OrderStatus;
+  changedBy?: number;
+  note?: string;
 }
 
 interface AddOrderItemData {
@@ -107,6 +109,29 @@ function shapeOrderItem(item: any) {
     addedAfterSubmission: item.addedAfterSubmission,
     product: product ? { id: product.id, name: product.name, image } : null,
   };
+}
+
+function shapeStatusEvents(events: any[]) {
+  return events.map(event => ({
+    id: event.id,
+    fromStatus: event.fromStatus ?? null,
+    toStatus: event.toStatus,
+    changedBy: event.changedBy ?? null,
+    note: event.note ?? null,
+    createdAt: event.createdAt.toISOString(),
+  }));
+}
+
+function shapePayments(payments: any[]) {
+  return payments.map(payment => ({
+    id: payment.id,
+    method: payment.method,
+    status: payment.status,
+    amount: Number(payment.amount),
+    transactionId: payment.transactionId ?? null,
+    paymentHandle: payment.paymentHandle ?? null,
+    createdAt: payment.createdAt.toISOString(),
+  }));
 }
 
 export class OrderService {
@@ -223,6 +248,8 @@ export class OrderService {
       include: {
         user: { select: { id: true, username: true, phoneNumber: true, address: true } },
         ...orderItemsInclude,
+        statusEvents: { orderBy: { createdAt: 'asc' } },
+        payments: true,
       },
     });
 
@@ -238,6 +265,8 @@ export class OrderService {
     return {
       ...order,
       items: order.items.map(shapeOrderItem),
+      statusEvents: shapeStatusEvents(order.statusEvents),
+      payments: shapePayments(order.payments),
     };
   }
 
@@ -364,7 +393,6 @@ export class OrderService {
             deliveryMethod,
             paymentMethod: effectivePaymentMethod,
             ...await fulfillmentStrategy.buildOrderFields({ userId, deliveryAddress: effectiveDeliveryAddress, vehicleDescription, subtotal }),
-            paymentHandle: cashAppUsername?.trim() || null,
           }
         });
 
@@ -462,9 +490,21 @@ export class OrderService {
         await dispatchOrderCreatedEffects(order.id, userId);
       }
 
+      // Re-fetch so payments/statusEvents written by the payment strategy
+      // inside the same transaction are visible in the response.
+      const fullOrder = await prisma.order.findUnique({
+        where: { id: order.id },
+        include: {
+          statusEvents: { orderBy: { createdAt: 'asc' } },
+          payments: true,
+        },
+      });
+
       return {
         ...order,
-        items: itemsWithProducts
+        items: itemsWithProducts,
+        statusEvents: shapeStatusEvents(fullOrder?.statusEvents ?? []),
+        payments: shapePayments(fullOrder?.payments ?? []),
       };
     } catch (error) {
       logger.error('Failed to create order', error, {
@@ -535,10 +575,21 @@ export class OrderService {
         newStatus: data.status,
       });
 
-      const updatedOrder = await prisma.order.update({
-        where: { id: orderId },
-        data: { status: data.status }
-      });
+      const [updatedOrder] = await prisma.$transaction([
+        prisma.order.update({
+          where: { id: orderId },
+          data: { status: data.status },
+        }),
+        prisma.orderStatusEvent.create({
+          data: {
+            orderId,
+            fromStatus: order.status,
+            toStatus: data.status,
+            changedBy: data.changedBy ?? null,
+            note: data.note ?? null,
+          },
+        }),
+      ]);
 
       logger.info('Order status updated in database', {
         orderId,
@@ -546,6 +597,13 @@ export class OrderService {
         newStatus: updatedOrder.status,
         updatedAt: updatedOrder.updatedAt,
       });
+
+      if (data.status === OrderStatus.APPROVED && order.paymentMethod === PaymentMethodEnum.EXTERNAL) {
+        await prisma.payment.updateMany({
+          where: { orderId, status: PaymentStatus.PENDING },
+          data: { status: PaymentStatus.SETTLED },
+        });
+      }
 
       // Fetch order items with variant/product info
       const orderItems = await prisma.orderItem.findMany({
@@ -569,9 +627,19 @@ export class OrderService {
         order.status,
       );
 
+      const fullUpdated = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          statusEvents: { orderBy: { createdAt: 'asc' } },
+          payments: true,
+        },
+      });
+
       return {
         ...updatedOrder,
-        items: itemsWithProducts
+        items: itemsWithProducts,
+        statusEvents: shapeStatusEvents(fullUpdated?.statusEvents ?? []),
+        payments: shapePayments(fullUpdated?.payments ?? []),
       };
     } catch (error) {
       logger.error('Failed to update order status', error, {
@@ -954,9 +1022,9 @@ export class OrderService {
     if (order.status !== OrderStatus.PENDING_PAYMENT) throw new AppError('Order is not awaiting payment', 400);
 
     // Replay protection: the same transaction must not confirm two orders.
-    // The @unique constraint on transactionId is the hard backstop; this check gives a clean error.
-    const duplicate = await prisma.order.findFirst({
-      where: { transactionId: transId, NOT: { id: orderId } },
+    // The @unique constraint on Payment.transactionId is the hard backstop; this check gives a clean error.
+    const duplicate = await prisma.payment.findFirst({
+      where: { transactionId: transId, NOT: { orderId } },
     });
     if (duplicate) throw new AppError('This payment has already been applied to another order', 400);
 
@@ -965,7 +1033,7 @@ export class OrderService {
 
     const updated = await prisma.order.update({
       where: { id: orderId },
-      data: { status: OrderStatus.PENDING, transactionId: transId },
+      data: { status: OrderStatus.PENDING },
     });
 
     await dispatchOrderCreatedEffects(orderId, userId);

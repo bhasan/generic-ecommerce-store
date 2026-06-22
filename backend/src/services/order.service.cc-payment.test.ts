@@ -8,8 +8,10 @@ import { PaymentMethod } from '../constants/orderMethods';
 const prismaMock = {
   order: {
     findUnique: vi.fn(),
-    findFirst: vi.fn(),
     update: vi.fn(),
+  },
+  payment: {
+    findFirst: vi.fn(),
   },
   $transaction: vi.fn(),
 };
@@ -37,7 +39,7 @@ vi.mock('./authorizenet.service', () => ({
 }));
 vi.mock('./notificationEvents.service', () => ({ notificationEventsService }));
 vi.mock('./thermalPrinter.service', () => ({ thermalPrinterService }));
-vi.mock('./credit.service', () => ({ default: { useCredit: vi.fn(), refundCredit: vi.fn() } }));
+vi.mock('./store-credit.service', () => ({ default: { useCredit: vi.fn(), refundCredit: vi.fn() } }));
 vi.mock('./orderingConstraints.service', () => ({
   OrderingConstraintsService: vi.fn(() => ({ getOrderingConstraints: vi.fn() })),
 }));
@@ -233,7 +235,7 @@ describe('confirmCardPayment', () => {
 
   it('throws 400 on replay: same transactionId already applied to another order', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
-    prismaMock.order.findFirst.mockResolvedValue({ id: 99 }); // existing order with same transId
+    prismaMock.payment.findFirst.mockResolvedValue({ id: 99, orderId: 99 }); // existing payment with same transId
     const { OrderService } = await import('./order.service');
     await expect(new OrderService().confirmCardPayment(42, 7, 'txn_dup')).rejects.toMatchObject({
       statusCode: 400,
@@ -243,7 +245,7 @@ describe('confirmCardPayment', () => {
 
   it('calls verifyTransaction with transId, total, orderId, and CC settings', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
-    prismaMock.order.findFirst.mockResolvedValue(null);
+    prismaMock.payment.findFirst.mockResolvedValue(null);
     prismaMock.order.update.mockResolvedValue({ id: 42, status: OrderStatus.PENDING });
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
     authorizeNetServiceMock.verifyTransaction.mockResolvedValue(undefined);
@@ -261,9 +263,9 @@ describe('confirmCardPayment', () => {
     );
   });
 
-  it('transitions order to PENDING and records the transactionId', async () => {
+  it('transitions order to PENDING (no longer sets transactionId on Order)', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
-    prismaMock.order.findFirst.mockResolvedValue(null);
+    prismaMock.payment.findFirst.mockResolvedValue(null);
     prismaMock.order.update.mockResolvedValue({ id: 42, status: OrderStatus.PENDING });
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
     authorizeNetServiceMock.verifyTransaction.mockResolvedValue(undefined);
@@ -275,13 +277,13 @@ describe('confirmCardPayment', () => {
 
     expect(prismaMock.order.update).toHaveBeenCalledWith({
       where: { id: 42 },
-      data: { status: OrderStatus.PENDING, transactionId: 'txn_ok' },
+      data: { status: OrderStatus.PENDING },
     });
   });
 
   it('fires order-created notification and thermal receipt after confirmation', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
-    prismaMock.order.findFirst.mockResolvedValue(null);
+    prismaMock.payment.findFirst.mockResolvedValue(null);
     prismaMock.order.update.mockResolvedValue({ id: 42, status: OrderStatus.PENDING });
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
     authorizeNetServiceMock.verifyTransaction.mockResolvedValue(undefined);
@@ -297,7 +299,7 @@ describe('confirmCardPayment', () => {
 
   it('does not throw if the thermal printer dispatch fails after confirmation', async () => {
     prismaMock.order.findUnique.mockResolvedValue(basePendingOrder);
-    prismaMock.order.findFirst.mockResolvedValue(null);
+    prismaMock.payment.findFirst.mockResolvedValue(null);
     prismaMock.order.update.mockResolvedValue({ id: 42, status: OrderStatus.PENDING });
     paymentSettingsInstance.getPaymentSettings.mockResolvedValue({ cc_payment: enabledCCSettings });
     authorizeNetServiceMock.verifyTransaction.mockResolvedValue(undefined);

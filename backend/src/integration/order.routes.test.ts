@@ -265,7 +265,7 @@ describe('order routes integration', () => {
       message: 'Order status updated successfully',
       order: { id: 12, status: 'DELIVERED' },
     });
-    expect(orderService.updateOrderStatus).toHaveBeenCalledWith(12, { status: 'DELIVERED' }, ['DELIVERY_DRIVER']);
+    expect(orderService.updateOrderStatus).toHaveBeenCalledWith(12, { status: 'DELIVERED', changedBy: 22 }, ['DELIVERY_DRIVER']);
   });
 
   it('enforces employee-or-higher access for order item mutations', async () => {
@@ -414,7 +414,7 @@ describe('order routes integration', () => {
     });
 
     expect(response.status).toBe(400);
-    expect(body.errors[0].msg).toBe('Payment method must be EXTERNAL, CREDIT, or IN_STORE');
+    expect(body.errors[0].msg).toBe('Payment method must be EXTERNAL, STORE_CREDIT, or IN_STORE');
     expect(orderService.createOrder).not.toHaveBeenCalled();
   });
 
@@ -574,6 +574,94 @@ describe('order routes integration', () => {
 
       expect(response.status).toBe(400);
       expect(body.error.message).toBe('This payment has already been applied to another order');
+    });
+  });
+
+  describe('Phase 3 — payments[] and statusEvents[] forwarded in responses', () => {
+    it('createOrder response includes payments[] and statusEvents[] returned by the service', async () => {
+      verifyToken.mockReturnValue({ userId: 10, username: 'customer-one', roles: ['CUSTOMER'] });
+      orderService.createOrder.mockResolvedValue({
+        id: 950,
+        total: 64.93,
+        status: 'PENDING',
+        paymentMethod: 'EXTERNAL',
+        payments: [
+          { id: 1, method: 'EXTERNAL', status: 'PENDING', amount: 64.93, transactionId: null, paymentHandle: '$my-handle', createdAt: '2026-01-01T00:00:00.000Z' },
+        ],
+        statusEvents: [],
+      });
+
+      const { response, body } = await requestJson(server, '/api/orders', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer customer-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items: [{ variantId: 5, quantity: 2 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+          cashAppUsername: '$my-handle',
+        }),
+      });
+
+      expect(response.status).toBe(201);
+      expect(body.order.payments).toHaveLength(1);
+      expect(body.order.payments[0]).toMatchObject({ method: 'EXTERNAL', status: 'PENDING', paymentHandle: '$my-handle' });
+      expect(body.order.statusEvents).toEqual([]);
+    });
+
+    it('updateOrderStatus response includes settled payments[] and statusEvents[] after EXTERNAL APPROVED', async () => {
+      verifyToken.mockReturnValue({ userId: 1, username: 'staff', roles: ['MANAGEMENT'] });
+      orderService.updateOrderStatus.mockResolvedValue({
+        id: 951,
+        status: 'APPROVED',
+        payments: [
+          { id: 2, method: 'EXTERNAL', status: 'SETTLED', amount: 64.93, transactionId: null, paymentHandle: '$my-handle', createdAt: '2026-01-01T00:00:00.000Z' },
+        ],
+        statusEvents: [
+          { id: 1, fromStatus: 'PENDING', toStatus: 'APPROVED', changedBy: 1, note: null, createdAt: '2026-01-01T00:01:00.000Z' },
+        ],
+      });
+
+      const { response, body } = await requestJson(server, '/api/orders/951/status', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer staff-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPROVED' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(body.order.payments[0]).toMatchObject({ method: 'EXTERNAL', status: 'SETTLED' });
+      expect(body.order.statusEvents).toHaveLength(1);
+      expect(body.order.statusEvents[0]).toMatchObject({ fromStatus: 'PENDING', toStatus: 'APPROVED' });
+    });
+
+    it('updateOrderStatus forwards the note field to the service', async () => {
+      verifyToken.mockReturnValue({ userId: 1, username: 'staff', roles: ['MANAGEMENT'] });
+      orderService.updateOrderStatus.mockResolvedValue({ id: 952, status: 'READY_FOR_PICKUP', payments: [], statusEvents: [] });
+
+      await requestJson(server, '/api/orders/952/status', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer staff-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'READY_FOR_PICKUP', note: 'Ready at counter' }),
+      });
+
+      expect(orderService.updateOrderStatus).toHaveBeenCalledWith(
+        952,
+        expect.objectContaining({ status: 'READY_FOR_PICKUP', note: 'Ready at counter' }),
+        expect.any(Array),
+      );
+    });
+
+    it('rejects a note over 500 characters', async () => {
+      verifyToken.mockReturnValue({ userId: 1, username: 'staff', roles: ['MANAGEMENT'] });
+
+      const { response, body } = await requestJson(server, '/api/orders/953/status', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer staff-token', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'APPROVED', note: 'x'.repeat(501) }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(body.errors[0].msg).toMatch(/500/);
+      expect(orderService.updateOrderStatus).not.toHaveBeenCalled();
     });
   });
 });

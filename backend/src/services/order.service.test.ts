@@ -40,6 +40,13 @@ const prismaMock = {
     findMany: vi.fn(),
     findUnique: vi.fn(),
   },
+  orderStatusEvent: {
+    create: vi.fn(),
+  },
+  payment: {
+    create: vi.fn(),
+    updateMany: vi.fn(),
+  },
   $transaction: vi.fn(),
 };
 
@@ -80,7 +87,7 @@ vi.mock('../utils/logger', () => ({
   logger,
 }));
 
-vi.mock('./credit.service', () => ({
+vi.mock('./store-credit.service', () => ({
   default: creditService,
 }));
 
@@ -162,7 +169,12 @@ describe('getAllOrders', () => {
 describe('order service notifications', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
+    // Default: handle both array form (used by updateOrderStatus) and callback form (used by createOrder/addItemToOrder).
+    prismaMock.$transaction.mockImplementation(async (opsOrCallback: unknown) => {
+      if (typeof opsOrCallback === 'function') return opsOrCallback(prismaMock);
+      if (Array.isArray(opsOrCallback)) return Promise.all(opsOrCallback);
+      return opsOrCallback;
+    });
     orderingConstraintsInstance.getOrderingConstraints.mockResolvedValue({
       minimumDeliveryOrder: 0,
       minimumDeliveryOrderEnabled: false,
@@ -261,6 +273,7 @@ describe('order service notifications', () => {
       status: OrderStatus.READY_FOR_DELIVERY,
       updatedAt: new Date('2024-01-02'),
     });
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
     prismaMock.orderItem.findMany.mockResolvedValue([
       { id: 1, orderId: 77, productId: 3, quantity: 1, price: 10, voided: false },
     ]);
@@ -278,6 +291,59 @@ describe('order service notifications', () => {
       5,
       OrderStatus.READY_FOR_DELIVERY,
       OrderStatus.APPROVED,
+    );
+  });
+
+  it('creates an OrderStatusEvent row with correct fromStatus, toStatus, changedBy, and note on status update', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 77,
+      userId: 5,
+      status: OrderStatus.PENDING,
+      total: D(10),
+      paymentMethod: PaymentMethod.EXTERNAL,
+    });
+    const updatedOrderResult = {
+      id: 77,
+      userId: 5,
+      status: OrderStatus.APPROVED,
+      updatedAt: new Date('2024-01-02'),
+    };
+    // $transaction receives an array of Prisma operations; return [updatedOrder, event]
+    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
+      // ops is an array of Prisma promises; resolve them by calling the underlying mocks
+      prismaMock.order.update.mockResolvedValue(updatedOrderResult);
+      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+      return [updatedOrderResult, { id: 1 }];
+    });
+    prismaMock.orderItem.findMany.mockResolvedValue([]);
+    prismaMock.productVariant.findMany.mockResolvedValue([]);
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.updateOrderStatus(77, {
+      status: OrderStatus.APPROVED,
+      changedBy: 42,
+      note: 'Approved by manager',
+    }, ['MANAGEMENT']);
+
+    expect(prismaMock.$transaction).toHaveBeenCalled();
+    const txArgs = prismaMock.$transaction.mock.calls[0][0];
+    // $transaction is called with an array of two Prisma operation promises
+    expect(Array.isArray(txArgs)).toBe(true);
+    expect(txArgs).toHaveLength(2);
+
+    // orderStatusEvent.create is called synchronously when building the transaction array,
+    // so we can assert directly on the mock call args.
+    expect(prismaMock.orderStatusEvent.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromStatus: OrderStatus.PENDING,
+          toStatus: OrderStatus.APPROVED,
+          changedBy: 42,
+          note: 'Approved by manager',
+        }),
+      }),
     );
   });
 
@@ -569,6 +635,7 @@ describe('order service notifications', () => {
       prismaMock.order.update.mockResolvedValue({
         id: 50, userId: 5, status: OrderStatus.DELIVERED, updatedAt: new Date(),
       });
+      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
       prismaMock.orderItem.findMany.mockResolvedValue([]);
       prismaMock.productVariant.findMany.mockResolvedValue([]);
     };
@@ -616,5 +683,182 @@ describe('order service notifications', () => {
       ).rejects.toMatchObject({ statusCode: 403 });
       expect(prismaMock.order.update).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('getOrderById', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('returns an order response that includes shaped statusEvents[] and payments[] arrays', async () => {
+    const now = new Date('2024-06-01T12:00:00Z');
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 99,
+      userId: 7,
+      status: OrderStatus.APPROVED,
+      total: D(25),
+      paymentMethod: PaymentMethod.CARD,
+      deliveryMethod: 'DELIVERY',
+      deliveryAddress: null,
+      cashAppUsername: null,
+      vehicleDescription: null,
+      note: null,
+      createdAt: now,
+      updatedAt: now,
+      user: { id: 7, username: 'alice', phoneNumber: null, address: null },
+      items: [],
+      statusEvents: [
+        {
+          id: 1,
+          orderId: 99,
+          fromStatus: null,
+          toStatus: OrderStatus.PENDING,
+          changedBy: null,
+          note: 'Order placed',
+          createdAt: now,
+        },
+        {
+          id: 2,
+          orderId: 99,
+          fromStatus: OrderStatus.PENDING,
+          toStatus: OrderStatus.APPROVED,
+          changedBy: 3,
+          note: null,
+          createdAt: now,
+        },
+      ],
+      payments: [
+        {
+          id: 10,
+          orderId: 99,
+          method: PaymentMethod.CARD,
+          status: 'APPROVED',
+          amount: D(25),
+          transactionId: 'txn_xyz',
+          createdAt: now,
+        },
+      ],
+    });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    const result = await service.getOrderById(99, 7, ['CUSTOMER']);
+
+    expect(result.statusEvents).toHaveLength(2);
+    expect(result.statusEvents[0]).toMatchObject({
+      id: 1,
+      fromStatus: null,
+      toStatus: OrderStatus.PENDING,
+      changedBy: null,
+      note: 'Order placed',
+      createdAt: now.toISOString(),
+    });
+    expect(result.statusEvents[1]).toMatchObject({
+      fromStatus: OrderStatus.PENDING,
+      toStatus: OrderStatus.APPROVED,
+      changedBy: 3,
+    });
+
+    expect(result.payments).toHaveLength(1);
+    expect(result.payments[0]).toMatchObject({
+      id: 10,
+      method: PaymentMethod.CARD,
+      status: 'APPROVED',
+      amount: 25,
+      transactionId: 'txn_xyz',
+      createdAt: now.toISOString(),
+    });
+  });
+
+  it('throws 404 when order does not exist', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(null);
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await expect(service.getOrderById(999, 1, ['ADMIN'])).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('throws 403 when a customer tries to view another user\'s order', async () => {
+    const now = new Date();
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 100,
+      userId: 42,
+      status: OrderStatus.PENDING,
+      total: D(10),
+      paymentMethod: PaymentMethod.EXTERNAL,
+      deliveryMethod: 'DELIVERY',
+      deliveryAddress: null,
+      cashAppUsername: null,
+      vehicleDescription: null,
+      note: null,
+      createdAt: now,
+      updatedAt: now,
+      user: { id: 42, username: 'bob', phoneNumber: null, address: null },
+      items: [],
+      statusEvents: [],
+      payments: [],
+    });
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    // userId 99 != order.userId 42, role is CUSTOMER only
+    await expect(service.getOrderById(100, 99, ['CUSTOMER'])).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+describe('updateOrderStatus — EXTERNAL payment settlement', () => {
+  const makeOrder = (paymentMethod: string, status: string) => ({
+    id: 77,
+    userId: 5,
+    status,
+    total: D(10),
+    paymentMethod,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
+      const updated = { id: 77, userId: 5, status: OrderStatus.APPROVED, updatedAt: new Date() };
+      prismaMock.order.update.mockResolvedValue(updated);
+      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+      return [updated, { id: 1 }];
+    });
+    prismaMock.orderItem.findMany.mockResolvedValue([]);
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+  });
+
+  it('settles PENDING payments when EXTERNAL order is APPROVED', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.EXTERNAL, OrderStatus.PENDING));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.APPROVED }, ['MANAGEMENT']);
+
+    expect(prismaMock.payment.updateMany).toHaveBeenCalledWith({
+      where: { orderId: 77, status: 'PENDING' },
+      data: { status: 'SETTLED' },
+    });
+  });
+
+  it('does NOT call payment.updateMany for non-EXTERNAL orders on APPROVED', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.STORE_CREDIT, OrderStatus.PENDING));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.APPROVED }, ['MANAGEMENT']);
+
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call payment.updateMany for EXTERNAL orders on non-APPROVED status', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(makeOrder(PaymentMethod.EXTERNAL, OrderStatus.PENDING));
+    prismaMock.$transaction.mockImplementation(async () => {
+      const updated = { id: 77, userId: 5, status: OrderStatus.READY_FOR_DELIVERY, updatedAt: new Date() };
+      return [updated, { id: 1 }];
+    });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.READY_FOR_DELIVERY }, ['MANAGEMENT']);
+
+    expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
   });
 });

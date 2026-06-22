@@ -23,7 +23,7 @@ model User {
   address               String?
   rejected              Boolean                    @default(false)
   rejectionNote         String?
-  creditBalance         Decimal                    @default(0) @db.Decimal(12, 2)
+  storeCreditBalance    Decimal                    @default(0) @db.Decimal(12, 2)
   deliveryStatus        DeliveryZoneStatus?
   deliverySource        DeliveryEligibilitySource?
   deliveryDistanceMiles Float?
@@ -31,13 +31,14 @@ model User {
 
   userRoles                 UserRole[]
   orders                    Order[]
-  creditTransactions        CreditTransaction[] @relation("CreditUser")
-  createdCreditTransactions CreditTransaction[] @relation("CreditCreatedBy")
+  storeCreditTransactions        StoreCreditTransaction[] @relation("StoreCreditUser")
+  createdStoreCreditTransactions StoreCreditTransaction[] @relation("StoreCreditCreatedBy")
   reviews                   Review[]
   reviewVotes               ReviewVote[]
   notifications             Notification[]
   contactMessages           ContactMessage[]
   cartItems                 CartItem[]
+  statusEventChanges        OrderStatusEvent[]  @relation("StatusEventChanger")
 
   @@map("users")
 }
@@ -78,11 +79,10 @@ model Order {
   updatedAt              DateTime                   @updatedAt
   deliveryMethod         DeliveryMethodEnum         @default(DELIVERY)
   paymentMethod          PaymentMethodEnum          @default(EXTERNAL)
-  transactionId          String?                    @unique
+  transactionId          String?
   deliveryAddress        String?
   vehicleDescription     String?
   parkingSpot            String?
-  paymentHandle          String?
   deliveryStatus         DeliveryZoneStatus?
   deliverySource         DeliveryEligibilitySource?
   deliveryDistanceMiles  Float?
@@ -91,14 +91,49 @@ model Order {
 
   user               User                @relation(fields: [userId], references: [id], onDelete: Restrict)
   items              OrderItem[]
-  creditTransactions CreditTransaction[]
+  storeCreditTransactions StoreCreditTransaction[]
   contactMessages    ContactMessage[]
   printJobs          PrintJob[]
+  statusEvents       OrderStatusEvent[]
+  payments           Payment[]
 
   @@index([userId])
   @@index([status])
   @@index([createdAt])
   @@map("orders")
+}
+
+model OrderStatusEvent {
+  id            Int          @id @default(autoincrement())
+  orderId       Int
+  fromStatus    OrderStatus?
+  toStatus      OrderStatus
+  changedBy     Int?
+  note          String?
+  createdAt     DateTime     @default(now())
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedByUser User?        @relation("StatusEventChanger", fields: [changedBy], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_events")
+}
+
+model Payment {
+  id              Int               @id @default(autoincrement())
+  orderId         Int
+  method          PaymentMethodEnum
+  status          PaymentStatus
+  amount          Decimal           @db.Decimal(12, 2)
+  transactionId   String?           @unique
+  paymentHandle   String?
+  gatewayResponse Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  order           Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
 }
 
 model AddressGeocodeCache {
@@ -116,22 +151,22 @@ model AddressGeocodeCache {
   @@map("address_geocode_cache")
 }
 
-model CreditTransaction {
-  id            Int                   @id @default(autoincrement())
+model StoreCreditTransaction {
+  id            Int                        @id @default(autoincrement())
   userId        Int
-  amount        Decimal               @db.Decimal(12, 2)
-  balanceAfter  Decimal               @db.Decimal(12, 2)
-  type          CreditTransactionType
+  amount        Decimal                    @db.Decimal(12, 2)
+  balanceAfter  Decimal                    @db.Decimal(12, 2)
+  type          StoreCreditTransactionType
   orderId       Int?
   note          String?
   createdBy     Int?
-  createdAt     DateTime              @default(now())
-  user          User                  @relation("CreditUser", fields: [userId], references: [id], onDelete: Restrict)
-  createdByUser User?                 @relation("CreditCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  order         Order?                @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt     DateTime                   @default(now())
+  user          User                       @relation("StoreCreditUser", fields: [userId], references: [id], onDelete: Restrict)
+  createdByUser User?                      @relation("StoreCreditCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  order         Order?                     @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
-  @@map("credit_transactions")
+  @@map("store_credit_transactions")
 }
 
 model OrderItem {
@@ -459,7 +494,7 @@ enum NotificationDeliveryStatus {
   FAILED
 }
 
-enum CreditTransactionType {
+enum StoreCreditTransactionType {
   ADDED
   USED
   REFUNDED
@@ -479,7 +514,7 @@ enum DeliveryMethodEnum {
 
 enum PaymentMethodEnum {
   EXTERNAL
-  CREDIT
+  STORE_CREDIT
   IN_STORE
   CC
 }
@@ -507,4 +542,14 @@ enum PrintJobStatus {
   CLAIMED
   PRINTED
   FAILED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  SETTLED
+  FAILED
+  REFUNDED
+  VOIDED
 }

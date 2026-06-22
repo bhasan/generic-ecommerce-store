@@ -199,7 +199,7 @@ app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
 app.use('/api/landing-page-settings', generalLimiter, landingPageSettingsRoutes);
 app.use('/api/branding', generalLimiter, brandingRoutes);
-app.use('/api/credits', generalLimiter, creditRoutes);
+app.use('/api/storecredit', generalLimiter, creditRoutes);
 app.use('/api/print-jobs', readWriteLimiter, printJobRoutes);
 app.use('/api/reporting/v1', reportingRoutes);
 

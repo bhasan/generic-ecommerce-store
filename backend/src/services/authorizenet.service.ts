@@ -1,3 +1,5 @@
+import prisma from '../config/database';
+import { PaymentMethodEnum, PaymentStatus, Prisma } from '../../generated/prisma';
 import { AppError } from '../middleware/error.middleware';
 import { CCPaymentSettings } from './paymentSettings.service';
 
@@ -122,12 +124,32 @@ export class AuthorizeNetService {
         }
 
         const rawAmount = txn.getSettleAmount() ?? txn.getAuthAmount() ?? '0';
-        const settledAmount = parseFloat(rawAmount);
-        if (Math.abs(settledAmount - expectedAmount) > 0.01) {
+        const settled = new Prisma.Decimal(rawAmount);
+        if (!settled.equals(new Prisma.Decimal(String(expectedAmount)))) {
           return reject(new AppError('Payment amount mismatch', 400));
         }
 
-        resolve();
+        prisma.payment.create({
+          data: {
+            orderId: expectedOrderId,
+            method: PaymentMethodEnum.CC,
+            status: PaymentStatus.SETTLED,
+            amount: settled,
+            transactionId: transId,
+            gatewayResponse: {
+              transactionStatus: txn.getTransactionStatus?.() ?? null,
+              responseCode: txn.getResponseCode?.() ?? null,
+              authCode: txn.getAuthCode?.() ?? null,
+              settleAmount: txn.getSettleAmount?.() ?? null,
+              submitTimeUTC: txn.getSubmitTimeUTC?.() ?? null,
+            } as Prisma.InputJsonValue,
+          },
+        }).then(() => resolve()).catch((err) => {
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+            return reject(new AppError('This payment has already been applied to an order', 400));
+          }
+          return reject(err);
+        });
       });
     });
   }

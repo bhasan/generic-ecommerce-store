@@ -120,4 +120,81 @@ describe('OrderDetailPanel', () => {
     expect(screen.getByText(/check-in confirmed/i)).toBeInTheDocument();
   });
 
+  describe('Status Timeline', () => {
+    it('renders a status timeline section when statusEvents is populated', () => {
+      const orderWithEvents = {
+        ...baseOrder,
+        statusEvents: [
+          {
+            id: 1,
+            fromStatus: null,
+            toStatus: 'PENDING',
+            createdAt: '2026-06-03T12:00:00Z',
+            changedBy: null,
+            note: null,
+          },
+          {
+            id: 2,
+            fromStatus: 'PENDING',
+            toStatus: 'CONFIRMED',
+            createdAt: '2026-06-03T13:00:00Z',
+            changedBy: 42,
+            note: 'Confirmed manually',
+          },
+        ],
+      };
+      render(<OrderDetailPanel {...defaultProps} order={orderWithEvents} />);
+
+      expect(screen.getByText(/status timeline/i)).toBeInTheDocument();
+      // The transition "PENDING → CONFIRMED" appears in the timeline
+      expect(screen.getByText(/PENDING → CONFIRMED/)).toBeInTheDocument();
+      expect(screen.getByText(/Confirmed manually/)).toBeInTheDocument();
+    });
+
+    it('does not render the timeline section when statusEvents is empty', () => {
+      const orderWithoutEvents = { ...baseOrder, statusEvents: [] };
+      render(<OrderDetailPanel {...defaultProps} order={orderWithoutEvents} />);
+      expect(screen.queryByText(/status timeline/i)).not.toBeInTheDocument();
+    });
+
+    it('does not render the timeline section when statusEvents is undefined', () => {
+      render(<OrderDetailPanel {...defaultProps} order={baseOrder} />);
+      expect(screen.queryByText(/status timeline/i)).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Payment Records', () => {
+    it('renders payment records section when payments is populated', () => {
+      const orderWithPayments = {
+        ...baseOrder,
+        payments: [
+          {
+            id: 1,
+            method: 'CC',
+            status: 'SETTLED',
+            amount: 45.0,
+            transactionId: 'txn_abc123',
+          },
+        ],
+      };
+      render(<OrderDetailPanel {...defaultProps} order={orderWithPayments} />);
+
+      expect(screen.getByText(/payment records/i)).toBeInTheDocument();
+      expect(screen.getByText('CC')).toBeInTheDocument();
+      expect(screen.getByText('SETTLED')).toBeInTheDocument();
+      expect(screen.getByText('txn_abc123')).toBeInTheDocument();
+    });
+
+    it('does not render payment records section when payments is empty', () => {
+      const orderWithoutPayments = { ...baseOrder, payments: [] };
+      render(<OrderDetailPanel {...defaultProps} order={orderWithoutPayments} />);
+      expect(screen.queryByText(/payment records/i)).not.toBeInTheDocument();
+    });
+
+    it('does not render payment records section when payments is undefined', () => {
+      render(<OrderDetailPanel {...defaultProps} order={baseOrder} />);
+      expect(screen.queryByText(/payment records/i)).not.toBeInTheDocument();
+    });
+  });
+
 });

@@ -10,8 +10,9 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 const prismaMock = vi.hoisted(() => ({
   user: { update: vi.fn() },
   productVariant: { findMany: vi.fn(), update: vi.fn() },
-  order: { create: vi.fn() },
+  order: { create: vi.fn(), findUnique: vi.fn() },
   orderItem: { create: vi.fn() },
+  payment: { create: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -47,7 +48,7 @@ vi.mock('./deliveryEligibility.service', () => ({
 vi.mock('./notificationEvents.service', () => ({
   notificationEventsService: notificationEventsMock,
 }));
-vi.mock('./credit.service', () => ({ default: creditServiceMock }));
+vi.mock('./store-credit.service', () => ({ default: creditServiceMock }));
 vi.mock('./thermalPrinter.service', () => ({
   thermalPrinterService: { dispatchReceipt: vi.fn() },
 }));
@@ -89,7 +90,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'DELIVERY × CREDIT',
     deliveryMethod: DeliveryMethod.DELIVERY,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     deliveryAddress: DELIVERY_ADDRESS,
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
@@ -112,7 +113,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'PICKUP × CREDIT',
     deliveryMethod: DeliveryMethod.PICKUP,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
   },
@@ -139,7 +140,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'CURBSIDE × CREDIT',
     deliveryMethod: DeliveryMethod.CURBSIDE,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     vehicleDescription: 'Blue Honda Civic',
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
@@ -180,6 +181,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
     });
     deliveryEligibilityMock.checkDeliveryEligibility.mockResolvedValue(DELIVERABLE_RESULT);
     creditServiceMock.useCredit.mockResolvedValue(undefined);
+    prismaMock.order.findUnique.mockResolvedValue({ statusEvents: [], payments: [] });
   });
 
   it.each(matrix)('$label', async ({ deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription, creditBalance, expectedStatus, expectedFields }) => {

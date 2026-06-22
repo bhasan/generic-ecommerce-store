@@ -1,14 +1,14 @@
 import { PaymentMethodEnum } from '../../../generated/prisma';
 import { PaymentStrategy } from './PaymentStrategy';
 import { ExternalPaymentStrategy } from './external.strategy';
-import { CreditPaymentStrategy } from './credit.strategy';
+import { StoreCreditPaymentStrategy } from './store-credit.strategy';
 import { InStorePaymentStrategy } from './inStore.strategy';
 import { CcPaymentStrategy } from './cc.strategy';
 import { AppError } from '../../middleware/error.middleware';
 
 const strategies = new Map<PaymentMethodEnum, PaymentStrategy>([
   [PaymentMethodEnum.EXTERNAL, new ExternalPaymentStrategy()],
-  [PaymentMethodEnum.CREDIT,   new CreditPaymentStrategy()],
+  [PaymentMethodEnum.STORE_CREDIT, new StoreCreditPaymentStrategy()],
   [PaymentMethodEnum.IN_STORE, new InStorePaymentStrategy()],
   [PaymentMethodEnum.CC,       new CcPaymentStrategy()],
 ]);

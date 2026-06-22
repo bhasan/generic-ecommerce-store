@@ -1,15 +1,15 @@
 import prisma from '../src/config/database';
 import { hashPassword } from '../src/utils/password.util';
-import { OrderStatus } from '../generated/prisma';
+import { DeliveryMethodEnum, OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../generated/prisma';
 
 async function seed() {
   console.log('🌱 Starting database seed...');
 
-  console.log('🧹 Cleaning existing data...');
+  // Cascade deletes handle orderStatusEvent + payment rows automatically.
   await prisma.notification.deleteMany();
   await prisma.contactMessage.deleteMany();
   await prisma.announcement.deleteMany();
-  await prisma.creditTransaction.deleteMany();
+  await prisma.storeCreditTransaction.deleteMany();
   await prisma.uiSetting.deleteMany();
   await prisma.cartItem.deleteMany();
   await prisma.review.deleteMany();
@@ -21,230 +21,96 @@ async function seed() {
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
 
-  console.log('👥 Creating roles and users...');
-  
+  // ── Roles ──────────────────────────────────────────────────────────────
   const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'VIP'] as const;
   type RoleName = (typeof roleNames)[number];
 
   const roles = await Promise.all(
-    roleNames.map((name) =>
-      prisma.role.create({
-        data: { name },
-      })
-    )
+    roleNames.map(name => prisma.role.create({ data: { name } }))
   );
 
-  const getRoleByName = (name: RoleName) =>
-    roles.find((role) => role.name === name) ?? (() => { throw new Error(`Missing role ${name}`); })();
+  const roleId = (name: RoleName) =>
+    roles.find(r => r.name === name)?.id ?? (() => { throw new Error(`Missing role ${name}`); })();
 
-  const getRoleIds = (names: RoleName[]) =>
-    names.map((name) => getRoleByName(name).id);
+  const assignRoles = (userId: number, names: RoleName[]) =>
+    prisma.userRole.createMany({ data: names.map(name => ({ userId, roleId: roleId(name) })) });
 
-  const adminPassword = await hashPassword('admin123');
-  const admin = await prisma.user.create({
-    data: {
-      username: 'admin',
-      password: adminPassword,
-      phoneNumber: '(512) 555-0100',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['ADMIN']).map(roleId => ({ userId: admin.id, roleId }))
-  });
+  // ── Users ──────────────────────────────────────────────────────────────
+  const makeUser = async (
+    username: string,
+    password: string,
+    roles: RoleName[],
+    extra: Partial<Parameters<typeof prisma.user.create>[0]['data']> = {},
+  ) => {
+    const user = await prisma.user.create({
+      data: { username, password: await hashPassword(password), approved: true, ...extra },
+    });
+    await assignRoles(user.id, roles);
+    return user;
+  };
 
-  const managerPassword = await hashPassword('manager123');
-  const manager = await prisma.user.create({
-    data: {
-      username: 'manager',
-      password: managerPassword,
-      phoneNumber: '(512) 555-0200',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['MANAGEMENT']).map(roleId => ({ userId: manager.id, roleId }))
-  });
-
-  const employeePassword = await hashPassword('employee123');
-  const employee = await prisma.user.create({
-    data: {
-      username: 'employee',
-      password: employeePassword,
-      phoneNumber: '(512) 555-0300',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['EMPLOYEE']).map(roleId => ({ userId: employee.id, roleId }))
-  });
-
-  const customerPassword = await hashPassword('customer123');
-  const customer = await prisma.user.create({
-    data: {
-      username: 'johncustomer',
-      password: customerPassword,
+  const [admin, , , customer, sarah, mike] = await Promise.all([
+    makeUser('admin',          'admin123',    ['ADMIN']),
+    makeUser('manager',        'manager123',  ['MANAGEMENT']),
+    makeUser('employee',       'employee123', ['EMPLOYEE']),
+    makeUser('johncustomer',   'customer123', ['CUSTOMER'], {
       address: '123 Main Street, Austin, TX 78701',
       cashapp: '$JohnCustomer',
       phoneNumber: '(512) 555-0101',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: customer.id, roleId }))
-  });
-
-  const sarahPassword = await hashPassword('customer123');
-  const sarah = await prisma.user.create({
-    data: {
-      username: 'sarahjohnson',
-      password: sarahPassword,
+    }),
+    makeUser('sarahjohnson',   'customer123', ['CUSTOMER'], {
       address: '456 Oak Avenue, Austin, TX 78702',
       cashapp: '$SarahJ',
       phoneNumber: '(512) 555-0102',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: sarah.id, roleId }))
-  });
-
-  const mikePassword = await hashPassword('customer123');
-  const mike = await prisma.user.create({
-    data: {
-      username: 'mikethompson',
-      password: mikePassword,
+    }),
+    makeUser('mikethompson',   'customer123', ['CUSTOMER'], {
       address: '789 Pine Road, Austin, TX 78703',
       cashapp: '$MikeT',
       phoneNumber: '(512) 555-0103',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: mike.id, roleId }))
-  });
-
-  const emilyPassword = await hashPassword('customer123');
-  const emily = await prisma.user.create({
-    data: {
-      username: 'emilychen',
-      password: emilyPassword,
+    }),
+    makeUser('emilychen',      'customer123', ['CUSTOMER'], {
       address: '321 Elm Street, Austin, TX 78704',
       cashapp: '$EmilyC',
       phoneNumber: '(512) 555-0104',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: emily.id, roleId }))
-  });
-
-  const davidPassword = await hashPassword('customer123');
-  const david = await prisma.user.create({
-    data: {
-      username: 'davidwilliams',
-      password: davidPassword,
+    }),
+    makeUser('davidwilliams',  'customer123', ['CUSTOMER'], {
       address: '654 Maple Drive, Austin, TX 78705',
       cashapp: '$DavidW',
       phoneNumber: '(512) 555-0105',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['CUSTOMER']).map(roleId => ({ userId: david.id, roleId }))
-  });
-
-  const vipPassword = await hashPassword('vip123');
-  const vipUser = await prisma.user.create({
-    data: {
-      username: 'vipuser',
-      password: vipPassword,
+    }),
+    makeUser('vipuser',        'vip123',      ['CUSTOMER', 'VIP'], {
       address: '100 VIP Lane, Austin, TX 78706',
       cashapp: '$VIPUser',
       phoneNumber: '(512) 555-0106',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['CUSTOMER', 'VIP']).map(roleId => ({ userId: vipUser.id, roleId }))
-  });
-
-  const driverPassword = await hashPassword('driver123');
-  const driver = await prisma.user.create({
-    data: {
-      username: 'driver',
-      password: driverPassword,
+    }),
+    makeUser('driver',         'driver123',   ['DELIVERY_DRIVER'], {
       phoneNumber: '(512) 555-0400',
-      approved: true,
-    },
-  });
-  await prisma.userRole.createMany({
-    data: getRoleIds(['DELIVERY_DRIVER']).map(roleId => ({ userId: driver.id, roleId }))
-  });
+    }),
+  ]);
 
   console.log('✅ Users created');
-  console.log('   Admin: admin / admin123');
-  console.log('   Manager: manager / manager123');
-  console.log('   Employee: employee / employee123');
-  console.log('   Customer: johncustomer / customer123');
-  console.log('   Driver: driver / driver123');
-  console.log('   Sarah: sarahjohnson / customer123');
-  console.log('   Mike: mikethompson / customer123');
-  console.log('   Emily: emilychen / customer123');
-  console.log('   David: davidwilliams / customer123');
 
-  console.log('');
-  console.log('🗂️  Creating categories...');
+  // ── Categories ─────────────────────────────────────────────────────────
+  const [electronics, accessories] = await Promise.all([
+    prisma.category.create({ data: { name: 'Electronics', description: 'Audio, wearables, and smart devices' } }),
+    prisma.category.create({ data: { name: 'Accessories', description: 'Bags, cables, and everyday add-ons' } }),
+  ]);
 
-  const electronicsCategory = await prisma.category.create({
-    data: {
-      name: 'Electronics',
-      description: 'Audio, wearables, and smart devices'
-    }
-  });
-
-  const accessoriesCategory = await prisma.category.create({
-    data: {
-      name: 'Accessories',
-      description: 'Bags, cables, and everyday add-ons'
-    }
-  });
-
-  console.log('📦 Creating products...');
-
-  // Each seed product gets one default UNIT variant (price/stock live on the variant)
-  // plus a thumbnail image, matching the post-migration catalog shape.
-  const makeProduct = (data: {
-    name: string;
-    slug: string;
-    categoryId: number;
-    description: string;
-    image: string;
-    price: number;
-    stock: number;
-    stockEnabled: boolean;
+  // ── Products ───────────────────────────────────────────────────────────
+  const makeProduct = (opts: {
+    name: string; slug: string; categoryId: number; description: string; image: string;
+    price: number; stock: number; stockEnabled: boolean;
   }) =>
     prisma.product.create({
       data: {
-        name: data.name,
-        slug: data.slug,
-        categoryId: data.categoryId,
-        description: data.description,
-        hidden: false,
-        images: {
-          create: [{ url: data.image, role: 'THUMBNAIL', sortOrder: 0 }],
-        },
+        name: opts.name, slug: opts.slug, categoryId: opts.categoryId,
+        description: opts.description, hidden: false,
+        images: { create: [{ url: opts.image, role: 'THUMBNAIL', sortOrder: 0 }] },
         variants: {
           create: [{
-            label: 'Default',
-            sku: `SKU-${data.slug}`,
-            pricingMode: 'UNIT',
-            basePrice: data.price,
-            stock: data.stock,
-            stockEnabled: data.stockEnabled,
-            isDefault: true,
-            active: true,
-            sortOrder: 0,
+            label: 'Default', sku: `SKU-${opts.slug}`, pricingMode: 'UNIT',
+            basePrice: opts.price, stock: opts.stock, stockEnabled: opts.stockEnabled,
+            isDefault: true, active: true, sortOrder: 0,
           }],
         },
       },
@@ -253,25 +119,25 @@ async function seed() {
 
   const products = await Promise.all([
     makeProduct({
-      name: 'Wireless Headphones', slug: 'wireless-headphones', categoryId: electronicsCategory.id,
+      name: 'Wireless Headphones', slug: 'wireless-headphones', categoryId: electronics.id,
       description: 'High-quality wireless headphones with noise cancellation',
       image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
       price: 99.99, stock: 15, stockEnabled: true,
     }),
     makeProduct({
-      name: 'Smart Watch', slug: 'smart-watch', categoryId: electronicsCategory.id,
+      name: 'Smart Watch', slug: 'smart-watch', categoryId: electronics.id,
       description: 'Feature-rich smartwatch with health tracking',
       image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
       price: 199.99, stock: 8, stockEnabled: true,
     }),
     makeProduct({
-      name: 'Laptop Bag', slug: 'laptop-bag', categoryId: accessoriesCategory.id,
+      name: 'Laptop Bag', slug: 'laptop-bag', categoryId: accessories.id,
       description: 'Durable laptop bag with multiple compartments',
       image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400',
       price: 49.99, stock: 20, stockEnabled: true,
     }),
     makeProduct({
-      name: 'USB-C Cable', slug: 'usb-c-cable', categoryId: accessoriesCategory.id,
+      name: 'USB-C Cable', slug: 'usb-c-cable', categoryId: accessories.id,
       description: 'Fast charging USB-C cable',
       image: 'https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=400',
       price: 14.99, stock: 0, stockEnabled: false,
@@ -281,12 +147,10 @@ async function seed() {
   // Multi-variant product used by e2e variant tests
   await prisma.product.create({
     data: {
-      name: 'Flow Test Hoodie', slug: 'flow-test-hoodie', categoryId: accessoriesCategory.id,
+      name: 'Flow Test Hoodie', slug: 'flow-test-hoodie', categoryId: accessories.id,
       description: 'Comfortable hoodie in three sizes for testing variant selection.',
       hidden: false,
-      images: {
-        create: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400', role: 'THUMBNAIL', sortOrder: 0 }],
-      },
+      images: { create: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400', role: 'THUMBNAIL', sortOrder: 0 }] },
       variants: {
         create: [
           { label: 'Small',  sku: 'SKU-hoodie-S', pricingMode: 'UNIT', basePrice: 29.99, stock: 10, stockEnabled: true,  isDefault: true,  active: true, sortOrder: 0 },
@@ -295,114 +159,93 @@ async function seed() {
         ],
       },
     },
-    include: { variants: true },
   });
 
-  // The default variant for each product (used by order items below).
-  const defaultVariant = (p: (typeof products)[number]) => p.variants[0];
-
+  const v = (i: number) => products[i].variants[0];
   console.log(`✅ Created ${products.length + 1} products`);
 
-  console.log('⭐ Creating reviews...');
-
-  await prisma.review.create({
-    data: {
-      userId: customer.id,
-      productId: products[0].id,
-      rating: 5,
-      comment: 'Amazing sound quality! Best headphones I have ever owned.',
-      helpful: 12,
-      notHelpful: 1,
-      flagged: false
-    }
+  // ── Reviews ────────────────────────────────────────────────────────────
+  await prisma.review.createMany({
+    data: [
+      { userId: customer.id, productId: products[0].id, rating: 5, comment: 'Amazing sound quality! Best headphones I have ever owned.', helpful: 12, notHelpful: 1, flagged: false },
+      { userId: sarah.id,    productId: products[0].id, rating: 4, comment: 'Very comfortable for long listening sessions.', helpful: 8,  notHelpful: 0, flagged: false },
+      { userId: mike.id,     productId: products[0].id, rating: 5, comment: 'Perfect for work from home!', helpful: 15, notHelpful: 2, flagged: false },
+    ],
   });
-
-  await prisma.review.create({
-    data: {
-      userId: sarah.id,
-      productId: products[0].id,
-      rating: 4,
-      comment: 'Very comfortable for long listening sessions.',
-      helpful: 8,
-      notHelpful: 0,
-      flagged: false
-    }
-  });
-
-  await prisma.review.create({
-    data: {
-      userId: mike.id,
-      productId: products[0].id,
-      rating: 5,
-      comment: 'Perfect for work from home!',
-      helpful: 15,
-      notHelpful: 2,
-      flagged: false
-    }
-  });
-
   console.log('✅ Reviews created');
 
-  console.log('🛒 Creating orders...');
-
+  // ── Orders ─────────────────────────────────────────────────────────────
+  // Order 1 — PENDING, EXTERNAL (CashApp), awaiting staff approval
   const order1 = await prisma.order.create({
     data: {
       userId: customer.id,
       status: OrderStatus.PENDING,
-      total: 99.99,
-      createdAt: new Date('2024-11-10')
-    }
-  });
-  await prisma.orderItem.create({
-    data: {
-      orderId: order1.id,
-      variantId: defaultVariant(products[0]).id,
-      productName: products[0].name,
-      variantLabel: defaultVariant(products[0]).label,
-      quantity: 1,
-      unitPrice: defaultVariant(products[0]).basePrice
-    }
+      paymentMethod: PaymentMethodEnum.EXTERNAL,
+      deliveryMethod: DeliveryMethodEnum.PICKUP,
+      subtotal: new Prisma.Decimal('99.99'),
+      tax: new Prisma.Decimal('8.25'),
+      total: new Prisma.Decimal('108.24'),
+      taxRate: new Prisma.Decimal('0.0825'),
+      createdAt: new Date('2024-11-10'),
+      items: {
+        create: [{
+          variantId: v(0).id, productName: products[0].name,
+          variantLabel: v(0).label, quantity: 1, unitPrice: v(0).basePrice,
+        }],
+      },
+      payments: {
+        create: [{
+          method: PaymentMethodEnum.EXTERNAL,
+          status: PaymentStatus.PENDING,
+          amount: new Prisma.Decimal('108.24'),
+          paymentHandle: '$JohnCustomer',
+        }],
+      },
+    },
   });
 
+  // Order 2 — APPROVED, EXTERNAL; payment settled, one status event recorded
   const order2 = await prisma.order.create({
     data: {
       userId: customer.id,
       status: OrderStatus.APPROVED,
-      total: 249.98,
-      createdAt: new Date('2024-11-09')
-    }
-  });
-  await prisma.orderItem.createMany({
-    data: [
-      {
-        orderId: order2.id,
-        variantId: defaultVariant(products[1]).id,
-        productName: products[1].name,
-        variantLabel: defaultVariant(products[1]).label,
-        quantity: 1,
-        unitPrice: defaultVariant(products[1]).basePrice
+      paymentMethod: PaymentMethodEnum.EXTERNAL,
+      deliveryMethod: DeliveryMethodEnum.PICKUP,
+      subtotal: new Prisma.Decimal('214.98'),
+      tax: new Prisma.Decimal('17.74'),
+      total: new Prisma.Decimal('232.72'),
+      taxRate: new Prisma.Decimal('0.0825'),
+      createdAt: new Date('2024-11-09'),
+      items: {
+        create: [
+          { variantId: v(1).id, productName: products[1].name, variantLabel: v(1).label, quantity: 1, unitPrice: v(1).basePrice },
+          { variantId: v(3).id, productName: products[3].name, variantLabel: v(3).label, quantity: 1, unitPrice: v(3).basePrice },
+        ],
       },
-      {
-        orderId: order2.id,
-        variantId: defaultVariant(products[3]).id,
-        productName: products[3].name,
-        variantLabel: defaultVariant(products[3]).label,
-        quantity: 1,
-        unitPrice: defaultVariant(products[3]).basePrice
-      }
-    ]
+      payments: {
+        create: [{
+          method: PaymentMethodEnum.EXTERNAL,
+          status: PaymentStatus.SETTLED,
+          amount: new Prisma.Decimal('232.72'),
+          paymentHandle: '$JohnCustomer',
+        }],
+      },
+      statusEvents: {
+        create: [{
+          fromStatus: OrderStatus.PENDING,
+          toStatus: OrderStatus.APPROVED,
+          changedBy: admin.id,
+          note: 'Payment confirmed',
+        }],
+      },
+    },
   });
 
+  void order1; void order2; // suppress unused-var warnings
   console.log('✅ Orders created');
 
   console.log('');
   console.log('🎉 Database seeded successfully!');
-  console.log('');
-  console.log('📋 Summary:');
-  console.log(`   Users: 9`);
-  console.log(`   Products: ${products.length + 1}`);
-  console.log(`   Reviews: 3`);
-  console.log(`   Orders: 2`);
   console.log('');
   console.log('🔐 Test Accounts:');
   console.log('   Admin:    admin / admin123');
@@ -414,10 +257,5 @@ async function seed() {
 }
 
 seed()
-  .catch((error) => {
-    console.error('❌ Seed failed:', error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .catch(error => { console.error('❌ Seed failed:', error); process.exit(1); })
+  .finally(() => prisma.$disconnect());
