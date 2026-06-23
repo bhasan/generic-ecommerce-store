@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import authService from '../services/auth.service';
 import { validateRequest } from '../utils/request.util';
+import { logger } from '../utils/logger';
 
 export class AuthController {
   async register(req: Request, res: Response) : Promise<void> {
@@ -12,6 +13,11 @@ export class AuthController {
   async login(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
     const result = await authService.login(req.body);
+    logger.logEvent('auth.login_success', {
+      requestId: req.requestId,
+      userId: result.user?.id,
+      roles: result.user?.roles,
+    });
     res.status(200).json({ message: 'Login successful', ...result });
   }
 

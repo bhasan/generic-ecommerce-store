@@ -70,10 +70,6 @@ export class OrderController {
       return;
     }
     if (!validateRequest(req, res)) return;
-    logger.info('Order creation request received', {
-      userId: req.user.userId,
-      itemCount: req.body.items?.length || 0,
-    });
     const order = await orderService.createOrder({
       userId: req.user.userId,
       items: req.body.items,
@@ -83,10 +79,14 @@ export class OrderController {
       vehicleDescription: req.body.vehicleDescription,
       paymentMethod: req.body.paymentMethod,
     });
-    logger.info('Order created successfully via API', {
+    logger.logEvent('order.created', {
+      requestId: req.requestId,
       orderId: order.id,
       userId: req.user.userId,
       total: order.total,
+      deliveryMethod: req.body.deliveryMethod,
+      paymentMethod: req.body.paymentMethod,
+      itemCount: req.body.items?.length || 0,
     });
     res.status(201).json({ message: 'Order created successfully', order });
   }
@@ -115,6 +115,13 @@ export class OrderController {
       return;
     }
     const order = await orderService.updateOrderStatus(id, { ...req.body, changedBy: req.user.userId }, userRoles);
+    logger.logEvent('order.status_changed', {
+      requestId: req.requestId,
+      orderId: id,
+      toStatus: req.body.status,
+      changedBy: req.user.userId,
+      changedByRoles: userRoles,
+    });
     res.status(200).json({ message: 'Order status updated successfully', order });
   }
 
@@ -193,6 +200,12 @@ export class OrderController {
     const userId = req.user!.userId;
     const { transId } = req.body;
     const result = await orderService.confirmCardPayment(orderId, userId, transId);
+    logger.logEvent('payment.succeeded', {
+      requestId: req.requestId,
+      orderId,
+      userId,
+      transId,
+    });
     res.status(200).json({ message: 'Payment confirmed', order: result });
   }
 }

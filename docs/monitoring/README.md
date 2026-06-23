@@ -94,6 +94,10 @@ If the Grafana Cloud env vars are missing or empty, the monitoring containers st
 
 This means you can deploy the full stack before filling in Grafana Cloud credentials. `sync-env.sh` will scaffold the empty keys on first deploy; fill them in on the server and restart the monitoring containers.
 
+## Logging detail
+
+See [logging.md](./logging.md) for a full breakdown of each log source (backend, Nginx, PostgreSQL), the JSON format, Loki labels, useful LogQL queries, and known gaps in the current setup.
+
 ## Memory footprint
 
 Both monitoring services run with hard memory limits appropriate for a 2GB VPS:
