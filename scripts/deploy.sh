@@ -4,31 +4,71 @@ set -euo pipefail
 SKIP_UPLOAD=false
 SKIP_CHECKLIST=false
 SYNC_CONFIG=false
+SYNC_ENV=false
 NO_MONITORING=false
 CHECKLIST_ONLY=false
 SERVER_IP=""
 
 usage() {
   cat <<USAGE
-Usage: $0 <server-ip> [--sync-config] [--skip-upload] [--skip-checklist] [--no-monitoring] [--checklist-only]
+Usage: $0 <server-ip> [OPTIONS]
 
-By default only the Docker images are pushed. Config files (docker-compose.yml,
-docker-compose.prod.yml, nginx/nginx.prod.conf) are left untouched on the server
-unless --sync-config is given.
+Tarball-based deploy for Smoke Station Delivery. Builds must already be saved
+to docker/backend.tar and docker/web.tar (run scripts/build.sh first).
 
-This helper is tarball-based. For production it requires the server-side
-docker-compose.shared-edge.override.yml file so Smoke Station keeps the shared
-public edge networks and mounts.
+Requires the server-side docker-compose.shared-edge.override.yml file so
+Smoke Station keeps the shared public edge networks and mounts.
+
+By default, only Docker images are uploaded and services are restarted.
+Config files and env files on the server are left untouched unless the
+corresponding sync flag is passed.
 
 Options:
-  --sync-config     Also compare and (after confirmation) upload changed config
-                    files, backing up the server copy first.
-  --skip-upload     Skip uploading/loading the Docker image tarballs.
+  --sync-config     Compare local config files against the server and
+                    (after confirmation) upload any that differ, backing
+                    up the server copy first. Covers docker-compose.yml,
+                    docker-compose.prod.yml, nginx/nginx.prod.conf, and
+                    monitoring config files.
+
+  --sync-env        Run sync-env.sh on the server to append any missing
+                    keys from .env.example -> .env.prod and
+                    backend/.env.example -> backend/.env, after taking
+                    a timestamped backup of each file. Safe to run on a
+                    live server — it never overwrites existing values.
+
+  --skip-upload     Skip uploading and loading the Docker image tarballs.
+                    Useful when images are already loaded on the server
+                    and you only want to restart services.
+
   --skip-checklist  Skip the post-deploy hardening checklist.
-  --no-monitoring   Exclude the monitoring stack (Promtail + Prometheus) from
-                    the compose command. Use for rollback or debugging.
-  --checklist-only  Only run the post-deploy hardening checklist (skip all
-                    upload, deploy, and compose steps).
+
+  --no-monitoring   Exclude the monitoring stack (Promtail + Prometheus)
+                    from the compose command. Use for rollback or
+                    debugging when monitoring services should stay as-is.
+
+  --checklist-only  Only run the post-deploy hardening checklist; skip
+                    all upload, deploy, and compose steps.
+
+  -h, --help        Show this help message and exit.
+
+Environment variables:
+  SSH_USER          SSH user for the remote server (default: root).
+
+Examples:
+  # Standard deploy (upload images + restart services):
+  $0 1.2.3.4
+
+  # Deploy and sync env files if new keys were added:
+  $0 1.2.3.4 --sync-env
+
+  # Deploy, sync config and env files:
+  $0 1.2.3.4 --sync-config --sync-env
+
+  # Skip image upload (already loaded) and just restart services:
+  $0 1.2.3.4 --skip-upload
+
+  # Only run the hardening checklist:
+  $0 1.2.3.4 --checklist-only
 USAGE
 }
 
@@ -36,6 +76,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --sync-config)
       SYNC_CONFIG=true
+      shift
+      ;;
+    --sync-env)
+      SYNC_ENV=true
       shift
       ;;
     --skip-upload)
@@ -272,14 +316,19 @@ else
   fi
 fi
 
-# --- Sync env files (always runs — backs up and appends missing keys) ---
-echo ""
-echo "==> Syncing env files on server (backup + append missing keys)..."
-ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "
-  cd '$REMOTE_DIR'
-  bash scripts/sync-env.sh .env.example .env.prod
-  bash scripts/sync-env.sh backend/.env.example backend/.env
-"
+# --- Sync env files (opt-in via --sync-env) ---
+if [[ "$SYNC_ENV" == "false" ]]; then
+  echo ""
+  echo "==> Env sync skipped (pass --sync-env to append missing keys from .env.example files)."
+else
+  echo ""
+  echo "==> Syncing env files on server (backup + append missing keys)..."
+  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "
+    cd '$REMOTE_DIR'
+    bash scripts/sync-env.sh .env.example .env
+    bash scripts/sync-env.sh backend/.env.example backend/.env
+  "
+fi
 
 # --- Confirm compose up ---
 echo ""
