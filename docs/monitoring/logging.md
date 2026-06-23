@@ -26,7 +26,8 @@ Logs flow from three sources — Nginx, Express backend, and PostgreSQL — to s
 
 **Request/response logging** (`backend/src/middleware/logger.middleware.ts`):
 
-Every inbound request gets a unique `requestId` (`req_<uuid>`), which is:
+Every inbound request gets a `requestId`, which is:
+- The `X-Request-Id` value forwarded by Nginx (preferred), or a freshly generated `req_<uuid>` for requests that bypass Nginx
 - Attached to `req.requestId` for use by error handlers and route code
 - Returned to callers in the `x-request-id` response header
 - Included in both the request log and the response log so the two can be correlated
@@ -71,13 +72,31 @@ The first N requests (default: 5, configurable via `REQUEST_IP_DEBUG_SAMPLE_SIZE
 
 ### Nginx
 
-**Format:** Default combined text format (e.g. `1.2.3.4 - - [22/Jun/2026:10:34:56 +0000] "GET / HTTP/1.1" 200 1234 ...`)
+**Format:** Structured JSON (`json_combined` log format). Every access log line is a JSON object:
 
-Nginx does not yet use a structured JSON format. This means Loki queries on Nginx logs require regex extraction rather than direct field access.
+```json
+{
+  "time": "2026-06-22T10:34:56+00:00",
+  "method": "GET",
+  "uri": "/api/orders",
+  "status": 200,
+  "bytes_sent": 1234,
+  "request_time": 0.045,
+  "upstream_response_time": "0.044",
+  "remote_addr": "1.2.3.4",
+  "request_id": "abc123",
+  "referer": "",
+  "user_agent": "Mozilla/5.0 ..."
+}
+```
+
+All fields are directly queryable in Loki without regex extraction.
+
+**Cloudflare IP restoration:** `real_ip_header CF-Connecting-IP` is set so `$remote_addr` reflects the actual client IP, not a Cloudflare edge node.
 
 **Health check:** `/health` has `access_log off;` — health-check polls do not appear in the access log.
 
-**Request ID forwarding:** Nginx passes `X-Request-Id: $request_id` to the backend (`proxy_set_header X-Request-Id $request_id` in nginx.prod.conf), but this ID is not currently logged in the Nginx access log and the backend generates its own UUID instead of re-using it.
+**Request ID forwarding:** Nginx sets `X-Request-Id: $request_id` on every upstream request. The backend middleware reads this header and uses it as its own `requestId`, so **the same ID appears in both the Nginx access log (`request_id` field) and all backend log lines**. Requests that bypass Nginx (direct dev calls, health checks) fall back to a freshly generated `req_<uuid>`.
 
 ### PostgreSQL
 
@@ -85,7 +104,14 @@ PostgreSQL container logs to stdout via Docker's default json-file driver. No cu
 
 ## Docker log driver
 
-All containers use Docker's default `json-file` log driver with no size or rotation limits configured. On the 2GB VPS this means log files can grow unbounded under sustained load.
+All containers use the `json-file` log driver with rotation configured:
+
+| Option | Value |
+|--------|-------|
+| `max-size` | `10m` |
+| `max-file` | `3` |
+
+Maximum on-disk footprint per container is ~30 MB (3 × 10 MB files). Older files are deleted automatically.
 
 ## Loki labels
 
@@ -109,8 +135,8 @@ The `level` label is extracted from the `"level"` field in JSON log lines by Pro
 # Backend errors only
 {app="smoke-station-delivery", service="backend"} | json | level = "error"
 
-# Trace a specific request across request + response + error logs
-{app="smoke-station-delivery"} |= "req_abc123"
+# Trace a specific request across Nginx + backend logs (same request_id)
+{app="smoke-station-delivery"} |= "abc123"
 
 # Slow responses (>1s)
 {app="smoke-station-delivery", service="backend"} | json | message = "API Response"
@@ -119,6 +145,12 @@ The `level` label is extracted from the `"level"` field in JSON log lines by Pro
 # 5xx responses
 {app="smoke-station-delivery", service="backend"} | json | message = "API Response"
   | statusCode >= 500
+
+# Nginx 5xx (JSON fields, no regex needed)
+{app="smoke-station-delivery", service="nginx"} | json | status >= 500
+
+# Slow Nginx upstream responses (>500ms)
+{app="smoke-station-delivery", service="nginx"} | json | request_time > 0.5
 ```
 
 ## Environment variables
