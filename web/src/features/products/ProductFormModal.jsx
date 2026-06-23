@@ -80,49 +80,48 @@ function VariantRow({ variant, index, isOnly, onChange, onRemove, onToggleDefaul
 
   return (
     <div className="variant-row surface-card" style={{ padding: '1rem', marginBottom: '0.75rem', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div className="form-group" style={{ flex: '1 1 120px' }}>
+      {/* Input fields grid — columns align consistently across all variant rows */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 140px 110px 100px', gap: '0.625rem', alignItems: 'end' }}>
+        <div className="form-group" style={{ margin: 0 }}>
           <label>Label *</label>
           <input type="text" value={variant.label} onChange={(e) => updateField('label', e.target.value)} className="form-input" placeholder="e.g. Default, 1g, Small" />
         </div>
-        <div className="form-group" style={{ flex: '1 1 120px' }}>
+        <div className="form-group" style={{ margin: 0 }}>
           <label>SKU</label>
           <input type="text" value={variant.sku ?? ''} onChange={(e) => updateField('sku', e.target.value)} className="form-input" placeholder="e.g. PROD-001" />
         </div>
-        <div className="form-group" style={{ flex: '0 0 auto' }}>
+        <div className="form-group" style={{ margin: 0 }}>
           <label>Pricing Mode</label>
           <select value={variant.pricingMode ?? 'UNIT'} onChange={(e) => updateField('pricingMode', e.target.value)} className="form-select">
             <option value="UNIT">Unit</option>
             <option value="WEIGHT">Weight</option>
           </select>
         </div>
-        <div className="form-group" style={{ flex: '0 1 100px' }}>
+        <div className="form-group" style={{ margin: 0 }}>
           <label>Base Price ($) *</label>
           <input type="number" step="0.01" min="0" value={variant.basePrice} onChange={(e) => updateField('basePrice', e.target.value)} className="form-input" placeholder="0.00" />
         </div>
-        <div className="form-group" style={{ flex: '0 1 100px' }}>
+        <div className="form-group" style={{ margin: 0 }}>
           <label>Stock</label>
           <input type="number" min="0" step="any" value={variant.stock} onChange={(e) => updateField('stock', e.target.value)} className="form-input" placeholder="0" disabled={!variant.stockEnabled} />
         </div>
-        <div className="form-group" style={{ flex: '0 0 auto', alignSelf: 'flex-end' }}>
-          <label className="checkbox-label">
-            <input type="checkbox" checked={variant.stockEnabled} onChange={(e) => updateField('stockEnabled', e.target.checked)} />
-            <span>Track Stock</span>
-          </label>
-        </div>
-        <div className="form-group" style={{ flex: '0 0 auto', alignSelf: 'flex-end' }}>
-          <label className="checkbox-label">
-            <input type="checkbox" checked={variant.active !== false} onChange={(e) => updateField('active', e.target.checked)} />
-            <span>Active</span>
-          </label>
-        </div>
-        <div className="form-group" style={{ flex: '0 0 auto', alignSelf: 'flex-end' }}>
-          <label className="checkbox-label">
-            <input type="radio" name="defaultVariant" checked={!!variant.isDefault} onChange={() => onToggleDefault(index)} />
-            <span>Default</span>
-          </label>
-        </div>
-        <div style={{ display: 'flex', gap: '0.25rem', alignSelf: 'flex-end' }}>
+      </div>
+
+      {/* Controls bar — toggles on left, actions on right */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginTop: '0.625rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)' }}>
+        <label className="checkbox-label" style={{ gap: '0.375rem', fontSize: '0.8rem' }}>
+          <input type="radio" name="defaultVariant" checked={!!variant.isDefault} onChange={() => onToggleDefault(index)} />
+          <span>Default</span>
+        </label>
+        <label className="checkbox-label" style={{ gap: '0.375rem', fontSize: '0.8rem' }}>
+          <input type="checkbox" checked={variant.stockEnabled} onChange={(e) => updateField('stockEnabled', e.target.checked)} />
+          <span>Track Stock</span>
+        </label>
+        <label className="checkbox-label" style={{ gap: '0.375rem', fontSize: '0.8rem' }}>
+          <input type="checkbox" checked={variant.active !== false} onChange={(e) => updateField('active', e.target.checked)} />
+          <span>Active</span>
+        </label>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.375rem' }}>
           <button type="button" onClick={() => setExpanded(x => !x)} className="btn-secondary btn-sm" title="Quantity options / price breaks">
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
             <span>Options</span>
