@@ -91,6 +91,7 @@ WHERE img.url IS NOT NULL AND img.url <> '';
 
 -- Remap order_items to the product's default variant (drop orphans first)
 DELETE FROM "order_items" WHERE "productId" NOT IN (SELECT "id" FROM "products");
+DELETE FROM "order_items" WHERE "orderId" NOT IN (SELECT "id" FROM "orders");
 ALTER TABLE "order_items" ADD COLUMN "variantId" INTEGER;
 ALTER TABLE "order_items" ADD COLUMN "productName" TEXT;
 ALTER TABLE "order_items" ADD COLUMN "variantLabel" TEXT;

@@ -1,155 +1,181 @@
 # Production Deployment Guide
 
-This guide covers deploying the Smoke Station application to a production server using the layered Docker Compose setup.
+Smoke Station uses a tarball-based deploy script that builds images locally and
+ships them to the server over SSH. All deploy steps are handled by
+`scripts/build-and-deploy.sh` (or its two sub-scripts individually).
 
 ## Compose Architecture
 
-Production should use:
+The production stack layers four Compose files on the server:
 
-- `docker-compose.yml`
-  - neutral shared base
-- `docker-compose.prod.yml`
-  - production override
-- root `.env.prod`
-  - Docker Compose variable source
-- `backend/.env`
-  - backend runtime env file loaded inside the container
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Shared base |
+| `docker-compose.prod.yml` | Production overrides, SSL mounts, ports |
+| `docker-compose.shared-edge.override.yml` | Server-side only — shared edge networks/mounts, not in repo |
+| `monitoring/docker-compose.monitoring.yml` | Promtail + Prometheus (project: `smoke-station-monitoring`) |
 
-Do not use `docker-compose.dev.yml` in production.
-
-## Summary
-
-| Step | Action |
-|------|--------|
-| 1. Server setup | Install Docker and clone the repo |
-| 2. Environment | Create `.env.prod` and `backend/.env` |
-| 3. Build images | `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod build` |
-| 4. Start stack | `docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d` |
-| 5. Migrate DB | `docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy` |
-| 6. Verify | Check compose status, logs, and `/api/health` |
+The web container (nginx) acts as a shared edge router — it handles
+`smokestationhtx.store` (Smoke Station), `buddash.tech` (Physalia), and
+`nanomia.buddash.tech` (Nanomia) from one nginx process. The server-side
+`nginx/nginx.prod.conf` must not be overwritten without a manual diff review
+first. Use `--sync-config` carefully for nginx changes.
 
 ## Prerequisites
 
 - Linux server with Docker and Docker Compose v2
-- Domain and SSL certificate if serving over HTTPS
-- Firewall allowing ports `80` and `443`
+- `docker-compose.shared-edge.override.yml` present at `$REMOTE_DIR` on the server
+- SSL certs for `smokestationhtx.store` at `$REMOTE_DIR/nginx/ssl/` on the server
+- Let's Encrypt certs at `/etc/letsencrypt/` on the server (for Physalia/Nanomia blocks)
+- Server firewall open on ports `80` and `443`
 
-## Step 1: Clone The Repo
+## First-Time Server Setup
 
-```bash
-git clone <your-repo-url> smoke-station-delivery
-cd smoke-station-delivery
-git checkout <deployment-branch>
-```
-
-## Step 2: Environment Configuration
-
-Production env is split across two files.
-
-### Root `.env.prod`
-
-Used by Docker Compose for service configuration and variable substitution.
-
-Example:
-
-```env
-DB_USER=smoke_station_user
-DB_PASSWORD=CHANGE_ME_STRONG_PASSWORD
-DB_NAME=smoke_station_prod
-
-JWT_SECRET=CHANGE_ME_STRONG_JWT_SECRET
-JWT_EXPIRES_IN=24h
-
-CORS_ORIGIN=https://your-domain.com
-
-HTTP_PORT=80
-HTTPS_PORT=443
-AUTH_RATE_LIMIT_MAX=20
-
-# Optional
-CF_DDNS_API_TOKEN=
-CF_DDNS_ZONE_ID=
-```
-
-### `backend/.env`
-
-Used by the backend container at runtime. Keep DB credentials and secrets aligned with `.env.prod`.
-
-Example:
-
-```env
-DATABASE_URL=postgresql://smoke_station_user:CHANGE_ME_STRONG_PASSWORD@db:5432/smoke_station_prod
-JWT_SECRET=CHANGE_ME_STRONG_JWT_SECRET
-JWT_EXPIRES_IN=24h
-CORS_ORIGIN=https://your-domain.com
-AUTH_RATE_LIMIT_MAX=20
-
-PORT=3000
-NODE_ENV=production
-REQUEST_TIMEOUT_MS=30000
-
-# Optional integrations
-# MAKE_WEBHOOK_URL=https://hook.us2.make.com/...
-# MAKE_API_KEY=...
-# MAKE_NOTIFICATION_WEBHOOK_URL=https://hook.us2.make.com/...
-```
-
-## Step 3: Build And Start The Stack
+These files must exist on the server before the first deploy. The deploy script
+bootstraps most of them automatically, but the live env files must be created manually:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod build
-docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod up -d
+# On the server
+mkdir -p /docker/smoke-station/{nginx/ssl,monitoring/promtail,monitoring/prometheus,scripts,backups}
+
+# Create live env files (fill in real values)
+cp .env.example .env.prod
+cp backend/.env.example backend/.env
+# Edit both files with production secrets
 ```
 
-## Step 4: Run Migrations
+The deploy script automatically uploads on first run (if missing or changed):
+- `scripts/sync-env.sh`
+- `monitoring/docker-compose.monitoring.yml`
+- `monitoring/promtail/config.yml`
+- `monitoring/prometheus/prometheus.yml`
+- `monitoring/prometheus/entrypoint.sh`
+
+## Deploying
+
+### Full deploy (build + ship)
 
 ```bash
-docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
-docker exec smoke-station-delivery-backend-prod npx prisma migrate status
+bash scripts/build-and-deploy.sh <server-ip>
 ```
 
-Optional first-time seed:
+This runs `build.sh` then `deploy.sh`. You will be prompted for:
+1. Upload confirmation (y/N) — images are 269MB + 25MB
+2. SSH password — entered once, reused for all subsequent SSH/SCP calls
+3. Prisma migration status output — **stop and take a DB backup if there are pending migrations**
+4. Compose up confirmation (y/N)
+
+### Skip image upload (config/env changes only)
 
 ```bash
-docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod
+bash scripts/deploy.sh <server-ip> --skip-upload
 ```
 
-## Step 5: Verify Deployment
+### Run post-deploy checklist only
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod ps
-docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.prod logs -f
+bash scripts/deploy.sh <server-ip> --checklist-only
+```
+
+### Sync changed config files to server
+
+```bash
+bash scripts/deploy.sh <server-ip> --sync-config
+```
+
+Compares local vs server copies of tracked config files and prompts before
+uploading. Always backs up the server copy first. **Review nginx diffs carefully
+before confirming** — the server's `nginx/nginx.prod.conf` contains
+deployment-specific domains and cert paths not present in the local copy.
+
+### Exclude monitoring stack
+
+```bash
+bash scripts/deploy.sh <server-ip> --no-monitoring
+```
+
+## Migrations
+
+Migrations run automatically via `npm run start:prod` (`prisma migrate deploy &&
+node dist/index.js`) when the backend container starts.
+
+The deploy script runs `prisma migrate status` before compose up so you can
+catch pending migrations. If migrations are pending:
+
+1. **Take a DB backup first:**
+   ```bash
+   docker exec smoke-station-delivery-db-prod pg_dump -U backend_user smoke-station-delivery-db-prod \
+     > /docker/smoke-station/backups/pre-deploy-$(date +%Y%m%d_%H%M%S).sql
+   ```
+
+2. Proceed with deploy — `migrate deploy` runs on container start.
+
+### Squashed migration history
+
+The local migration history starts from `0_init` (a baseline squash). The
+production DB may have the original incremental history. On first deploy after a
+squash, mark the baseline as already applied:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+  -f docker-compose.shared-edge.override.yml \
+  -f monitoring/docker-compose.monitoring.yml \
+  run --rm --no-deps backend npx prisma migrate resolve --applied 0_init
+```
+
+### Failed migration recovery
+
+If a migration fails (P3009), mark it as rolled back before retrying:
+
+```bash
+docker compose [...] run --rm --no-deps backend \
+  npx prisma migrate resolve --rolled-back <migration_name>
+```
+
+Then fix the migration SQL, rebuild, and redeploy. Common causes:
+- Orphaned rows violating FK constraints being added by the migration
+  (add `DELETE FROM "table" WHERE "fk_col" NOT IN (SELECT "id" FROM "ref_table")` before the FK)
+
+## Environment Variables
+
+The deploy script always uploads `.env.example` and `backend/.env.example` to
+the server, then runs `scripts/sync-env.sh` to append any missing keys to the
+live `.env.prod` and `backend/.env` (existing values are never modified).
+
+Monitoring vars that must be filled in manually on the server:
+
+| File | Keys |
+|------|------|
+| `.env.prod` | `LOKI_URL`, `LOKI_USERNAME`, `LOKI_PASSWORD`, `PROMETHEUS_REMOTE_WRITE_URL`, `PROMETHEUS_USERNAME`, `PROMETHEUS_PASSWORD` |
+
+## Monitoring Stack
+
+Promtail and Prometheus run as part of the same deploy under the
+`smoke-station-monitoring` Compose project. They join the
+`smoke-station_sshtx_network` external network.
+
+After deploy, confirm both are running:
+
+```bash
+docker ps | grep -E "promtail|prometheus"
+```
+
+## Verify Deployment
+
+```bash
 curl -s http://localhost/api/health
+# Expected: {"status":"ok","checks":{"database":"ok"}}
+
+docker ps | grep smoke-station
+docker logs --tail 50 smoke-station-delivery-backend-prod
 ```
 
-Post-deploy hardening check (limiter/proxy runtime snapshot):
-
-```bash
-bash scripts/post-deploy-hardening-check.sh <server-ip>
-```
-
-If you are already on the production server:
-
-```bash
-bash scripts/post-deploy-hardening-check.sh --run-local
-```
-
-Expected health response:
-
-```json
-{"status":"ok","checks":{"database":"ok"}}
-```
-
-## Production Notes
-
-- Production uses `backend/Dockerfile` and `nginx/Dockerfile`.
-- Production should not rely on bind mounts or Vite.
-- `docker-compose.dev.yml` and `backend/Dockerfile.dev` are local development only.
-- Notification delivery can reuse the shared Make scenario via payload routing fields such as `eventType`, `category`, and `channelIntent`.
-- `scripts/deploy.sh` now runs the post-deploy hardening checklist automatically (use `--skip-checklist` to bypass).
+The post-deploy hardening checklist runs automatically at the end of every
+deploy (use `--skip-checklist` to bypass, `--checklist-only` to run it
+standalone).
 
 ## Related Docs
 
-- [README.md](./README.md)
-- [LOCAL_DOCKER_DEV_WORKFLOW.md](./LOCAL_DOCKER_DEV_WORKFLOW.md)
-- [OPERATIONS_PIPELINE.md](./OPERATIONS_PIPELINE.md)
+- [DOCKER_SETUP.md](./DOCKER_SETUP.md)
+- [DEPLOYMENT_CHECKLIST.md](./DEPLOYMENT_CHECKLIST.md)
+- [../monitoring/README.md](../monitoring/README.md)

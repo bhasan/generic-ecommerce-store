@@ -5,11 +5,12 @@ SKIP_UPLOAD=false
 SKIP_CHECKLIST=false
 SYNC_CONFIG=false
 NO_MONITORING=false
+CHECKLIST_ONLY=false
 SERVER_IP=""
 
 usage() {
   cat <<USAGE
-Usage: $0 <server-ip> [--sync-config] [--skip-upload] [--skip-checklist] [--no-monitoring]
+Usage: $0 <server-ip> [--sync-config] [--skip-upload] [--skip-checklist] [--no-monitoring] [--checklist-only]
 
 By default only the Docker images are pushed. Config files (docker-compose.yml,
 docker-compose.prod.yml, nginx/nginx.prod.conf) are left untouched on the server
@@ -26,6 +27,8 @@ Options:
   --skip-checklist  Skip the post-deploy hardening checklist.
   --no-monitoring   Exclude the monitoring stack (Promtail + Prometheus) from
                     the compose command. Use for rollback or debugging.
+  --checklist-only  Only run the post-deploy hardening checklist (skip all
+                    upload, deploy, and compose steps).
 USAGE
 }
 
@@ -45,6 +48,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-monitoring)
       NO_MONITORING=true
+      shift
+      ;;
+    --checklist-only)
+      CHECKLIST_ONLY=true
       shift
       ;;
     -h|--help)
@@ -89,14 +96,19 @@ CONFIG_FILES=(
   monitoring/docker-compose.monitoring.yml
   monitoring/promtail/config.yml
   monitoring/prometheus/prometheus.yml
-  .env.example
-  backend/.env.example
+  monitoring/prometheus/entrypoint.sh
   scripts/sync-env.sh
 )
 
 echo "==> Deploy target: $SSH_USER@$SERVER_IP"
+if [[ "$CHECKLIST_ONLY" == "true" ]]; then
+  echo "    --checklist-only: skipping upload, bootstrap, and compose steps."
+fi
+
 if [[ "$SKIP_UPLOAD" == "true" ]]; then
   echo "    Skipping upload (--skip-upload)"
+elif [[ "$CHECKLIST_ONLY" == "true" ]]; then
+  true
 else
   if [[ ! -f "$BACKEND_TAR" || ! -f "$WEB_TAR" ]]; then
     echo "Error: Image tar files not found."
@@ -127,6 +139,55 @@ ssh -fNM -o ControlMaster=yes -o ControlPath="$SSH_SOCKET" -o ControlPersist=600
 trap 'ssh -O exit -o ControlPath="$SSH_SOCKET" "$SSH_USER@$SERVER_IP" 2>/dev/null || true' EXIT
 
 SSH_OPTS=(-o ControlMaster=no -o ControlPath="$SSH_SOCKET")
+
+# Bootstrap any files that must exist on the server before compose/env steps run.
+# Only uploads if the file is missing — does not overwrite existing files.
+bootstrap_file() {
+  local rel="$1"
+  local local_path="$PROJECT_ROOT/$rel"
+  if [[ ! -f "$local_path" ]]; then
+    echo "    Warning: $rel not found locally, skipping."
+    return
+  fi
+  local local_sum remote_sum
+  local_sum="$(md5sum "$local_path" | awk '{print $1}')"
+  remote_sum="$(ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "md5sum '$REMOTE_DIR/$rel' 2>/dev/null | awk '{print \$1}'" || true)"
+  if [[ "$local_sum" != "$remote_sum" ]]; then
+    if [[ -z "$remote_sum" ]]; then
+      echo "    Uploading missing: $rel"
+    else
+      echo "    Uploading changed: $rel"
+    fi
+    ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "mkdir -p '$REMOTE_DIR/$(dirname "$rel")'"
+    scp "${SSH_OPTS[@]}" "$local_path" "$SSH_USER@$SERVER_IP:$REMOTE_DIR/$rel"
+  else
+    echo "    Already present: $rel"
+  fi
+}
+
+if [[ "$CHECKLIST_ONLY" == "true" ]]; then
+  echo ""
+  echo "==> [4/4] Running post-deploy hardening checklist..."
+  bash "$SCRIPT_DIR/post-deploy-hardening-check.sh" "$SERVER_IP" --control-path "$SSH_SOCKET" --ssh-user "$SSH_USER"
+  echo ""
+  echo "==> Done."
+  exit 0
+fi
+
+echo ""
+echo "==> Ensuring required server files are present..."
+bootstrap_file "scripts/sync-env.sh"
+
+echo ""
+echo "==> Uploading latest env example files..."
+scp "${SSH_OPTS[@]}" "$PROJECT_ROOT/.env.example" "$SSH_USER@$SERVER_IP:$REMOTE_DIR/.env.example"
+scp "${SSH_OPTS[@]}" "$PROJECT_ROOT/backend/.env.example" "$SSH_USER@$SERVER_IP:$REMOTE_DIR/backend/.env.example"
+if [[ "$NO_MONITORING" == "false" ]]; then
+  bootstrap_file "monitoring/docker-compose.monitoring.yml"
+  bootstrap_file "monitoring/promtail/config.yml"
+  bootstrap_file "monitoring/prometheus/prometheus.yml"
+  bootstrap_file "monitoring/prometheus/entrypoint.sh"
+fi
 
 echo ""
 echo "==> Verifying required shared-edge Compose override on server..."
@@ -225,7 +286,7 @@ echo ""
 echo ""
 echo "==> Checking Prisma migration status before backend recreation..."
 echo "    If this reports pending migrations, stop and take a DB backup first."
-ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE run --rm --no-deps backend npx prisma migrate status"
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE run --rm --no-deps backend npx prisma migrate status" || true
 
 read -rp "Run shared-edge 'docker compose up -d --no-deps --no-build --force-recreate backend web' on server? [y/N] " confirm_up
 if [[ "$confirm_up" != "y" && "$confirm_up" != "Y" ]]; then
@@ -235,7 +296,8 @@ fi
 
 echo ""
 echo "==> [3/4] Starting services on server..."
-ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-deps --no-build --force-recreate backend web"
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-deps --no-build --force-recreate backend"
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-build web"
 
 if [[ "$NO_MONITORING" == "false" ]]; then
   echo ""
@@ -245,8 +307,8 @@ fi
 
 if [[ "$NGINX_SYNCED" == "true" ]]; then
   echo ""
-  echo "==> nginx config changed; force-recreating web to pick up the bind-mounted conf..."
-  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-deps --no-build --force-recreate web"
+  echo "==> nginx config changed; recreating web to pick up the bind-mounted conf..."
+  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d --no-build web"
 fi
 
 echo ""

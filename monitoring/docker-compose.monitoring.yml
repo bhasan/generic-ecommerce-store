@@ -42,4 +42,4 @@ volumes:
 networks:
   sshtx_network:
     external: true
-    name: smoke-station-delivery_sshtx_network
+    name: smoke-station_sshtx_network
