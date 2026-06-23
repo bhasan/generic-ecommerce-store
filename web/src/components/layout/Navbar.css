@@ -25,13 +25,15 @@
   gap: 0.75rem;
   flex: 1 1 auto;
   min-width: 0;
+  container-type: inline-size;
+  container-name: navbar-left;
 }
 
 .navbar-brand {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  min-width: 80px;
+  min-width: 150px;
   flex: 0 1 auto;
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
@@ -525,16 +527,8 @@ button.nav-link-icon {
 
 /* ==================== RESPONSIVE BREAKPOINTS ==================== */
 
-/* Standard desktop widths - keep the primary nav to one non-overlapping row */
-@media (max-width: 1440px) {
-  .navbar-left {
-    gap: 1rem;
-  }
-
-  .navbar-links {
-    gap: var(--spacing-sm);
-  }
-
+/* Stage 1: collapse "Manage Products" label and Admin label when nav group gets tight */
+@container navbar-left (max-width: 850px) {
   .navbar-links > a[href="/manage-products"] > span,
   .admin-dropdown > .nav-link > span {
     display: none;
@@ -544,7 +538,24 @@ button.nav-link-icon {
   .admin-dropdown > .nav-link {
     padding: var(--spacing-sm) 0.75rem;
   }
+}
 
+/* Stage 2: collapse all nav labels when space is very tight */
+@container navbar-left (max-width: 650px) {
+  .nav-link span {
+    display: none;
+  }
+
+  .nav-link {
+    padding: var(--spacing-md);
+  }
+
+  .admin-dropdown .nav-link span:not(.admin-chevron) {
+    display: none;
+  }
+}
+
+@media (max-width: 1440px) {
   .profile-name {
     max-width: 8rem;
   }
@@ -621,21 +632,9 @@ button.nav-link-icon {
     height: 28px;
   }
 
-  .nav-link span {
-    display: none;
-  }
-
-  .nav-link {
-    padding: var(--spacing-md);
-  }
-
   .nav-link svg {
     width: 20px;
     height: 20px;
-  }
-
-  .admin-dropdown .nav-link span:not(.admin-chevron) {
-    display: none;
   }
 
   .profile-name {
