@@ -39,10 +39,6 @@ vi.mock('./components/common/AnnouncementBanner', () => ({
   default: () => null,
 }));
 
-vi.mock('./components/common/TawkToWidget', () => ({
-  default: () => null,
-}));
-
 vi.mock('./features/products/ProductsPage', async () => {
   const { useNavigate } = await import('react-router-dom');
   const { useApp } = await import('./context/AppContext');
