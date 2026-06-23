@@ -29,7 +29,7 @@ test.describe('Store credit flow', () => {
 
     const creditOk = await managerPage.evaluate(async ({ userId, amount }: { userId: number; amount: number }) => {
       const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/credits/${userId}/add`, {
+      const res = await fetch(`/api/storecredit/${userId}/add`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -66,7 +66,7 @@ test.describe('Store credit flow', () => {
     await customerPage.waitForURL('**/checkout');
 
     // Select Store Credit payment
-    const creditOption = customerPage.locator('input[name="paymentMethod"][value="CREDIT"]');
+    const creditOption = customerPage.locator('input[name="paymentMethod"][value="STORE_CREDIT"]');
     await expect(creditOption).toBeVisible({ timeout: 8_000 });
     await creditOption.check();
     // Credit balance badge should appear showing a positive amount

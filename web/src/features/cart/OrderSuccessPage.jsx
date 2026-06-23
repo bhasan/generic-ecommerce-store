@@ -83,7 +83,7 @@ function OrderSuccessPage() {
                     <p>Quantity: {item.quantity}</p>
                   </div>
                   <div className="success-item-price">
-                    ${(Number(item.unitPrice ?? item.price ?? 0) * item.quantity).toFixed(2)}
+                    ${(Number(item.unitPrice ?? item.price ?? item.basePrice ?? 0) * item.quantity).toFixed(2)}
                   </div>
                 </div>
                   );

@@ -51,7 +51,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     expect(customer, 'Customer not found in seeded users').toBeTruthy();
     const creditOk = await managerPage.evaluate(async ({ userId, amount }: { userId: number; amount: number }) => {
       const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/credits/${userId}/add`, {
+      const res = await fetch(`/api/storecredit/${userId}/add`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount, note: 'e2e delivery test credit' }),
@@ -83,7 +83,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     await customerPage.locator('#zipCode').fill(IN_ZONE_ZIP);
 
     // Pay with store credit; eligibility check must clear before Place Order enables
-    await customerPage.locator('input[name="paymentMethod"][value="CREDIT"]').check();
+    await customerPage.locator('input[name="paymentMethod"][value="STORE_CREDIT"]').check();
     const placeOrder = customerPage.getByRole('button', { name: 'Place Order' });
     await expect(placeOrder).toBeEnabled({ timeout: 15_000 });
 
