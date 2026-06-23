@@ -3,7 +3,7 @@ import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest } from '../../utils/roles';
-import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home, Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { Package, Tag, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home, Globe, Moon, Sun, Monitor } from 'lucide-react';
 import { useTheme, THEME_CYCLE } from '../../hooks/useTheme';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
@@ -159,7 +159,7 @@ function Navbar() {
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
           title="Manage Products"
         >
-          <Users size={18} />
+          <Tag size={18} />
           <span>Manage Products</span>
         </NavLink>
       )}
