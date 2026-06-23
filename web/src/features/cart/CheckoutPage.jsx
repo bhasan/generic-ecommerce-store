@@ -82,7 +82,7 @@ function CheckoutPage() {
 
   const isPickup = deliveryMethod === DeliveryMethod.PICKUP || deliveryMethod === DeliveryMethod.CURBSIDE;
   const isDelivery = deliveryMethod === DeliveryMethod.DELIVERY;
-  const isCreditPayment = selectedPaymentMethod === PaymentMethod.CREDIT;
+  const isStoreCreditPayment = selectedPaymentMethod === PaymentMethod.STORE_CREDIT;
   const isInStorePayment = selectedPaymentMethod === PaymentMethod.IN_STORE;
   const isExternalPayment = selectedPaymentMethod === PaymentMethod.EXTERNAL;
   const isCCPayment = selectedPaymentMethod === PaymentMethod.CC;
@@ -296,7 +296,13 @@ function CheckoutPage() {
         tax,
         total,
         items: itemsForSuccess,
-        paymentMethod: selectedPaymentMethod
+        paymentMethod: selectedPaymentMethod,
+        paymentSnapshot: selectedPaymentMethod === PaymentMethod.EXTERNAL ? {
+          methods: Object.entries(paymentSettings || {})
+            .filter(([, cfg]) => cfg?.enabled && cfg?.handle)
+            .map(([type, cfg]) => ({ type, label: { cashapp: 'CashApp', zelle: 'Zelle', venmo: 'Venmo' }[type] ?? type, handle: cfg.handle })),
+          senderHandle: cashAppUsername || null,
+        } : null,
       };
 
       if (isCCPayment) {
@@ -559,7 +565,7 @@ function CheckoutPage() {
             </button>
 
             <p className="checkout-note">{
-              isCreditPayment ? 'Store credit will be deducted from your balance when you place this order.'
+              isStoreCreditPayment ? 'Store credit will be deducted from your balance when you place this order.'
                 : isInStorePayment ? 'Have your payment ready when you arrive to pick up your order.'
                   : 'By placing this order, you agree to send payment via the method(s) shown above'
             }</p>

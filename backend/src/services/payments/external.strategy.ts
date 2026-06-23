@@ -1,4 +1,4 @@
-import { OrderStatus, PaymentMethodEnum } from '../../../generated/prisma';
+import { OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../../../generated/prisma';
 import { PaymentStrategy, OrderContext } from './PaymentStrategy';
 
 export class ExternalPaymentStrategy implements PaymentStrategy {
@@ -12,8 +12,16 @@ export class ExternalPaymentStrategy implements PaymentStrategy {
     return OrderStatus.PENDING;
   }
 
-  async applyInTransaction(_tx: any, _orderId: number, _ctx: OrderContext): Promise<void> {
-    // No in-transaction side-effects for external payment.
+  async applyInTransaction(tx: any, orderId: number, ctx: OrderContext): Promise<void> {
+    await tx.payment.create({
+      data: {
+        orderId,
+        method: PaymentMethodEnum.EXTERNAL,
+        status: PaymentStatus.PENDING,
+        amount: new Prisma.Decimal(ctx.total),
+        paymentHandle: ctx.cashAppUsername?.trim() || null,
+      },
+    });
   }
 
   notifiesOnCreate(): boolean {

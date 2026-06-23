@@ -58,8 +58,8 @@ describe('CheckoutPage', () => {
     checkoutMock.mockResolvedValue({ id: 401, status: 'PLACED' });
     checkDeliveryEligibilityMock.mockResolvedValue({
       deliverable: true,
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING',
       distanceMiles: 2.4,
       thresholdMiles: 5,
       message: 'Delivery available. This address is 2.40 miles from the store.',
@@ -72,7 +72,7 @@ describe('CheckoutPage', () => {
     fireEvent.click(screen.getByLabelText(/store credit/i));
     fireEvent.click(screen.getByRole('button', { name: /place order/i }));
 
-    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined, undefined));
+    await waitFor(() => expect(checkoutMock).toHaveBeenCalledWith('$customer-one', DeliveryMethod.PICKUP, PaymentMethod.STORE_CREDIT, undefined, undefined));
     expect(await screen.findByText('Order success page')).toBeInTheDocument();
   });
 
@@ -182,8 +182,8 @@ describe('CheckoutPage', () => {
   it('blocks place-order when the delivery precheck returns out of zone', async () => {
     checkDeliveryEligibilityMock.mockResolvedValue({
       deliverable: false,
-      deliveryZoneStatus: 'OUT_OF_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING',
+      deliveryStatus: 'OUT_OF_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING',
       distanceMiles: 7.1,
       thresholdMiles: 5,
       message: 'This address is 7.10 miles away, outside the 5.00 mile delivery radius.',
@@ -375,9 +375,9 @@ describe('CheckoutPage', () => {
     const matrix = [
       {
         label: 'PICKUP × CREDIT',
-        paymentMethod: PaymentMethod.CREDIT,
+        paymentMethod: PaymentMethod.STORE_CREDIT,
         selectPayment: (screen) => fireEvent.click(screen.getByLabelText(/store credit/i)),
-        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.PICKUP, PaymentMethod.CREDIT, undefined, undefined],
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.PICKUP, PaymentMethod.STORE_CREDIT, undefined, undefined],
         expectedOutcome: 'success',
       },
       {
@@ -424,7 +424,7 @@ describe('CheckoutPage', () => {
           fireEvent.change(screen.getByLabelText(/vehicle color/i), { target: { value: 'Red' } });
         },
         selectPayment: (screen) => fireEvent.click(screen.getByLabelText(/store credit/i)),
-        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.CURBSIDE, PaymentMethod.CREDIT, undefined, 'Red Ford F-150'],
+        expectedCheckoutArgs: ['$customer-one', DeliveryMethod.CURBSIDE, PaymentMethod.STORE_CREDIT, undefined, 'Red Ford F-150'],
         expectedOutcome: 'success',
       },
     ];

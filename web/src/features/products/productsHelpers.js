@@ -6,17 +6,35 @@ export const getCategoryLabel = (category) => {
 
 export const PRODUCT_FALLBACK_IMAGE = '/images/smokestationtitle.png';
 
-export const getProductImageSrc = (item) =>
-  item?.thumbnail || (item?.images && item.images[0]) || item?.image || PRODUCT_FALLBACK_IMAGE;
+// Returns the URL of the first THUMBNAIL image, or the first GALLERY image, or the fallback.
+export const getProductImageSrc = (item) => {
+  if (item?.images?.length > 0) {
+    const thumb = item.images.find(img => img.role === 'THUMBNAIL');
+    const first = item.images.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0];
+    return (thumb || first)?.url || PRODUCT_FALLBACK_IMAGE;
+  }
+  return PRODUCT_FALLBACK_IMAGE;
+};
 
+// Returns all image URLs sorted by sortOrder (THUMBNAIL first within same sortOrder).
 export const getProductAllImages = (item) => {
-  const base = item?.images?.length > 0
-    ? item.images
-    : item?.image ? [item.image] : [];
-  const withThumb = item?.thumbnail && item.thumbnail !== base[0]
-    ? [item.thumbnail, ...base.filter(img => img !== item.thumbnail)]
-    : base;
-  return withThumb.length > 0 ? withThumb : [PRODUCT_FALLBACK_IMAGE];
+  if (!item?.images?.length) return [PRODUCT_FALLBACK_IMAGE];
+  const sorted = [...item.images].sort((a, b) => {
+    if (a.role === 'THUMBNAIL' && b.role !== 'THUMBNAIL') return -1;
+    if (b.role === 'THUMBNAIL' && a.role !== 'THUMBNAIL') return 1;
+    return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+  });
+  return sorted.map(img => img.url);
+};
+
+// Returns the first active default variant, or the first active variant, or the first variant.
+export const getDefaultVariant = (product) => {
+  if (!product?.variants?.length) return null;
+  return (
+    product.variants.find(v => v.isDefault && v.active) ??
+    product.variants.find(v => v.active) ??
+    product.variants[0]
+  );
 };
 
 export const getProductCategoryLabel = (product) => {
@@ -26,65 +44,24 @@ export const getProductCategoryLabel = (product) => {
   return product?.category || 'Uncategorized';
 };
 
-export const resolveQuantityDiscounts = (product) => {
-  // Check product override first
-  if (product?.quantityDiscountsOverride && Array.isArray(product.quantityDiscountsOverride) && product.quantityDiscountsOverride.length > 0) {
-    return product.quantityDiscountsOverride;
-  }
-  // Fall back to category discounts
-  const categoryDiscounts = product?.category?.quantityDiscounts;
-  if (categoryDiscounts && Array.isArray(categoryDiscounts) && categoryDiscounts.length > 0) {
-    return categoryDiscounts;
-  }
-  return [];
+// Returns allowed quantities for a variant (WEIGHT mode has explicit options; UNIT mode has none).
+export const getAllowedQuantities = (variant) => {
+  if (!variant?.quantityOptions?.length) return [];
+  return [...variant.quantityOptions]
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+    .map(opt => Number(opt.quantity));
 };
 
-export const getDiscountedUnitPrice = (product, quantity) => {
-  const rules = resolveQuantityDiscounts(product);
-  const match = rules.find((rule) => Math.abs(rule.quantity - quantity) < 1e-9);
-  if (!match) return product.price;
-  
-  // For percent: discount applies per unit
-  // For fixed: discount applies to total, so we calculate the effective unit discount
-  if (match.type === 'percent') {
-    const discount = product.price * (match.value / 100);
-    return Math.max(0, product.price - discount);
-  } else {
-    // Fixed discount on total - calculate effective unit price
-    const totalOriginal = product.price * quantity;
-    const totalDiscounted = Math.max(0, totalOriginal - match.value);
-    return totalDiscounted / quantity;
-  }
-};
-
-export const formatQuantityDiscounts = (rules = []) =>
-  rules
-    .map((rule) =>
-      `${rule.quantity}:${rule.type === 'percent' ? `${rule.value}%` : `$${rule.value}`}`
-    )
-    .join(', ');
-
-export const parseQuantityDiscounts = (value) => {
-  if (!value) return [];
-  return value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((entry) => {
-      const [quantityPart, discountPartRaw] = entry.split(':').map((part) => part.trim());
-      const quantity = Number(quantityPart);
-      if (!Number.isFinite(quantity) || quantity <= 0 || !discountPartRaw) return null;
-      const discountPart = discountPartRaw.replace(/\s/g, '');
-      if (discountPart.endsWith('%')) {
-        const valueNum = Number(discountPart.replace('%', ''));
-        if (!Number.isFinite(valueNum) || valueNum < 0 || valueNum > 100) return null;
-        return { quantity, type: 'percent', value: valueNum };
-      }
-      const fixedValue = Number(discountPart.replace('$', ''));
-      if (!Number.isFinite(fixedValue) || fixedValue < 0) return null;
-      return { quantity, type: 'fixed', value: fixedValue };
-    })
-    .filter(Boolean);
+// Returns the resolved unit price for a variant at a given quantity using price-break rules.
+// Picks the break with the largest minQuantity <= qty; falls back to variant.basePrice.
+export const getDiscountedUnitPrice = (variant, quantity) => {
+  const breaks = variant?.priceBreaks ?? [];
+  const eligible = breaks.filter(pb => Number(pb.minQuantity) <= quantity);
+  if (eligible.length === 0) return Number(variant?.basePrice ?? 0);
+  const best = eligible.reduce((a, b) =>
+    Number(b.minQuantity) > Number(a.minQuantity) ? b : a
+  );
+  return Number(best.unitPrice);
 };
 
 export const sortProducts = (list) =>

@@ -3,6 +3,7 @@ import { CreditCard, Key, AlertTriangle, Eye, EyeOff, ChevronUp, ChevronDown } f
 import { useApp } from '../../../context/AppContext';
 import { updatePaymentSettings } from '../../../services/paymentSettingsApi';
 import PaymentSettingsSection from '../../dashboard/components/PaymentSettingsSection';
+import './WebsitePaymentSection.css';
 
 function AuthorizeNetCredentialsCard({ paymentSettings, onSave }) {
   const cc = paymentSettings?.cc_payment ?? { enabled: false, loginId: '', transactionKey: '', sandboxMode: true };
@@ -125,13 +126,24 @@ function AuthorizeNetCredentialsCard({ paymentSettings, onSave }) {
 export default function WebsitePaymentSection() {
   const { paymentSettings, loadConfig, showNotification } = useApp();
 
+  const CC_DEFAULTS = { enabled: false, loginId: '', transactionKey: '', sandboxMode: true };
+
   const handleSave = async (data) => {
     try {
-      await updatePaymentSettings(data);
+      const payload = {
+        ...paymentSettings,
+        ...data,
+        cc_payment: {
+          ...CC_DEFAULTS,
+          ...paymentSettings?.cc_payment,
+          ...(data.cc_payment ?? {}),
+        },
+      };
+      await updatePaymentSettings(payload);
       await loadConfig();
       showNotification('Payment settings saved', 'success');
-    } catch {
-      showNotification('Failed to save payment settings', 'error');
+    } catch (err) {
+      showNotification(err.message || 'Failed to save payment settings', 'error');
     }
   };
 

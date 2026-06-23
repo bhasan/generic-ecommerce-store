@@ -10,15 +10,39 @@ export const users = {
 };
 
 export const sampleProducts = [
-  { id: 101, name: 'Blue Dream', price: 12.5, category: { allowedQuantities: [1, 2] }, reviews: [] },
+  {
+    id: 101,
+    name: 'Blue Dream',
+    images: [],
+    variants: [
+      {
+        id: 1001,
+        label: 'Default',
+        basePrice: 12.5,
+        stock: 10,
+        stockEnabled: true,
+        isDefault: true,
+        active: true,
+        pricingMode: 'UNIT',
+        quantityOptions: [{ quantity: 1, sortOrder: 0 }, { quantity: 2, sortOrder: 1 }],
+        priceBreaks: [],
+      },
+    ],
+    category: { name: 'Flower' },
+    reviews: [],
+  },
 ];
 
 export const sampleCategories = [
-  { id: 201, name: 'Flower', allowedQuantities: [1, 2] },
+  { id: 201, name: 'Flower' },
 ];
 
 export const sampleOrders = [
-  { id: 301, status: 'PENDING', items: [{ id: 1, productId: 101, quantity: 1 }] },
+  {
+    id: 301,
+    status: 'PENDING',
+    items: [{ id: 1, variantId: 1001, productId: 101, productName: 'Blue Dream', variantLabel: 'Default', quantity: 1 }],
+  },
 ];
 
 export const sampleConfig = {

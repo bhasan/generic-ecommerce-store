@@ -3,7 +3,9 @@ import './Navbar.css';
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest as checkIsGuest } from '../../utils/roles';
-import { Package, Users, User, LogOut, Settings, ChevronDown, LayoutDashboard, Truck, CheckCircle, HelpCircle, Wallet, Home, Globe, Moon, Sun, Monitor } from 'lucide-react';
+import { Package, Tag, User, LogOut, Settings, Truck, HelpCircle, Wallet, Home, Moon, Sun, Monitor } from 'lucide-react';
+import AdminDropdown from './AdminDropdown';
+import MobileMenu from './MobileMenu';
 import { useTheme, THEME_CYCLE } from '../../hooks/useTheme';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
@@ -32,10 +34,8 @@ function Navbar() {
   const ThemeIcon = THEME_ICONS[theme];
 
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const profileRef = useRef(null);
-  const adminRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const cartCount = cart.length;
@@ -57,23 +57,16 @@ function Navbar() {
 
   useEffect(() => {
     function handleClickOutside(event) {
-      // Check profile menu
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setShowProfileMenu(false);
       }
-      // Check admin menu - close if clicking outside
-      if (adminRef.current && !adminRef.current.contains(event.target)) {
-        setShowAdminMenu(false);
-      }
     }
-
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Close menus when route changes
   useEffect(() => {
-    setShowAdminMenu(false);
     setShowMobileMenu(false);
   }, [location.pathname]);
 
@@ -82,8 +75,7 @@ function Navbar() {
     logout();
   };
 
-  // Render navigation links (reusable for both desktop and mobile)
-  const renderNavLinks = ({ includeStaffMyOrders = false } = {}) => (
+  const renderNavLinks = () => (
     <>
       {/* Start Here - link to home for all logged in users */}
       {!isGuest && (
@@ -142,16 +134,6 @@ function Navbar() {
         </NavLink>
       )}
 
-      {canManageOrders && includeStaffMyOrders && (
-        <NavLink
-          to="/my-orders"
-          className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-        >
-          <Package size={18} />
-          <span>My Orders</span>
-        </NavLink>
-      )}
-
       {/* Manager/Admin only - Manage Products */}
       {isManagement && (
         <NavLink
@@ -159,86 +141,11 @@ function Navbar() {
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
           title="Manage Products"
         >
-          <Users size={18} />
+          <Tag size={18} />
           <span>Manage Products</span>
         </NavLink>
       )}
 
-      {/* Management dropdown menu (for both managers and admins) */}
-      {isManagement && (
-        <div
-          className="admin-dropdown"
-          ref={adminRef}
-        >
-          <button
-            className={`nav-link ${(location.pathname === '/dashboard' || location.pathname === '/users' || location.pathname === '/rejected-users' || location.pathname === '/order-history' || location.pathname === '/store-credit') ? 'nav-link-active' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowAdminMenu(!showAdminMenu);
-            }}
-            aria-label="Management menu"
-          >
-            <Settings size={18} />
-            <span>{isAdmin ? 'Admin' : 'Manager'}</span>
-            <ChevronDown size={16} className={`admin-chevron ${showAdminMenu ? 'admin-chevron-open' : ''}`} />
-          </button>
-
-          {showAdminMenu && (
-            <div className="admin-menu">
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/dashboard');
-                  setShowAdminMenu(false);
-                  setShowMobileMenu(false);
-                }}
-                className={`admin-menu-item ${location.pathname === '/dashboard' ? 'admin-menu-item-active' : ''}`}
-              >
-                <LayoutDashboard size={16} />
-                <span>Dashboard</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/store-credit');
-                  setShowAdminMenu(false);
-                  setShowMobileMenu(false);
-                }}
-                className={`admin-menu-item ${location.pathname === '/store-credit' ? 'admin-menu-item-active' : ''}`}
-              >
-                <Wallet size={16} />
-                <span>Store Credit</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  navigate('/order-history');
-                  setShowAdminMenu(false);
-                  setShowMobileMenu(false);
-                }}
-                className={`admin-menu-item ${location.pathname === '/order-history' ? 'admin-menu-item-active' : ''}`}
-              >
-                <CheckCircle size={16} />
-                <span>Orders History</span>
-              </button>
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/website-management');
-                    setShowAdminMenu(false);
-                    setShowMobileMenu(false);
-                  }}
-                  className={`admin-menu-item ${location.pathname === '/website-management' ? 'admin-menu-item-active' : ''}`}
-                >
-                  <Globe size={16} />
-                  <span>Website Management</span>
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </>
   );
 
@@ -254,9 +161,12 @@ function Navbar() {
               }
             </Link>
 
-            {/* Desktop Navigation Links */}
-            <div className="navbar-links">
-              {renderNavLinks()}
+            {/* Group keeps nav links and admin dropdown visually adjacent */}
+            <div className="navbar-nav-group">
+              <div className="navbar-links">
+                {renderNavLinks()}
+              </div>
+              {isManagement && <AdminDropdown isAdmin={isAdmin} />}
             </div>
           </div>
 
@@ -376,32 +286,22 @@ function Navbar() {
         </div>
       </nav>
 
-      {/* TODO(mobile): Navbar mobile menu exists; keep this as the primary small-screen nav path and validate all role-based links remain accessible. */}
       {/* Mobile Menu Overlay */}
       {showMobileMenu && (
-        <div
-          className="mobile-menu-overlay open"
-          onClick={() => setShowMobileMenu(false)}
-        />
+        <div className="mobile-menu-overlay open" onClick={() => setShowMobileMenu(false)} />
       )}
 
       {/* Mobile Menu */}
-      <div
-        className={`mobile-menu ${showMobileMenu ? 'open' : ''}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {renderNavLinks({ includeStaffMyOrders: true })}
-
-        {/* Help link in mobile menu */}
-        {!isGuest && (
-          <NavLink
-            to="/help"
-            className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          >
-            <HelpCircle size={18} />
-            <span>Help & Support</span>
-          </NavLink>
-        )}
+      <div className={`mobile-menu ${showMobileMenu ? 'open' : ''}`} onClick={(e) => e.stopPropagation()}>
+        <MobileMenu
+          isGuest={isGuest}
+          isCustomer={isCustomer}
+          isDeliveryDriver={isDeliveryDriver}
+          isManagement={isManagement}
+          isAdmin={isAdmin}
+          canManageOrders={canManageOrders}
+          hasArrivedOrders={hasArrivedOrders}
+        />
       </div>
     </>
   );

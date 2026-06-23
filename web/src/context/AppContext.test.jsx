@@ -70,7 +70,7 @@ vi.mock('../services/ordersApi', () => ordersApi);
 vi.mock('../services/categoriesApi', () => categoriesApi);
 vi.mock('../services/notificationsApi', () => notificationsApi);
 vi.mock('../services/configApi', () => configApi);
-vi.mock('../services/creditApi', () => creditApi);
+vi.mock('../services/storeCreditApi', () => creditApi);
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
   return {
@@ -105,8 +105,8 @@ function ContextHarness() {
       <div data-testid="inbox-notifications">{JSON.stringify(app.inboxNotifications)}</div>
       <div data-testid="notification">{app.notification?.message || ''}</div>
       <div data-testid="cart-count">{app.cart.length}</div>
-      <button onClick={() => app.addToCart(sampleProducts[0], 1)}>Add To Cart</button>
-      <button onClick={() => app.checkout('', 'PICKUP', 'CREDIT')}>Checkout With Credit</button>
+      <button onClick={() => app.addToCart(sampleProducts[0], sampleProducts[0].variants[0], 1)}>Add To Cart</button>
+      <button onClick={() => app.checkout('', 'PICKUP', 'STORE_CREDIT')}>Checkout With Credit</button>
       <button onClick={() => app.markNotificationRead(11)}>Mark Notification Read</button>
       <button onClick={() => app.login('driver', 'driver123')}>Trigger Login</button>
       <button onClick={() => app.notifyArrival(111, 'Spot X')}>Notify Arrival</button>
@@ -161,7 +161,7 @@ describe('AppContext', () => {
   });
 
   it('bootstraps cart state from localStorage on load', async () => {
-    localStorage.setItem('cartData', JSON.stringify([{ ...sampleProducts[0], quantity: 2 }]));
+    localStorage.setItem('cartData_v2', JSON.stringify([{ ...sampleProducts[0], quantity: 2 }]));
 
     renderWithProviders(
       <AppProvider>
@@ -178,7 +178,7 @@ describe('AppContext', () => {
 
   it('falls back safely when stored cart data is invalid JSON', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    localStorage.setItem('cartData', '{bad-json');
+    localStorage.setItem('cartData_v2', '{bad-json');
 
     renderWithProviders(
       <AppProvider>
@@ -190,7 +190,7 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'));
     expect(screen.getByTestId('products-count')).toHaveTextContent('0');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
-    expect(localStorage.getItem('cartData')).toBeNull();
+    expect(localStorage.getItem('cartData_v2')).toBeNull();
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
@@ -210,7 +210,7 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
 
     fireEvent.click(screen.getByText('Add To Cart'));
-    await waitFor(() => expect(localStorage.getItem('cartData')).toContain('"id":101'));
+    await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
 
     await act(async () => {
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
@@ -219,7 +219,7 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/login'));
     expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
     expect(screen.getByTestId('notification')).toHaveTextContent('Your session has expired. Please log in again.');
-    expect(localStorage.getItem('cartData')).toBeNull();
+    expect(localStorage.getItem('cartData_v2')).toBeNull();
   });
 
   it('refreshes orders and credit balance after a credit checkout', async () => {
@@ -246,7 +246,7 @@ describe('AppContext', () => {
 
     fireEvent.click(screen.getByText('Add To Cart'));
     expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
-    await waitFor(() => expect(localStorage.getItem('cartData')).toContain('"id":101'));
+    await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
 
     await act(async () => {
       fireEvent.click(screen.getByText('Checkout With Credit'));
@@ -255,8 +255,8 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('orders-count')).toHaveTextContent('2'));
     expect(screen.getByTestId('credit-balance')).toHaveTextContent('5');
     expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
-    expect(localStorage.getItem('cartData')).toBeNull();
-    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ productId: 101, quantity: 1 }], '', 'PICKUP', 'CREDIT', undefined, undefined);
+    expect(localStorage.getItem('cartData_v2')).toBeNull();
+    expect(ordersApi.createOrder).toHaveBeenCalledWith([{ variantId: 1001, quantity: 1 }], '', 'PICKUP', 'STORE_CREDIT', undefined, undefined);
   });
 
   it('persists cart changes to localStorage after adding an item', async () => {
@@ -272,7 +272,7 @@ describe('AppContext', () => {
 
     fireEvent.click(screen.getByText('Add To Cart'));
 
-    await waitFor(() => expect(localStorage.getItem('cartData')).toContain('"id":101'));
+    await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
     expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
   });
 

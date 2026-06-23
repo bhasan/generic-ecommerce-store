@@ -120,17 +120,17 @@ function PendingRegistrationsSection({
                         {user.address || "Not provided"}
                       </span>
                     </div>
-                    {(user.deliveryZoneStatus || user.deliveryZoneSource === 'ZIP_FALLBACK') && (
+                    {(user.deliveryStatus || user.deliverySource === 'ZIP_FALLBACK') && (
                       <div className="pending-info-item pending-info-item-zone">
                         <MapPin size={16} />
                         <span className="info-label">Delivery zone:</span>
                         <span className="pending-zone-badges">
-                          {user.deliveryZoneStatus && (
-                            <span className={`pending-zone-badge pending-zone-badge-${user.deliveryZoneStatus.toLowerCase().replace(/_/g, '-')}`}>
-                              {formatDeliveryZoneLabel(user.deliveryZoneStatus)}
+                          {user.deliveryStatus && (
+                            <span className={`pending-zone-badge pending-zone-badge-${user.deliveryStatus.toLowerCase().replace(/_/g, '-')}`}>
+                              {formatDeliveryZoneLabel(user.deliveryStatus)}
                             </span>
                           )}
-                          {user.deliveryZoneSource === 'ZIP_FALLBACK' && (
+                          {user.deliverySource === 'ZIP_FALLBACK' && (
                             <span className="pending-zone-badge pending-zone-badge-fallback">
                               ZIP fallback
                             </span>
@@ -138,16 +138,16 @@ function PendingRegistrationsSection({
                         </span>
                       </div>
                     )}
-                    {(user.deliveryZoneCheckedAt || user.deliveryZoneDistanceMiles !== undefined) && (
+                    {(user.deliveryCheckedAt || user.deliveryDistanceMiles !== undefined) && (
                       <div className="pending-info-item pending-info-item-zone-meta">
                         <Clock size={16} />
                         <span className="info-label">Zone check:</span>
                         <span className="info-value">
                           {[
-                            user.deliveryZoneDistanceMiles !== undefined && user.deliveryZoneDistanceMiles !== null
-                              ? `${user.deliveryZoneDistanceMiles.toFixed(2)} miles`
+                            user.deliveryDistanceMiles !== undefined && user.deliveryDistanceMiles !== null
+                              ? `${user.deliveryDistanceMiles.toFixed(2)} miles`
                               : null,
-                            formatCheckedAt(user.deliveryZoneCheckedAt),
+                            formatCheckedAt(user.deliveryCheckedAt),
                           ].filter(Boolean).join(' | ') || 'Recorded'}
                         </span>
                       </div>

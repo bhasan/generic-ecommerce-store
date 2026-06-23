@@ -29,16 +29,16 @@ function CreditsSection({ showNotification }) {
   const handleCreditAdded = (userId, newBalance) => {
     showNotification(`Balance updated. New balance: $${newBalance.toFixed(2)}`, 'success');
     setUsers(prev => prev.map(u =>
-      u.id === userId ? { ...u, creditBalance: newBalance } : u
+      u.id === userId ? { ...u, storeCreditBalance: newBalance } : u
     ));
-    setSelectedUser(prev => prev?.id === userId ? { ...prev, creditBalance: newBalance } : prev);
+    setSelectedUser(prev => prev?.id === userId ? { ...prev, storeCreditBalance: newBalance } : prev);
   };
 
   const filtered = users.filter(u =>
     u.username.toLowerCase().includes(search.toLowerCase())
   );
 
-  const totalCredit = users.reduce((sum, u) => sum + (u.creditBalance || 0), 0);
+  const totalCredit = users.reduce((sum, u) => sum + (u.storeCreditBalance || 0), 0);
 
   const getInitials = (username) => username.slice(0, 2).toUpperCase();
 
@@ -101,7 +101,7 @@ function CreditsSection({ showNotification }) {
               </thead>
               <tbody>
                 {filtered.map(user => {
-                  const balance = typeof user.creditBalance === 'number' ? user.creditBalance : 0;
+                  const balance = typeof user.storeCreditBalance === 'number' ? user.storeCreditBalance : 0;
                   return (
                     <tr key={user.id} className="credits-table-row">
                       <td>

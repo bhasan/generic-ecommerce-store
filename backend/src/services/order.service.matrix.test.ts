@@ -1,16 +1,18 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 /**
  * Regression matrix — every fulfillment × payment combination that the checkout
  * rewrite (Steps 1-8) touched. Each case asserts that createOrder succeeds and
  * writes the correct status + fulfillment fields to the DB.
  */
-import { OrderStatus } from '../../generated/prisma';
+import { OrderStatus, Prisma } from '../../generated/prisma';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const prismaMock = vi.hoisted(() => ({
   user: { update: vi.fn() },
-  productItem: { findMany: vi.fn(), update: vi.fn() },
-  order: { create: vi.fn() },
+  productVariant: { findMany: vi.fn(), update: vi.fn() },
+  order: { create: vi.fn(), findUnique: vi.fn() },
   orderItem: { create: vi.fn() },
+  payment: { create: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -46,20 +48,21 @@ vi.mock('./deliveryEligibility.service', () => ({
 vi.mock('./notificationEvents.service', () => ({
   notificationEventsService: notificationEventsMock,
 }));
-vi.mock('./credit.service', () => ({ default: creditServiceMock }));
+vi.mock('./store-credit.service', () => ({ default: creditServiceMock }));
 vi.mock('./thermalPrinter.service', () => ({
   thermalPrinterService: { dispatchReceipt: vi.fn() },
 }));
 
 const DELIVERY_ADDRESS = { street: '123 Main St', city: 'Houston', state: 'TX', zipCode: '77001' };
-const PRODUCT = {
-  id: 1, name: 'Test Product', price: 20, stock: 10, stockEnabled: true,
-  allowedQuantitiesOverride: [], quantityDiscountsOverride: null,
-  category: { allowedQuantities: [], quantityDiscounts: null },
+const VARIANT = {
+  id: 1, label: 'Default', sku: 'sku-1', pricingMode: 'UNIT',
+  basePrice: new Prisma.Decimal(20), stock: new Prisma.Decimal(10), stockEnabled: true,
+  active: true, product: { id: 1, name: 'Test Product' },
+  quantityOptions: [], priceBreaks: [],
 };
 
 const DELIVERABLE_RESULT = {
-  deliverable: true, deliveryZoneStatus: 'IN_ZONE', deliveryZoneSource: 'GOOGLE_GEOCODING',
+  deliverable: true, deliveryStatus: 'IN_ZONE', deliverySource: 'GOOGLE_GEOCODING',
   distanceMiles: 2, thresholdMiles: 5, message: 'In range',
   canonicalAddress: '123 Main St, Houston, TX 77001', checkedAt: new Date(),
 };
@@ -87,7 +90,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'DELIVERY × CREDIT',
     deliveryMethod: DeliveryMethod.DELIVERY,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     deliveryAddress: DELIVERY_ADDRESS,
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
@@ -110,7 +113,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'PICKUP × CREDIT',
     deliveryMethod: DeliveryMethod.PICKUP,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
   },
@@ -137,7 +140,7 @@ const matrix: MatrixCase[] = [
   {
     label: 'CURBSIDE × CREDIT',
     deliveryMethod: DeliveryMethod.CURBSIDE,
-    paymentMethod: PaymentMethod.CREDIT,
+    paymentMethod: PaymentMethod.STORE_CREDIT,
     vehicleDescription: 'Blue Honda Civic',
     creditBalance: 100,
     expectedStatus: OrderStatus.PENDING,
@@ -166,9 +169,9 @@ describe('createOrder — fulfillment × payment matrix', () => {
     vi.clearAllMocks();
     prismaMock.$transaction.mockImplementation(async (cb) => cb(prismaMock));
     prismaMock.user.update.mockResolvedValue({});
-    prismaMock.productItem.findMany.mockResolvedValue([PRODUCT]);
-    prismaMock.productItem.update.mockResolvedValue({});
-    prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 99, productId: 1, quantity: 1, price: 20 });
+    prismaMock.productVariant.findMany.mockResolvedValue([VARIANT]);
+    prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 99, variantId: 1, quantity: 1, unitPrice: new Prisma.Decimal(20) });
     orderingConstraintsMock.getOrderingConstraints.mockResolvedValue({
       minimumDeliveryOrder: 0,
       minimumDeliveryOrderEnabled: false,
@@ -178,6 +181,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
     });
     deliveryEligibilityMock.checkDeliveryEligibility.mockResolvedValue(DELIVERABLE_RESULT);
     creditServiceMock.useCredit.mockResolvedValue(undefined);
+    prismaMock.order.findUnique.mockResolvedValue({ statusEvents: [], payments: [] });
   });
 
   it.each(matrix)('$label', async ({ deliveryMethod, paymentMethod, deliveryAddress, vehicleDescription, creditBalance, expectedStatus, expectedFields }) => {
@@ -191,7 +195,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
 
     await service.createOrder({
       userId: 1,
-      items: [{ productId: 1, quantity: 1 }],
+      items: [{ variantId: 1, quantity: 1 }],
       deliveryMethod,
       paymentMethod,
       ...(deliveryAddress ? { deliveryAddress } : {}),
@@ -217,7 +221,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
 
     await expect(service.createOrder({
       userId: 1,
-      items: [{ productId: 1, quantity: 1 }],
+      items: [{ variantId: 1, quantity: 1 }],
       deliveryMethod: DeliveryMethod.DELIVERY,
       paymentMethod: PaymentMethod.IN_STORE,
       deliveryAddress: DELIVERY_ADDRESS,
@@ -232,7 +236,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
 
     await expect(service.createOrder({
       userId: 1,
-      items: [{ productId: 1, quantity: 1 }],
+      items: [{ variantId: 1, quantity: 1 }],
       deliveryMethod: DeliveryMethod.CURBSIDE,
       paymentMethod: PaymentMethod.EXTERNAL,
     })).rejects.toThrow('Vehicle description is required');
@@ -242,8 +246,8 @@ describe('createOrder — fulfillment × payment matrix', () => {
 
   it('rejects DELIVERY order when address is out of zone', async () => {
     deliveryEligibilityMock.checkDeliveryEligibility.mockResolvedValue({
-      deliverable: false, deliveryZoneStatus: 'OUT_OF_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING', distanceMiles: 9, thresholdMiles: 5,
+      deliverable: false, deliveryStatus: 'OUT_OF_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING', distanceMiles: 9, thresholdMiles: 5,
       message: 'Outside delivery area', checkedAt: new Date(),
     });
 
@@ -252,7 +256,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
 
     await expect(service.createOrder({
       userId: 1,
-      items: [{ productId: 1, quantity: 1 }],
+      items: [{ variantId: 1, quantity: 1 }],
       deliveryMethod: DeliveryMethod.DELIVERY,
       paymentMethod: PaymentMethod.EXTERNAL,
       deliveryAddress: DELIVERY_ADDRESS,

@@ -32,8 +32,9 @@ interface ReceiptOrderSnapshot {
   };
   items: Array<{
     id: number;
-    productId: number;
+    variantId: number;
     productName: string;
+    variantLabel: string;
     categoryName: string | null;
     quantity: number;
     unitPrice: number;
@@ -281,6 +282,7 @@ export class ThermalPrinterService {
       }),
       prisma.orderItem.findMany({
         where: { orderId },
+        include: { variant: { include: { product: { include: { category: true } } } } },
       }),
     ]);
 
@@ -288,23 +290,10 @@ export class ThermalPrinterService {
       throw new AppError('Customer not found for order receipt', 404);
     }
 
-    const products = orderItems.length > 0
-      ? await prisma.productItem.findMany({
-          where: {
-            id: { in: [...new Set(orderItems.map((item) => item.productId))] },
-          },
-          include: {
-            category: true,
-          },
-        })
-      : [];
-
-    const productMap = new Map(products.map((product) => [product.id, product]));
-
     return {
       id: order.id,
       status: order.status,
-      total: order.total,
+      total: order.total.toNumber(),
       createdAt: order.createdAt.toISOString(),
       updatedAt: order.updatedAt.toISOString(),
       deliveryMethod: order.deliveryMethod,
@@ -313,15 +302,16 @@ export class ThermalPrinterService {
       vehicleDescription: order.vehicleDescription || null,
       customer,
       items: orderItems.map((item) => {
-        const product = productMap.get(item.productId);
+        const unitPrice = item.unitPrice.toNumber();
         return {
           id: item.id,
-          productId: item.productId,
-          productName: product?.name || `Product #${item.productId}`,
-          categoryName: product?.category?.name || null,
+          variantId: item.variantId,
+          productName: item.productName,
+          variantLabel: item.variantLabel,
+          categoryName: item.variant?.product?.category?.name || null,
           quantity: item.quantity,
-          unitPrice: item.price,
-          lineTotal: item.price * item.quantity,
+          unitPrice,
+          lineTotal: unitPrice * item.quantity,
           voided: item.voided,
           addedAfterSubmission: item.addedAfterSubmission,
         };

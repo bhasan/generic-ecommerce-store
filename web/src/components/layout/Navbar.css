@@ -22,18 +22,20 @@
 .navbar-left {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 0.75rem;
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
+  container-type: inline-size;
+  container-name: navbar-left;
 }
 
 .navbar-brand {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  min-width: 0;
-  font-size: var(--font-size-2xl);
+  min-width: 150px;
+  flex: 0 1 auto;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary-dark) 100%);
   -webkit-background-clip: text;
@@ -41,6 +43,7 @@
   background-clip: text;
   transition: var(--transition-base);
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .navbar-brand span {
@@ -53,14 +56,19 @@
   transform: scale(1.05);
 }
 
+.navbar-nav-group {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
 .navbar-links {
   display: flex;
-  gap: var(--spacing-md);
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-wrap: nowrap;
   align-items: center;
-  min-width: 0;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .nav-link {
@@ -148,7 +156,7 @@ button.nav-link-icon {
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--spacing-xs);
   flex: 0 0 auto;
   min-width: 0;
 }
@@ -311,10 +319,7 @@ button.nav-link-icon {
 }
 
 .admin-menu {
-  position: absolute;
-  top: calc(100% + var(--spacing-sm));
-  left: 0;
-  min-width: 160px;
+  min-width: 180px;
   background: var(--bg-dashboard-sidebar);
   border: 2px solid var(--color-primary-dark);
   border-radius: var(--radius-lg);
@@ -522,16 +527,8 @@ button.nav-link-icon {
 
 /* ==================== RESPONSIVE BREAKPOINTS ==================== */
 
-/* Standard desktop widths - keep the primary nav to one non-overlapping row */
-@media (max-width: 1440px) {
-  .navbar-left {
-    gap: 1rem;
-  }
-
-  .navbar-links {
-    gap: var(--spacing-sm);
-  }
-
+/* Stage 1: collapse "Manage Products" label and Admin label when nav group gets tight */
+@container navbar-left (max-width: 850px) {
   .navbar-links > a[href="/manage-products"] > span,
   .admin-dropdown > .nav-link > span {
     display: none;
@@ -541,7 +538,24 @@ button.nav-link-icon {
   .admin-dropdown > .nav-link {
     padding: var(--spacing-sm) 0.75rem;
   }
+}
 
+/* Stage 2: collapse all nav labels when space is very tight */
+@container navbar-left (max-width: 650px) {
+  .nav-link span {
+    display: none;
+  }
+
+  .nav-link {
+    padding: var(--spacing-md);
+  }
+
+  .admin-dropdown .nav-link span:not(.admin-chevron) {
+    display: none;
+  }
+}
+
+@media (max-width: 1440px) {
   .profile-name {
     max-width: 8rem;
   }
@@ -618,21 +632,9 @@ button.nav-link-icon {
     height: 28px;
   }
 
-  .nav-link span {
-    display: none;
-  }
-
-  .nav-link {
-    padding: var(--spacing-md);
-  }
-
   .nav-link svg {
     width: 20px;
     height: 20px;
-  }
-
-  .admin-dropdown .nav-link span:not(.admin-chevron) {
-    display: none;
   }
 
   .profile-name {
@@ -677,8 +679,7 @@ button.nav-link-icon {
 
   .navbar-brand {
     min-width: 0;
-    max-width: 100%;
-    font-size: 1.125rem;
+    font-size: var(--font-size-lg);
   }
 
   .navbar-right-auth {

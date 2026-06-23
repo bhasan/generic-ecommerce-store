@@ -14,6 +14,8 @@ class Logger {
     const payload = {
       timestamp,
       level,
+      service: 'backend',
+      env: process.env.NODE_ENV || 'unknown',
       message,
       ...(context || {}),
     };
@@ -45,6 +47,10 @@ class Logger {
     if (process.env.NODE_ENV === 'development' || process.env.LOG_LEVEL === 'debug') {
       console.log(this.formatMessage('debug', message, context));
     }
+  }
+
+  logEvent(event: string, context?: LogContext): void {
+    console.log(this.formatMessage('info', event, { event, ...context }));
   }
 }
 

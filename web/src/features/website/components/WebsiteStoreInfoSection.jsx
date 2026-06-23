@@ -10,8 +10,8 @@ export default function WebsiteStoreInfoSection() {
       await updateStoreSettings(data);
       await loadConfig();
       showNotification('Store info saved', 'success');
-    } catch {
-      showNotification('Failed to save store info', 'error');
+    } catch (err) {
+      showNotification(err.message || 'Failed to save store info', 'error');
     }
   };
 

@@ -29,9 +29,25 @@ const METHOD_CONFIG = {
   },
 };
 
+function validate(draft) {
+  const errors = {};
+  for (const method of Object.keys(METHOD_CONFIG)) {
+    const entry = draft[method];
+    if (!entry?.enabled) continue;
+    const handle = entry.handle?.trim() ?? '';
+    if (!handle) {
+      errors[method] = `${METHOD_CONFIG[method].label} handle is required`;
+    } else if (method === 'cashapp' && !handle.startsWith('$')) {
+      errors[method] = 'CashApp handle must start with $';
+    }
+  }
+  return errors;
+}
+
 function PaymentSettingsSection({ isLoading, paymentSettings, onSave }) {
   const [draft, setDraft] = useState(DEFAULT_SETTINGS);
   const [isSaving, setIsSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     if (paymentSettings) {
@@ -51,10 +67,19 @@ function PaymentSettingsSection({ isLoading, paymentSettings, onSave }) {
       ...prev,
       [method]: { ...prev[method], handle: value },
     }));
+    if (errors[method]) {
+      setErrors((prev) => { const next = { ...prev }; delete next[method]; return next; });
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationErrors = validate(draft);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
     setIsSaving(true);
     try {
       await onSave(draft);
@@ -120,13 +145,16 @@ function PaymentSettingsSection({ isLoading, paymentSettings, onSave }) {
                     <input
                       id={`handle-${method}`}
                       type="text"
-                      className="form-input"
+                      className={`form-input${errors[method] ? ' form-input-error' : ''}`}
                       value={entry.handle}
                       onChange={(e) => handleHandle(method, e.target.value)}
                       placeholder={config.placeholder}
                       maxLength={64}
                     />
-                    <p className="form-hint">{config.hint}</p>
+                    {errors[method]
+                      ? <p className="form-error-message">{errors[method]}</p>
+                      : <p className="form-hint">{config.hint}</p>
+                    }
                   </div>
                 )}
               </div>

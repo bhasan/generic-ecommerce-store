@@ -683,10 +683,10 @@ export class UserService {
     approved?: boolean;
     rejected?: boolean;
     rejectionNote?: string | null;
-    deliveryZoneStatus?: DeliveryZoneStatus | null;
-    deliveryZoneSource?: DeliveryEligibilitySource | null;
-    deliveryZoneDistanceMiles?: number | null;
-    deliveryZoneCheckedAt?: Date | null;
+    deliveryStatus?: DeliveryZoneStatus | null;
+    deliverySource?: DeliveryEligibilitySource | null;
+    deliveryDistanceMiles?: number | null;
+    deliveryCheckedAt?: Date | null;
     createdAt: Date;
     updatedAt?: Date;
     roles: Array<{ role: { name: string } | null }>;
@@ -702,10 +702,10 @@ export class UserService {
       approved,
       rejected,
       rejectionNote,
-      deliveryZoneStatus,
-      deliveryZoneSource,
-      deliveryZoneDistanceMiles,
-      deliveryZoneCheckedAt,
+      deliveryStatus,
+      deliverySource,
+      deliveryDistanceMiles,
+      deliveryCheckedAt,
       createdAt,
       updatedAt,
     } = user;
@@ -720,10 +720,10 @@ export class UserService {
       ...(approved !== undefined ? { approved } : {}),
       ...(rejected !== undefined ? { rejected } : {}),
       ...(rejectionNote ? { rejectionNote } : {}),
-      ...(deliveryZoneStatus !== undefined && deliveryZoneStatus !== null ? { deliveryZoneStatus } : {}),
-      ...(deliveryZoneSource !== undefined && deliveryZoneSource !== null ? { deliveryZoneSource } : {}),
-      ...(deliveryZoneDistanceMiles !== undefined && deliveryZoneDistanceMiles !== null ? { deliveryZoneDistanceMiles } : {}),
-      ...(deliveryZoneCheckedAt !== undefined && deliveryZoneCheckedAt !== null ? { deliveryZoneCheckedAt } : {}),
+      ...(deliveryStatus !== undefined && deliveryStatus !== null ? { deliveryStatus } : {}),
+      ...(deliverySource !== undefined && deliverySource !== null ? { deliverySource } : {}),
+      ...(deliveryDistanceMiles !== undefined && deliveryDistanceMiles !== null ? { deliveryDistanceMiles } : {}),
+      ...(deliveryCheckedAt !== undefined && deliveryCheckedAt !== null ? { deliveryCheckedAt } : {}),
       roles: this.toRoleNames(user.roles),
       createdAt,
       ...(updatedAt ? { updatedAt } : {})

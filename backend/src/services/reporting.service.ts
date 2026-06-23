@@ -13,13 +13,15 @@ interface ReportingDateFilters {
   status?: string;
 }
 
-type ProductWithCategory = Prisma.ProductItemGetPayload<{ include: { category: true } }>;
+type ProductWithCategory = Prisma.ProductVariantGetPayload<{
+  include: { product: { include: { category: true } } };
+}>;
 type CategoryWithRelations = Prisma.CategoryGetPayload<{ include: { parent: true; children: true } }>;
 
 type OrderRecord = Prisma.OrderGetPayload<Record<string, never>>;
 type OrderItemRecord = Prisma.OrderItemGetPayload<Record<string, never>>;
 type UserRecord = Pick<Prisma.UserGetPayload<Record<string, never>>, 'id'>;
-type ProductRecord = Prisma.ProductItemGetPayload<Record<string, never>>;
+type ProductRecord = Prisma.ProductVariantGetPayload<Record<string, never>>;
 
 const roundMoney = (value: number): number => Number(value.toFixed(2));
 
@@ -49,7 +51,7 @@ const mapPaymentType = (paymentMethod: PaymentMethodEnum): string => {
   switch (paymentMethod) {
     case PaymentMethodEnum.CC:
       return 'card';
-    case PaymentMethodEnum.CREDIT:
+    case PaymentMethodEnum.STORE_CREDIT:
       return 'store_credit';
     case PaymentMethodEnum.IN_STORE:
       return 'in_store';
@@ -63,7 +65,7 @@ const mapPaymentProvider = (paymentMethod: PaymentMethodEnum): string => {
   switch (paymentMethod) {
     case PaymentMethodEnum.CC:
       return 'authorize_net';
-    case PaymentMethodEnum.CREDIT:
+    case PaymentMethodEnum.STORE_CREDIT:
       return 'store_credit';
     default:
       return 'manual';
@@ -151,10 +153,10 @@ export class ReportingService {
   }
 
   async listProducts(pagination: ReportingPaginationInput, filters: ReportingDateFilters) {
-    const where = buildCreatedUpdatedWhere<Prisma.ProductItemWhereInput>(filters);
-    const rows = await prisma.productItem.findMany({
+    const where = buildCreatedUpdatedWhere<Prisma.ProductVariantWhereInput>(filters);
+    const rows = await prisma.productVariant.findMany({
       where,
-      include: { category: true },
+      include: { product: { include: { category: true } } },
       orderBy: { id: 'asc' },
       skip: pagination.skip,
       take: pagination.take,
@@ -175,8 +177,8 @@ export class ReportingService {
   }
 
   async listInventorySnapshots(pagination: ReportingPaginationInput, filters: ReportingDateFilters) {
-    const where = buildCreatedUpdatedWhere<Prisma.ProductItemWhereInput>(filters);
-    const rows = await prisma.productItem.findMany({
+    const where = buildCreatedUpdatedWhere<Prisma.ProductVariantWhereInput>(filters);
+    const rows = await prisma.productVariant.findMany({
       where,
       orderBy: { id: 'asc' },
       skip: pagination.skip,
@@ -221,13 +223,13 @@ export class ReportingService {
     const orderIds = orders.map((order) => order.id);
     const userIds = Array.from(new Set(orders.map((order) => order.userId)));
     const items = await prisma.orderItem.findMany({ where: { orderId: { in: orderIds } } });
-    const productIds = Array.from(new Set(items.map((item) => item.productId)));
-    const [products, users] = await Promise.all([
-      prisma.productItem.findMany({ where: { id: { in: productIds } } }),
+    const variantIds = Array.from(new Set(items.map((item) => item.variantId)));
+    const [variants, users] = await Promise.all([
+      prisma.productVariant.findMany({ where: { id: { in: variantIds } } }),
       prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true } }),
     ]);
 
-    const productMap = new Map(products.map((product) => [product.id, product]));
+    const productMap = new Map<number, ProductRecord>(variants.map((variant) => [variant.id, variant]));
     const userMap = new Map(users.map((user) => [user.id, user]));
     const itemsByOrder = new Map<number, OrderItemRecord[]>();
     for (const item of items) {
@@ -251,17 +253,17 @@ export class ReportingService {
   private mapProduct(product: ProductWithCategory) {
     return {
       id: makeProductId(product.id),
-      sku: null,
+      sku: product.sku,
       barcode: null,
-      name: product.name,
-      description: product.description,
-      category_id: makeCategoryId(product.categoryId),
-      category_name: product.category?.name || null,
+      name: product.product.name,
+      description: product.product.description,
+      category_id: makeCategoryId(product.product.categoryId),
+      category_name: product.product.category?.name || null,
       brand: null,
-      status: product.hidden ? 'archived' : 'active',
-      price: product.price,
+      status: product.product.hidden || !product.active ? 'archived' : 'active',
+      price: product.basePrice.toNumber(),
       cost: null,
-      inventory_quantity: product.stockEnabled ? product.stock : null,
+      inventory_quantity: product.stockEnabled ? product.stock.toNumber() : null,
       created_at: toUtcIso(product.createdAt),
       updated_at: toUtcIso(product.updatedAt),
       deleted_at: null,
@@ -284,7 +286,7 @@ export class ReportingService {
   }
 
   private mapInventorySnapshot(product: ProductRecord, snapshotAt: string | null) {
-    const quantity = product.stockEnabled ? product.stock : null;
+    const quantity = product.stockEnabled ? product.stock.toNumber() : null;
     return {
       id: `inventory_${makeProductId(product.id)}`,
       product_id: makeProductId(product.id),
@@ -298,7 +300,7 @@ export class ReportingService {
       created_at: toUtcIso(product.createdAt),
       updated_at: toUtcIso(product.updatedAt),
       deleted_at: null,
-      status: product.hidden ? 'archived' : 'active',
+      status: product.active ? 'active' : 'archived',
       source_updated_at: toUtcIso(product.updatedAt),
       source_type: 'snapshot',
     };
@@ -311,9 +313,9 @@ export class ReportingService {
     userMap: Map<number, UserRecord>
   ) {
     const config = getReportingConfig();
-    const lineItems = items.map((item) => this.mapOrderLineItem(order, item, productMap.get(item.productId)));
+    const lineItems = items.map((item) => this.mapOrderLineItem(order, item, productMap.get(item.variantId)));
     const activeLineSubtotal = roundMoney(lineItems.reduce((sum, item) => sum + item.net_sales, 0));
-    const grandTotal = roundMoney(order.total);
+    const grandTotal = roundMoney(order.total.toNumber());
     const taxTotal = Math.max(0, roundMoney(grandTotal - activeLineSubtotal));
     const customer = userMap.get(order.userId);
 
@@ -348,18 +350,19 @@ export class ReportingService {
   }
 
   private mapOrderLineItem(order: OrderRecord, item: OrderItemRecord, product: ProductRecord | undefined) {
-    const grossSales = roundMoney(item.price * item.quantity);
+    const unitPrice = item.unitPrice.toNumber();
+    const grossSales = roundMoney(unitPrice * item.quantity);
     const netSales = item.voided || order.status === OrderStatus.NOT_FULFILLING ? 0 : grossSales;
     return {
       id: makeOrderLineId(item.id),
       order_id: makeOrderId(item.orderId),
-      product_id: makeProductId(item.productId),
+      product_id: makeProductId(product?.id ?? item.variantId),
       variant_id: null,
       sku: null,
       barcode: null,
-      name_snapshot: product?.name || null,
+      name_snapshot: item.productName,
       quantity: item.quantity,
-      unit_price: item.price,
+      unit_price: unitPrice,
       unit_cost: null,
       discount_amount: 0,
       tax_amount: 0,
@@ -378,13 +381,14 @@ export class ReportingService {
     if (order.status === OrderStatus.NOT_FULFILLING) return [];
     const config = getReportingConfig();
     const status = mapPaymentStatus(order);
+    const total = order.total.toNumber();
     return [
       {
         id: makePaymentId(order.id),
         order_id: makeOrderId(order.id),
         payment_type: mapPaymentType(order.paymentMethod),
         provider: mapPaymentProvider(order.paymentMethod),
-        amount: status === 'pending' ? 0 : roundMoney(order.total),
+        amount: status === 'pending' ? 0 : roundMoney(total),
         currency: config.currency,
         status: status === 'paid' ? 'captured' : status,
         paid_at: status === 'paid' ? toUtcIso(order.updatedAt) : null,

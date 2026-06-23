@@ -1,18 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
 import rateLimit from 'express-rate-limit';
 import { logger } from '../utils/logger';
+import { parsePositiveInt } from '../utils/request.util';
 
 type LimiterName = 'auth' | 'general' | 'polling';
 
 const DEFAULT_WINDOW_MS = 15 * 60 * 1000;
-
-const parsePositiveInt = (rawValue: string | undefined, fallback: number): number => {
-  const parsed = Number.parseInt(rawValue ?? '', 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return fallback;
-  }
-  return parsed;
-};
 
 const authRateLimitMax = parsePositiveInt(process.env.AUTH_RATE_LIMIT_MAX, 20);
 const authRateLimitWindowMs = parsePositiveInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS, DEFAULT_WINDOW_MS);

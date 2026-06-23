@@ -30,7 +30,7 @@ export const paymentRegistry = [
     flowAction: 'EXTERNAL',
   },
   {
-    method: PaymentMethod.CREDIT,
+    method: PaymentMethod.STORE_CREDIT,
     label: 'Store Credit',
     iconName: 'Wallet',
     isAvailable: (ctx) => ctx.creditBalance > 0,

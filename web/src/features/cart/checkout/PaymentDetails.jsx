@@ -61,7 +61,7 @@ export default function PaymentDetails({
     );
   }
 
-  if (paymentMethod === PaymentMethod.CREDIT) {
+  if (paymentMethod === PaymentMethod.STORE_CREDIT) {
     return (
       <div className="payment-method-detail payment-credit-confirm">
         <p>Your store credit balance of <strong>${creditBalance.toFixed(2)}</strong> will be used to pay for this order.</p>

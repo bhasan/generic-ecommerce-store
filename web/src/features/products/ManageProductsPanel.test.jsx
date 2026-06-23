@@ -69,7 +69,20 @@ vi.mock('./ProductFormModal', () => ({
               ...formData,
               name: 'Test Product',
               categoryId: '1',
-              price: '12.50',
+              variants: [
+                {
+                  label: 'Default',
+                  sku: '',
+                  pricingMode: 'UNIT',
+                  basePrice: '12.50',
+                  stock: '0',
+                  stockEnabled: false,
+                  isDefault: true,
+                  active: true,
+                  quantityOptions: [],
+                  priceBreaks: [],
+                },
+              ],
             })
           }
         >
@@ -89,7 +102,7 @@ vi.mock('./ProductFormModal', () => ({
           onChange={(event) => handleImageUpload(0, event)}
         />
         <div data-testid="thumbnail-state">{formData.thumbnail || ''}</div>
-        <div data-testid="images-state">{(formData.images || []).join('|')}</div>
+        <div data-testid="images-state">{(formData.images || []).map(img => img?.url || img).join('|')}</div>
         <button type="button" onClick={onSave}>Save Product</button>
         <button type="button" onClick={onCancel}>Cancel</button>
       </div>
@@ -210,14 +223,15 @@ describe('ManageProductsPanel upload handling', () => {
     await waitFor(() => {
       expect(appState.addProduct).toHaveBeenCalledWith(
         expect.objectContaining({
-          image: '/api/uploads/uploaded.webp',
-          images: ['/api/uploads/uploaded.webp'],
+          images: expect.arrayContaining([
+            expect.objectContaining({ url: '/api/uploads/uploaded.webp' }),
+          ]),
         })
       );
     });
     expect(appState.addProduct).toHaveBeenCalledWith(
       expect.not.objectContaining({
-        images: expect.arrayContaining(['']),
+        images: expect.arrayContaining([expect.objectContaining({ url: '' })]),
       })
     );
 
@@ -265,12 +279,6 @@ describe('ManageProductsPanel upload handling', () => {
         })
       );
     });
-
-    expect(appState.addProduct).toHaveBeenCalledWith(
-      expect.not.objectContaining({
-        image: null,
-      })
-    );
   });
 
   it('omits null primary image when editing a product that only has thumbnail', async () => {
@@ -280,16 +288,13 @@ describe('ManageProductsPanel upload handling', () => {
           id: 128,
           name: 'Habit OG Lemonade',
           categoryId: 1,
-          price: 12.99,
           description: '',
-          thumbnail: '/api/uploads/existing-thumb.webp',
-          image: null,
-          images: [],
-          stock: 0,
-          stockEnabled: false,
           hidden: false,
           vipOnly: false,
-          quantityDiscountsOverride: [],
+          images: [{ id: 1, url: '/api/uploads/existing-thumb.webp', role: 'THUMBNAIL', sortOrder: 0 }],
+          variants: [
+            { id: 1001, label: 'Default', basePrice: 12.99, stock: 0, stockEnabled: false, isDefault: true, active: true, pricingMode: 'UNIT', quantityOptions: [], priceBreaks: [] },
+          ],
         },
       ],
     });
@@ -305,17 +310,11 @@ describe('ManageProductsPanel upload handling', () => {
       expect(appState.updateProduct).toHaveBeenCalledWith(
         128,
         expect.objectContaining({
-          thumbnail: '/api/uploads/existing-thumb.webp',
-          images: [],
+          images: expect.arrayContaining([
+            expect.objectContaining({ url: '/api/uploads/existing-thumb.webp', role: 'THUMBNAIL' }),
+          ]),
         })
       );
     });
-
-    expect(appState.updateProduct).toHaveBeenCalledWith(
-      128,
-      expect.not.objectContaining({
-        image: null,
-      })
-    );
   });
 });

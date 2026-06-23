@@ -20,21 +20,63 @@ vi.mock('../../components/product/ProductReviews', () => ({
   default: () => <div>Product Reviews</div>,
 }));
 
+const unitProduct = {
+  id: 102,
+  name: 'House Special',
+  description: 'A unit-priced product with no quantity options',
+  hidden: false,
+  images: [],
+  variants: [
+    {
+      id: 1002,
+      label: 'Default',
+      basePrice: 20,
+      stock: 50,
+      stockEnabled: true,
+      isDefault: true,
+      active: true,
+      pricingMode: 'UNIT',
+      quantityOptions: [],
+      priceBreaks: [],
+    },
+  ],
+  category: { name: 'Accessories' },
+};
+
+const renderUnitProductPage = () =>
+  render(
+    <MemoryRouter initialEntries={['/products/102']}>
+      <Routes>
+        <Route path="/products/:id" element={<ProductItemPage />} />
+        <Route path="/products" element={<div>Products Page</div>} />
+      </Routes>
+    </MemoryRouter>
+  );
+
 const baseProduct = {
   id: 101,
   name: 'Blue Dream',
   description: 'A featured flower product',
-  price: 15,
   hidden: false,
-  stock: 10,
-  stockEnabled: true,
-  image: '/primary.png',
-  images: ['/primary.png', '/secondary.png'],
-  category: {
-    name: 'Flower',
-    allowedQuantities: [1, 2],
-    quantityDiscounts: [{ quantity: 2, type: 'percent', value: 10 }],
-  },
+  images: [
+    { url: '/primary.png', role: 'THUMBNAIL', sortOrder: 0 },
+    { url: '/secondary.png', role: 'GALLERY', sortOrder: 1 },
+  ],
+  variants: [
+    {
+      id: 1001,
+      label: 'Default',
+      basePrice: 15,
+      stock: 10,
+      stockEnabled: true,
+      isDefault: true,
+      active: true,
+      pricingMode: 'UNIT',
+      quantityOptions: [{ quantity: 1, sortOrder: 0 }, { quantity: 2, sortOrder: 1 }],
+      priceBreaks: [{ minQuantity: 2, unitPrice: 13.5 }],
+    },
+  ],
+  category: { name: 'Flower' },
 };
 
 const renderProductPage = () =>
@@ -87,7 +129,7 @@ describe('ProductItemPage behavior', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
 
-    expect(addToCartMock).toHaveBeenCalledWith(expect.objectContaining({ id: 101, hidden: true }), 2);
+    expect(addToCartMock).toHaveBeenCalledWith(expect.objectContaining({ id: 101, hidden: true }), expect.any(Object), 2);
     expect(screen.getByText('Save $3.00')).toBeInTheDocument();
   });
 
@@ -107,6 +149,55 @@ describe('ProductItemPage behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: /back to products/i }));
 
     expect(screen.getByText('Products Page')).toBeInTheDocument();
+  });
+
+  it('shows a number input with whole-number step when variant has no quantityOptions', () => {
+    useAppMock.mockReturnValue({
+      products: [unitProduct],
+      addToCart: addToCartMock,
+      currentUser: { id: 1, username: 'customer-one', roles: [ROLES.CUSTOMER] },
+      isLoadingProducts: false,
+    });
+
+    renderUnitProductPage();
+
+    const input = screen.getByRole('spinbutton');
+    expect(input).toBeInTheDocument();
+    expect(input.getAttribute('step')).toBe('1');
+    expect(input.getAttribute('min')).toBe('1');
+  });
+
+  it('defaults initial quantity to 1 for UNIT variants with no quantityOptions', () => {
+    useAppMock.mockReturnValue({
+      products: [unitProduct],
+      addToCart: addToCartMock,
+      currentUser: { id: 1, username: 'customer-one', roles: [ROLES.CUSTOMER] },
+      isLoadingProducts: false,
+    });
+
+    renderUnitProductPage();
+
+    expect(screen.getByRole('spinbutton')).toHaveValue(1);
+  });
+
+  it('adds a whole-number quantity to cart for UNIT variants', () => {
+    useAppMock.mockReturnValue({
+      products: [unitProduct],
+      addToCart: addToCartMock,
+      currentUser: { id: 1, username: 'customer-one', roles: [ROLES.CUSTOMER] },
+      isLoadingProducts: false,
+    });
+
+    renderUnitProductPage();
+
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(addToCartMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 102 }),
+      expect.any(Object),
+      3
+    );
   });
 
   it('opens the media modal from the main image and supports gallery navigation', () => {

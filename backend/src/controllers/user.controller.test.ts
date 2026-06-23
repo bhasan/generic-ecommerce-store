@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import userController from './user.controller';
 import userService from '../services/user.service';
 import { validationResult } from 'express-validator';

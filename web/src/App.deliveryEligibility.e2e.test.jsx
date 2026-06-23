@@ -8,12 +8,22 @@ import { renderWithProviders } from './test/renderWithProviders';
 const journeyProduct = vi.hoisted(() => ({
   id: 101,
   name: 'Blue Dream',
-  price: 45,
-  image: '/flower.png',
-  category: {
-    name: 'Flower',
-    allowedQuantities: [1],
-  },
+  images: [],
+  variants: [
+    {
+      id: 1001,
+      label: 'Default',
+      basePrice: 45,
+      stock: 10,
+      stockEnabled: false,
+      isDefault: true,
+      active: true,
+      pricingMode: 'UNIT',
+      quantityOptions: [{ quantity: 1, sortOrder: 0 }],
+      priceBreaks: [],
+    },
+  ],
+  category: { name: 'Flower' },
 }));
 
 const baseCustomer = vi.hoisted(() => ({
@@ -26,10 +36,6 @@ const baseCustomer = vi.hoisted(() => ({
 }));
 
 vi.mock('./components/common/AnnouncementBanner', () => ({
-  default: () => null,
-}));
-
-vi.mock('./components/common/TawkToWidget', () => ({
   default: () => null,
 }));
 
@@ -47,7 +53,7 @@ vi.mock('./features/products/ProductsPage', async () => {
         <button
           type="button"
           onClick={() => {
-            addToCart(journeyProduct, 1);
+            addToCart(journeyProduct, journeyProduct.variants[0], 1);
             navigate('/checkout', { state: { deliveryMethod: 'DELIVERY' } });
           }}
         >
@@ -85,7 +91,7 @@ const installApiMock = ({
     status: 'PLACED',
     createdAt: '2026-04-04T18:30:00.000Z',
     deliveryAddress: '123 Main St, Houston, TX 77083',
-    deliveryEligibilitySource: 'ZIP_FALLBACK',
+    deliverySource: 'ZIP_FALLBACK',
     deliveryDistanceMiles: null,
   },
   initialProfile = baseCustomer,
@@ -139,7 +145,7 @@ const installApiMock = ({
       });
     }
 
-    if (method === 'GET' && url.pathname === '/api/credits/1') {
+    if (method === 'GET' && url.pathname === '/api/storecredit/1') {
       return jsonResponse({ balance: 0 });
     }
 
@@ -195,8 +201,8 @@ describe('delivery eligibility end-to-end journey', () => {
     const api = installApiMock({
       eligibilityResult: {
         deliverable: false,
-        deliveryZoneStatus: 'OUT_OF_ZONE',
-        deliveryZoneSource: 'GOOGLE_GEOCODING',
+        deliveryStatus: 'OUT_OF_ZONE',
+        deliverySource: 'GOOGLE_GEOCODING',
         distanceMiles: 7.1,
         thresholdMiles: 5,
         message: 'This address is 7.10 miles away, outside the 5.00 mile delivery radius.',
@@ -235,18 +241,18 @@ describe('delivery eligibility end-to-end journey', () => {
     const api = installApiMock({
       eligibilityResult: {
         deliverable: true,
-        deliveryZoneStatus: 'IN_ZONE',
-        deliveryZoneSource: 'ZIP_FALLBACK',
+        deliveryStatus: 'IN_ZONE',
+        deliverySource: 'ZIP_FALLBACK',
         distanceMiles: null,
         thresholdMiles: 5,
         message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
       },
       refreshedProfile: {
         ...baseCustomer,
-        deliveryZoneStatus: 'IN_ZONE',
-        deliveryZoneSource: 'ZIP_FALLBACK',
-        deliveryZoneDistanceMiles: null,
-        deliveryZoneCheckedAt: '2026-04-04T18:30:00.000Z',
+        deliveryStatus: 'IN_ZONE',
+        deliverySource: 'ZIP_FALLBACK',
+        deliveryDistanceMiles: null,
+        deliveryCheckedAt: '2026-04-04T18:30:00.000Z',
       },
     });
 
@@ -269,7 +275,7 @@ describe('delivery eligibility end-to-end journey', () => {
 
     expect(api.createOrderBodies).toEqual([
       {
-        items: [{ productId: 101, quantity: 1 }],
+        items: [{ variantId: 1001, quantity: 1 }],
         cashAppUsername: '$customer-one',
         deliveryMethod: 'DELIVERY',
         paymentMethod: 'EXTERNAL',

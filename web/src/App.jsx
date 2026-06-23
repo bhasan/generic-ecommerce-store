@@ -12,7 +12,6 @@ import CustomerArrivedNotice from './components/common/CustomerArrivedNotice';
 import Navbar from './components/layout/Navbar';
 import Notification from './components/common/Notification';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import TawkToWidget from './components/common/TawkToWidget';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import { ROLES } from './utils/roles';
 import LoginPage from './features/auth/LoginPage';
@@ -35,8 +34,7 @@ import LandingPage from './features/landing/LandingPage';
 function App() {
   return (
     <ErrorBoundary>
-      <TawkToWidget />
-      <ScrollToTop />
+<ScrollToTop />
       <AppContent />
     </ErrorBoundary>
   );

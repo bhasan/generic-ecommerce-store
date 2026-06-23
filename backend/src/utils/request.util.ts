@@ -21,5 +21,12 @@ export function parseIntParam(value: string, res: Response, label: string): numb
 
 export function parseOptionalIntQuery(value: string | undefined): number | undefined {
   if (value === undefined) return undefined;
-  return parseInt(value, 10);
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+export function parsePositiveInt(rawValue: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(rawValue ?? '', 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
 }

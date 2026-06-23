@@ -12,11 +12,11 @@ export interface FulfillmentOrderFields {
   deliveryAddress?: string;
   vehicleDescription?: string | null;
   parkingSpot?: string;
-  deliveryZoneStatus?: DeliveryZoneStatus | null;
-  deliveryEligibilitySource?: DeliveryEligibilitySource | null;
+  deliveryStatus?: DeliveryZoneStatus | null;
+  deliverySource?: DeliveryEligibilitySource | null;
   deliveryDistanceMiles?: number | null;
   deliveryThresholdMiles?: number | null;
-  deliveryZoneCheckedAt?: Date | null;
+  deliveryCheckedAt?: Date | null;
 }
 
 export interface FulfillmentStrategy {

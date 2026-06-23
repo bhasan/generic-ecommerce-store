@@ -7,8 +7,8 @@ vi.mock('../deliveryEligibility.service', () => ({
     checkDeliveryEligibility: vi.fn().mockResolvedValue({
       deliverable: true,
       canonicalAddress: '123 Main St, Austin, TX 78701',
-      deliveryZoneStatus: 'IN_ZONE',
-      deliveryZoneSource: 'GOOGLE_GEOCODING',
+      deliveryStatus: 'IN_ZONE',
+      deliverySource: 'GOOGLE_GEOCODING',
       distanceMiles: 2.5,
       thresholdMiles: 10,
       checkedAt: new Date(),

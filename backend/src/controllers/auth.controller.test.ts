@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { validationResult } from 'express-validator';
 import authController from './auth.controller';
 import authService from '../services/auth.service';
@@ -21,6 +22,7 @@ vi.mock('../utils/logger', () => ({
     warn: vi.fn(),
     error: vi.fn(),
     debug: vi.fn(),
+    logEvent: vi.fn(),
   },
 }));
 

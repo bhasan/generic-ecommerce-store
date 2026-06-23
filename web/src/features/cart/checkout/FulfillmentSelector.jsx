@@ -47,10 +47,10 @@ export default function FulfillmentSelector({
     if (!deliveryEligibility.result) return null;
 
     const toneClass = deliveryEligibility.result.deliverable
-      ? (deliveryEligibility.result.deliveryZoneSource === 'ZIP_FALLBACK'
+      ? (deliveryEligibility.result.deliverySource === 'ZIP_FALLBACK'
         ? 'delivery-eligibility-banner-fallback'
         : 'delivery-eligibility-banner-success')
-      : (deliveryEligibility.result.deliveryZoneStatus === 'UNVERIFIED'
+      : (deliveryEligibility.result.deliveryStatus === 'UNVERIFIED'
         ? 'delivery-eligibility-banner-warning'
         : 'delivery-eligibility-banner-error');
 

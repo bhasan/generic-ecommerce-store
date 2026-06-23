@@ -55,8 +55,8 @@ export class OrderController {
     const result = await deliveryEligibilityService.checkDeliveryEligibility(req.body.deliveryAddress);
     res.status(200).json({
       deliverable: result.deliverable,
-      deliveryZoneStatus: result.deliveryZoneStatus,
-      deliveryZoneSource: result.deliveryZoneSource,
+      deliveryStatus: result.deliveryStatus,
+      deliverySource: result.deliverySource,
       distanceMiles: result.distanceMiles,
       thresholdMiles: result.thresholdMiles,
       message: result.message,
@@ -70,10 +70,6 @@ export class OrderController {
       return;
     }
     if (!validateRequest(req, res)) return;
-    logger.info('Order creation request received', {
-      userId: req.user.userId,
-      itemCount: req.body.items?.length || 0,
-    });
     const order = await orderService.createOrder({
       userId: req.user.userId,
       items: req.body.items,
@@ -83,10 +79,14 @@ export class OrderController {
       vehicleDescription: req.body.vehicleDescription,
       paymentMethod: req.body.paymentMethod,
     });
-    logger.info('Order created successfully via API', {
+    logger.logEvent('order.created', {
+      requestId: req.requestId,
       orderId: order.id,
       userId: req.user.userId,
       total: order.total,
+      deliveryMethod: req.body.deliveryMethod,
+      paymentMethod: req.body.paymentMethod,
+      itemCount: req.body.items?.length || 0,
     });
     res.status(201).json({ message: 'Order created successfully', order });
   }
@@ -114,7 +114,14 @@ export class OrderController {
       res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
       return;
     }
-    const order = await orderService.updateOrderStatus(id, req.body, userRoles);
+    const order = await orderService.updateOrderStatus(id, { ...req.body, changedBy: req.user.userId }, userRoles);
+    logger.logEvent('order.status_changed', {
+      requestId: req.requestId,
+      orderId: id,
+      toStatus: req.body.status,
+      changedBy: req.user.userId,
+      changedByRoles: userRoles,
+    });
     res.status(200).json({ message: 'Order status updated successfully', order });
   }
 
@@ -181,7 +188,7 @@ export class OrderController {
   async getPaymentToken(req: Request, res: Response) : Promise<void> {
     const orderId = parseIntParam(req.params.id, res, 'order');
     if (orderId === null) return;
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const result = await orderService.getPaymentToken(orderId, userId);
     res.status(200).json(result);
   }
@@ -190,9 +197,15 @@ export class OrderController {
     const orderId = parseIntParam(req.params.id, res, 'order');
     if (orderId === null) return;
     if (!validateRequest(req, res)) return;
-    const userId = (req as any).user.userId;
+    const userId = req.user!.userId;
     const { transId } = req.body;
     const result = await orderService.confirmCardPayment(orderId, userId, transId);
+    logger.logEvent('payment.succeeded', {
+      requestId: req.requestId,
+      orderId,
+      userId,
+      transId,
+    });
     res.status(200).json({ message: 'Payment confirmed', order: result });
   }
 }

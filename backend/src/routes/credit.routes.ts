@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import creditController from '../controllers/credit.controller';
+import creditController from '../controllers/store-credit.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeManagement } from '../middleware/role.middleware';
 import { asyncHandler } from '../utils/asyncHandler.util';
