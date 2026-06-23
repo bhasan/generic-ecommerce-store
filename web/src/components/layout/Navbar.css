@@ -25,7 +25,6 @@
   gap: 2rem;
   flex: 1 1 auto;
   min-width: 0;
-  overflow: hidden;
 }
 
 .navbar-brand {
@@ -33,7 +32,9 @@
   align-items: center;
   gap: var(--spacing-sm);
   min-width: 0;
-  font-size: var(--font-size-2xl);
+  flex-shrink: 1;
+  max-width: 180px;
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary-dark) 100%);
   -webkit-background-clip: text;
@@ -41,6 +42,7 @@
   background-clip: text;
   transition: var(--transition-base);
   white-space: nowrap;
+  overflow: hidden;
 }
 
 .navbar-brand span {
@@ -60,7 +62,7 @@
   flex-wrap: nowrap;
   align-items: center;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .nav-link {
