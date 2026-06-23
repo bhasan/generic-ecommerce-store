@@ -20,6 +20,39 @@ vi.mock('../../components/product/ProductReviews', () => ({
   default: () => <div>Product Reviews</div>,
 }));
 
+const unitProduct = {
+  id: 102,
+  name: 'House Special',
+  description: 'A unit-priced product with no quantity options',
+  hidden: false,
+  images: [],
+  variants: [
+    {
+      id: 1002,
+      label: 'Default',
+      basePrice: 20,
+      stock: 50,
+      stockEnabled: true,
+      isDefault: true,
+      active: true,
+      pricingMode: 'UNIT',
+      quantityOptions: [],
+      priceBreaks: [],
+    },
+  ],
+  category: { name: 'Accessories' },
+};
+
+const renderUnitProductPage = () =>
+  render(
+    <MemoryRouter initialEntries={['/products/102']}>
+      <Routes>
+        <Route path="/products/:id" element={<ProductItemPage />} />
+        <Route path="/products" element={<div>Products Page</div>} />
+      </Routes>
+    </MemoryRouter>
+  );
+
 const baseProduct = {
   id: 101,
   name: 'Blue Dream',
@@ -116,6 +149,55 @@ describe('ProductItemPage behavior', () => {
     fireEvent.click(screen.getByRole('button', { name: /back to products/i }));
 
     expect(screen.getByText('Products Page')).toBeInTheDocument();
+  });
+
+  it('shows a number input with whole-number step when variant has no quantityOptions', () => {
+    useAppMock.mockReturnValue({
+      products: [unitProduct],
+      addToCart: addToCartMock,
+      currentUser: { id: 1, username: 'customer-one', roles: [ROLES.CUSTOMER] },
+      isLoadingProducts: false,
+    });
+
+    renderUnitProductPage();
+
+    const input = screen.getByRole('spinbutton');
+    expect(input).toBeInTheDocument();
+    expect(input.getAttribute('step')).toBe('1');
+    expect(input.getAttribute('min')).toBe('1');
+  });
+
+  it('defaults initial quantity to 1 for UNIT variants with no quantityOptions', () => {
+    useAppMock.mockReturnValue({
+      products: [unitProduct],
+      addToCart: addToCartMock,
+      currentUser: { id: 1, username: 'customer-one', roles: [ROLES.CUSTOMER] },
+      isLoadingProducts: false,
+    });
+
+    renderUnitProductPage();
+
+    expect(screen.getByRole('spinbutton')).toHaveValue(1);
+  });
+
+  it('adds a whole-number quantity to cart for UNIT variants', () => {
+    useAppMock.mockReturnValue({
+      products: [unitProduct],
+      addToCart: addToCartMock,
+      currentUser: { id: 1, username: 'customer-one', roles: [ROLES.CUSTOMER] },
+      isLoadingProducts: false,
+    });
+
+    renderUnitProductPage();
+
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '3' } });
+    fireEvent.click(screen.getByRole('button', { name: /add to cart/i }));
+
+    expect(addToCartMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 102 }),
+      expect.any(Object),
+      3
+    );
   });
 
   it('opens the media modal from the main image and supports gallery navigation', () => {

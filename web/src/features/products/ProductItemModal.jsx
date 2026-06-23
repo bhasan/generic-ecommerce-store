@@ -239,10 +239,10 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
               ) : (
                 <input
                   type="number"
-                  min="0.01"
-                  step="0.01"
+                  min="1"
+                  step="1"
                   value={selectedQuantity}
-                  onChange={(e) => setSelectedQuantity(parseFloat(e.target.value) || 0)}
+                  onChange={(e) => setSelectedQuantity(parseInt(e.target.value, 10) || 0)}
                   className="quantity-input"
                 />
               )}

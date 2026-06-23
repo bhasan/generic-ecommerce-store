@@ -18,7 +18,6 @@ vi.mock('./components/common/OrderPickupNotice', () => ({ default: () => <div>Or
 vi.mock('./components/layout/Navbar', () => ({ default: () => <div>Navbar</div> }));
 vi.mock('./components/common/Notification', () => ({ default: () => <div>Notification</div> }));
 vi.mock('./components/common/ErrorBoundary', () => ({ default: ({ children }) => <>{children}</> }));
-vi.mock('./components/common/TawkToWidget', () => ({ default: () => null }));
 vi.mock('./features/auth/LoginPage', () => ({ default: () => <div>LoginPage</div> }));
 vi.mock('./features/auth/RegisterPage', () => ({ default: () => <div>RegisterPage</div> }));
 vi.mock('./features/products/ProductsPage', () => ({ default: ({ mode }) => <div>{mode === 'manage' ? 'ManageProductsPage' : 'ProductsPage'}</div> }));

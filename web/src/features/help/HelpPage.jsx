@@ -9,7 +9,6 @@ import {
   MessageSquare, 
   Mail,
   ExternalLink,
-  MessageCircle
 } from 'lucide-react';
 import ContactForm from './ContactForm';
 
@@ -29,12 +28,6 @@ function HelpPage() {
       }, 100);
     }
   }, [orderIdFromUrl]);
-
-  const openTawkChat = () => {
-    if (window.Tawk_API && window.Tawk_API.maximize) {
-      window.Tawk_API.maximize();
-    }
-  };
 
   return (
     <div className="help-page">
@@ -123,20 +116,13 @@ function HelpPage() {
             Get help through our online channels
           </p>
           <div className="help-contact-actions stacked">
-            <button 
-              onClick={openTawkChat}
-              className="btn-help-action btn-primary full-width"
-            >
-              <MessageCircle size={16} />
-              <span>Start Live Chat</span>
-            </button>
-            <a 
+            <a
               href="#contact-form"
               onClick={(e) => {
                 e.preventDefault();
                 contactFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
-              className="btn-help-action btn-secondary full-width"
+              className="btn-help-action btn-primary full-width"
             >
               <Mail size={16} />
               <span>Send Us a Message</span>
