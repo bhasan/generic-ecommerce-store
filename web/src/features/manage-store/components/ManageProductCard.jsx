@@ -5,6 +5,8 @@ import { CSS } from '@dnd-kit/utilities';
 import ProductImage from '../../products/ProductImage';
 import { getProductImageSrc, getDefaultVariant } from '../../products/productsHelpers';
 import './ManageProductCard.css';
+import '../../products/ProductsPageAdmin.css';
+import '../../products/ProductsShared.css';
 
 function ManageProductCard({
   product, dragEnabled, onToggleHidden, onEdit, onDeleteClick,
