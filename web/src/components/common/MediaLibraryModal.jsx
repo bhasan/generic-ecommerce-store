@@ -11,7 +11,7 @@ const isVideo = (url) => {
   return url.match(/\.(mp4|webm)$/i);
 };
 
-function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hideInsertButton = false }) {
+function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hideInsertButton = false, hideCloseButton = false }) {
   const [images, setImages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -221,9 +221,11 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
             <button className="btn btn-secondary btn-icon" onClick={fetchImages} title="Refresh Library">
               <RefreshCw size={18} />
             </button>
-            <button className="btn btn-ghost btn-icon btn-close" onClick={onClose} aria-label="Close">
-              <X size={20} />
-            </button>
+            {!hideCloseButton && (
+              <button className="btn btn-ghost btn-icon btn-close" onClick={onClose} aria-label="Close">
+                <X size={20} />
+              </button>
+            )}
           </div>
         </div>
 

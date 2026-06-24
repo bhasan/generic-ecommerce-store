@@ -10,7 +10,7 @@ function ManageStoreMediaPage() {
         <p className="manage-store-section-subtitle">Upload and manage images and videos</p>
       </div>
       <div className="manage-store-media-inline">
-        <MediaLibraryModal isOpen={true} onClose={() => {}} onSelect={() => {}} hideInsertButton={true} />
+        <MediaLibraryModal isOpen={true} onClose={() => {}} onSelect={() => {}} hideInsertButton={true} hideCloseButton={true} />
       </div>
     </div>
   );
