@@ -9,7 +9,7 @@
 
 .products-toolbar-search {
   flex: 1;
-  min-width: 200px;
+  min-width: 12.5rem;
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
