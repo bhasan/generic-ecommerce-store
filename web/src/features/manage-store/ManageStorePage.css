@@ -28,3 +28,9 @@
   color: var(--text-secondary);
   margin: 0;
 }
+
+.manage-store-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}

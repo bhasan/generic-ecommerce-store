@@ -137,7 +137,7 @@ function Navbar() {
       {/* Manager/Admin only - Manage Store */}
       {isManagement && (
         <NavLink
-          to="/manage-store/products"
+          to="/manage-store"
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
           title="Manage Store"
         >

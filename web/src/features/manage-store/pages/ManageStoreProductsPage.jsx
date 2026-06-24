@@ -188,7 +188,7 @@ function ManageStoreProductsPage() {
   const renderProductItem = (product, { dragEnabled } = {}) => {
     const drag = dragEnabled ?? canManage;
     const props = {
-      key: product.id, product, dragEnabled: drag, canManage, canDelete,
+      product, dragEnabled: drag, canManage, canDelete,
       onToggleHidden: (id, hidden) => updateProduct(id, { hidden: !hidden }),
       onEdit: handleEdit,
       onDeleteClick: (id, name) => setDeleteModal({ open: true, product: { id, name } }),
@@ -196,8 +196,8 @@ function ManageStoreProductsPage() {
       editingDisabled: editingId !== null || showAddForm,
     };
     return viewMode === 'list'
-      ? <ManageProductListItem {...props} />
-      : <ManageProductCard {...props} />;
+      ? <ManageProductListItem key={product.id} {...props} />
+      : <ManageProductCard key={product.id} {...props} />;
   };
 
   const renderProductsCollection = (categoryId, overrideList, dragOverride) => {
