@@ -1,9 +1,26 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductsPage from './ProductsPage';
 import { ROLES } from '../../utils/roles';
+
+// ── IntersectionObserver mock (required in jsdom) ──────────────────────────
+let _ioCallback = null;
+
+function setupIntersectionObserverMock() {
+  _ioCallback = null;
+  global.IntersectionObserver = function MockIO(cb) {
+    _ioCallback = cb;
+    return { observe: vi.fn(), disconnect: vi.fn() };
+  };
+}
+
+const fireIntersection = async (isIntersecting = true) => {
+  await act(async () => {
+    if (_ioCallback) _ioCallback([{ isIntersecting }]);
+  });
+};
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -179,6 +196,108 @@ describe('ProductsPage', () => {
       const ids = capturedGridProps.products.map((p) => p.id);
       expect(ids).toContain(visibleProduct.id);
       expect(ids).toContain(hiddenProduct.id);
+    });
+  });
+
+  describe('progressive reveal (grouped path)', () => {
+    // Build a fixture with 6 top-level categories so we can assert on slicing
+    const makeCategories = (n) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: i + 1,
+        name: `Cat ${i + 1}`,
+        parentId: null,
+        sortOrder: i,
+      }));
+
+    const makeProductsForCategories = (cats) =>
+      cats.map((c) => ({
+        id: c.id * 100,
+        name: `Product in ${c.name}`,
+        price: 10,
+        hidden: false,
+        vipOnly: false,
+        categoryId: c.id,
+        reviews: [],
+      }));
+
+    beforeEach(() => {
+      setupIntersectionObserverMock();
+    });
+
+    it('renders only the first 4 category sections on initial load when there are more than 4', () => {
+      const cats = makeCategories(6);
+      const prods = makeProductsForCategories(cats);
+
+      useAppMock.mockReturnValue({
+        currentUser: { id: 1, username: 'customer', roles: [ROLES.CUSTOMER] },
+        products: prods,
+        addToCart: vi.fn(),
+        isLoadingProducts: false,
+        categories: cats,
+        isLoadingCategories: false,
+        loadCategories: vi.fn(),
+      });
+
+      renderProductsPage();
+
+      // First 4 category sections should be present
+      for (let i = 1; i <= 4; i++) {
+        expect(screen.getByTestId(`category-section-${i}`)).toBeInTheDocument();
+      }
+      // 5th and 6th should NOT be rendered yet
+      expect(screen.queryByTestId('category-section-5')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('category-section-6')).not.toBeInTheDocument();
+    });
+
+    it('reveals more categories when the intersection observer fires', async () => {
+      const cats = makeCategories(6);
+      const prods = makeProductsForCategories(cats);
+
+      useAppMock.mockReturnValue({
+        currentUser: { id: 1, username: 'customer', roles: [ROLES.CUSTOMER] },
+        products: prods,
+        addToCart: vi.fn(),
+        isLoadingProducts: false,
+        categories: cats,
+        isLoadingCategories: false,
+        loadCategories: vi.fn(),
+      });
+
+      renderProductsPage();
+
+      // Trigger the intersection observer (sentinel scrolled into view)
+      await fireIntersection(true);
+
+      // Now all 6 categories should be visible (4 + step=4, capped at 6)
+      await waitFor(() => {
+        for (let i = 1; i <= 6; i++) {
+          expect(screen.getByTestId(`category-section-${i}`)).toBeInTheDocument();
+        }
+      });
+    });
+
+    it('renders all categories without a sentinel when count <= total', () => {
+      const cats = makeCategories(3); // fewer than step=4
+      const prods = makeProductsForCategories(cats);
+
+      useAppMock.mockReturnValue({
+        currentUser: { id: 1, username: 'customer', roles: [ROLES.CUSTOMER] },
+        products: prods,
+        addToCart: vi.fn(),
+        isLoadingProducts: false,
+        categories: cats,
+        isLoadingCategories: false,
+        loadCategories: vi.fn(),
+      });
+
+      renderProductsPage();
+
+      // All 3 render
+      for (let i = 1; i <= 3; i++) {
+        expect(screen.getByTestId(`category-section-${i}`)).toBeInTheDocument();
+      }
+      // Sentinel not needed — observer callback should never have been set
+      expect(_ioCallback).toBeNull();
     });
   });
 });

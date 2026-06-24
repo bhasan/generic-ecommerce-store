@@ -12,6 +12,7 @@ import ManageProductsPanel from './ManageProductsPanel';
 import CategorySection from './CategorySection';
 import CategoryNav from './CategoryNav';
 import { getProductCategoryLabel, groupProductsByCategory, sortProducts } from './productsHelpers';
+import { useProgressiveReveal } from '../../hooks/useProgressiveReveal';
 import ProductItemModal from './ProductItemModal';
 
 function ProductsPage({ mode = 'browse' }) {
@@ -76,6 +77,7 @@ function ProductsPage({ mode = 'browse' }) {
   }
 
   const { topLevel, childrenByParent, byCategoryId, flat } = groupProductsByCategory(visibleProducts, categories);
+  const { visibleCount, sentinelRef } = useProgressiveReveal(topLevel, 4);
   const productCategoryLabel = getProductCategoryLabel;
 
   if (mode === 'manage' && isManagement) {
@@ -112,19 +114,20 @@ function ProductsPage({ mode = 'browse' }) {
       ) : (
         <>
           {topLevel.length > 1 && <CategoryNav categories={topLevel} />}
-          {topLevel.map((parent) => (
-          <CategorySection
-            key={parent.id}
-            parent={parent}
-            childCategories={childrenByParent[parent.id] || []}
-            productsByCategory={byCategoryId}
-            viewMode={viewMode}
-            getCategoryLabel={productCategoryLabel}
-            onAddToCart={addToCart}
-            onProductClick={handleProductClick}
-            showHiddenLabel={isManagement}
-          />
-        ))}
+          {topLevel.slice(0, visibleCount).map((parent) => (
+            <CategorySection
+              key={parent.id}
+              parent={parent}
+              childCategories={childrenByParent[parent.id] || []}
+              productsByCategory={byCategoryId}
+              viewMode={viewMode}
+              getCategoryLabel={productCategoryLabel}
+              onAddToCart={addToCart}
+              onProductClick={handleProductClick}
+              showHiddenLabel={isManagement}
+            />
+          ))}
+          {visibleCount < topLevel.length && <div ref={sentinelRef} />}
         </>
       )}
 
