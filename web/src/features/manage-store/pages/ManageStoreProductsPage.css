@@ -1,0 +1,78 @@
+/* web/src/features/manage-store/pages/ManageStoreProductsPage.css */
+.manage-store-products {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.manage-store-products-header {
+  margin-bottom: var(--spacing-sm);
+}
+
+.manage-store-products-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.manage-store-products-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.manage-store-categories {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+.manage-category-group {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+.manage-category-group-header {
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.manage-category-group-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.manage-category-group-desc {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: var(--spacing-xs) 0 0;
+}
+
+.manage-subcategory-group {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.manage-subcategory-header {
+  margin-bottom: var(--spacing-sm);
+}
+
+.manage-subcategory-header h3 {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.manage-subcategory-header p {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin: var(--spacing-xs) 0 0;
+}
