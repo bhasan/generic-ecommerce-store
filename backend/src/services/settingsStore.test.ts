@@ -36,7 +36,7 @@ describe('SettingsStore', () => {
   it('returns a deep clone of defaults when no row exists', async () => {
     prismaMock.uiSetting.findUnique.mockResolvedValue(null);
     const { SettingsStore } = await import('./settingsStore');
-    const store = new SettingsStore({ key: 'k', schema, defaults });
+    const store = new SettingsStore({ key: 'k-defaults', schema, defaults });
     const result = await store.read();
     expect(result).toEqual(defaults);
     expect(result).not.toBe(defaults);
@@ -45,7 +45,7 @@ describe('SettingsStore', () => {
   it('shallow-merges stored value over defaults', async () => {
     prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'stored' } });
     const { SettingsStore } = await import('./settingsStore');
-    const store = new SettingsStore({ key: 'k', schema, defaults });
+    const store = new SettingsStore({ key: 'k-merge', schema, defaults });
     expect(await store.read()).toEqual({ a: 'stored', n: 0 });
   });
 
@@ -53,7 +53,7 @@ describe('SettingsStore', () => {
     prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({
-      key: 'k', schema, defaults,
+      key: 'k-onread', schema, defaults,
       onRead: (raw) => ({ ...raw, a: raw.a.toUpperCase() }),
     });
     expect((await store.read()).a).toBe('X');
@@ -62,13 +62,13 @@ describe('SettingsStore', () => {
   it('validates and upserts on write, returning plaintext input', async () => {
     prismaMock.uiSetting.upsert.mockResolvedValue({ value: {} });
     const { SettingsStore } = await import('./settingsStore');
-    const store = new SettingsStore({ key: 'k', schema, defaults });
+    const store = new SettingsStore({ key: 'k-write', schema, defaults });
     const data = { a: 'hi', n: 2 };
     const result = await store.write(data);
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { key: 'k' },
+      where: { key: 'k-write' },
       update: { value: data },
-      create: { key: 'k', value: data },
+      create: { key: 'k-write', value: data },
     });
     expect(result).toEqual(data);
   });
@@ -77,7 +77,7 @@ describe('SettingsStore', () => {
     prismaMock.uiSetting.upsert.mockResolvedValue({ value: {} });
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({
-      key: 'k', schema, defaults,
+      key: 'k-onwrite', schema, defaults,
       onWrite: (data) => ({ ...data, a: `enc:${data.a}` }),
     });
     const result = await store.write({ a: 'secret', n: 1 });
@@ -86,20 +86,51 @@ describe('SettingsStore', () => {
     expect(result.a).toBe('secret');
   });
 
-  it('resolves defaults from a factory fresh on each read (no row)', async () => {
+  it('resolves defaults from a factory on first read and caches the result', async () => {
     prismaMock.uiSetting.findUnique.mockResolvedValue(null);
     const { SettingsStore } = await import('./settingsStore');
     let counter = 0;
     const store = new SettingsStore({
-      key: 'k', schema, defaults: () => ({ a: `gen${++counter}`, n: 0 }),
+      key: 'k-factory', schema, defaults: () => ({ a: `gen${++counter}`, n: 0 }),
     });
     expect((await store.read()).a).toBe('gen1');
-    expect((await store.read()).a).toBe('gen2');
+    // second read hits cache; factory is NOT called again (TTL caching behaviour)
+    expect((await store.read()).a).toBe('gen1');
   });
 
   it('throws AppError(400) on schema validation failure', async () => {
     const { SettingsStore } = await import('./settingsStore');
-    const store = new SettingsStore({ key: 'k', schema, defaults });
+    const store = new SettingsStore({ key: 'k-err', schema, defaults });
     await expect(store.write({ a: 123, n: 'no' } as never)).rejects.toBeInstanceOf(AppError);
+  });
+
+  it('reads from DB once then serves from cache for the same key', async () => {
+    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
+    const { SettingsStore } = await import('./settingsStore');
+    const store = new SettingsStore({ key: 'perf-cache', schema, defaults });
+    await store.read();
+    await store.read();
+    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a fresh clone on cache hit (mutating the result does not poison the cache)', async () => {
+    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
+    const { SettingsStore } = await import('./settingsStore');
+    const store = new SettingsStore({ key: 'perf-clone', schema, defaults });
+    const first = await store.read();
+    (first as { a: string }).a = 'MUTATED';
+    const second = await store.read();
+    expect((second as { a: string }).a).toBe('x');
+  });
+
+  it('invalidates the cache on write', async () => {
+    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
+    prismaMock.uiSetting.upsert.mockResolvedValue({});
+    const { SettingsStore } = await import('./settingsStore');
+    const store = new SettingsStore({ key: 'perf-inv', schema, defaults });
+    await store.read();
+    await store.write({ a: 'y', n: 2 });
+    await store.read();
+    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(2);
   });
 });

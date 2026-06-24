@@ -1,6 +1,20 @@
 import { ZodType } from 'zod';
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
+import { TtlCache } from '../utils/ttlCache';
+
+// Module-level cache shared across all SettingsStore instances, keyed by `key`.
+// IMPORTANT caveats (do not remove without reading):
+//  - Single-process only. The backend runs as one instance today; if it is ever
+//    scaled horizontally, each process keeps its own copy and config can be up to
+//    one TTL stale between instances. Move to a shared store (e.g. Redis) at that point.
+//  - Caching the post-`onRead` result means a `defaults` *factory* (() => T) no longer
+//    re-runs per read. That is fine because those factories depend only on env, which
+//    does not change at runtime — but it IS a behavior shift worth knowing.
+//  - Only safe because settings values are plain JSON (no Decimal/functions/class
+//    instances), so `structuredClone` on hits is lossless. Do not cache Prisma graphs here.
+const SETTINGS_CACHE_TTL_MS = Number(process.env.SETTINGS_CACHE_TTL_MS ?? 30_000);
+const settingsCache = new TtlCache<object>(SETTINGS_CACHE_TTL_MS);
 
 export function parseOrThrow<T>(schema: ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
@@ -29,13 +43,16 @@ export class SettingsStore<T extends object> {
 
   async read(): Promise<T> {
     const { key, onRead } = this.config;
+    const cached = settingsCache.get(key) as T | undefined;
+    if (cached !== undefined) return structuredClone(cached);
+
     const row = await prisma.uiSetting.findUnique({ where: { key } });
-    if (!row) {
-      return this.resolveDefaults();
-    }
-    const stored = row.value as unknown as Partial<T>;
-    const merged = { ...this.resolveDefaults(), ...stored } as T;
-    return onRead ? onRead(merged) : merged;
+    const merged = row
+      ? ({ ...this.resolveDefaults(), ...(row.value as unknown as Partial<T>) } as T)
+      : this.resolveDefaults();
+    const result = onRead ? onRead(merged) : merged;
+    settingsCache.set(key, result as object);
+    return structuredClone(result);
   }
 
   async write(data: T): Promise<T> {
@@ -47,6 +64,7 @@ export class SettingsStore<T extends object> {
       update: { value: toStore as object },
       create: { key, value: toStore as object },
     });
+    settingsCache.delete(key);
     return validated;
   }
 }
