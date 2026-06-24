@@ -165,6 +165,7 @@ app.get('/api/config', asyncHandler(async (_req, res) => {
     orderingConstraintsService.getOrderingConstraints(),
     brandingService.getBranding(),
   ]);
+  res.setHeader('Cache-Control', 'public, max-age=30, must-revalidate');
   res.json({
     taxRate: DEFAULT_TAX_RATE,
     minimumDeliveryOrder: orderingConstraints.minimumDeliveryOrder,

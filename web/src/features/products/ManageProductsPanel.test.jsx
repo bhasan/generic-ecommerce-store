@@ -5,6 +5,32 @@ import ManageProductsPanel from './ManageProductsPanel';
 import { ROLES } from '../../utils/roles';
 import { UNSUPPORTED_MEDIA_MESSAGE } from '../../utils/mediaUpload';
 
+// DnD kit doesn't work in jsdom — stub out all drag primitives as no-ops
+vi.mock('@dnd-kit/core', () => ({
+  DndContext: ({ children }) => children,
+  closestCenter: () => null,
+  useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, transform: null }),
+  useSensor: () => ({}),
+  useSensors: () => ({}),
+  PointerSensor: class {},
+  KeyboardSensor: class {},
+}));
+vi.mock('@dnd-kit/sortable', () => ({
+  SortableContext: ({ children }) => children,
+  useSortable: () => ({
+    attributes: {}, listeners: {}, setNodeRef: () => {},
+    transform: null, transition: null, isDragging: false,
+  }),
+  verticalListSortingStrategy: null,
+  arrayMove: (arr, from, to) => {
+    const next = [...arr];
+    next.splice(to, 0, ...next.splice(from, 1));
+    return next;
+  },
+  sortableKeyboardCoordinates: () => {},
+}));
+vi.mock('@dnd-kit/utilities', () => ({ CSS: { Transform: { toString: () => '' } } }));
+
 const useAppMock = vi.fn();
 const uploadFileMock = vi.fn();
 const uploadFilesMock = vi.fn();
@@ -315,6 +341,88 @@ describe('ManageProductsPanel upload handling', () => {
           ]),
         })
       );
+    });
+  });
+});
+
+describe('ManageProductsPanel product filter', () => {
+  const hoodie = { id: 1, name: 'Flow Hoodie', description: 'cozy', price: 29.99, hidden: false, categoryId: 1, sortOrder: 0, images: [], variants: [], reviews: [] };
+  const cable  = { id: 2, name: 'USB-C Cable', description: 'fast charging', price: 14.99, hidden: false, categoryId: 1, sortOrder: 1, images: [], variants: [], reviews: [] };
+
+  const appState = () => ({
+    currentUser: { id: 1, username: 'manager', roles: [ROLES.MANAGEMENT] },
+    products: [hoodie, cable],
+    isLoadingProducts: false,
+    loadProducts: vi.fn(),
+    addProduct: vi.fn(),
+    updateProduct: vi.fn(),
+    deleteProduct: vi.fn(),
+    categories: [{ id: 1, name: 'Accessories', parentId: null, sortOrder: 0 }],
+    isLoadingCategories: false,
+    loadCategories: vi.fn(),
+    showNotification: vi.fn(),
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useAppMock.mockReturnValue(appState());
+  });
+
+  it('shows all products when the filter is empty', async () => {
+    render(<ManageProductsPanel />);
+    await waitFor(() => {
+      expect(screen.getByText('Flow Hoodie')).toBeInTheDocument();
+      expect(screen.getByText('USB-C Cable')).toBeInTheDocument();
+    });
+  });
+
+  it('narrows the list to matching products as the user types', async () => {
+    render(<ManageProductsPanel />);
+    const input = await screen.findByPlaceholderText('Filter products…');
+    fireEvent.change(input, { target: { value: 'hoodie' } });
+    await waitFor(() => {
+      expect(screen.getByText('Flow Hoodie')).toBeInTheDocument();
+      expect(screen.queryByText('USB-C Cable')).not.toBeInTheDocument();
+    });
+  });
+
+  it('matches on description as well as name', async () => {
+    render(<ManageProductsPanel />);
+    const input = await screen.findByPlaceholderText('Filter products…');
+    fireEvent.change(input, { target: { value: 'fast charging' } });
+    await waitFor(() => {
+      expect(screen.getByText('USB-C Cable')).toBeInTheDocument();
+      expect(screen.queryByText('Flow Hoodie')).not.toBeInTheDocument();
+    });
+  });
+
+  it('is case-insensitive', async () => {
+    render(<ManageProductsPanel />);
+    const input = await screen.findByPlaceholderText('Filter products…');
+    fireEvent.change(input, { target: { value: 'CABLE' } });
+    await waitFor(() => {
+      expect(screen.getByText('USB-C Cable')).toBeInTheDocument();
+    });
+  });
+
+  it('shows an empty-state message when nothing matches', async () => {
+    render(<ManageProductsPanel />);
+    const input = await screen.findByPlaceholderText('Filter products…');
+    fireEvent.change(input, { target: { value: 'xyzzy' } });
+    await waitFor(() => {
+      expect(screen.getByText('No products match your search.')).toBeInTheDocument();
+    });
+  });
+
+  it('restores all products when the filter is cleared', async () => {
+    render(<ManageProductsPanel />);
+    const input = await screen.findByPlaceholderText('Filter products…');
+    fireEvent.change(input, { target: { value: 'hoodie' } });
+    await waitFor(() => expect(screen.queryByText('USB-C Cable')).not.toBeInTheDocument());
+    fireEvent.change(input, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.getByText('Flow Hoodie')).toBeInTheDocument();
+      expect(screen.getByText('USB-C Cable')).toBeInTheDocument();
     });
   });
 });

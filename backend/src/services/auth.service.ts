@@ -7,6 +7,7 @@ import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 import { notificationEventsService } from './notificationEvents.service';
 import { DeliveryEligibilityService } from './deliveryEligibility.service';
+import { getUserRolesWithNames } from './userRoles.helper';
 
 interface RegisterData {
   username: string;
@@ -119,19 +120,7 @@ export class AuthService {
 
     await notificationEventsService.notifyRegistrationSubmitted(user.id, user.username);
 
-    const userRoles = await prisma.userRole.findMany({
-      where: { userId: user.id }
-    });
-
-    const roleIds = userRoles.map(ur => ur.roleId);
-    const roles = await prisma.role.findMany({
-      where: { id: { in: roleIds } }
-    });
-    const roleMap = new Map(roles.map(r => [r.id, r]));
-
-    const rolesWithNames = userRoles.map(ur => ({
-      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
-    }));
+    const rolesWithNames = await getUserRolesWithNames(user.id);
 
     return {
       user: this.formatUser({
@@ -179,23 +168,8 @@ export class AuthService {
       throw new AppError('Your account is pending approval. Please visit the store to get approved.', 403);
     }
 
-    const userRoles = await prisma.userRole.findMany({
-      where: { userId: user.id }
-    });
-
-    const roleIds = userRoles.map(ur => ur.roleId);
-    const roles = await prisma.role.findMany({
-      where: { id: { in: roleIds } }
-    });
-    const roleMap = new Map(roles.map(r => [r.id, r]));
-
-    const rolesWithNames = userRoles.map(ur => ({
-      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
-    }));
-
-    const roleNames = rolesWithNames
-      .map(ur => ur.role?.name)
-      .filter((name): name is RoleName => isRoleName(name));
+    const rolesWithNames = await getUserRolesWithNames(user.id);
+    const roleNames = this.toRoleNames(rolesWithNames);
 
     const token = generateToken({
       userId: user.id,
@@ -233,19 +207,7 @@ export class AuthService {
       throw new AppError('User not found', 404);
     }
 
-    const userRoles = await prisma.userRole.findMany({
-      where: { userId }
-    });
-
-    const roleIds = userRoles.map(ur => ur.roleId);
-    const roles = await prisma.role.findMany({
-      where: { id: { in: roleIds } }
-    });
-    const roleMap = new Map(roles.map(r => [r.id, r]));
-
-    const rolesWithNames = userRoles.map(ur => ({
-      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
-    }));
+    const rolesWithNames = await getUserRolesWithNames(userId);
 
     return this.formatUser({
       ...user,

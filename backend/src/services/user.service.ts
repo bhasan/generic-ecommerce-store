@@ -23,11 +23,13 @@ export class UserService {
    * Get all users
    * Only accessible by MANAGEMENT or ADMIN
    */
-  async getAllUsers() {
+  async getAllUsers(limit?: number, offset?: number) {
     const users = await prisma.user.findMany({
       orderBy: {
         createdAt: 'desc'
-      }
+      },
+      ...(limit !== undefined ? { take: limit } : {}),
+      ...(offset !== undefined ? { skip: offset } : {}),
     });
 
     // Fetch user roles

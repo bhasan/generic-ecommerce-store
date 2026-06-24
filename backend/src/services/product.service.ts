@@ -132,18 +132,14 @@ export class ProductService {
     return variants.map((v, i) => ({ ...v, isDefault: hasDefault ? !!v.isDefault : i === 0 }));
   }
 
-  async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {
-    const canViewHidden = hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT']);
-    const isVip = hasAnyRole(userRoles, ['VIP']);
+  private visibilityWhere(userRoles: RoleName[] | undefined): Prisma.ProductWhereInput {
+    if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) return {};
+    if (hasAnyRole(userRoles, ['VIP'])) return { hidden: false };
+    return { hidden: false, vipOnly: false };
+  }
 
-    let where: Prisma.ProductWhereInput;
-    if (canViewHidden) {
-      where = {};
-    } else if (isVip) {
-      where = { hidden: false };
-    } else {
-      where = { hidden: false, vipOnly: false };
-    }
+  async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {
+    const where = this.visibilityWhere(userRoles);
 
     const products = await prisma.product.findMany({
       where,
@@ -159,6 +155,24 @@ export class ProductService {
 
     // Reviews feature remains disabled at the list level; populated by getProductById.
     return products.map((product) => ({ ...product, reviews: [] }));
+  }
+
+  async searchProducts(userRoles: RoleName[] | undefined, q: string, { limit, offset }: { limit: number; offset: number }) {
+    const visibility = this.visibilityWhere(userRoles);
+    const term = q.trim();
+    const products = await prisma.product.findMany({
+      where: term
+        ? { AND: [visibility, { OR: [
+            { name: { contains: term, mode: 'insensitive' } },
+            { description: { contains: term, mode: 'insensitive' } },
+          ] }] }
+        : visibility,
+      include: productInclude,
+      orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
+      take: limit,
+      skip: offset,
+    });
+    return products.map((p) => ({ ...p, reviews: [] }));
   }
 
   async getProductById(id: number, userRoles?: RoleName[]) {

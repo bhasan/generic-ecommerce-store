@@ -398,6 +398,14 @@ function ManageProductsPanel() {
   });
   const [manageTab, setManageTab] = useState('products'); // 'products' | 'categories'
   const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', variants: '' });
+  const [productSearchQuery, setProductSearchQuery] = useState('');
+  const searchTerm = productSearchQuery.trim().toLowerCase();
+  const filteredProducts = searchTerm
+    ? orderedProducts.filter(p =>
+        p.name?.toLowerCase().includes(searchTerm) ||
+        p.description?.toLowerCase().includes(searchTerm)
+      )
+    : null;
 
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
@@ -717,8 +725,9 @@ function ManageProductsPanel() {
     updateProduct(productId, { hidden: !currentHidden });
   };
 
-  const renderProductsCollection = (categoryId) => {
-    const list = productsByCategory[categoryId] || [];
+  const renderProductsCollection = (categoryId, { list: overrideList, dragEnabled: dragOverride } = {}) => {
+    const list = overrideList ?? productsByCategory[categoryId] ?? [];
+    const drag = dragOverride ?? canManageProducts;
     if (list.length === 0) return null;
 
     return (
@@ -728,7 +737,7 @@ function ManageProductsPanel() {
             <SortableProductListItem
               key={product.id}
               product={product}
-              dragEnabled={canManageProducts}
+              dragEnabled={drag}
               canManage={canManageProducts}
               canDelete={userRoles.includes(ROLES.ADMIN)}
               onToggleHidden={toggleHidden}
@@ -741,7 +750,7 @@ function ManageProductsPanel() {
             <SortableProductCard
               key={product.id}
               product={product}
-              dragEnabled={canManageProducts}
+              dragEnabled={drag}
               canManage={canManageProducts}
               canDelete={userRoles.includes(ROLES.ADMIN)}
               onToggleHidden={toggleHidden}
@@ -875,10 +884,23 @@ function ManageProductsPanel() {
             />
           )}
 
+          <input
+            type="search"
+            placeholder="Filter products…"
+            value={productSearchQuery}
+            onChange={(e) => setProductSearchQuery(e.target.value)}
+            aria-label="Filter products"
+            className="products-search-input"
+          />
+
           {isLoadingProducts || isLoadingCategories ? (
             <EmptyState message="Loading products..." />
           ) : orderedProducts.length === 0 ? (
             <EmptyState message="No products found. Add your first product to get started!" />
+          ) : filteredProducts ? (
+            filteredProducts.length === 0
+              ? <EmptyState message="No products match your search." />
+              : renderProductsCollection(null, { list: filteredProducts, dragEnabled: false })
           ) : (
             <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
               <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>

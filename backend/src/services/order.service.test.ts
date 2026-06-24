@@ -164,6 +164,19 @@ describe('getAllOrders', () => {
     expect(call).not.toHaveProperty('take');
     expect(call).not.toHaveProperty('skip');
   });
+
+  it('getOrders requests a lean items shape without the variant→product→images join', async () => {
+    prismaMock.order.findMany.mockResolvedValue([]);
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.getAllOrders(1, ['ADMIN']);
+    const arg = prismaMock.order.findMany.mock.calls[0][0];
+    // items must use a scalar `select`, not a nested variant include
+    expect(arg.include.items.select).toBeDefined();
+    // No nested variant relation — select keys must all be scalar booleans
+    expect(arg.include.items.select.variant).toBeUndefined();
+    expect(arg.include.items.include).toBeUndefined();
+  });
 });
 
 describe('order service notifications', () => {
