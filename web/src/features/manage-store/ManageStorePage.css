@@ -1,9 +1,22 @@
+.manage-store-page-container {
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+
+.manage-store-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.manage-store-header .page-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .manage-store-layout {
   display: flex;
   gap: var(--spacing-xl);
-  padding: var(--spacing-xl);
-  max-width: var(--container-max-width);
-  margin: 0 auto;
   align-items: flex-start;
 }
 
