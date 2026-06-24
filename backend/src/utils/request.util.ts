@@ -25,6 +25,18 @@ export function parseOptionalIntQuery(value: string | undefined): number | undef
   return Number.isNaN(n) ? undefined : n;
 }
 
+/** Normalizes ?limit/?offset into a bounded { limit, offset } with a default and hard cap. */
+export function parsePaginationQuery(
+  query: { limit?: string; offset?: string },
+  opts: { defaultLimit: number; maxLimit: number },
+): { limit: number; offset: number } {
+  const rawLimit = parseOptionalIntQuery(query.limit);
+  const rawOffset = parseOptionalIntQuery(query.offset);
+  const limit = Math.min(rawLimit && rawLimit > 0 ? rawLimit : opts.defaultLimit, opts.maxLimit);
+  const offset = rawOffset && rawOffset > 0 ? rawOffset : 0;
+  return { limit, offset };
+}
+
 export function parsePositiveInt(rawValue: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(rawValue ?? '', 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;

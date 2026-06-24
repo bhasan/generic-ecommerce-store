@@ -4,7 +4,7 @@ import { DeliveryEligibilityService } from '../services/deliveryEligibility.serv
 import { logger } from '../utils/logger';
 import { ROLES } from '../constants/roles';
 import { OrderStatus } from '../../generated/prisma';
-import { validateRequest, parseIntParam, parseOptionalIntQuery } from '../utils/request.util';
+import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
 
@@ -14,8 +14,10 @@ export class OrderController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const limit = parseOptionalIntQuery(req.query.limit as string | undefined);
-    const offset = parseOptionalIntQuery(req.query.offset as string | undefined);
+    const { limit, offset } = parsePaginationQuery(
+      req.query as { limit?: string; offset?: string },
+      { defaultLimit: 100, maxLimit: 500 },
+    );
     const orders = await orderService.getAllOrders(req.user.userId, req.user.roles, limit, offset);
     res.status(200).json(orders);
   }

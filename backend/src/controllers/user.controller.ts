@@ -1,11 +1,15 @@
 import { Request, Response } from 'express';
 import userService from '../services/user.service';
 import { logger } from '../utils/logger';
-import { validateRequest, parseIntParam } from '../utils/request.util';
+import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
 
 export class UserController {
-  async getAllUsers(_req: Request, res: Response) : Promise<void> {
-    const users = await userService.getAllUsers();
+  async getAllUsers(req: Request, res: Response) : Promise<void> {
+    const { limit, offset } = parsePaginationQuery(
+      req.query as { limit?: string; offset?: string },
+      { defaultLimit: 100, maxLimit: 500 },
+    );
+    const users = await userService.getAllUsers(limit, offset);
     res.status(200).json(users);
   }
 

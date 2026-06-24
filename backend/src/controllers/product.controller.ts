@@ -2,12 +2,14 @@ import { Request, Response } from 'express';
 import productService from '../services/product.service';
 import { streamProductsExportZip } from '../services/productExport.service';
 import { logger } from '../utils/logger';
-import { validateRequest, parseIntParam, parseOptionalIntQuery } from '../utils/request.util';
+import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
 
 export class ProductController {
   async getAllProducts(req: Request, res: Response) : Promise<void> {
-    const limit = parseOptionalIntQuery(req.query.limit as string | undefined);
-    const offset = parseOptionalIntQuery(req.query.offset as string | undefined);
+    const { limit, offset } = parsePaginationQuery(
+      req.query as { limit?: string; offset?: string },
+      { defaultLimit: 500, maxLimit: 1000 }, // catalog browse stays generous; pathological growth capped
+    );
     const products = await productService.getAllProducts(req.user?.roles, limit, offset);
     res.status(200).json(products);
   }
