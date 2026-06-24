@@ -15,4 +15,10 @@ describe('parsePaginationQuery', () => {
   it('clamps negative/invalid offset to 0', () => {
     expect(parsePaginationQuery({ offset: '-5' }, opts).offset).toBe(0);
   });
+  it('falls back to defaultLimit when limit is non-numeric', () => {
+    expect(parsePaginationQuery({ limit: 'abc' }, opts).limit).toBe(50);
+  });
+  it('falls back to defaultLimit when limit is zero', () => {
+    expect(parsePaginationQuery({ limit: '0' }, opts).limit).toBe(50);
+  });
 });
