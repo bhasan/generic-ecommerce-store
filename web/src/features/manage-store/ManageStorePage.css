@@ -1,0 +1,13 @@
+.manage-store-layout {
+  display: flex;
+  gap: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  max-width: var(--container-max-width);
+  margin: 0 auto;
+  align-items: flex-start;
+}
+
+.manage-store-content {
+  flex: 1;
+  min-width: 0;
+}
