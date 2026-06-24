@@ -11,3 +11,20 @@
   flex: 1;
   min-width: 0;
 }
+
+.manage-store-section-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.manage-store-section-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-xs);
+}
+
+.manage-store-section-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
