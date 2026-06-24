@@ -8,22 +8,11 @@ export default function useProductDragSort({
   topLevelCategories, setTopLevelCategories,
   loadProducts, loadCategories,
 }) {
-  const persistProductSort = async (list) => {
+  const persistSort = async (list, updateFn, reload) => {
     const updates = list
-      .map((item, index) => item.sortOrder !== index
-        ? productsApi.updateProduct(item.id, { sortOrder: index })
-        : null)
+      .map((item, index) => item.sortOrder !== index ? updateFn(item.id, { sortOrder: index }) : null)
       .filter(Boolean);
-    if (updates.length) { await Promise.all(updates); await loadProducts(); }
-  };
-
-  const persistCategorySort = async (list) => {
-    const updates = list
-      .map((item, index) => item.sortOrder !== index
-        ? categoriesApi.updateCategory(item.id, { sortOrder: index })
-        : null)
-      .filter(Boolean);
-    if (updates.length) { await Promise.all(updates); await loadCategories(); }
+    if (updates.length) { await Promise.all(updates); await reload(); }
   };
 
   const handleDragEnd = async ({ active, over }) => {
@@ -32,7 +21,7 @@ export default function useProductDragSort({
     const newIndex = orderedProducts.findIndex(i => i.id === over.id);
     const next = arrayMove(orderedProducts, oldIndex, newIndex);
     setOrderedProducts(next);
-    await persistProductSort(next);
+    await persistSort(next, productsApi.updateProduct, loadProducts);
   };
 
   const handleCategoryDragEnd = async ({ active, over }) => {
@@ -41,7 +30,7 @@ export default function useProductDragSort({
     const newIndex = topLevelCategories.findIndex(i => i.id === over.id);
     const next = arrayMove(topLevelCategories, oldIndex, newIndex);
     setTopLevelCategories(next);
-    await persistCategorySort(next);
+    await persistSort(next, categoriesApi.updateCategory, loadCategories);
   };
 
   const handleProductDragEnd = async (categoryId, { active, over }) => {
@@ -51,7 +40,7 @@ export default function useProductDragSort({
     const newIndex = list.findIndex(i => i.id === over.id);
     const next = arrayMove(list, oldIndex, newIndex);
     setProductsByCategory({ ...productsByCategory, [categoryId]: next });
-    await persistProductSort(next);
+    await persistSort(next, productsApi.updateProduct, loadProducts);
   };
 
   return { handleDragEnd, handleCategoryDragEnd, handleProductDragEnd };

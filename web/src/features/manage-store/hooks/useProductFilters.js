@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export default function useProductFilters(orderedProducts) {
   const [searchQuery, setSearchQuery] = useState('');
-  const term = searchQuery.trim().toLowerCase();
-  const filteredProducts = term
-    ? orderedProducts.filter(p =>
-        p.name?.toLowerCase().includes(term) ||
-        p.description?.toLowerCase().includes(term)
-      )
-    : null;
+  const filteredProducts = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) return null;
+    return orderedProducts.filter(p =>
+      p.name?.toLowerCase().includes(term) ||
+      p.description?.toLowerCase().includes(term)
+    );
+  }, [searchQuery, orderedProducts]);
   return { searchQuery, setSearchQuery, filteredProducts };
 }

@@ -1,15 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Loader2, UploadCloud, RefreshCw, PlayCircle, Grid, List as ListIcon, CheckCircle2 } from 'lucide-react';
 import { getImages, deleteImage, uploadFile, uploadFiles } from '../../services/uploadApi';
-import { MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile } from '../../utils/mediaUpload';
+import { MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile, isVideoUrl } from '../../utils/mediaUpload';
 import ImageCropModal from './ImageCropModal';
 import './MediaLibraryModal.css';
-
-// Helper to check if a url is a video
-const isVideo = (url) => {
-  if (!url) return false;
-  return url.match(/\.(mp4|webm)$/i);
-};
 
 function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hideInsertButton = false, hideCloseButton = false }) {
   const [images, setImages] = useState([]);
@@ -45,13 +39,13 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
   const loadDimensions = (items) => {
     items.forEach((item) => {
-      if (isVideo(item.url)) return;
+      if (isVideoUrl(item.url)) return;
       const img = new Image();
       img.onload = () => {
-        setDimensions((prev) => ({
-          ...prev,
-          [item.url]: { width: img.naturalWidth, height: img.naturalHeight },
-        }));
+        setDimensions((prev) => {
+          if (prev[item.url]) return prev;
+          return { ...prev, [item.url]: { width: img.naturalWidth, height: img.naturalHeight } };
+        });
       };
       img.src = item.url;
     });
@@ -114,7 +108,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
     if (files.length > 1) {
       // Multiple files: upload all directly without crop
-      performMultiUpload(files);
+      performUpload(files);
     } else {
       const file = files[0];
       if (file.type.startsWith('video/')) {
@@ -125,10 +119,11 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     }
   };
 
-  const performUpload = async (file) => {
+  const performUpload = async (files) => {
+    const fileList = Array.isArray(files) ? files : [files];
     setIsUploading(true);
     try {
-      await uploadFile(file);
+      await (fileList.length === 1 ? uploadFile(fileList[0]) : uploadFiles(fileList));
       await fetchImages();
     } catch (err) {
       alert(`Upload failed: ${err.message}`);
@@ -137,26 +132,9 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     }
   };
 
-  const performMultiUpload = async (files) => {
-    setIsUploading(true);
-    try {
-      await uploadFiles(files);
-      await fetchImages();
-    } catch (err) {
-      alert(`Upload failed: ${err.message}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleCropConfirm = (croppedFile) => {
+  const handleCropDone = (file) => {
     setCropFile(null);
-    performUpload(croppedFile);
-  };
-
-  const handleCropSkip = (originalFile) => {
-    setCropFile(null);
-    performUpload(originalFile);
+    performUpload(file);
   };
 
   const formatSize = (bytes) => {
@@ -260,7 +238,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                         </div>
                       )}
                       
-                      {isVideo(image.url) ? (
+                      {isVideoUrl(image.url) ? (
                         <>
                           <video src={image.url} className="media-thumbnail-video" />
                           <div className="video-thumbnail-overlay">
@@ -322,8 +300,8 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     {cropFile && (
       <ImageCropModal
         file={cropFile}
-        onConfirm={handleCropConfirm}
-        onSkip={handleCropSkip}
+        onConfirm={handleCropDone}
+        onSkip={handleCropDone}
         onCancel={() => setCropFile(null)}
       />
     )}

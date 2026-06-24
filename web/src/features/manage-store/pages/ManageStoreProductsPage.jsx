@@ -43,9 +43,9 @@ function ManageStoreProductsPage() {
     topLevelCategories, setTopLevelCategories, loadProducts, loadCategories,
   });
 
-  const userRoles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
-  const canManage = userRoles.includes(ROLES.ADMIN) || userRoles.includes(ROLES.MANAGEMENT);
-  const canDelete = userRoles.includes(ROLES.ADMIN);
+  const roles = currentUser.roles || (currentUser.role ? [currentUser.role] : []);
+  const canManage = roles.includes(ROLES.ADMIN) || roles.includes(ROLES.MANAGEMENT);
+  const canDelete = roles.includes(ROLES.ADMIN);
 
   const [editingId, setEditingId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -214,9 +214,9 @@ function ManageStoreProductsPage() {
 
   return (
     <div className="manage-store-products">
-      <div className="manage-store-products-header">
-        <h1 className="manage-store-products-title">Products</h1>
-        <p className="manage-store-products-subtitle">Manage your store inventory</p>
+      <div className="manage-store-section-header">
+        <h1 className="manage-store-section-title">Products</h1>
+        <p className="manage-store-section-subtitle">Manage your store inventory</p>
       </div>
 
       <ProductsToolbar

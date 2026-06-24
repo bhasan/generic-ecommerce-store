@@ -5,22 +5,6 @@
   gap: var(--spacing-lg);
 }
 
-.manage-store-products-header {
-  margin-bottom: var(--spacing-sm);
-}
-
-.manage-store-products-title {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  margin: 0 0 var(--spacing-xs);
-}
-
-.manage-store-products-subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  margin: 0;
-}
 
 .manage-store-categories {
   display: flex;
