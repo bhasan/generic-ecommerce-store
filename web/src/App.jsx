@@ -30,6 +30,11 @@ import OrderHistoryPage from './features/orders/OrderHistoryPage';
 import WebsiteManagementPage from './features/website/WebsiteManagementPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
+import ManageStorePage from './features/manage-store/ManageStorePage';
+import ManageStoreProductsPage from './features/manage-store/pages/ManageStoreProductsPage';
+import ManageStoreCategoriesPage from './features/manage-store/pages/ManageStoreCategoriesPage';
+import ManageStoreMediaPage from './features/manage-store/pages/ManageStoreMediaPage';
+import ManageStoreBulkPage from './features/manage-store/pages/ManageStoreBulkPage';
 
 function App() {
   return (
@@ -111,12 +116,21 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          {/* Admin/Manager Routes */}
-          <Route path="/manage-products" element={
+          {/* Old manage-products redirect */}
+          <Route path="/manage-products" element={<Navigate to="/manage-store/products" replace />} />
+
+          {/* Manage Store - nested routes */}
+          <Route path="/manage-store" element={
             <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
-              <ProductsPage mode="manage" />
+              <ManageStorePage />
             </ProtectedRoute>
-          } />
+          }>
+            <Route index element={<Navigate to="products" replace />} />
+            <Route path="products" element={<ManageStoreProductsPage />} />
+            <Route path="categories" element={<ManageStoreCategoriesPage />} />
+            <Route path="media" element={<ManageStoreMediaPage />} />
+            <Route path="bulk" element={<ManageStoreBulkPage />} />
+          </Route>
 
           {/* Dashboard - Admin/Manager only */}
           <Route path="/dashboard" element={

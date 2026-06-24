@@ -134,15 +134,15 @@ function Navbar() {
         </NavLink>
       )}
 
-      {/* Manager/Admin only - Manage Products */}
+      {/* Manager/Admin only - Manage Store */}
       {isManagement && (
         <NavLink
-          to="/manage-products"
+          to="/manage-store/products"
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          title="Manage Products"
+          title="Manage Store"
         >
           <Tag size={18} />
-          <span>Manage Products</span>
+          <span>Manage Store</span>
         </NavLink>
       )}
 
