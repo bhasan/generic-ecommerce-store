@@ -4,6 +4,15 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductsPage from './ProductsPage';
 import { ROLES } from '../../utils/roles';
+import * as productsApi from '../../services/productsApi';
+
+vi.mock('../../services/productsApi', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    searchProducts: vi.fn(),
+  };
+});
 
 // ── IntersectionObserver mock (required in jsdom) ──────────────────────────
 let _ioCallback = null;
@@ -196,6 +205,80 @@ describe('ProductsPage', () => {
       const ids = capturedGridProps.products.map((p) => p.id);
       expect(ids).toContain(visibleProduct.id);
       expect(ids).toContain(hiddenProduct.id);
+    });
+  });
+
+  describe('search', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      useAppMock.mockReturnValue(
+        makeAppState({ id: 1, username: 'customer', roles: [ROLES.CUSTOMER] })
+      );
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('calls searchProducts after debounce when user types a query', async () => {
+      productsApi.searchProducts.mockResolvedValue([visibleProduct]);
+      renderProductsPage();
+
+      const input = screen.getByRole('searchbox', { name: /search products/i });
+      fireEvent.change(input, { target: { value: 'dream' } });
+
+      // Not called yet — debounce hasn't fired
+      expect(productsApi.searchProducts).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+      });
+
+      expect(productsApi.searchProducts).toHaveBeenCalledWith('dream');
+    });
+
+    it('renders search results in a flat grid when searchProducts resolves', async () => {
+      productsApi.searchProducts.mockResolvedValue([visibleProduct]);
+      renderProductsPage();
+
+      const input = screen.getByRole('searchbox', { name: /search products/i });
+      fireEvent.change(input, { target: { value: 'dream' } });
+
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+        // flush the resolved promise
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('products-grid')).toBeInTheDocument();
+      expect(screen.getByTestId(`product-card-${visibleProduct.id}`)).toBeInTheDocument();
+    });
+
+    it('restores the grouped view when query is cleared', async () => {
+      productsApi.searchProducts.mockResolvedValue([visibleProduct]);
+      renderProductsPage();
+
+      const input = screen.getByRole('searchbox', { name: /search products/i });
+
+      // Type a query first
+      fireEvent.change(input, { target: { value: 'dream' } });
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+        await Promise.resolve();
+      });
+      expect(productsApi.searchProducts).toHaveBeenCalledTimes(1);
+
+      // Clear it
+      fireEvent.change(input, { target: { value: '' } });
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+        await Promise.resolve();
+      });
+
+      // searchProducts should not have been called again for empty query
+      expect(productsApi.searchProducts).toHaveBeenCalledTimes(1);
+      // The products-grid renders from the normal flat/grouped path
+      expect(screen.getByTestId('products-grid')).toBeInTheDocument();
     });
   });
 

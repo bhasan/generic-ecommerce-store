@@ -9,6 +9,9 @@ export const createProduct = api.create;
 export const updateProduct = api.update;
 export const deleteProduct = api.remove;
 
+export const searchProducts = (q, { limit = 50, offset = 0 } = {}) =>
+  get(`/products/search?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`);
+
 export const downloadProductsZip = async () => {
   // apiClient returns the raw Response for non-JSON content types
   const response = await get('/products/export-zip', { retries: 0 });
