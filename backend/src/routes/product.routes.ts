@@ -37,6 +37,7 @@ const updateVariantValidators = [
 
 router.get('/', optionalAuthenticate, asyncHandler(productController.getAllProducts));
 router.get('/export-zip', authenticate, authorizeManagement, asyncHandler(productController.exportZip));
+router.get('/search', optionalAuthenticate, asyncHandler(productController.searchProducts));
 router.get('/:id', optionalAuthenticate, asyncHandler(productController.getProductById));
 
 router.post(

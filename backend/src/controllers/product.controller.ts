@@ -14,6 +14,16 @@ export class ProductController {
     res.status(200).json(products);
   }
 
+  async searchProducts(req: Request, res: Response): Promise<void> {
+    const q = (req.query.q as string) ?? '';
+    const { limit, offset } = parsePaginationQuery(
+      req.query as { limit?: string; offset?: string },
+      { defaultLimit: 50, maxLimit: 200 },
+    );
+    const products = await productService.searchProducts(req.user?.roles, q, { limit, offset });
+    res.status(200).json(products);
+  }
+
   async getProductById(req: Request, res: Response) : Promise<void> {
     const id = parseIntParam(req.params.id, res, 'product');
     if (id === null) return;

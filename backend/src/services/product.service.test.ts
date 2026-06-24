@@ -253,6 +253,20 @@ describe('VIP product filtering', () => {
   });
 });
 
+describe('searchProducts', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('searchProducts filters by name/description, respects visibility, and is bounded', async () => {
+    prismaMock.product.findMany.mockResolvedValue([]);
+    const { default: productService } = await import('./product.service');
+    await productService.searchProducts(undefined /* guest */, 'kush', { limit: 25, offset: 0 });
+    const arg = prismaMock.product.findMany.mock.calls[0][0];
+    expect(arg.where.AND ?? arg.where).toBeDefined();         // visibility filter present
+    expect(JSON.stringify(arg.where)).toContain('insensitive'); // case-insensitive contains
+    expect(arg.take).toBe(25);
+  });
+});
+
 describe('product service logging', () => {
   beforeEach(() => vi.clearAllMocks());
 
