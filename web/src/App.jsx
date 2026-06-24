@@ -24,6 +24,13 @@ import OrderSuccessPage from './features/cart/OrderSuccessPage';
 import OrdersPage from './features/orders/OrdersPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import PendingRegistrationsPage from './features/dashboard/pages/PendingRegistrationsPage';
+import AnnouncementsPage from './features/dashboard/pages/AnnouncementsPage';
+import MessagesPage from './features/dashboard/pages/MessagesPage';
+import RejectedUsersPage from './features/dashboard/pages/RejectedUsersPage';
+import UsersPage from './features/dashboard/pages/UsersPage';
+import LandingPageSettingsPage from './features/dashboard/pages/LandingPageSettingsPage';
+import VIPManagementPage from './features/dashboard/pages/VIPManagementPage';
 import StoreCreditPage from './features/credits/StoreCreditPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import OrderHistoryPage from './features/orders/OrderHistoryPage';
@@ -137,7 +144,16 @@ function AppContent() {
             <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
               <DashboardPage />
             </ProtectedRoute>
-          } />
+          }>
+            <Route index element={<Navigate to="pending-registrations" replace />} />
+            <Route path="pending-registrations" element={<PendingRegistrationsPage />} />
+            <Route path="announcements" element={<AnnouncementsPage />} />
+            <Route path="messages" element={<MessagesPage />} />
+            <Route path="vip-management" element={<VIPManagementPage />} />
+            <Route path="landing-page" element={<LandingPageSettingsPage />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="rejected-users" element={<RejectedUsersPage />} />
+          </Route>
 
 
           {/* Store Credit - Admin/Manager only */}
