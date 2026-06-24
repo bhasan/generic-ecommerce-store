@@ -398,6 +398,7 @@ function ManageProductsPanel() {
   });
   const [manageTab, setManageTab] = useState('products'); // 'products' | 'categories'
   const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', variants: '' });
+  const [productSearchQuery, setProductSearchQuery] = useState('');
 
   useEffect(() => {
     localStorage.setItem('manageProductsViewMode', viewMode);
@@ -875,10 +876,62 @@ function ManageProductsPanel() {
             />
           )}
 
+          <input
+            type="search"
+            placeholder="Filter products…"
+            value={productSearchQuery}
+            onChange={(e) => setProductSearchQuery(e.target.value)}
+            aria-label="Filter products"
+            className="products-search-input"
+          />
+
           {isLoadingProducts || isLoadingCategories ? (
             <EmptyState message="Loading products..." />
           ) : orderedProducts.length === 0 ? (
             <EmptyState message="No products found. Add your first product to get started!" />
+          ) : productSearchQuery.trim() ? (
+            (() => {
+              const term = productSearchQuery.trim().toLowerCase();
+              const matches = orderedProducts.filter(p =>
+                p.name?.toLowerCase().includes(term) ||
+                p.description?.toLowerCase().includes(term)
+              );
+              return matches.length === 0 ? (
+                <EmptyState message="No products match your search." />
+              ) : (
+                <div className={viewMode === 'list' ? 'products-list' : `products-grid ${viewMode === 'grid' ? 'products-grid-compact' : ''}`}>
+                  {matches.map(product =>
+                    viewMode === 'list' ? (
+                      <SortableProductListItem
+                        key={product.id}
+                        product={product}
+                        dragEnabled={false}
+                        canManage={canManageProducts}
+                        canDelete={userRoles.includes(ROLES.ADMIN)}
+                        onToggleHidden={toggleHidden}
+                        onEdit={handleEdit}
+                        onDeleteClick={handleDeleteClick}
+                        getProductLabel={getProductCategoryLabel}
+                        editingDisabled={editingId !== null || showAddForm}
+                      />
+                    ) : (
+                      <SortableProductCard
+                        key={product.id}
+                        product={product}
+                        dragEnabled={false}
+                        canManage={canManageProducts}
+                        canDelete={userRoles.includes(ROLES.ADMIN)}
+                        onToggleHidden={toggleHidden}
+                        onEdit={handleEdit}
+                        onDeleteClick={handleDeleteClick}
+                        getProductLabel={getProductCategoryLabel}
+                        editingDisabled={editingId !== null || showAddForm}
+                      />
+                    )
+                  )}
+                </div>
+              );
+            })()
           ) : (
             <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
               <SortableContext items={topLevelCategories.map(item => item.id)} strategy={verticalListSortingStrategy}>
