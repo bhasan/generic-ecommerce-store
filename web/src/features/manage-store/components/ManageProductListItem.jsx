@@ -64,8 +64,8 @@ function ManageProductListItem({
             <Edit size={16} /><span>Edit</span>
           </button>
           {canDelete && (
-            <button onClick={() => onDeleteClick(product.id, product.name)} className="btn-delete">
-              <Trash2 size={16} /><span>Delete</span>
+            <button onClick={() => onDeleteClick(product.id, product.name)} className="btn-delete" title="Delete product">
+              <Trash2 size={16} />
             </button>
           )}
         </div>

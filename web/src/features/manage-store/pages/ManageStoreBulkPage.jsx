@@ -117,7 +117,7 @@ function ManageStoreBulkPage() {
                 <p className="bulk-action-desc">{action.description}</p>
               </div>
               <button
-                className="btn btn-secondary"
+                className="bulk-action-btn"
                 onClick={() => handleAction(action.key)}
                 disabled={isDisabled(action.key)}
               >
