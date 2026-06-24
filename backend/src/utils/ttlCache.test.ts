@@ -13,6 +13,16 @@ describe('TtlCache', () => {
     expect(cache.get('k')).toBeUndefined();
   });
 
+  it('falls back to defaultTtlMs when ttlMs is NaN, Infinity, or negative', () => {
+    for (const bad of [NaN, Infinity, -1, 0]) {
+      const cache = new TtlCache<number>(bad, 500);
+      cache.set('k', 1);
+      expect(cache.get('k')).toBe(1);
+      vi.advanceTimersByTime(501);
+      expect(cache.get('k')).toBeUndefined();
+    }
+  });
+
   it('delete and clear remove entries', () => {
     const cache = new TtlCache<string>(1000);
     cache.set('a', 'x'); cache.set('b', 'y');
