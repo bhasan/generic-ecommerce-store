@@ -100,8 +100,7 @@ describe('auth service', () => {
       updatedAt: new Date('2024-01-01'),
     });
     comparePassword.mockResolvedValue(true);
-    prismaMock.userRole.findMany.mockResolvedValue([{ roleId: 1 }]);
-    prismaMock.role.findMany.mockResolvedValue([{ id: 1, name: 'ADMIN' }]);
+    prismaMock.userRole.findMany.mockResolvedValue([{ role: { name: 'ADMIN' } }]);
     generateToken.mockReturnValue('jwt-token');
 
     const { AuthService } = await import('./auth.service');
@@ -139,10 +138,7 @@ describe('auth service', () => {
       createdAt: new Date('2024-01-01'),
     });
     prismaMock.userRole.createMany.mockResolvedValue({});
-    prismaMock.userRole.findMany.mockResolvedValue([{ roleId: 1 }]);
-    prismaMock.role.findMany
-      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }])
-      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }]);
+    prismaMock.userRole.findMany.mockResolvedValue([{ role: { name: 'CUSTOMER' } }]);
 
     const { AuthService } = await import('./auth.service');
     const service = new AuthService();
@@ -172,10 +168,7 @@ describe('auth service', () => {
       createdAt: new Date('2024-01-01'),
     });
     prismaMock.userRole.createMany.mockResolvedValue({});
-    prismaMock.userRole.findMany.mockResolvedValue([{ roleId: 1 }]);
-    prismaMock.role.findMany
-      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }])
-      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }]);
+    prismaMock.userRole.findMany.mockResolvedValue([{ role: { name: 'CUSTOMER' } }]);
 
     const { AuthService } = await import('./auth.service');
     const service = new AuthService();
