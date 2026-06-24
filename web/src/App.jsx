@@ -24,12 +24,24 @@ import OrderSuccessPage from './features/cart/OrderSuccessPage';
 import OrdersPage from './features/orders/OrdersPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import PendingRegistrationsPage from './features/dashboard/pages/PendingRegistrationsPage';
+import AnnouncementsPage from './features/dashboard/pages/AnnouncementsPage';
+import MessagesPage from './features/dashboard/pages/MessagesPage';
+import RejectedUsersPage from './features/dashboard/pages/RejectedUsersPage';
+import UsersPage from './features/dashboard/pages/UsersPage';
+import LandingPageSettingsPage from './features/dashboard/pages/LandingPageSettingsPage';
+import VIPManagementPage from './features/dashboard/pages/VIPManagementPage';
 import StoreCreditPage from './features/credits/StoreCreditPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import OrderHistoryPage from './features/orders/OrderHistoryPage';
 import WebsiteManagementPage from './features/website/WebsiteManagementPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
+import ManageStorePage from './features/manage-store/ManageStorePage';
+import ManageStoreProductsPage from './features/manage-store/pages/ManageStoreProductsPage';
+import ManageStoreCategoriesPage from './features/manage-store/pages/ManageStoreCategoriesPage';
+import ManageStoreMediaPage from './features/manage-store/pages/ManageStoreMediaPage';
+import ManageStoreBulkPage from './features/manage-store/pages/ManageStoreBulkPage';
 
 function App() {
   return (
@@ -111,19 +123,37 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          {/* Admin/Manager Routes */}
-          <Route path="/manage-products" element={
+          {/* Old manage-products redirect */}
+          <Route path="/manage-products" element={<Navigate to="/manage-store/products" replace />} />
+
+          {/* Manage Store - nested routes */}
+          <Route path="/manage-store" element={
             <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
-              <ProductsPage mode="manage" />
+              <ManageStorePage />
             </ProtectedRoute>
-          } />
+          }>
+            <Route index element={<Navigate to="products" replace />} />
+            <Route path="products" element={<ManageStoreProductsPage />} />
+            <Route path="categories" element={<ManageStoreCategoriesPage />} />
+            <Route path="media" element={<ManageStoreMediaPage />} />
+            <Route path="bulk" element={<ManageStoreBulkPage />} />
+          </Route>
 
           {/* Dashboard - Admin/Manager only */}
           <Route path="/dashboard" element={
             <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
               <DashboardPage />
             </ProtectedRoute>
-          } />
+          }>
+            <Route index element={<Navigate to="pending-registrations" replace />} />
+            <Route path="pending-registrations" element={<PendingRegistrationsPage />} />
+            <Route path="announcements" element={<AnnouncementsPage />} />
+            <Route path="messages" element={<MessagesPage />} />
+            <Route path="vip-management" element={<VIPManagementPage />} />
+            <Route path="landing-page" element={<LandingPageSettingsPage />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="rejected-users" element={<RejectedUsersPage />} />
+          </Route>
 
 
           {/* Store Credit - Admin/Manager only */}

@@ -87,7 +87,6 @@ vi.mock('./ProductItemModal', () => ({
   ),
 }));
 
-vi.mock('./ManageProductsPanel', () => ({ default: () => <div>ManageProductsPanel</div> }));
 vi.mock('../../components/common/EmptyState', () => ({ default: ({ message }) => <p>{message}</p> }));
 vi.mock('../../components/common/HeaderDivider', () => ({ default: () => <hr /> }));
 

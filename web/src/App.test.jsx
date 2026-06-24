@@ -20,7 +20,7 @@ vi.mock('./components/common/Notification', () => ({ default: () => <div>Notific
 vi.mock('./components/common/ErrorBoundary', () => ({ default: ({ children }) => <>{children}</> }));
 vi.mock('./features/auth/LoginPage', () => ({ default: () => <div>LoginPage</div> }));
 vi.mock('./features/auth/RegisterPage', () => ({ default: () => <div>RegisterPage</div> }));
-vi.mock('./features/products/ProductsPage', () => ({ default: ({ mode }) => <div>{mode === 'manage' ? 'ManageProductsPage' : 'ProductsPage'}</div> }));
+vi.mock('./features/products/ProductsPage', () => ({ default: () => <div>ProductsPage</div> }));
 vi.mock('./features/products/ProductItemPage', () => ({ default: () => <div>ProductItemPage</div> }));
 vi.mock('./features/cart/CartPage', () => ({ default: () => <div>CartPage</div> }));
 vi.mock('./features/cart/CheckoutPage', () => ({ default: () => <div>CheckoutPage</div> }));

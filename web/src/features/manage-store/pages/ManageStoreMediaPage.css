@@ -1,0 +1,14 @@
+.manage-store-media-inline .media-modal-overlay {
+  position: static;
+  background: none;
+  display: block;
+  padding: 0;
+}
+
+.manage-store-media-inline .media-modal-content {
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}

@@ -1,0 +1,32 @@
+/* web/src/features/manage-store/components/ProductsToolbar.css */
+.products-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.products-toolbar-search {
+  flex: 1;
+  min-width: 12.5rem;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  transition: var(--transition-fast);
+}
+
+.products-toolbar-search:focus {
+  outline: none;
+  border-color: var(--border-color-hover);
+  box-shadow: 0 0 0 2px var(--color-primary-bg);
+}
+
+.products-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
