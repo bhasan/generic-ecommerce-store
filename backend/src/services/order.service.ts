@@ -88,6 +88,22 @@ const orderItemsInclude = {
   },
 };
 
+const orderItemsListInclude = {
+  items: {
+    orderBy: { id: 'asc' as const },
+    select: {
+      id: true,
+      variantId: true,
+      productName: true,
+      variantLabel: true,
+      quantity: true,
+      unitPrice: true,
+      voided: true,
+      addedAfterSubmission: true,
+    },
+  },
+};
+
 // Normalize an included order item into the response shape, preferring the stored
 // snapshots (productName/variantLabel/unitPrice) and adding a display image + a `price`
 // alias for backward compatibility.
@@ -158,7 +174,7 @@ export class OrderService {
         orderBy: { createdAt: 'desc' },
         include: {
           user: { select: { id: true, username: true, phoneNumber: true, address: true } },
-          ...orderItemsInclude,
+          ...orderItemsListInclude,
         },
         ...(limit !== undefined && { take: limit }),
         ...(offset !== undefined && { skip: offset }),
