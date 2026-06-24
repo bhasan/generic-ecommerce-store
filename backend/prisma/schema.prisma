@@ -166,6 +166,7 @@ model StoreCreditTransaction {
   order         Order?                     @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
+  @@index([orderId])
   @@map("store_credit_transactions")
 }
 
@@ -373,6 +374,7 @@ model ContactMessage {
 
   @@index([userId])
   @@index([status])
+  @@index([orderId])
   @@map("contact_messages")
 }
 
