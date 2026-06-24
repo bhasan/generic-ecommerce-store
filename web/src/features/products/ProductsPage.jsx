@@ -8,7 +8,6 @@ import { isGuest, ROLES } from '../../utils/roles';
 import EmptyState from '../../components/common/EmptyState';
 import ProductsHeader from './ProductsHeader';
 import ProductsGrid from './ProductsGrid';
-import ManageProductsPanel from './ManageProductsPanel';
 import CategorySection from './CategorySection';
 import CategoryNav from './CategoryNav';
 import { getProductCategoryLabel, groupProductsByCategory, sortProducts } from './productsHelpers';
@@ -106,10 +105,6 @@ function ProductsPage({ mode = 'browse' }) {
   const { topLevel, childrenByParent, byCategoryId, flat } = groupProductsByCategory(visibleProducts, categories);
   const { visibleCount, sentinelRef } = useProgressiveReveal(topLevel, 4);
   const productCategoryLabel = getProductCategoryLabel;
-
-  if (mode === 'manage' && isManagement) {
-    return <ManageProductsPanel />;
-  }
 
   return (
     <div className="products-page-container">
