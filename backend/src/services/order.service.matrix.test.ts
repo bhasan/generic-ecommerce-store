@@ -9,7 +9,7 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const prismaMock = vi.hoisted(() => ({
   user: { update: vi.fn() },
-  productVariant: { findMany: vi.fn(), update: vi.fn() },
+  productVariant: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   order: { create: vi.fn(), findUnique: vi.fn() },
   orderItem: { create: vi.fn() },
   payment: { create: vi.fn() },
@@ -171,6 +171,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
     prismaMock.user.update.mockResolvedValue({});
     prismaMock.productVariant.findMany.mockResolvedValue([VARIANT]);
     prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 99, variantId: 1, quantity: 1, unitPrice: new Prisma.Decimal(20) });
     orderingConstraintsMock.getOrderingConstraints.mockResolvedValue({
       minimumDeliveryOrder: 0,
