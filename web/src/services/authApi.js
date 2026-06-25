@@ -1,4 +1,4 @@
-import { post, get, setAuthToken, setRefreshToken, clearAuthToken, getRefreshToken } from './api';
+import { post, get, setAuthToken, clearAuthToken } from './api';
 
 /**
  * Login user
@@ -9,12 +9,10 @@ import { post, get, setAuthToken, setRefreshToken, clearAuthToken, getRefreshTok
 export const login = async (username, password) => {
   const response = await post('/auth/login', { username, password });
 
+  // The refresh token is delivered as an httpOnly cookie by the backend; only
+  // the access token comes back in the body, and it stays in memory.
   if (response.token) {
     setAuthToken(response.token);
-  }
-
-  if (response.refreshToken) {
-    setRefreshToken(response.refreshToken);
   }
 
   if (response.user) {
@@ -39,10 +37,6 @@ export const register = async (data) => {
     setAuthToken(response.token);
   }
 
-  if (response.refreshToken) {
-    setRefreshToken(response.refreshToken);
-  }
-
   return {
     user: response.user,
     message: response.message,
@@ -51,24 +45,18 @@ export const register = async (data) => {
 };
 
 /**
- * Exchange the stored refresh token for a new access token + rotated refresh token.
- * @param {string} rawToken - The current refresh token value
- * @returns {Promise<{token: string, refreshToken: string}>}
+ * Exchange the httpOnly refresh cookie for a new access token. The cookie is
+ * sent automatically (credentials: 'include'); no token argument is needed.
+ * @returns {Promise<{token: string}>}
  */
-export const refresh = async (rawToken) => {
-  const response = await post('/auth/refresh', { refreshToken: rawToken }, { skipAutoLogout: true });
+export const refresh = async () => {
+  const response = await post('/auth/refresh', {}, { skipAutoLogout: true });
 
   if (response.token) {
     setAuthToken(response.token);
   }
-  if (response.refreshToken) {
-    setRefreshToken(response.refreshToken);
-  }
 
-  return {
-    token: response.token,
-    refreshToken: response.refreshToken,
-  };
+  return { token: response.token };
 };
 
 /**
@@ -91,8 +79,9 @@ export const getProfile = async () => {
  */
 export const logout = async () => {
   try {
-    // Send the refresh token so the server can revoke it (server-side logout).
-    await post('/auth/logout', { refreshToken: getRefreshToken() });
+    // The refresh cookie is sent automatically; the server revokes it and
+    // clears the cookie.
+    await post('/auth/logout', {});
   } finally {
     // Keep logout cleanup unconditional: the app historically treats logout as a
     // local-auth reset even when the backend request fails or times out.

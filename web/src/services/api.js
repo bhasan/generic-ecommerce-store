@@ -47,81 +47,61 @@ const notifyBackendUnavailable = (message) => {
 };
 
 /**
- * Get stored auth token from localStorage
+ * The access token lives in memory only — never localStorage — so an injected
+ * script can't exfiltrate it from storage. It is intentionally lost on a hard
+ * refresh and re-minted from the httpOnly refresh cookie via refresh-on-mount.
+ */
+let accessToken = null;
+
+/**
+ * Get the in-memory access token.
  */
 const getAuthToken = () => {
-  return localStorage.getItem('authToken');
+  return accessToken;
 };
 
 /**
- * Store auth token in localStorage
+ * Set the in-memory access token.
  */
 const setAuthToken = (token) => {
-  if (token) {
-    localStorage.setItem('authToken', token);
-  } else {
-    localStorage.removeItem('authToken');
-  }
+  accessToken = token || null;
 };
 
 /**
- * Get stored refresh token from localStorage
- */
-const getRefreshToken = () => {
-  return localStorage.getItem('refreshToken');
-};
-
-/**
- * Store refresh token in localStorage
- */
-const setRefreshToken = (token) => {
-  if (token) {
-    localStorage.setItem('refreshToken', token);
-  } else {
-    localStorage.removeItem('refreshToken');
-  }
-};
-
-/**
- * Clear auth token from localStorage
+ * Clear the in-memory access token and cached user data. The refresh token is
+ * an httpOnly cookie cleared by the backend on logout — JS cannot touch it.
  */
 const clearAuthToken = () => {
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('refreshToken');
+  accessToken = null;
   localStorage.removeItem('userData');
 };
 
 /**
- * Single-flight refresh: exchange the stored refresh token for a new access
- * token (and a rotated refresh token). All concurrent 401s share one in-flight
- * promise so the server performs exactly one rotation — preventing a
- * thundering herd that would trip reuse-detection and revoke the family.
+ * Single-flight refresh: exchange the httpOnly refresh cookie for a new access
+ * token. The refresh token rides in the cookie (credentials: 'include'), never
+ * in the body. All concurrent 401s share one in-flight promise so the server
+ * performs exactly one rotation — preventing a thundering herd that would trip
+ * reuse-detection and revoke the family.
  *
- * Returns the new access token, or null if no refresh is possible / it failed.
+ * Returns the new access token, or null if refresh failed (no/expired cookie).
  */
 let refreshPromise = null;
 const refreshAccessToken = () => {
   if (!refreshPromise) {
-    const rawRefresh = getRefreshToken();
-    if (!rawRefresh) return Promise.resolve(null);
-
     refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: rawRefresh }),
+      credentials: 'include',
     })
       .then(async (res) => {
         if (!res.ok) throw new Error('Refresh failed');
         const data = await res.json();
         setAuthToken(data.token);
-        setRefreshToken(data.refreshToken);
         return data.token;
       })
       .catch((error) => {
-        // Refresh failed (expired/revoked/reuse-detected) — drop the dead
-        // refresh token so we stop retrying. The caller falls through to the
-        // normal auth:unauthorized path.
-        setRefreshToken(null);
+        // Refresh failed (no cookie / expired / revoked / reuse-detected).
+        // The caller falls through to the normal auth:unauthorized path.
         throw error;
       })
       .finally(() => {
@@ -205,6 +185,9 @@ const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
   const config = {
     ...requestOptions,
     headers,
+    // Send the httpOnly refresh cookie on auth endpoints (and harmlessly
+    // elsewhere, since it is path-scoped to /api/auth by the backend).
+    credentials: 'include',
   };
 
   let lastError;
@@ -242,8 +225,7 @@ const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
         !skipAutoLogout &&
         !alreadyRefreshed &&
         Boolean(token) &&
-        getAuthToken() === token &&
-        getRefreshToken()
+        getAuthToken() === token
       ) {
         let newToken = null;
         try {
@@ -388,5 +370,5 @@ export const del = (url, options = {}) => {
 };
 
 // Export token management functions
-export { getAuthToken, setAuthToken, clearAuthToken, getRefreshToken, setRefreshToken, refreshAccessToken };
+export { getAuthToken, setAuthToken, clearAuthToken, refreshAccessToken };
 

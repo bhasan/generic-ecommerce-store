@@ -5,7 +5,7 @@ import * as authApi from '../services/authApi';
 import * as usersApi from '../services/usersApi';
 import * as ordersApi from '../services/ordersApi';
 import * as creditApi from '../services/storeCreditApi';
-import { getAuthToken, getRefreshToken, newSession } from '../services/api';
+import { getAuthToken, newSession } from '../services/api';
 import { GUEST_USER, ROLES } from '../utils/roles';
 import { useUIContext } from './UIContext';
 
@@ -41,16 +41,17 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // If the access token is gone but a refresh token survives (e.g. the
-        // 15-min access token expired while the tab was closed), mint a fresh
-        // access token before hitting the profile endpoint.
-        if (!getAuthToken() && getRefreshToken()) {
+        // The access token lives in memory only, so it is always empty on a
+        // fresh load. Mint one from the httpOnly refresh cookie (if the user
+        // has a live session); otherwise fall through as a guest.
+        let token = getAuthToken();
+        if (!token) {
           try {
-            await authApi.refresh(getRefreshToken());
-          } catch { /* refresh failed — fall through as unauthenticated */ }
+            await authApi.refresh();
+            token = getAuthToken();
+          } catch { /* no/expired cookie — fall through as unauthenticated */ }
         }
 
-        const token = getAuthToken();
         if (token) {
           try {
             const user = await authApi.getProfile();

@@ -1,6 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
-import { loginViaUI } from '../helpers/auth';
+import { loginViaUI, establishSession } from '../helpers/auth';
 
 // Regression tests for the AppContext split (refactors_6-25).
 // These cover cross-context coordination scenarios that unit tests cannot reach:
@@ -110,7 +110,7 @@ test.describe('cart cleared on unauthorized', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('cart localStorage persistence', () => {
-  test.use({ storageState: ACCOUNTS.customer.storageStatePath });
+  test.beforeEach(async ({ context }) => { await establishSession(context, ACCOUNTS.customer); });
 
   test('cart items survive a full page reload', async ({ page }) => {
     const product = await getInStockProduct(page);
@@ -173,7 +173,7 @@ test.describe('store config on unauthenticated routes', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 test.describe('cart cleared after checkout', () => {
-  test.use({ storageState: ACCOUNTS.customer.storageStatePath });
+  test.beforeEach(async ({ context }) => { await establishSession(context, ACCOUNTS.customer); });
 
   test('cart is empty in localStorage and UI after a successful order', async ({ page }) => {
     const productsRes = await page.request.get('http://localhost:3000/api/products');

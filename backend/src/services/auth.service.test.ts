@@ -26,6 +26,7 @@ const {
     },
     refreshToken: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -89,6 +90,7 @@ describe('auth service', () => {
     prismaMock.refreshToken.create.mockResolvedValue({});
     prismaMock.refreshToken.update.mockResolvedValue({});
     prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.refreshToken.findFirst.mockResolvedValue(null);
   });
 
   it('logs and rejects duplicate registrations', async () => {
@@ -291,12 +293,12 @@ describe('auth service', () => {
       });
     });
 
-    it('detects reuse of a revoked token and revokes the whole family', async () => {
+    it('detects reuse of a token revoked beyond the grace window and revokes the family', async () => {
       prismaMock.refreshToken.findUnique.mockResolvedValue({
         id: 2,
         userId: 7,
         familyId: 'fam-2',
-        revokedAt: new Date(),
+        revokedAt: new Date(Date.now() - 60_000), // 60s ago — beyond the 15s grace
         expiresAt: new Date(Date.now() + 100000),
       });
       const { AuthService } = await import('./auth.service');
@@ -306,6 +308,41 @@ describe('auth service', () => {
         where: { familyId: 'fam-2', revokedAt: null },
         data: { revokedAt: expect.any(Date) },
       });
+    });
+
+    it('rotates the live head for a token reused within the grace window (no family revoke)', async () => {
+      prismaMock.refreshToken.findUnique.mockResolvedValue({
+        id: 5,
+        userId: 7,
+        familyId: 'fam-5',
+        revokedAt: new Date(Date.now() - 2_000), // 2s ago — within the 15s grace
+        expiresAt: new Date(Date.now() + 100000),
+      });
+      // The family's current live head that should be rotated instead.
+      prismaMock.refreshToken.findFirst.mockResolvedValue({
+        id: 6,
+        userId: 7,
+        familyId: 'fam-5',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 100000),
+      });
+      prismaMock.user.findUnique.mockResolvedValue({ id: 7, username: 'user-test' });
+      prismaMock.userRole.findMany.mockResolvedValue([{ role: { name: 'ADMIN' } }]);
+      generateToken.mockReturnValue('grace-access');
+      generateRefreshTokenValue.mockReturnValue('grace-refresh');
+
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      const result = await service.refresh('reused-within-grace');
+
+      expect(result.token).toBe('grace-access');
+      expect(result.refreshToken).toBe('grace-refresh');
+      // Rotated the live HEAD (id 6), not the replayed token, and did NOT revoke the family.
+      expect(prismaMock.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 6 },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prismaMock.refreshToken.updateMany).not.toHaveBeenCalled();
     });
 
     it('rotates the token and mints a new access token on success', async () => {

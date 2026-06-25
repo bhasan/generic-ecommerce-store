@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
+import { establishSession } from '../helpers/auth';
 
 test.describe('Customer order flow — browse → cart → checkout → my-orders', () => {
-  test.use({ storageState: ACCOUNTS.customer.storageStatePath });
+  test.beforeEach(async ({ context }) => { await establishSession(context, ACCOUNTS.customer); });
 
   test('PICKUP × IN_STORE order appears in my-orders by order id', async ({ page }) => {
     // Resolve a purchasable product ID via API (products endpoint is unauthenticated)

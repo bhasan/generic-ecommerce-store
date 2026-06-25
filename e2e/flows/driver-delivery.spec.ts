@@ -14,51 +14,44 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
   const IN_ZONE_ZIP = '77083';
   const CREDIT_AMOUNT = 500;
 
-  test('staff dispatch, driver delivers, with driver RBAC enforced', async ({ browser }) => {
+  test('staff dispatch, driver delivers, with driver RBAC enforced', async ({ browser, request }) => {
+    const API = 'http://localhost:3000/api';
+    // Mint a bearer token via direct API login (tokens are no longer in localStorage).
+    const apiLogin = async (username: string, password: string) => {
+      const res = await request.post(`${API}/auth/login`, { data: { username, password } });
+      expect(res.ok(), `${username} login failed`).toBeTruthy();
+      return (await res.json()).token as string;
+    };
+
     // --- Admin: make the in-zone ZIP deliverable and drop the delivery minimum ---
-    const adminCtx = await browser.newContext({ storageState: ACCOUNTS.admin.storageStatePath });
-    const adminPage = await adminCtx.newPage();
-    await adminPage.goto('/');
-    await adminPage.waitForLoadState('networkidle');
-    const constraintsOk = await adminPage.evaluate(async ({ zip }) => {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/ordering-constraints', {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          offlineZipFallbackEnabled: true,
-          offlineDeliveryZipCodes: [zip],
-          minimumDeliveryOrderEnabled: false,
-          deliveryRadiusMiles: 5,
-        }),
-      });
-      return res.ok;
-    }, { zip: IN_ZONE_ZIP });
-    expect(constraintsOk, 'Failed to update ordering constraints').toBeTruthy();
-    await adminCtx.close();
+    const adminToken = await apiLogin(ACCOUNTS.admin.username, ACCOUNTS.admin.password);
+    const constraintsRes = await request.put(`${API}/ordering-constraints`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: {
+        offlineZipFallbackEnabled: true,
+        offlineDeliveryZipCodes: [IN_ZONE_ZIP],
+        minimumDeliveryOrderEnabled: false,
+        deliveryRadiusMiles: 5,
+      },
+    });
+    expect(constraintsRes.ok(), 'Failed to update ordering constraints').toBeTruthy();
 
     // --- Manager: grant the customer enough credit to pay for the order ---
+    const managerToken = await apiLogin(ACCOUNTS.manager.username, ACCOUNTS.manager.password);
+    const managerAuth = { Authorization: `Bearer ${managerToken}` };
+    const usersRes = await request.get(`${API}/users`, { headers: managerAuth });
+    const users = await usersRes.json();
+    const customer = users.find((u: { username: string }) => u.username === ACCOUNTS.customer.username);
+    expect(customer, 'Customer not found in seeded users').toBeTruthy();
+    const creditRes = await request.post(`${API}/storecredit/${customer.id}/add`, {
+      headers: managerAuth,
+      data: { amount: CREDIT_AMOUNT, note: 'e2e delivery test credit' },
+    });
+    expect(creditRes.ok(), 'Credit API call failed').toBeTruthy();
+
+    // Manager UI context (storageState → refresh cookie) for the kanban dispatch below.
     const managerCtx = await browser.newContext({ storageState: ACCOUNTS.manager.storageStatePath });
     const managerPage = await managerCtx.newPage();
-    await managerPage.goto('/');
-    await managerPage.waitForLoadState('networkidle');
-    const customer = await managerPage.evaluate(async (username) => {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } });
-      const users = await res.json();
-      return users.find((u: { username: string }) => u.username === username);
-    }, ACCOUNTS.customer.username);
-    expect(customer, 'Customer not found in seeded users').toBeTruthy();
-    const creditOk = await managerPage.evaluate(async ({ userId, amount }: { userId: number; amount: number }) => {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/storecredit/${userId}/add`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, note: 'e2e delivery test credit' }),
-      });
-      return res.ok;
-    }, { userId: customer.id, amount: CREDIT_AMOUNT });
-    expect(creditOk, 'Credit API call failed').toBeTruthy();
 
     // --- Customer: place a DELIVERY × CREDIT order to the in-zone address ---
     const customerCtx = await browser.newContext({ storageState: ACCOUNTS.customer.storageStatePath });
@@ -128,16 +121,12 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     await driverPage.waitForLoadState('networkidle');
 
     // A delivery driver may ONLY mark DELIVERED — never dispatch an order itself.
-    const dispatchStatus = await driverPage.evaluate(async (orderId) => {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'READY_FOR_DELIVERY' }),
-      });
-      return res.status;
-    }, rawId);
-    expect(dispatchStatus, 'Driver should be forbidden from changing non-DELIVERED status').toBe(403);
+    const driverToken = await apiLogin(ACCOUNTS.driver.username, ACCOUNTS.driver.password);
+    const dispatchRes = await request.patch(`${API}/orders/${rawId}/status`, {
+      headers: { Authorization: `Bearer ${driverToken}` },
+      data: { status: 'READY_FOR_DELIVERY' },
+    });
+    expect(dispatchRes.status(), 'Driver should be forbidden from changing non-DELIVERED status').toBe(403);
 
     // The dispatched order shows in the driver's "Out for Delivery" panel; the driver
     // completes the handoff via the "mark delivered" control (OUT_FOR_DELIVERY → DELIVERED).

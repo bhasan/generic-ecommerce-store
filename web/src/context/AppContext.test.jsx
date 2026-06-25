@@ -11,6 +11,7 @@ const authApi = vi.hoisted(() => ({
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
+  refresh: vi.fn(),
 }));
 
 const usersApi = vi.hoisted(() => ({

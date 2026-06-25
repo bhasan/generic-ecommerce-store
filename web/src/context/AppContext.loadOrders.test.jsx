@@ -11,6 +11,7 @@ const authApi = vi.hoisted(() => ({
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
+  refresh: vi.fn(),
 }));
 const productsApi = vi.hoisted(() => ({ getAllProducts: vi.fn().mockResolvedValue([]) }));
 const categoriesApi = vi.hoisted(() => ({ getAllCategories: vi.fn().mockResolvedValue([]) }));

@@ -4,7 +4,7 @@ import { AppProvider, useApp } from './AppContext';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
-vi.mock('../services/authApi', () => ({ getProfile: vi.fn(), login: vi.fn(), logout: vi.fn(), register: vi.fn() }));
+vi.mock('../services/authApi', () => ({ getProfile: vi.fn(), login: vi.fn(), logout: vi.fn(), register: vi.fn(), refresh: vi.fn() }));
 vi.mock('../services/storeCreditApi', () => ({ getUserCredit: vi.fn() }));
 vi.mock('../services/api', () => ({ getAuthToken: vi.fn(() => null), getRefreshToken: vi.fn(() => null), newSession: vi.fn() }));
 vi.mock('../services/ordersApi', () => ({ getAllOrders: vi.fn(), createOrder: vi.fn(), updateOrderStatus: vi.fn(), notifyArrival: vi.fn(), deleteOrder: vi.fn(), printOrderReceipt: vi.fn(), addItemToOrder: vi.fn(), voidOrderItem: vi.fn(), deleteOrderItem: vi.fn(), checkDeliveryEligibility: vi.fn() }));

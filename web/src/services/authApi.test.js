@@ -4,8 +4,6 @@ const api = vi.hoisted(() => ({
   post: vi.fn(),
   get: vi.fn(),
   setAuthToken: vi.fn(),
-  setRefreshToken: vi.fn(),
-  getRefreshToken: vi.fn(),
   clearAuthToken: vi.fn(),
 }));
 
@@ -35,25 +33,26 @@ describe('authApi', () => {
     });
   });
 
-  it('stores the refresh token on login', async () => {
+  it('does not store any refresh token in JS on login (cookie-based)', async () => {
     api.post.mockResolvedValue({
       user: { id: 1, name: 'User' },
       token: 'token-123',
-      refreshToken: 'refresh-123',
     });
 
     await authApi.login('user@test.com', 'secret');
 
-    expect(api.setRefreshToken).toHaveBeenCalledWith('refresh-123');
+    // Only the access token is stored; the refresh token is an httpOnly cookie.
+    expect(api.setAuthToken).toHaveBeenCalledWith('token-123');
+    expect(api.setAuthToken).toHaveBeenCalledTimes(1);
   });
 
-  it('sends the stored refresh token when logging out', async () => {
-    api.getRefreshToken.mockReturnValue('refresh-xyz');
+  it('logs out by posting to /auth/logout (cookie sent automatically)', async () => {
     api.post.mockResolvedValue({ message: 'Logout successful' });
 
     await authApi.logout();
 
-    expect(api.post).toHaveBeenCalledWith('/auth/logout', { refreshToken: 'refresh-xyz' });
+    expect(api.post).toHaveBeenCalledWith('/auth/logout', {});
+    expect(api.clearAuthToken).toHaveBeenCalled();
   });
 
   it('always clears auth token on logout', async () => {
@@ -64,18 +63,13 @@ describe('authApi', () => {
     expect(api.clearAuthToken).toHaveBeenCalled();
   });
 
-  it('exchanges a refresh token for new tokens', async () => {
-    api.post.mockResolvedValue({ token: 'new-access', refreshToken: 'new-refresh' });
+  it('exchanges the refresh cookie for a new access token', async () => {
+    api.post.mockResolvedValue({ token: 'new-access' });
 
-    const result = await authApi.refresh('old-refresh');
+    const result = await authApi.refresh();
 
-    expect(api.post).toHaveBeenCalledWith(
-      '/auth/refresh',
-      { refreshToken: 'old-refresh' },
-      { skipAutoLogout: true }
-    );
+    expect(api.post).toHaveBeenCalledWith('/auth/refresh', {}, { skipAutoLogout: true });
     expect(api.setAuthToken).toHaveBeenCalledWith('new-access');
-    expect(api.setRefreshToken).toHaveBeenCalledWith('new-refresh');
-    expect(result).toEqual({ token: 'new-access', refreshToken: 'new-refresh' });
+    expect(result).toEqual({ token: 'new-access' });
   });
 });
