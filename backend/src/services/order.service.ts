@@ -690,11 +690,6 @@ export class OrderService {
         throw new AppError(`Invalid quantity for ${variant.product.name}`, 400);
       }
 
-      if (variant.stockEnabled && variant.stock.toNumber() < data.quantity) {
-        logger.warn('Add item failed: insufficient stock', { orderId, variantId: data.variantId, requested: data.quantity });
-        throw new AppError(`Insufficient stock for ${variant.product.name}`, 400);
-      }
-
       const unitPrice = resolveUnitPrice(variant, data.quantity);
 
       // Recalculate order total (Decimal so money stays exact)
@@ -717,10 +712,7 @@ export class OrderService {
         await tx.order.update({ where: { id: orderId }, data: { total: newTotal } });
 
         if (variant.stockEnabled) {
-          await tx.productVariant.update({
-            where: { id: variant.id },
-            data: { stock: { decrement: data.quantity } }
-          });
+          await decrementStockGuarded(tx, variant.id, data.quantity, variant.product.name);
         }
 
         return { orderItem, newTotal };
