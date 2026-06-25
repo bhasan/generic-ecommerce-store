@@ -15,7 +15,7 @@ const notificationsApi = vi.hoisted(() => ({
   getUnreadNotificationCount: vi.fn().mockResolvedValue({ count: 0 }),
   getStaffNotificationCounts: vi.fn().mockResolvedValue(null),
 }));
-const apiModule = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
+const apiModule = vi.hoisted(() => ({ getAuthToken: vi.fn(), getRefreshToken: vi.fn() }));
 
 vi.mock('../services/authApi', () => authApi);
 vi.mock('../services/productsApi', () => productsApi);

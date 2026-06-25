@@ -65,11 +65,70 @@ const setAuthToken = (token) => {
 };
 
 /**
+ * Get stored refresh token from localStorage
+ */
+const getRefreshToken = () => {
+  return localStorage.getItem('refreshToken');
+};
+
+/**
+ * Store refresh token in localStorage
+ */
+const setRefreshToken = (token) => {
+  if (token) {
+    localStorage.setItem('refreshToken', token);
+  } else {
+    localStorage.removeItem('refreshToken');
+  }
+};
+
+/**
  * Clear auth token from localStorage
  */
 const clearAuthToken = () => {
   localStorage.removeItem('authToken');
+  localStorage.removeItem('refreshToken');
   localStorage.removeItem('userData');
+};
+
+/**
+ * Single-flight refresh: exchange the stored refresh token for a new access
+ * token (and a rotated refresh token). All concurrent 401s share one in-flight
+ * promise so the server performs exactly one rotation — preventing a
+ * thundering herd that would trip reuse-detection and revoke the family.
+ *
+ * Returns the new access token, or null if no refresh is possible / it failed.
+ */
+let refreshPromise = null;
+const refreshAccessToken = () => {
+  if (!refreshPromise) {
+    const rawRefresh = getRefreshToken();
+    if (!rawRefresh) return Promise.resolve(null);
+
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rawRefresh }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Refresh failed');
+        const data = await res.json();
+        setAuthToken(data.token);
+        setRefreshToken(data.refreshToken);
+        return data.token;
+      })
+      .catch((error) => {
+        // Refresh failed (expired/revoked/reuse-detected) — drop the dead
+        // refresh token so we stop retrying. The caller falls through to the
+        // normal auth:unauthorized path.
+        setRefreshToken(null);
+        throw error;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
 };
 
 /**
@@ -128,7 +187,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isRetryableStatus = (status) => status >= 500 && status <= 599;
 
-const apiClient = async (url, options = {}) => {
+const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
   const token = getAuthToken();
   const sessionId = currentSessionId;
   const { retries, skipAutoLogout, ...requestOptions } = options;
@@ -174,6 +233,29 @@ const apiClient = async (url, options = {}) => {
         status: response.status,
         requestId: response.headers.get('x-request-id') || undefined,
       });
+
+      // On a 401 for the active session, try a single-flight token refresh and
+      // replay the request once before surfacing the failure. The
+      // alreadyRefreshed guard bounds this to exactly one refresh attempt.
+      if (
+        response.status === 401 &&
+        !skipAutoLogout &&
+        !alreadyRefreshed &&
+        Boolean(token) &&
+        getAuthToken() === token &&
+        getRefreshToken()
+      ) {
+        let newToken = null;
+        try {
+          newToken = await refreshAccessToken();
+        } catch {
+          newToken = null;
+        }
+        if (newToken) {
+          clearTimeout(timeoutId);
+          return apiClient(url, options, true);
+        }
+      }
 
       const processedResponse = await handleError(response, {
         skipAutoLogout,
@@ -306,5 +388,5 @@ export const del = (url, options = {}) => {
 };
 
 // Export token management functions
-export { getAuthToken, setAuthToken, clearAuthToken };
+export { getAuthToken, setAuthToken, clearAuthToken, getRefreshToken, setRefreshToken, refreshAccessToken };
 

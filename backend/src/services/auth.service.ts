@@ -1,7 +1,12 @@
+import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { DeliveryEligibilitySource, DeliveryZoneStatus } from '../../generated/prisma';
 import { hashPassword, comparePassword } from '../utils/password.util';
-import { generateToken } from '../utils/jwt.util';
+import {
+  generateToken,
+  generateRefreshTokenValue,
+  hashRefreshToken,
+} from '../utils/jwt.util';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
@@ -25,6 +30,10 @@ interface LoginData {
 }
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
+
+// Refresh tokens live 7 days. Each successful /refresh rotates the value,
+// so this is the maximum idle window before a user must log in again.
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export class AuthService {
   /**
@@ -176,6 +185,10 @@ export class AuthService {
       username: user.username,
       roles: roleNames
     });
+
+    // Start a fresh rotation family for this login session.
+    const refreshToken = await this.issueRefreshToken(user.id, randomUUID());
+
     logger.info('Login succeeded', {
       userId: user.id,
       username: user.username,
@@ -187,8 +200,135 @@ export class AuthService {
         ...user,
         roles: rolesWithNames
       }),
-      token
+      token,
+      refreshToken
     };
+  }
+
+  /**
+   * Exchange a valid refresh token for a new access token + rotated refresh
+   * token. Implements rotation with reuse detection:
+   *   - unknown token        → 401 (never issued / already rotated away)
+   *   - already-revoked token → theft signal: revoke the whole family → 401
+   *   - expired token         → 401
+   *   - otherwise             → revoke this row, mint a new one in the family
+   */
+  async refresh(rawToken: string) {
+    if (!rawToken) {
+      throw new AppError('Refresh token is required', 401);
+    }
+
+    const tokenHash = hashRefreshToken(rawToken);
+    const existing = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+
+    if (!existing) {
+      logger.warn('Refresh rejected: token not found');
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    // A revoked-but-presented token means an old link in the rotation chain
+    // was replayed — the live token was rotated past it. Treat as theft and
+    // revoke every token in the family.
+    if (existing.revokedAt) {
+      logger.warn('Refresh reuse detected — revoking token family', {
+        userId: existing.userId,
+        familyId: existing.familyId,
+      });
+      await this.revokeFamily(existing.familyId);
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    if (existing.expiresAt.getTime() <= Date.now()) {
+      logger.warn('Refresh rejected: token expired', { userId: existing.userId });
+      await prisma.refreshToken.update({
+        where: { id: existing.id },
+        data: { revokedAt: new Date() },
+      });
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: existing.userId } });
+    if (!user) {
+      logger.warn('Refresh rejected: user no longer exists', { userId: existing.userId });
+      await this.revokeFamily(existing.familyId);
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    const rolesWithNames = await getUserRolesWithNames(user.id);
+    const roleNames = this.toRoleNames(rolesWithNames);
+
+    const token = generateToken({
+      userId: user.id,
+      username: user.username,
+      roles: roleNames,
+    });
+
+    // Rotate: revoke the presented token and mint a new one in the same family.
+    const refreshToken = await prisma.$transaction(async (tx) => {
+      await tx.refreshToken.update({
+        where: { id: existing.id },
+        data: { revokedAt: new Date() },
+      });
+      const raw = generateRefreshTokenValue();
+      await tx.refreshToken.create({
+        data: {
+          tokenHash: hashRefreshToken(raw),
+          userId: user.id,
+          familyId: existing.familyId,
+          expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        },
+      });
+      return raw;
+    });
+
+    logger.info('Refresh succeeded', { userId: user.id, familyId: existing.familyId });
+
+    return { token, refreshToken };
+  }
+
+  /**
+   * Revoke a single refresh token (explicit logout). No-op if the token is
+   * unknown or already revoked — logout should never error.
+   */
+  async logout(rawToken: string | undefined) {
+    if (!rawToken) return;
+    const tokenHash = hashRefreshToken(rawToken);
+    await prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /**
+   * Revoke every active refresh token for a user ("log out everywhere").
+   */
+  async revokeAllUserTokens(userId: number) {
+    await prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /** Issue and persist a new refresh token in the given family. Returns the raw value. */
+  private async issueRefreshToken(userId: number, familyId: string): Promise<string> {
+    const raw = generateRefreshTokenValue();
+    await prisma.refreshToken.create({
+      data: {
+        tokenHash: hashRefreshToken(raw),
+        userId,
+        familyId,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+      },
+    });
+    return raw;
+  }
+
+  /** Revoke all not-yet-revoked tokens in a rotation family. */
+  private async revokeFamily(familyId: string) {
+    await prisma.refreshToken.updateMany({
+      where: { familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /**

@@ -30,7 +30,17 @@ export class AuthController {
     res.status(200).json(user);
   }
 
-  async logout(_req: Request, res: Response): Promise<void> {
+  async refresh(req: Request, res: Response): Promise<void> {
+    // Phase A: refresh token arrives in the request body. (Phase B moves it
+    // to an httpOnly cookie.)
+    const { refreshToken } = req.body ?? {};
+    const result = await authService.refresh(refreshToken);
+    res.status(200).json(result);
+  }
+
+  async logout(req: Request, res: Response): Promise<void> {
+    const { refreshToken } = req.body ?? {};
+    await authService.logout(refreshToken);
     res.status(200).json({ message: 'Logout successful' });
   }
 }

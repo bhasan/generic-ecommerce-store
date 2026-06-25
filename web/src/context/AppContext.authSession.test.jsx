@@ -61,6 +61,7 @@ const creditApi = vi.hoisted(() => ({
 
 const apiModule = vi.hoisted(() => ({
   getAuthToken: vi.fn(),
+  getRefreshToken: vi.fn(),
   newSession: vi.fn(),
 }));
 

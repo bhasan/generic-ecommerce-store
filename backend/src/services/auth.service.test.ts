@@ -6,6 +6,8 @@ const {
   hashPassword,
   comparePassword,
   generateToken,
+  generateRefreshTokenValue,
+  hashRefreshToken,
   notificationEventsService,
   deliveryEligibilityService,
   logger,
@@ -22,10 +24,21 @@ const {
     role: {
       findMany: vi.fn(),
     },
+    refreshToken: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    // Run the transaction callback against the same mock so refreshToken
+    // update/create calls inside refresh() are observable.
+    $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(prismaMock)),
   },
   hashPassword: vi.fn(),
   comparePassword: vi.fn(),
   generateToken: vi.fn(),
+  generateRefreshTokenValue: vi.fn(),
+  hashRefreshToken: vi.fn(),
   notificationEventsService: {
     notifyRegistrationSubmitted: vi.fn(),
   },
@@ -51,6 +64,8 @@ vi.mock('../utils/password.util', () => ({
 
 vi.mock('../utils/jwt.util', () => ({
   generateToken,
+  generateRefreshTokenValue,
+  hashRefreshToken,
 }));
 
 vi.mock('../utils/logger', () => ({
@@ -69,6 +84,11 @@ describe('auth service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     deliveryEligibilityService.evaluateRegistrationAddress.mockResolvedValue(null);
+    generateRefreshTokenValue.mockReturnValue('raw-refresh');
+    hashRefreshToken.mockImplementation((raw: string) => `hash:${raw}`);
+    prismaMock.refreshToken.create.mockResolvedValue({});
+    prismaMock.refreshToken.update.mockResolvedValue({});
+    prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 0 });
   });
 
   it('logs and rejects duplicate registrations', async () => {
@@ -212,5 +232,132 @@ describe('auth service', () => {
       username: 'pending-user',
       userId: 8,
     }));
+  });
+
+  it('issues a refresh token on successful login', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 7,
+      username: 'user-test',
+      password: 'hashed',
+      approved: true,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    });
+    comparePassword.mockResolvedValue(true);
+    prismaMock.userRole.findMany.mockResolvedValue([{ role: { name: 'ADMIN' } }]);
+    generateToken.mockReturnValue('jwt-token');
+
+    const { AuthService } = await import('./auth.service');
+    const service = new AuthService();
+    const result = await service.login({ username: 'user-test', password: 'secret123' });
+
+    expect(result.refreshToken).toBe('raw-refresh');
+    expect(prismaMock.refreshToken.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        tokenHash: 'hash:raw-refresh',
+        userId: 7,
+      }),
+    }));
+  });
+
+  describe('refresh', () => {
+    it('rejects an empty refresh token', async () => {
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      await expect(service.refresh('')).rejects.toBeInstanceOf(AppError);
+    });
+
+    it('rejects an unknown refresh token', async () => {
+      prismaMock.refreshToken.findUnique.mockResolvedValue(null);
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      await expect(service.refresh('nope')).rejects.toBeInstanceOf(AppError);
+    });
+
+    it('rejects an expired refresh token and revokes it', async () => {
+      prismaMock.refreshToken.findUnique.mockResolvedValue({
+        id: 1,
+        userId: 7,
+        familyId: 'fam-1',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() - 1000),
+      });
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      await expect(service.refresh('expired')).rejects.toBeInstanceOf(AppError);
+      expect(prismaMock.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('detects reuse of a revoked token and revokes the whole family', async () => {
+      prismaMock.refreshToken.findUnique.mockResolvedValue({
+        id: 2,
+        userId: 7,
+        familyId: 'fam-2',
+        revokedAt: new Date(),
+        expiresAt: new Date(Date.now() + 100000),
+      });
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      await expect(service.refresh('reused')).rejects.toBeInstanceOf(AppError);
+      expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { familyId: 'fam-2', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('rotates the token and mints a new access token on success', async () => {
+      prismaMock.refreshToken.findUnique.mockResolvedValue({
+        id: 3,
+        userId: 7,
+        familyId: 'fam-3',
+        revokedAt: null,
+        expiresAt: new Date(Date.now() + 100000),
+      });
+      prismaMock.user.findUnique.mockResolvedValue({ id: 7, username: 'user-test' });
+      prismaMock.userRole.findMany.mockResolvedValue([{ role: { name: 'ADMIN' } }]);
+      generateToken.mockReturnValue('new-access');
+      generateRefreshTokenValue.mockReturnValue('new-refresh');
+
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      const result = await service.refresh('valid');
+
+      expect(result.token).toBe('new-access');
+      expect(result.refreshToken).toBe('new-refresh');
+      // Old token revoked, new token created in the same family.
+      expect(prismaMock.refreshToken.update).toHaveBeenCalledWith({
+        where: { id: 3 },
+        data: { revokedAt: expect.any(Date) },
+      });
+      expect(prismaMock.refreshToken.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          tokenHash: 'hash:new-refresh',
+          userId: 7,
+          familyId: 'fam-3',
+        }),
+      }));
+    });
+  });
+
+  describe('logout', () => {
+    it('revokes the matching refresh token', async () => {
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      await service.logout('some-token');
+      expect(prismaMock.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { tokenHash: 'hash:some-token', revokedAt: null },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+
+    it('is a no-op when no token is provided', async () => {
+      const { AuthService } = await import('./auth.service');
+      const service = new AuthService();
+      await service.logout(undefined);
+      expect(prismaMock.refreshToken.updateMany).not.toHaveBeenCalled();
+    });
   });
 });

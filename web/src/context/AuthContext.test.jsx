@@ -13,7 +13,7 @@ vi.mock('../services/authApi', () => ({
 }));
 vi.mock('../services/usersApi', () => ({ updateUser: vi.fn() }));
 vi.mock('../services/storeCreditApi', () => ({ getUserCredit: vi.fn() }));
-vi.mock('../services/api', () => ({ getAuthToken: vi.fn(() => null), newSession: vi.fn() }));
+vi.mock('../services/api', () => ({ getAuthToken: vi.fn(() => null), getRefreshToken: vi.fn(() => null), newSession: vi.fn() }));
 
 import * as authApi from '../services/authApi';
 import * as storeCreditApi from '../services/storeCreditApi';

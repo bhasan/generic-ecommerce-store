@@ -171,6 +171,126 @@ describe('api service', () => {
     window.removeEventListener('backend:unavailable', unavailableSpy);
   });
 
+  it('refreshes the access token on a 401 and retries the request once', async () => {
+    localStorage.setItem('authToken', 'expired-token');
+    localStorage.setItem('refreshToken', 'refresh-1');
+
+    globalThis.fetch = vi.fn().mockImplementation((url, opts) => {
+      if (url.includes('/auth/refresh')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({ token: 'new-token', refreshToken: 'refresh-2' }),
+        });
+      }
+      // Original request: 401 with the stale token, success once retried.
+      if (opts?.headers?.Authorization === 'Bearer expired-token') {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          url: 'http://localhost/api/test',
+          headers: { get: () => 'application/json' },
+          json: async () => ({ error: { message: 'expired' } }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ ok: true }),
+      });
+    });
+
+    const { get } = await import('./api.js');
+    const result = await get('/test', { retries: 0 });
+
+    expect(result).toEqual({ ok: true });
+    expect(localStorage.getItem('authToken')).toBe('new-token');
+    expect(localStorage.getItem('refreshToken')).toBe('refresh-2');
+  });
+
+  it('coalesces concurrent 401s into a single /auth/refresh call', async () => {
+    localStorage.setItem('authToken', 'expired-token');
+    localStorage.setItem('refreshToken', 'refresh-1');
+
+    let refreshCalls = 0;
+    globalThis.fetch = vi.fn().mockImplementation((url, opts) => {
+      if (url.includes('/auth/refresh')) {
+        refreshCalls += 1;
+        return new Promise((resolve) => setTimeout(() => resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({ token: 'new-token', refreshToken: 'refresh-2' }),
+        }), 10));
+      }
+      if (opts?.headers?.Authorization === 'Bearer expired-token') {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          url: 'http://localhost/api/test',
+          headers: { get: () => 'application/json' },
+          json: async () => ({ error: { message: 'expired' } }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ ok: true }),
+      });
+    });
+
+    const { get } = await import('./api.js');
+    const [a, b] = await Promise.all([
+      get('/a', { retries: 0 }),
+      get('/b', { retries: 0 }),
+    ]);
+
+    expect(a).toEqual({ ok: true });
+    expect(b).toEqual({ ok: true });
+    expect(refreshCalls).toBe(1);
+  });
+
+  it('falls back to auth:unauthorized when the refresh attempt fails', async () => {
+    localStorage.setItem('authToken', 'expired-token');
+    localStorage.setItem('refreshToken', 'refresh-1');
+
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes('/auth/refresh')) {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: async () => ({}),
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        url: 'http://localhost/api/test',
+        headers: { get: () => 'application/json' },
+        json: async () => ({ error: { message: 'expired' } }),
+      });
+    });
+
+    const unauthorizedSpy = vi.fn();
+    window.addEventListener('auth:unauthorized', unauthorizedSpy);
+
+    const { get } = await import('./api.js');
+
+    await expect(get('/test', { retries: 0 })).rejects.toMatchObject({ status: 401 });
+    expect(unauthorizedSpy).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem('authToken')).toBeNull();
+    expect(localStorage.getItem('refreshToken')).toBeNull();
+
+    window.removeEventListener('auth:unauthorized', unauthorizedSpy);
+  });
+
   it('still auto-logs out on a 401 for the active session token', async () => {
     localStorage.setItem('authToken', 'token-a');
     localStorage.setItem('userData', JSON.stringify({ id: 1, username: 'customer-one' }));
