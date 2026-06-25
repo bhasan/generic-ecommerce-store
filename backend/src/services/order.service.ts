@@ -64,6 +64,21 @@ interface PrintOrderReceiptData {
   };
 }
 
+async function decrementStockGuarded(
+  tx: Prisma.TransactionClient,
+  variantId: number,
+  quantity: number,
+  productName: string,
+): Promise<void> {
+  const result = await tx.productVariant.updateMany({
+    where: { id: variantId, stock: { gte: quantity } },
+    data: { stock: { decrement: quantity } },
+  });
+  if (result.count === 0) {
+    throw new AppError(`Insufficient stock for ${productName}`, 400);
+  }
+}
+
 // Single source for the notify+print side-effects fired when an order becomes active.
 // Used by createOrder (non-CC) and confirmCardPayment (CC, deferred until payment confirmed).
 async function dispatchOrderCreatedEffects(orderId: number, userId: number): Promise<void> {
@@ -362,10 +377,6 @@ export class OrderService {
         throw new AppError(`Invalid quantity for ${variant.product.name}`, 400);
       }
 
-      if (variant.stockEnabled && variant.stock.toNumber() < item.quantity) {
-        throw new AppError(`Insufficient stock for ${variant.product.name}`, 400);
-      }
-
       const unitPrice = resolveUnitPrice(variant, item.quantity);
       subtotal += unitPrice.toNumber() * item.quantity;
 
@@ -427,21 +438,10 @@ export class OrderService {
           )
         );
 
-        const stockUpdates: Array<{ variantId: number; oldStock: number; newStock: number; quantity: number }> = [];
         for (const item of items) {
           const variant = variantMap.get(item.variantId);
           if (variant && variant.stockEnabled) {
-            const oldStock = variant.stock.toNumber();
-            await tx.productVariant.update({
-              where: { id: variant.id },
-              data: { stock: { decrement: item.quantity } }
-            });
-            stockUpdates.push({
-              variantId: variant.id,
-              oldStock,
-              newStock: oldStock - item.quantity,
-              quantity: item.quantity,
-            });
+            await decrementStockGuarded(tx, variant.id, item.quantity, variant.product.name);
           }
         }
 
@@ -454,13 +454,11 @@ export class OrderService {
         return {
           newOrder,
           newItems,
-          stockUpdates,
         };
       });
 
       const order = result.newOrder;
       const createdItems = result.newItems;
-      const stockUpdates = result.stockUpdates;
 
       logger.info('Order created in database', {
         orderId: order.id,
@@ -481,13 +479,6 @@ export class OrderService {
         items: createdItems.map(i => ({ id: i.id, variantId: i.variantId, quantity: i.quantity })),
       });
 
-      if (stockUpdates.length > 0) {
-        logger.info('Product stock updated for order', {
-          orderId: order.id,
-          stockUpdates,
-        });
-      }
-
       // Attach variant/product info for the response using the fetched variants.
       const itemsWithProducts = createdItems.map(item => {
         const variant = variantMap.get(item.variantId);
@@ -499,7 +490,6 @@ export class OrderService {
         userId,
         total,
         itemCount: itemsWithProducts.length,
-        stockUpdatesCount: stockUpdates.length,
       });
 
       if (paymentStrategy.notifiesOnCreate()) {
@@ -700,11 +690,6 @@ export class OrderService {
         throw new AppError(`Invalid quantity for ${variant.product.name}`, 400);
       }
 
-      if (variant.stockEnabled && variant.stock.toNumber() < data.quantity) {
-        logger.warn('Add item failed: insufficient stock', { orderId, variantId: data.variantId, requested: data.quantity });
-        throw new AppError(`Insufficient stock for ${variant.product.name}`, 400);
-      }
-
       const unitPrice = resolveUnitPrice(variant, data.quantity);
 
       // Recalculate order total (Decimal so money stays exact)
@@ -727,10 +712,7 @@ export class OrderService {
         await tx.order.update({ where: { id: orderId }, data: { total: newTotal } });
 
         if (variant.stockEnabled) {
-          await tx.productVariant.update({
-            where: { id: variant.id },
-            data: { stock: { decrement: data.quantity } }
-          });
+          await decrementStockGuarded(tx, variant.id, data.quantity, variant.product.name);
         }
 
         return { orderItem, newTotal };
