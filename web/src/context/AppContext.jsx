@@ -8,6 +8,7 @@ import * as categoriesApi from '../services/categoriesApi';
 import * as notificationsApi from '../services/notificationsApi';
 import * as configApi from '../services/configApi';
 import * as creditApi from '../services/storeCreditApi';
+import * as landingPageSettingsApi from '../services/landingPageSettingsApi';
 import { getAuthToken, newSession } from '../services/api';
 import { toNotificationMessage } from '../utils/notificationMessage';
 import { hasAnyRole, GUEST_USER, ROLES } from '../utils/roles';
@@ -238,6 +239,16 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  const loadLandingPageData = useCallback(async () => {
+    try {
+      const settings = await landingPageSettingsApi.getLandingPageSettings();
+      if (Array.isArray(settings.featuredProductIds)) setFeaturedProductIds(settings.featuredProductIds);
+      if (Array.isArray(settings.promotions)) setPromotions(settings.promotions);
+    } catch {
+      // Non-fatal: landing page falls back to defaults
+    }
+  }, []);
+
   // Refreshes the core storefront data (products and categories) only when a session is active.
   const refreshStorefrontData = useCallback(async () => {
     if (isLoading || !isAuthenticated) return;
@@ -257,8 +268,9 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       refreshStorefrontData();
+      loadLandingPageData();
     }
-  }, [refreshStorefrontData, isAuthenticated, isLoading]);
+  }, [refreshStorefrontData, loadLandingPageData, isAuthenticated, isLoading]);
 
   useEffect(() => {
     // Marks the session as user-interacted once so staff alert sounds do not autoplay before interaction.
@@ -1253,6 +1265,7 @@ export function AppProvider({ children }) {
     paymentSettings,
     storeSettings,
     loadConfig,
+    loadLandingPageData,
     branding,
     restoreCart,
     creditBalance,

@@ -8,7 +8,7 @@ import * as landingPageSettingsApi from '../../services/landingPageSettingsApi';
 import AnnouncementModal from '../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { useLocation } from 'react-router-dom';
-import { LayoutDashboard, Globe } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AdminDashboardTabs from '../../components/layout/AdminDashboardTabs';
 import DashboardHeader from './components/DashboardHeader';
@@ -34,7 +34,7 @@ const DASHBOARD_SECTIONS = {
 
 function DashboardPage() {
   const MESSAGES_REFRESH_INTERVAL_MS = 60000;
-  const { showNotification, currentUser, loadConfig } = useApp();
+  const { showNotification, currentUser, loadLandingPageData } = useApp();
   const location = useLocation();
   const [activeSection, setActiveSection] = useState(() => {
     const section = new URLSearchParams(location.search).get('section');
@@ -219,7 +219,7 @@ function DashboardPage() {
     try {
       await landingPageSettingsApi.updateLandingPageSettings(data);
       showNotification('Landing page settings updated successfully', 'success');
-      loadConfig();
+      loadLandingPageData();
     } catch (error) {
       showNotification(error.message || 'Failed to save landing page settings', 'error');
     }
@@ -737,18 +737,6 @@ function DashboardPage() {
             currentUserId={currentUser?.id}
             isAdmin={isAdmin}
           />
-        );
-      case 'payment-settings':
-      case 'store-settings':
-      case 'ordering-constraints':
-        return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '1rem 1.25rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-md)', borderLeft: '3px solid var(--color-primary)', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
-            <Globe size={20} />
-            <div>
-              <strong style={{ color: 'var(--text-primary)' }}>Store Info, Payment Methods, and Delivery Settings have moved</strong>
-              <p style={{ margin: '0.25rem 0 0', fontSize: '0.9rem' }}>Manage them in <a href="/website-management" style={{ color: 'var(--color-primary)' }}>Website Management</a>.</p>
-            </div>
-          </div>
         );
       case DASHBOARD_SECTIONS.LANDING_PAGE:
         return (

@@ -7,7 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler.util';
 const router = Router();
 const landingPageSettingsController = new LandingPageSettingsController();
 
-router.get('/', authenticate, authorizeManagement, asyncHandler(landingPageSettingsController.getLandingPageSettings));
+router.get('/', authenticate, asyncHandler(landingPageSettingsController.getLandingPageSettings));
 router.put('/', authenticate, authorizeManagement, asyncHandler(landingPageSettingsController.updateLandingPageSettings));
 
 export default router;

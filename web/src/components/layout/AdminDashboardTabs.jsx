@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Megaphone, UserPlus, Users, UserX, MessageSquare, CreditCard, Store, ShoppingCart, LayoutDashboard, Crown } from 'lucide-react';
+import { Megaphone, UserPlus, Users, UserX, MessageSquare, LayoutDashboard, Crown } from 'lucide-react';
 import './AdminDashboardTabs.css';
 
 const SECTIONS = {
@@ -10,9 +10,6 @@ const SECTIONS = {
   REJECTED_USERS: 'rejected-users',
   VIP_MANAGEMENT: 'vip-management',
   MESSAGES: 'messages',
-  PAYMENT_SETTINGS: 'payment-settings',
-  STORE_SETTINGS: 'store-settings',
-  ORDERING_CONSTRAINTS: 'ordering-constraints',
   LANDING_PAGE: 'landing-page',
 };
 
@@ -67,27 +64,6 @@ function AdminDashboardTabs({ activeSection, currentTab = 'dashboard', onSection
         >
           <LayoutDashboard size={20} />
           <span>Landing Page</span>
-        </button>
-        <button
-          className={`sidebar-nav-item ${isActive(SECTIONS.PAYMENT_SETTINGS)}`}
-          onClick={() => handleSelect(SECTIONS.PAYMENT_SETTINGS)}
-        >
-          <CreditCard size={20} />
-          <span>Payment Settings</span>
-        </button>
-        <button
-          className={`sidebar-nav-item ${isActive(SECTIONS.STORE_SETTINGS)}`}
-          onClick={() => handleSelect(SECTIONS.STORE_SETTINGS)}
-        >
-          <Store size={20} />
-          <span>Store Settings</span>
-        </button>
-        <button
-          className={`sidebar-nav-item ${isActive(SECTIONS.ORDERING_CONSTRAINTS)}`}
-          onClick={() => handleSelect(SECTIONS.ORDERING_CONSTRAINTS)}
-        >
-          <ShoppingCart size={20} />
-          <span>Ordering Constraints</span>
         </button>
         <button
           className={`sidebar-nav-item ${isActive(SECTIONS.USERS)}`}
