@@ -1,5 +1,5 @@
 // web/src/context/CatalogContext.jsx
-import React, { useState, useCallback, createContext, useContext } from 'react';
+import React, { useState, useCallback, useEffect, createContext, useContext } from 'react';
 import * as productsApi from '../services/productsApi';
 import * as categoriesApi from '../services/categoriesApi';
 import { ROLES } from '../utils/roles';
@@ -16,7 +16,7 @@ export const useCatalogContext = () => {
 
 export function CatalogProvider({ children }) {
   const { showNotification } = useUIContext();
-  const { currentUser } = useAuthContext();
+  const { currentUser, isLoading, isAuthenticated } = useAuthContext();
 
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
@@ -46,6 +46,13 @@ export function CatalogProvider({ children }) {
       setIsLoadingCategories(false);
     }
   }, []);
+
+  // Auto-load products and categories once auth check completes and user is authenticated.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      Promise.allSettled([loadProducts(), loadCategories()]);
+    }
+  }, [isLoading, isAuthenticated, loadProducts, loadCategories]);
 
   const addProduct = async (product) => {
     try {

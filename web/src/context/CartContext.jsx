@@ -32,7 +32,10 @@ export function CartProvider({ children }) {
     try {
       const parsed = JSON.parse(stored);
       return Array.isArray(parsed) ? parsed : [];
-    } catch { return []; }
+    } catch (error) {
+      console.error('Error parsing stored cart data:', error);
+      return [];
+    }
   };
 
   const [cart, setCart] = useState(getInitialCart);
