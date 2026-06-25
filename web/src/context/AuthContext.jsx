@@ -72,12 +72,13 @@ export function AuthProvider({ children }) {
     const handleUnauthorized = () => {
       setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
+      setReturnPath(null);
       navigate('/login');
       showNotification('Your session has expired. Please log in again.', 'warning');
     };
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
-  }, [navigate, showNotification]);
+  }, [navigate, showNotification, setReturnPath]);
 
   const login = async (username, password) => {
     try {

@@ -2,13 +2,9 @@ import React, { useState, useEffect, useCallback, useRef, createContext, useCont
 import * as notificationsApi from '../services/notificationsApi';
 import { hasAnyRole, ROLES } from '../utils/roles';
 import { useAuthContext } from './AuthContext';
+import { parsePollingInterval } from '../utils/pollingUtils';
 
 const NotificationsContext = createContext(null);
-
-const parsePollingInterval = (rawValue, fallback) => {
-  const parsed = Number.parseInt(rawValue ?? '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
 
 const NOTIFICATION_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_NOTIFICATION_POLL_INTERVAL_MS, 60000);
 const STAFF_COUNTS_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_STAFF_COUNTS_POLL_INTERVAL_MS, 60000);

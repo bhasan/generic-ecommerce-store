@@ -4,13 +4,10 @@ import * as ordersApi from '../services/ordersApi';
 import { useUIContext } from './UIContext';
 import { useAuthContext } from './AuthContext';
 import { useNotificationsContext } from './NotificationsContext';
+import { parsePollingInterval } from '../utils/pollingUtils';
 
 const OrdersContext = createContext(null);
 
-const parsePollingInterval = (rawValue, fallback) => {
-  const parsed = Number.parseInt(rawValue ?? '', 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
 const ORDER_POLL_INTERVAL_MS = parsePollingInterval(import.meta.env.VITE_ORDER_POLL_INTERVAL_MS, 60000);
 
 export const useOrdersContext = () => {

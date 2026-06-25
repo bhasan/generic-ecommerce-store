@@ -29,6 +29,8 @@ function AppValueProvider({ children }) {
     ...ui,
     ...auth,
     ...storeConfig,
+    // Alias for legacy consumers — scope is landing page data only (products/categories live in CatalogContext)
+    refreshStorefrontData: storeConfig.refreshLandingPageData,
     ...catalog,
     ...notifications,
     ...orders,

@@ -84,7 +84,7 @@ export function StoreConfigProvider({ children }) {
     } catch { /* non-fatal */ }
   }, []);
 
-  const refreshStorefrontData = useCallback(async () => {
+  const refreshLandingPageData = useCallback(async () => {
     if (isLoading || !isAuthenticated) return;
     await loadLandingPageData();
   }, [isLoading, isAuthenticated, loadLandingPageData]);
@@ -108,7 +108,7 @@ export function StoreConfigProvider({ children }) {
       deliveryDisabled, deliveryDisabledMessage, deliveryRadiusMiles,
       pickupLocation, featuredProductIds, promotions,
       storeCashappUsername, paymentSettings, storeSettings, branding,
-      loadConfig, loadLandingPageData, refreshStorefrontData,
+      loadConfig, loadLandingPageData, refreshLandingPageData,
     }}>
       {children}
     </StoreConfigContext.Provider>
