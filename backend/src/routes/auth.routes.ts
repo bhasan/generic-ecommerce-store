@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import authController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
-import { authLimiter } from '../middleware/rateLimit.middleware';
 import { asyncHandler } from '../utils/asyncHandler.util';
 
 const router = Router();
@@ -28,9 +27,10 @@ router.post(
   asyncHandler(authController.login)
 );
 
-// Refresh-token validation lives in the service (returns 401 on missing/invalid),
-// so no express-validator chain is needed here — just rate limiting.
-router.post('/refresh', authLimiter, asyncHandler(authController.refresh));
+// Refresh-token validation lives in the service (returns 401 on missing/invalid).
+// Rate limiting is already applied to all /api/auth routes at the app level
+// (app.use('/api/auth', authLimiter, ...)), so no route-level limiter here.
+router.post('/refresh', asyncHandler(authController.refresh));
 
 router.get('/profile', authenticate, asyncHandler(authController.getProfile));
 router.post('/logout', asyncHandler(authController.logout));
