@@ -45,9 +45,14 @@ export function CartProvider({ children }) {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  // Clear cart on auth:unauthorized
+  // Clear cart on auth:unauthorized — write localStorage synchronously because
+  // AuthContext's handler fires navigate() in the same event dispatch, which
+  // unmounts this component before the cart→localStorage sync useEffect can run.
   useEffect(() => {
-    const handleUnauthorized = () => setCart([]);
+    const handleUnauthorized = () => {
+      setCart([]);
+      localStorage.removeItem(CART_STORAGE_KEY);
+    };
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
   }, []);
