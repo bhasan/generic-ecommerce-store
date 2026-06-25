@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Globe } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { getBranding } from '../../services/brandingApi';
+import PageHeader from '../../components/common/PageHeader';
 import StoreIdentitySection from './components/StoreIdentitySection';
 import BrandColorsSection from './components/BrandColorsSection';
 import HeroImageSection from './components/HeroImageSection';
@@ -31,7 +33,11 @@ export default function WebsiteManagementPage() {
 
   return (
     <div className="website-mgmt-page">
-      <h1>Website Management</h1>
+      <PageHeader
+        title="Website Management"
+        subtitle="Branding, appearance, and website settings"
+        icon={Globe}
+      />
       <StoreIdentitySection branding={branding} onSave={handleBrandingUpdate} />
       <BrandColorsSection branding={branding} onSave={handleBrandingUpdate} />
       <HeroImageSection branding={branding} onSave={handleBrandingUpdate} />

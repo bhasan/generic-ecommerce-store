@@ -4,6 +4,7 @@ import PageHeader from '../../components/common/PageHeader';
 function ProductsHeader({
   title,
   subtitle,
+  icon,
   viewMode,
   onViewModeChange,
   rightContent,
@@ -14,6 +15,7 @@ function ProductsHeader({
       className="products-header"
       title={title}
       subtitle={subtitle}
+      icon={icon}
       actions={(
         <div className="products-header-actions">
           {showViewToggle && (

@@ -32,6 +32,10 @@ const storeSettingsService = vi.hoisted(() => ({
   updateStoreSettings: vi.fn().mockResolvedValue({}),
   getStoreSettings: vi.fn().mockResolvedValue({}),
 }));
+const landingPageSettingsService = vi.hoisted(() => ({
+  getLandingPageSettings: vi.fn().mockResolvedValue({ featuredProductIds: [], promotions: [] }),
+  updateLandingPageSettings: vi.fn().mockResolvedValue({ featuredProductIds: [], promotions: [] }),
+}));
 
 vi.mock('../utils/jwt.util', () => ({ verifyToken, extractTokenFromHeader }));
 vi.mock('../utils/logger', () => ({ logger }));
@@ -43,6 +47,9 @@ vi.mock('../services/orderingConstraints.service', () => ({
 }));
 vi.mock('../services/storeSettings.service', () => ({
   StoreSettingsService: vi.fn(() => storeSettingsService),
+}));
+vi.mock('../services/landingPageSettings.service', () => ({
+  LandingPageSettingsService: vi.fn(() => landingPageSettingsService),
 }));
 // order.controller also instantiates DeliveryEligibilityService at import time.
 vi.mock('../services/deliveryEligibility.service', () => ({
@@ -56,12 +63,14 @@ const createServer = async () => {
     { default: orderRoutes },
     { default: orderingConstraintsRoutes },
     { default: storeSettingsRoutes },
+    { default: landingPageSettingsRoutes },
   ] = await Promise.all([
     import('../routes/credit.routes'),
     import('../routes/user.routes'),
     import('../routes/order.routes'),
     import('../routes/orderingConstraints.routes'),
     import('../routes/storeSettings.routes'),
+    import('../routes/landingPageSettings.routes'),
   ]);
 
   const app = express();
@@ -75,6 +84,7 @@ const createServer = async () => {
   app.use('/api/orders', orderRoutes);
   app.use('/api/ordering-constraints', orderingConstraintsRoutes);
   app.use('/api/store-settings', storeSettingsRoutes);
+  app.use('/api/landing-page-settings', landingPageSettingsRoutes);
   app.use(errorHandler);
   return app.listen(0);
 };
@@ -165,6 +175,14 @@ const cases: Case[] = [
     authorized: 'DELIVERY_DRIVER',
     forbidden: ['CUSTOMER'],
   },
+  {
+    label: 'PUT /api/landing-page-settings (management)',
+    method: 'PUT',
+    path: '/api/landing-page-settings',
+    validBody: { featuredProductIds: [], promotions: [] },
+    authorized: 'MANAGEMENT',
+    forbidden: ['CUSTOMER'],
+  },
 ];
 
 describe('RBAC route enforcement (backend)', () => {
@@ -179,6 +197,22 @@ describe('RBAC route enforcement (backend)', () => {
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
     });
+  });
+
+  describe('GET /api/landing-page-settings (any authenticated user)', () => {
+    it('rejects an unauthenticated request with 401', async () => {
+      const res = await call(server, 'GET', '/api/landing-page-settings');
+      expect(res.status).toBe(401);
+    });
+
+    it.each(['CUSTOMER', 'MANAGEMENT', 'ADMIN'])(
+      'allows %s through without a role gate',
+      async (role) => {
+        const res = await call(server, 'GET', '/api/landing-page-settings', { role });
+        expect(res.status).not.toBe(401);
+        expect(res.status).not.toBe(403);
+      }
+    );
   });
 
   for (const c of cases) {

@@ -59,6 +59,10 @@ const creditApi = vi.hoisted(() => ({
   getUserCredit: vi.fn(),
 }));
 
+const landingPageSettingsApi = vi.hoisted(() => ({
+  getLandingPageSettings: vi.fn(),
+}));
+
 const apiModule = vi.hoisted(() => ({
   getAuthToken: vi.fn(),
 }));
@@ -71,6 +75,7 @@ vi.mock('../services/categoriesApi', () => categoriesApi);
 vi.mock('../services/notificationsApi', () => notificationsApi);
 vi.mock('../services/configApi', () => configApi);
 vi.mock('../services/storeCreditApi', () => creditApi);
+vi.mock('../services/landingPageSettingsApi', () => landingPageSettingsApi);
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
   return {
@@ -132,6 +137,10 @@ describe('AppContext', () => {
     notificationsApi.markAllNotificationsRead.mockResolvedValue({ updated: 1 });
     configApi.getConfig.mockResolvedValue(sampleConfig);
     creditApi.getUserCredit.mockResolvedValue({ balance: 20 });
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({
+      featuredProductIds: [5, 6],
+      promotions: [{ url: '/api/uploads/slide.webp', description: 'Promo' }],
+    });
   });
 
   it('bootstraps authenticated state and normalizes single-role profiles', async () => {
@@ -356,5 +365,97 @@ describe('AppContext', () => {
 
     expect(ordersApi.notifyArrival).toHaveBeenCalledWith(111, 'Spot X');
     await waitFor(() => expect(screen.getByTestId('orders-count')).toHaveTextContent('2'));
+  });
+
+  it('loads featuredProductIds and promotions from landing page settings on login', async () => {
+    apiModule.getAuthToken.mockReturnValue('token-123');
+    authApi.getProfile.mockResolvedValue(users.customer);
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/products' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
+    await waitFor(() => expect(screen.getByTestId('featured-product-ids')).toHaveTextContent('[5,6]'));
+    expect(screen.getByTestId('promotions')).toHaveTextContent('slide.webp');
+  });
+
+  it('does not call getLandingPageSettings when unauthenticated', async () => {
+    apiModule.getAuthToken.mockReturnValue(null);
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/products' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'));
+    expect(landingPageSettingsApi.getLandingPageSettings).not.toHaveBeenCalled();
+  });
+
+  it('leaves featuredProductIds and promotions at defaults when landing page API returns null', async () => {
+    apiModule.getAuthToken.mockReturnValue('token-123');
+    authApi.getProfile.mockResolvedValue(users.customer);
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue(null);
+
+    renderWithProviders(
+      <AppProvider>
+        <ContextHarness />
+      </AppProvider>,
+      { route: '/products' }
+    );
+
+    await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
+    expect(screen.getByTestId('featured-product-ids')).toHaveTextContent('[]');
+    expect(screen.getByTestId('promotions')).toHaveTextContent('[]');
+  });
+
+  it('exposes loadLandingPageData and refreshes context state when called', async () => {
+    apiModule.getAuthToken.mockReturnValue('token-123');
+    authApi.getProfile.mockResolvedValue(users.customer);
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({
+      featuredProductIds: [],
+      promotions: [],
+    });
+
+    function ReloadHarness() {
+      const app = useApp();
+      return (
+        <div>
+          <div data-testid="featured-product-ids">{JSON.stringify(app.featuredProductIds)}</div>
+          <div data-testid="promotions">{JSON.stringify(app.promotions)}</div>
+          <button onClick={() => app.loadLandingPageData()}>Reload Landing</button>
+        </div>
+      );
+    }
+
+    renderWithProviders(
+      <AppProvider>
+        <ReloadHarness />
+      </AppProvider>,
+      { route: '/products' }
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('featured-product-ids')).toHaveTextContent('[]')
+    );
+
+    landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({
+      featuredProductIds: [99],
+      promotions: [{ url: '/api/uploads/new.webp', description: '' }],
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Reload Landing'));
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('featured-product-ids')).toHaveTextContent('[99]')
+    );
+    expect(screen.getByTestId('promotions')).toHaveTextContent('new.webp');
   });
 });
