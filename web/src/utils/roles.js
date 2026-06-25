@@ -28,3 +28,14 @@ export const hasAnyRole = (user, roles) => {
   const userRoles = getUserRoles(user);
   return roles.some((role) => userRoles.includes(role));
 };
+
+export const getRoleBadgeClass = (role) => {
+  const roleName = Array.isArray(role) ? role[0] : role;
+  switch (roleName) {
+    case ROLES.ADMIN: return 'role-badge role-badge-admin';
+    case ROLES.MANAGEMENT: return 'role-badge role-badge-management';
+    case ROLES.DELIVERY_DRIVER: return 'role-badge role-badge-delivery-driver';
+    case ROLES.GUEST: return 'role-badge role-badge-guest';
+    default: return 'role-badge role-badge-customer';
+  }
+};

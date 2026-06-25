@@ -4,9 +4,10 @@ import { useApp } from '../../context/AppContext';
 import { ROLES } from '../../utils/roles';
 import * as usersApi from '../../services/usersApi';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
-import { User, Mail, Shield, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
+import { User, Mail, Calendar, Trash2, Edit, X, Check } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
-import AdminLayout from '../../components/layout/AdminLayout';
+import { formatDateShort } from '../../utils/dateUtils';
+import { getRoleBadgeClass } from '../../utils/roles';
 
 function UsersPage() {
   const { currentUser, showNotification } = useApp();
@@ -111,39 +112,9 @@ function UsersPage() {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    } catch (e) {
-      return dateString;
-    }
-  };
-
-  const getRoleBadgeClass = (role) => {
-    const roleName = Array.isArray(role) ? role[0] : role;
-    switch (roleName) {
-      case ROLES.ADMIN:
-        return 'role-badge role-badge-admin';
-      case ROLES.MANAGEMENT:
-        return 'role-badge role-badge-management';
-      case ROLES.DELIVERY_DRIVER:
-        return 'role-badge role-badge-delivery-driver';
-      case ROLES.GUEST:
-        return 'role-badge role-badge-guest';
-      case ROLES.CUSTOMER:
-      default:
-        return 'role-badge role-badge-customer';
-    }
-  };
-
   if (isLoading) {
     return (
-      <AdminLayout>
+      <>
         <div className="users-page-container">
           <div className="users-header section-header-surface">
             <div>
@@ -153,13 +124,12 @@ function UsersPage() {
           </div>
           <HeaderDivider />
         </div>
-      </AdminLayout>
+      </>
     );
   }
 
   return (
-    <AdminLayout>
-      <div className="users-page-container">
+    <div className="users-page-container">
       <div className="users-header section-header-surface">
         <div>
           <h2 className="page-title">Users Management</h2>
@@ -233,14 +203,14 @@ function UsersPage() {
                           <div className="role-editor-actions">
                             <button
                               onClick={() => handleSaveRoles(user.id)}
-                              className="btn-save-roles"
+                              className="btn-icon-action btn-save-roles"
                               title="Save roles"
                             >
                               <Check size={14} />
                             </button>
                             <button
                               onClick={handleCancelEdit}
-                              className="btn-cancel-roles"
+                              className="btn-icon-action btn-cancel-roles"
                               title="Cancel"
                             >
                               <X size={14} />
@@ -270,7 +240,7 @@ function UsersPage() {
                     <td>
                       <div className="user-date-cell">
                         <Calendar size={16} />
-                        <span>{formatDate(user.createdAt)}</span>
+                        <span>{formatDateShort(user.createdAt)}</span>
                       </div>
                     </td>
                     <td>
@@ -279,7 +249,7 @@ function UsersPage() {
                           <>
                             <button
                               onClick={() => handleEditRoles(user)}
-                              className="btn-edit-roles"
+                              className="btn-icon-action btn-edit-roles"
                               title="Edit roles"
                             >
                               <Edit size={16} />
@@ -287,7 +257,7 @@ function UsersPage() {
                             {user.id !== currentUser.id && (
                               <button
                                 onClick={() => handleDeleteUserClick(user.id, user.username)}
-                                className="btn-delete-user"
+                                className="btn-icon-action btn-delete-user"
                                 title="Delete user"
                               >
                                 <Trash2 size={16} />
@@ -326,7 +296,6 @@ function UsersPage() {
         type="danger"
       />
     </div>
-    </AdminLayout>
   );
 }
 

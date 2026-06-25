@@ -242,18 +242,6 @@
   gap: 24px;
 }
 
-.manage-category-group {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: var(--spacing-lg);
-  margin-bottom: 32px;
-}
-
-.manage-category-group-child {
-  margin-top: 16px;
-}
-
 .manage-category-group-dragging {
   opacity: 0.7;
 }
@@ -556,9 +544,8 @@
   transform: none;
 }
 
-/* Hide / Delete — small icon buttons */
-.btn-visibility,
-.btn-delete {
+/* Visibility — fixed icon-only button */
+.btn-visibility {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -569,9 +556,6 @@
   border-radius: 0.4rem;
   cursor: pointer;
   transition: all 0.2s ease;
-}
-
-.btn-visibility {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
@@ -583,7 +567,19 @@
   background: var(--color-primary-bg);
 }
 
+/* Delete — danger button, works for icon-only or icon+text */
 .btn-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   background: transparent;
   border: 1px solid rgba(239, 68, 68, 0.4);
   color: var(--color-danger);

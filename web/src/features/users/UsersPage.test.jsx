@@ -5,10 +5,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import UsersPage from './UsersPage';
 import { ROLES } from '../../utils/roles';
 
-vi.mock('../../components/layout/AdminLayout', () => ({
-  default: ({ children }) => <div data-testid="admin-layout">{children}</div>,
-}));
-
 vi.mock('../../components/common/HeaderDivider', () => ({
   default: () => <div data-testid="header-divider" />,
 }));
@@ -57,16 +53,15 @@ describe('UsersPage', () => {
     usersApi.getAllRoles.mockResolvedValue([ROLES.ADMIN, ROLES.MANAGEMENT, ROLES.CUSTOMER]);
   });
 
-  it('renders loading state inside AdminLayout before data arrives', () => {
+  it('renders loading state before data arrives', () => {
     usersApi.getAllUsers.mockReturnValue(new Promise(() => {})); // never resolves
 
     renderPage();
 
-    expect(screen.getByTestId('admin-layout')).toBeInTheDocument();
     expect(screen.getByText('Loading users...')).toBeInTheDocument();
   });
 
-  it('renders users table inside AdminLayout after data loads', async () => {
+  it('renders users table after data loads', async () => {
     usersApi.getAllUsers.mockResolvedValue([
       { id: 2, username: 'customer-one', email: 'c1@test.com', roles: [ROLES.CUSTOMER], createdAt: '2024-01-01T00:00:00.000Z' },
       { id: 3, username: 'manager-one', email: 'm1@test.com', roles: [ROLES.MANAGEMENT], createdAt: '2024-02-01T00:00:00.000Z' },
@@ -76,7 +71,6 @@ describe('UsersPage', () => {
 
     await waitFor(() => expect(screen.getByText('customer-one')).toBeInTheDocument());
 
-    expect(screen.getByTestId('admin-layout')).toBeInTheDocument();
     expect(screen.getByText('manager-one')).toBeInTheDocument();
     expect(screen.getByText('Manage all system users')).toBeInTheDocument();
   });
