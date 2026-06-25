@@ -242,8 +242,8 @@ export function AppProvider({ children }) {
   const loadLandingPageData = useCallback(async () => {
     try {
       const settings = await landingPageSettingsApi.getLandingPageSettings();
-      if (Array.isArray(settings.featuredProductIds)) setFeaturedProductIds(settings.featuredProductIds);
-      if (Array.isArray(settings.promotions)) setPromotions(settings.promotions);
+      if (settings && Array.isArray(settings.featuredProductIds)) setFeaturedProductIds(settings.featuredProductIds);
+      if (settings && Array.isArray(settings.promotions)) setPromotions(settings.promotions);
     } catch {
       // Non-fatal: landing page falls back to defaults
     }
@@ -267,8 +267,7 @@ export function AppProvider({ children }) {
   // Triggers storefront data refreshes once the auth check completes and a valid user is detected.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      refreshStorefrontData();
-      loadLandingPageData();
+      Promise.allSettled([refreshStorefrontData(), loadLandingPageData()]);
     }
   }, [refreshStorefrontData, loadLandingPageData, isAuthenticated, isLoading]);
 
