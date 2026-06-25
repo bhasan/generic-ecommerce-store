@@ -8,7 +8,7 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as productsApi from '../../services/productsApi';
 import * as categoriesApi from '../../services/categoriesApi';
 import * as uploadApi from '../../services/uploadApi';
-import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical, Download, FileDown, Upload, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Image as ImageIcon, Eye, EyeOff, GripVertical, Download, FileDown, Upload, ChevronDown, ShoppingBag } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -770,6 +770,7 @@ function ManageProductsPanel() {
       <ProductsHeader
         title="Manage Products"
         subtitle="Add, edit, or remove products from your inventory"
+        icon={ShoppingBag}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         // TODO(mobile): Rework admin header actions for phones so Media Library and Add Product remain visible and easy to tap without crowding.

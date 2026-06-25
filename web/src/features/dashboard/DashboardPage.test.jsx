@@ -53,10 +53,6 @@ vi.mock('../../components/layout/AdminLayout', () => ({
   default: ({ children }) => <div>{children}</div>,
 }));
 
-vi.mock('./components/DashboardHeader', () => ({
-  default: () => <div>Dashboard Header</div>,
-}));
-
 vi.mock('../../components/common/AnnouncementModal', () => ({
   default: () => null,
 }));

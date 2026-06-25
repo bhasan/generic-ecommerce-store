@@ -11,7 +11,7 @@ import { useLocation } from 'react-router-dom';
 import { LayoutDashboard } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AdminDashboardTabs from '../../components/layout/AdminDashboardTabs';
-import DashboardHeader from './components/DashboardHeader';
+import PageHeader from '../../components/common/PageHeader';
 import PendingRegistrationsSection from './components/PendingRegistrationsSection';
 import UsersSection from './components/UsersSection';
 import AnnouncementsSection from './components/AnnouncementsSection';
@@ -772,7 +772,12 @@ function DashboardPage() {
   return (
     <AdminLayout>
       <div className="dashboard-page-container">
-        <DashboardHeader />
+        <PageHeader
+          className="dashboard-header"
+          title="Administrator Dashboard"
+          subtitle="Store management and administration"
+          icon={LayoutDashboard}
+        />
 
         <div className="dashboard-layout">
           <AdminDashboardTabs
