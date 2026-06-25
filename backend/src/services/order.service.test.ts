@@ -28,6 +28,7 @@ const prismaMock = {
     findMany: vi.fn(),
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
   order: {
     create: vi.fn(),
@@ -217,6 +218,7 @@ describe('order service notifications', () => {
       price: 10,
     });
     prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
 
     const { OrderService } = await import('./order.service');
     const service = new OrderService();
@@ -409,6 +411,7 @@ describe('order service notifications', () => {
       price: 10,
     });
     prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
     thermalPrinterService.dispatchReceipt.mockRejectedValue(new Error('Printer exploded'));
 
     const { OrderService } = await import('./order.service');
@@ -873,5 +876,64 @@ describe('updateOrderStatus — EXTERNAL payment settlement', () => {
     await service.updateOrderStatus(77, { status: OrderStatus.READY_FOR_DELIVERY }, ['MANAGEMENT']);
 
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('stock race protection', () => {
+  it('throws insufficient stock when updateMany matches 0 rows (race condition)', async () => {
+    const variant = makeVariant({ stock: D(1), stockEnabled: true });
+    prismaMock.productVariant.findMany.mockResolvedValue([variant]);
+
+    // Simulate the race: another request already took the last unit,
+    // so updateMany finds no rows matching stock >= quantity.
+    const txMock = {
+      order: { create: vi.fn().mockResolvedValue({ id: 99, status: 'PENDING', total: D(10), subtotal: D(10), tax: D(0), taxRate: D(0.1), deliveryMethod: 'PICKUP', paymentMethod: 'CASH', createdAt: new Date() }) },
+      orderItem: { create: vi.fn().mockResolvedValue({}) },
+      productVariant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      payment: { create: vi.fn().mockResolvedValue({}) },
+    };
+    prismaMock.$transaction.mockImplementation((fn: (tx: any) => any) => fn(txMock));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await expect(
+      service.createOrder({
+        userId: 1,
+        items: [{ variantId: 3, quantity: 1 }],
+        deliveryMethod: DeliveryMethod.PICKUP,
+        paymentMethod: PaymentMethod.CASH,
+        cashAppUsername: null,
+        deliveryAddress: null,
+        vehicleDescription: null,
+      })
+    ).rejects.toThrow('Insufficient stock');
+  });
+
+  it('succeeds when updateMany matches the row (stock available)', async () => {
+    const variant = makeVariant({ stock: D(5), stockEnabled: true });
+    prismaMock.productVariant.findMany.mockResolvedValue([variant]);
+
+    const txMock = {
+      order: { create: vi.fn().mockResolvedValue({ id: 100, status: 'PENDING', total: D(10), subtotal: D(10), tax: D(0), taxRate: D(0.1), deliveryMethod: 'PICKUP', paymentMethod: 'CASH', createdAt: new Date() }) },
+      orderItem: { create: vi.fn().mockResolvedValue({}) },
+      productVariant: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      payment: { create: vi.fn().mockResolvedValue({}) },
+    };
+    prismaMock.$transaction.mockImplementation((fn: (tx: any) => any) => fn(txMock));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    // Should not throw
+    await expect(
+      service.createOrder({
+        userId: 1,
+        items: [{ variantId: 3, quantity: 1 }],
+        deliveryMethod: DeliveryMethod.PICKUP,
+        paymentMethod: PaymentMethod.CASH,
+        cashAppUsername: null,
+        deliveryAddress: null,
+        vehicleDescription: null,
+      })
+    ).resolves.toBeDefined();
   });
 });
