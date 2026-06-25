@@ -43,4 +43,36 @@ test.describe('Auth flows', () => {
     const token = await page.evaluate(() => localStorage.getItem('authToken'));
     expect(token).toBeNull();
   });
+
+  test('logout clears cart from localStorage', async ({ page }) => {
+    await loginViaUI(page, ACCOUNTS.customer);
+
+    // Add an item to cart via the product page
+    const productsRes = await page.request.get('http://localhost:3000/api/products');
+    const products = await productsRes.json() as Array<{ id: number; variants?: Array<{ stock: number; active: boolean }> }>;
+    const product = products.find(p => p.variants?.some(v => v.stock > 0 && v.active));
+    expect(product).toBeTruthy();
+
+    await page.goto(`/products/${product!.id}`);
+    await expect(page.getByRole('button', { name: 'Add to Cart' })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Add to Cart' }).click();
+    await page.waitForFunction(
+      () => {
+        const raw = localStorage.getItem('cartData_v2');
+        if (!raw) return false;
+        try { return (JSON.parse(raw) as unknown[]).length > 0; } catch { return false; }
+      },
+      { timeout: 5_000 },
+    );
+
+    // Logout
+    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('button', { name: 'Logout' }).click();
+    await page.waitForURL('**/login', { timeout: 8_000 });
+
+    // Cart must be cleared
+    const cartRaw = await page.evaluate(() => localStorage.getItem('cartData_v2'));
+    const cart = cartRaw ? (JSON.parse(cartRaw) as unknown[]) : [];
+    expect(cart.length).toBe(0);
+  });
 });
