@@ -244,6 +244,33 @@ async function seed() {
   void order1; void order2; // suppress unused-var warnings
   console.log('✅ Orders created');
 
+  // ── Landing Page Settings ───────────────────────────────────────────────
+  await prisma.uiSetting.upsert({
+    where: { key: 'landing_page_settings' },
+    update: {},
+    create: {
+      key: 'landing_page_settings',
+      value: {
+        featuredProductIds: [],
+        promotions: [
+          {
+            url: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200',
+            description: 'Summer Sale — Up to 40% off selected items',
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200',
+            description: 'New Arrivals — Fresh stock just landed',
+          },
+          {
+            url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200',
+            description: 'Free delivery on orders over $50',
+          },
+        ],
+      },
+    },
+  });
+  console.log('✅ Landing page settings seeded');
+
   console.log('');
   console.log('🎉 Database seeded successfully!');
   console.log('');
