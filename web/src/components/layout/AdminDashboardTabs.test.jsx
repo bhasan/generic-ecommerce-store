@@ -16,9 +16,6 @@ const SECTIONS = [
   { label: /messages/i, key: 'messages' },
   { label: /vip management/i, key: 'vip-management' },
   { label: /landing page/i, key: 'landing-page' },
-  { label: /payment settings/i, key: 'payment-settings' },
-  { label: /store settings/i, key: 'store-settings' },
-  { label: /ordering constraints/i, key: 'ordering-constraints' },
   { label: /^users$/i, key: 'users' },
   { label: /rejected users/i, key: 'rejected-users' },
 ];
@@ -52,10 +49,10 @@ describe('AdminDashboardTabs sidebar', () => {
     expect(nav).toBeInTheDocument();
   });
 
-  it('renders all 10 section items', () => {
+  it('renders all 7 section items', () => {
     renderSidebar();
     const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(10);
+    expect(buttons).toHaveLength(7);
   });
 
   it.each(SECTIONS)('renders a "$key" nav item', ({ label }) => {
@@ -66,7 +63,16 @@ describe('AdminDashboardTabs sidebar', () => {
   it('applies sidebar-nav-item class to all buttons', () => {
     const { container } = renderSidebar();
     const buttons = container.querySelectorAll('button.sidebar-nav-item');
-    expect(buttons).toHaveLength(10);
+    expect(buttons).toHaveLength(7);
+  });
+
+  it.each([
+    /payment settings/i,
+    /store settings/i,
+    /ordering constraints/i,
+  ])('does not render removed tab "%s"', (label) => {
+    renderSidebar();
+    expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument();
   });
 
   it('applies the active class to the button matching activeSection', () => {
