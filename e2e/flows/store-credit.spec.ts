@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
+import { mintBearerToken } from '../helpers/auth';
 
 // Manager grants store credit to sarahjohnson via direct authenticated API calls
 // (access token minted by an in-test API login, since the token is no longer in
@@ -10,11 +11,7 @@ test.describe('Store credit flow', () => {
 
   test('customer can pay with granted store credit', async ({ browser, request }) => {
     // --- Manager: mint a bearer token via direct API login, then grant credit ---
-    const loginRes = await request.post('http://localhost:3000/api/auth/login', {
-      data: { username: ACCOUNTS.manager.username, password: ACCOUNTS.manager.password },
-    });
-    expect(loginRes.ok(), 'Manager login failed').toBeTruthy();
-    const { token } = await loginRes.json();
+    const token = await mintBearerToken(request, ACCOUNTS.manager);
     const auth = { Authorization: `Bearer ${token}` };
 
     const usersRes = await request.get('http://localhost:3000/api/users', { headers: auth });

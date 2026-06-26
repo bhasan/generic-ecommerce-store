@@ -99,12 +99,10 @@ const refreshAccessToken = () => {
         setAuthToken(data.token);
         return data.token;
       })
-      .catch((error) => {
-        // Refresh failed (no cookie / expired / revoked / reuse-detected).
-        // The caller falls through to the normal auth:unauthorized path.
-        throw error;
-      })
       .finally(() => {
+        // Clears the single-flight lock whether the refresh succeeded or failed
+        // (no cookie / expired / revoked / reuse-detected). The caller falls
+        // through to the normal auth:unauthorized path on rejection.
         refreshPromise = null;
       });
   }

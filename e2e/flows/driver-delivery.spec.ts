@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
-import { establishSession } from '../helpers/auth';
+import { establishSession, mintBearerToken } from '../helpers/auth';
 
 // Full DELIVERY journey across three roles:
 //   admin configures the delivery zone (ZIP allowlist) →
@@ -17,15 +17,14 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
 
   test('staff dispatch, driver delivers, with driver RBAC enforced', async ({ browser, request }) => {
     const API = 'http://localhost:3000/api';
-    // Mint a bearer token via direct API login (tokens are no longer in localStorage).
-    const apiLogin = async (username: string, password: string) => {
-      const res = await request.post(`${API}/auth/login`, { data: { username, password } });
-      expect(res.ok(), `${username} login failed`).toBeTruthy();
-      return (await res.json()).token as string;
-    };
+
+    // Mint admin and manager tokens in parallel — independent logins.
+    const [adminToken, managerToken] = await Promise.all([
+      mintBearerToken(request, ACCOUNTS.admin),
+      mintBearerToken(request, ACCOUNTS.manager),
+    ]);
 
     // --- Admin: make the in-zone ZIP deliverable and drop the delivery minimum ---
-    const adminToken = await apiLogin(ACCOUNTS.admin.username, ACCOUNTS.admin.password);
     const constraintsRes = await request.put(`${API}/ordering-constraints`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
@@ -38,7 +37,6 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     expect(constraintsRes.ok(), 'Failed to update ordering constraints').toBeTruthy();
 
     // --- Manager: grant the customer enough credit to pay for the order ---
-    const managerToken = await apiLogin(ACCOUNTS.manager.username, ACCOUNTS.manager.password);
     const managerAuth = { Authorization: `Bearer ${managerToken}` };
     const usersRes = await request.get(`${API}/users`, { headers: managerAuth });
     const users = await usersRes.json();
@@ -125,7 +123,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     await driverPage.waitForLoadState('networkidle');
 
     // A delivery driver may ONLY mark DELIVERED — never dispatch an order itself.
-    const driverToken = await apiLogin(ACCOUNTS.driver.username, ACCOUNTS.driver.password);
+    const driverToken = await mintBearerToken(request, ACCOUNTS.driver);
     const dispatchRes = await request.patch(`${API}/orders/${rawId}/status`, {
       headers: { Authorization: `Bearer ${driverToken}` },
       data: { status: 'READY_FOR_DELIVERY' },

@@ -1,5 +1,21 @@
-import { Page, BrowserContext } from '@playwright/test';
+import { Page, BrowserContext, APIRequestContext } from '@playwright/test';
 import { Account } from './accounts';
+
+const BACKEND_API = 'http://localhost:3000/api';
+
+/**
+ * Mint a short-lived bearer token for the given account via direct API login.
+ * Use this in tests that need to make authenticated API calls without a browser
+ * context (e.g. seeding data, checking RBAC via raw HTTP).
+ */
+export async function mintBearerToken(request: APIRequestContext, account: Account): Promise<string> {
+  const res = await request.post(`${BACKEND_API}/auth/login`, {
+    data: { username: account.username, password: account.password },
+  });
+  if (!res.ok()) throw new Error(`API login failed for ${account.username}: HTTP ${res.status()}`);
+  const { token } = await res.json();
+  return token as string;
+}
 
 export async function loginViaUI(page: Page, account: Account): Promise<void> {
   await page.goto('/login');

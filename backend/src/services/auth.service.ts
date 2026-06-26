@@ -8,6 +8,7 @@ import {
   hashRefreshToken,
 } from '../utils/jwt.util';
 import { AppError } from '../middleware/error.middleware';
+import { REFRESH_TOKEN_TTL_MS } from '../utils/authCookie.util';
 import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 import { notificationEventsService } from './notificationEvents.service';
@@ -30,10 +31,6 @@ interface LoginData {
 }
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
-
-// Refresh tokens live 7 days. Each successful /refresh rotates the value,
-// so this is the maximum idle window before a user must log in again.
-const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 // A just-rotated refresh token replayed within this window is treated as a
 // benign concurrent refresh (e.g. multi-tab) rather than theft. Kept short to

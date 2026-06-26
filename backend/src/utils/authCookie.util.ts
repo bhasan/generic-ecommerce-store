@@ -10,7 +10,9 @@ import { CookieOptions } from 'express';
 export const REFRESH_COOKIE = 'refreshToken';
 
 const REFRESH_COOKIE_PATH = '/api/auth';
-const REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, matches the DB TTL
+
+/** 7 days — used by both the DB row's `expiresAt` and the cookie's `maxAge`. */
+export const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Options for setting the refresh cookie. `sameSite: 'lax'` is safe because the
@@ -19,18 +21,17 @@ const REFRESH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days, matches th
  * vector without a separate CSRF token. `secure` is enabled in production (HTTPS).
  * Host-only (no `Domain`) so it cannot leak to sibling subdomains.
  */
-export const refreshCookieOptions = (): CookieOptions => ({
+const BASE_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   sameSite: 'lax',
   secure: process.env.NODE_ENV === 'production',
   path: REFRESH_COOKIE_PATH,
-  maxAge: REFRESH_COOKIE_MAX_AGE_MS,
+};
+
+export const refreshCookieOptions = (): CookieOptions => ({
+  ...BASE_COOKIE_OPTIONS,
+  maxAge: REFRESH_TOKEN_TTL_MS,
 });
 
 /** Options for clearing the refresh cookie — path must match the one it was set with. */
-export const clearRefreshCookieOptions = (): CookieOptions => ({
-  httpOnly: true,
-  sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
-  path: REFRESH_COOKIE_PATH,
-});
+export const clearRefreshCookieOptions = (): CookieOptions => BASE_COOKIE_OPTIONS;
