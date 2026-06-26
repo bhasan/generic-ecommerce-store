@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import { deleteUploadedFile } from '../utils/fileUtils';
 import type { SearchService, ProductVisibilityFilter } from './search/search.service';
 import { PostgresSearchService } from './search/postgres.search.service';
+import { productInclude, visibilityFilterToWhere } from './product.shared';
 
 interface VariantQuantityOptionInput {
   quantity: number;
@@ -64,17 +65,6 @@ interface UpdateProductData {
   variants?: VariantInput[];
 }
 
-const productInclude = {
-  category: { include: { parent: true } },
-  images: { orderBy: { sortOrder: 'asc' } },
-  variants: {
-    orderBy: { sortOrder: 'asc' },
-    include: {
-      quantityOptions: { orderBy: { sortOrder: 'asc' } },
-      priceBreaks: { orderBy: { minQuantity: 'asc' } },
-    },
-  },
-} satisfies Prisma.ProductInclude;
 
 function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'product';
@@ -147,11 +137,7 @@ export class ProductService {
   }
 
   private visibilityWhere(userRoles: RoleName[] | undefined): Prisma.ProductWhereInput {
-    const f = this.toVisibilityFilter(userRoles);
-    if (f.includeHidden && f.includeVipOnly) return {};
-    if (f.includeHidden) return { vipOnly: false };
-    if (f.includeVipOnly) return { hidden: false };
-    return { hidden: false, vipOnly: false };
+    return visibilityFilterToWhere(this.toVisibilityFilter(userRoles));
   }
 
   async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {

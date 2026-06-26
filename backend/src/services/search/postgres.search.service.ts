@@ -1,18 +1,7 @@
 import { Prisma } from '../../../generated/prisma';
 import prisma from '../../config/database';
 import type { SearchService, SearchedProduct, ProductVisibilityFilter, Pagination } from './search.service';
-
-const productInclude = {
-  category: { include: { parent: true } },
-  images: { orderBy: { sortOrder: 'asc' as const } },
-  variants: {
-    orderBy: { sortOrder: 'asc' as const },
-    include: {
-      quantityOptions: { orderBy: { sortOrder: 'asc' as const } },
-      priceBreaks: { orderBy: { minQuantity: 'asc' as const } },
-    },
-  },
-} satisfies Prisma.ProductInclude;
+import { productInclude, visibilityFilterToWhere } from '../product.shared';
 
 export class PostgresSearchService implements SearchService {
   async searchProducts(
@@ -56,12 +45,8 @@ export class PostgresSearchService implements SearchService {
     limit: number,
     offset: number,
   ): Promise<SearchedProduct[]> {
-    const where: Prisma.ProductWhereInput = {
-      ...(visibility.includeHidden ? {} : { hidden: false }),
-      ...(visibility.includeVipOnly ? {} : { vipOnly: false }),
-    };
     return prisma.product.findMany({
-      where,
+      where: visibilityFilterToWhere(visibility),
       include: productInclude,
       orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
       take: limit,
