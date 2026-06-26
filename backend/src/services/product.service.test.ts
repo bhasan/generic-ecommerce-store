@@ -261,7 +261,6 @@ describe('searchProducts', () => {
 
   it('translates guest roles to visibility filter and delegates to SearchService', async () => {
     const mockSearch = vi.fn().mockResolvedValue([]);
-    vi.doMock('./search/search.service', () => ({}));
     vi.doMock('./search/postgres.search.service', () => ({
       PostgresSearchService: vi.fn(() => ({ searchProducts: mockSearch })),
     }));

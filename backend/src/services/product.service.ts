@@ -140,20 +140,18 @@ export class ProductService {
     return variants.map((v, i) => ({ ...v, isDefault: hasDefault ? !!v.isDefault : i === 0 }));
   }
 
-  private visibilityWhere(userRoles: RoleName[] | undefined): Prisma.ProductWhereInput {
-    if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) return {};
-    if (hasAnyRole(userRoles, ['VIP'])) return { hidden: false };
-    return { hidden: false, vipOnly: false };
+  private toVisibilityFilter(userRoles: RoleName[] | undefined): ProductVisibilityFilter {
+    if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) return { includeHidden: true, includeVipOnly: true };
+    if (hasAnyRole(userRoles, ['VIP'])) return { includeHidden: false, includeVipOnly: true };
+    return { includeHidden: false, includeVipOnly: false };
   }
 
-  private toVisibilityFilter(userRoles: RoleName[] | undefined): ProductVisibilityFilter {
-    if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) {
-      return { includeHidden: true, includeVipOnly: true };
-    }
-    if (hasAnyRole(userRoles, ['VIP'])) {
-      return { includeHidden: false, includeVipOnly: true };
-    }
-    return { includeHidden: false, includeVipOnly: false };
+  private visibilityWhere(userRoles: RoleName[] | undefined): Prisma.ProductWhereInput {
+    const f = this.toVisibilityFilter(userRoles);
+    if (f.includeHidden && f.includeVipOnly) return {};
+    if (f.includeHidden) return { vipOnly: false };
+    if (f.includeVipOnly) return { hidden: false };
+    return { hidden: false, vipOnly: false };
   }
 
   async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {

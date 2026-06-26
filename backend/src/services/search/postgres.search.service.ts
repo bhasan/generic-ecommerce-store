@@ -51,26 +51,21 @@ export class PostgresSearchService implements SearchService {
       .sort((a, b) => (rankIndex.get(a.id) ?? 0) - (rankIndex.get(b.id) ?? 0));
   }
 
-  private buildVisibilityWhere(visibility: ProductVisibilityFilter): Prisma.ProductWhereInput {
-    if (visibility.includeHidden && visibility.includeVipOnly) return {};
-    if (visibility.includeHidden) return { vipOnly: false };
-    if (visibility.includeVipOnly) return { hidden: false };
-    return { hidden: false, vipOnly: false };
-  }
-
-  private async fallback(
+  private fallback(
     visibility: ProductVisibilityFilter,
     limit: number,
     offset: number,
   ): Promise<SearchedProduct[]> {
-    const where = this.buildVisibilityWhere(visibility);
-    const products = await prisma.product.findMany({
+    const where: Prisma.ProductWhereInput = {
+      ...(visibility.includeHidden ? {} : { hidden: false }),
+      ...(visibility.includeVipOnly ? {} : { vipOnly: false }),
+    };
+    return prisma.product.findMany({
       where,
       include: productInclude,
       orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
       take: limit,
       skip: offset,
     });
-    return products;
   }
 }

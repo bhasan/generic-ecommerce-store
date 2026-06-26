@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import prisma from '../../config/database';
+import { PostgresSearchService } from './postgres.search.service';
 
 const TEST_PREFIX = '__fts_test__';
 
@@ -8,6 +9,7 @@ const TEST_PREFIX = '__fts_test__';
 // beforeAll silently skips seeding and each test becomes a no-op pass.
 describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', () => {
   let dbAvailable = false;
+  let svc: PostgresSearchService;
   let categoryId: number;
   let flowerProductId: number;
   let descOnlyProductId: number;
@@ -65,6 +67,7 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
       vipProductId = vip.id;
       await prisma.$executeRaw`UPDATE "products" SET "search_category_name" = ${category.name} WHERE "id" = ${vipProductId}`;
 
+      svc = new PostgresSearchService();
       dbAvailable = true;
     } catch {
       // DB not reachable — tests will be no-ops
@@ -80,8 +83,6 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
 
   it('finds product by name (name match > description match by rank)', async () => {
     if (!dbAvailable) return;
-    const { PostgresSearchService } = await import('./postgres.search.service');
-    const svc = new PostgresSearchService();
     const results = await svc.searchProducts(
       { includeHidden: true, includeVipOnly: true },
       'kush',
@@ -95,8 +96,6 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
 
   it('finds product by category name', async () => {
     if (!dbAvailable) return;
-    const { PostgresSearchService } = await import('./postgres.search.service');
-    const svc = new PostgresSearchService();
     const results = await svc.searchProducts(
       { includeHidden: true, includeVipOnly: true },
       'flower',
@@ -109,8 +108,6 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
 
   it('excludes hidden products for guest', async () => {
     if (!dbAvailable) return;
-    const { PostgresSearchService } = await import('./postgres.search.service');
-    const svc = new PostgresSearchService();
     const results = await svc.searchProducts(
       { includeHidden: false, includeVipOnly: false },
       'kush',
@@ -123,8 +120,6 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
 
   it('includes hidden+vip for admin', async () => {
     if (!dbAvailable) return;
-    const { PostgresSearchService } = await import('./postgres.search.service');
-    const svc = new PostgresSearchService();
     const results = await svc.searchProducts(
       { includeHidden: true, includeVipOnly: true },
       'kush',
@@ -137,8 +132,6 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
 
   it('stems correctly — "flowering" matches "flower"', async () => {
     if (!dbAvailable) return;
-    const { PostgresSearchService } = await import('./postgres.search.service');
-    const svc = new PostgresSearchService();
     const results = await svc.searchProducts(
       { includeHidden: true, includeVipOnly: true },
       'flowering',
@@ -150,8 +143,6 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
 
   it('empty query returns products in sort order (no FTS)', async () => {
     if (!dbAvailable) return;
-    const { PostgresSearchService } = await import('./postgres.search.service');
-    const svc = new PostgresSearchService();
     const results = await svc.searchProducts(
       { includeHidden: false, includeVipOnly: false },
       '',
