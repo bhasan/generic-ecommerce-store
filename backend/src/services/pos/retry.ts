@@ -21,7 +21,7 @@ export async function retryWithBackoff(
 
       if (attempt === maxAttempts) {
         // Last attempt failed, log final warning and return
-        logger.warn(`${opts.label} failed after ${maxAttempts} attempts`, logContext);
+        logger.warn(`${opts.label} failed after ${maxAttempts} attempts`, { ...logContext, error });
         return; // Return without throwing
       } else {
         // Log the failure and calculate backoff delay
