@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { clearSettingsCache } from './settingsStore';
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
     findUnique: vi.fn(),
@@ -12,6 +13,7 @@ vi.mock('../config/database', () => ({
 
 describe('branding service', () => {
   beforeEach(() => {
+    clearSettingsCache();
     vi.clearAllMocks();
   });
 

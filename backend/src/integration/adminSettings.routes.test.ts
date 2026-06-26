@@ -208,16 +208,18 @@ describe('admin settings routes integration', () => {
     expect(body).toEqual({ error: 'No token provided. Authentication required.' });
   });
 
-  it('rejects non-management users from landing page settings', async () => {
+  it('rejects non-management users from updating landing page settings', async () => {
     verifyToken.mockReturnValue({ userId: 2, username: 'customer-one', roles: ['CUSTOMER'] });
 
     const { response, body } = await requestJson(server, '/api/landing-page-settings', {
-      headers: { Authorization: 'Bearer customer-token' },
+      method: 'PUT',
+      headers: { Authorization: 'Bearer customer-token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featuredProductIds: [], promotions: [] }),
     });
 
     expect(response.status).toBe(403);
     expect(body).toMatchObject({ error: 'Access denied. Insufficient permissions.' });
-    expect(landingPageSettingsService.getLandingPageSettings).not.toHaveBeenCalled();
+    expect(landingPageSettingsService.updateLandingPageSettings).not.toHaveBeenCalled();
   });
 
   it('returns landing page settings for a management user', async () => {

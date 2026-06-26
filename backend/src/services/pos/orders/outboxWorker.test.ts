@@ -1,0 +1,64 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../../../config/database', () => ({ default: {
+  $queryRaw: vi.fn(),
+  $transaction: vi.fn(),
+  posOutbox: { update: vi.fn(), updateMany: vi.fn() },
+} }));
+vi.mock('./posOrderService', () => ({
+  processOutboxRow: vi.fn(),
+  countPending: vi.fn().mockResolvedValue(0),
+  DeferralError: class DeferralError extends Error { constructor(m: string) { super(m); this.name = 'DeferralError'; } },
+}));
+const getStoreSettings = vi.hoisted(() => vi.fn());
+vi.mock('../../storeSettings.service', () => ({ StoreSettingsService: vi.fn(() => ({ getStoreSettings })) }));
+vi.mock('../registry', () => ({ getOrderSync: vi.fn(() => ({ shouldPushStatus: vi.fn(), pushOrder: vi.fn(), pushStatus: vi.fn() })) }));
+vi.mock('../../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
+
+import prisma from '../../../config/database';
+import { processOutboxRow, DeferralError } from './posOrderService';
+import { runOutboxOnce } from './outboxWorker';
+import { logger } from '../../../utils/logger';
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  getStoreSettings.mockResolvedValue({ posProvider: 'foreverpos', posConfig: { baseUrl: 'x', username: 'u', password: 'p', sakCatchAllProductId: 1, sakCatchAllVariantId: 2 } });
+  // $transaction executes the callback with the same mock client so $queryRaw is intercepted.
+  (prisma as any).$transaction.mockImplementation((fn: (tx: typeof prisma) => unknown) => fn(prisma));
+});
+
+describe('runOutboxOnce', () => {
+  it('marks a row DONE on success', async () => {
+    (prisma as any).$queryRaw.mockResolvedValue([{ id: 1, orderId: 5, provider: 'foreverpos', type: 'ORDER_CREATED', attempts: 0 }]);
+    (processOutboxRow as any).mockResolvedValue(undefined);
+    await runOutboxOnce();
+    expect((prisma as any).posOutbox.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { status: 'DONE' } });
+  });
+
+  it('increments attempts and stays PENDING on failure below cap', async () => {
+    (prisma as any).$queryRaw.mockResolvedValue([{ id: 2, orderId: 5, provider: 'foreverpos', type: 'ORDER_CREATED', attempts: 1 }]);
+    (processOutboxRow as any).mockRejectedValue(new Error('boom'));
+    await runOutboxOnce();
+    expect((prisma as any).posOutbox.update).toHaveBeenCalledWith({ where: { id: 2 }, data: { status: 'PENDING', attempts: 2, lastError: expect.stringContaining('boom') } });
+    expect(logger.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ event: 'pos_outbox_retry' }));
+  });
+
+  it('marks FAILED at the attempts cap', async () => {
+    (prisma as any).$queryRaw.mockResolvedValue([{ id: 3, orderId: 5, provider: 'foreverpos', type: 'ORDER_CREATED', attempts: 4 }]);
+    (processOutboxRow as any).mockRejectedValue(new Error('boom'));
+    await runOutboxOnce();
+    expect((prisma as any).posOutbox.update).toHaveBeenCalledWith({ where: { id: 3 }, data: { status: 'FAILED', attempts: 5, lastError: expect.stringContaining('boom') } });
+    expect(logger.error).toHaveBeenCalledWith(expect.any(String), expect.anything(), expect.objectContaining({ event: 'pos_outbox_failed' }));
+  });
+
+  it('defers ORDER_UPDATED without consuming an attempt', async () => {
+    (prisma as any).$queryRaw.mockResolvedValue([{ id: 4, orderId: 5, provider: 'foreverpos', type: 'ORDER_UPDATED', attempts: 0 }]);
+    (processOutboxRow as any).mockRejectedValue(new DeferralError('no mapping yet for order 5'));
+    await runOutboxOnce();
+    // Row resets to PENDING (not DONE/FAILED) and attempts is not incremented.
+    expect((prisma as any).posOutbox.update).toHaveBeenCalledWith({ where: { id: 4 }, data: { status: 'PENDING' } });
+    expect((prisma as any).posOutbox.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ attempts: expect.any(Number) }) }),
+    );
+  });
+});

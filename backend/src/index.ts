@@ -33,6 +33,7 @@ import { brandingController } from './controllers/branding.controller';
 import { asyncHandler } from './utils/asyncHandler.util';
 import brandingRoutes from './routes/branding.routes';
 import { parsePositiveInt } from './utils/request.util';
+import { startOutboxWorker } from './services/pos/orders/outboxWorker';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -248,6 +249,7 @@ app.listen(PORT, () => {
   logger.info('Proxy trust configured', {
     trustProxyHops: app.get('trust proxy'),
   });
+  startOutboxWorker();
   console.log('========================================');
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);

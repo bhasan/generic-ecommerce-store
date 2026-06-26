@@ -30,6 +30,7 @@ const createResponse = () => {
   const res: any = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
+    cookie: vi.fn().mockReturnThis(),
   };
   return res;
 };

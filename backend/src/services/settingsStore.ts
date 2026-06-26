@@ -16,6 +16,11 @@ import { TtlCache } from '../utils/ttlCache';
 const SETTINGS_CACHE_TTL_MS = Number(process.env.SETTINGS_CACHE_TTL_MS ?? 30_000);
 const settingsCache = new TtlCache<object>(SETTINGS_CACHE_TTL_MS);
 
+/** Clears all cached settings. Intended for use in tests only. */
+export function clearSettingsCache(): void {
+  settingsCache.clear();
+}
+
 export function parseOrThrow<T>(schema: ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);
   if (!result.success) {

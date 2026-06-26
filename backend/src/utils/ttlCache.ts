@@ -3,7 +3,7 @@ export class TtlCache<T> {
   private store = new Map<string, { value: T; expiresAt: number }>();
   private readonly ttlMs: number;
 
-  constructor(ttlMs: number, private readonly defaultTtlMs = 30_000) {
+  constructor(ttlMs: number, defaultTtlMs = 30_000) {
     // Guard against NaN / Infinity / negative values (e.g. from a bad env var).
     // Falls back to defaultTtlMs so the cache stays functional rather than silently immortal.
     this.ttlMs = Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : defaultTtlMs;
