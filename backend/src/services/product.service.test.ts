@@ -254,16 +254,61 @@ describe('VIP product filtering', () => {
 });
 
 describe('searchProducts', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
 
-  it('searchProducts filters by name/description, respects visibility, and is bounded', async () => {
-    prismaMock.product.findMany.mockResolvedValue([]);
-    const { default: productService } = await import('./product.service');
-    await productService.searchProducts(undefined /* guest */, 'kush', { limit: 25, offset: 0 });
-    const arg = prismaMock.product.findMany.mock.calls[0][0];
-    expect(arg.where.AND ?? arg.where).toBeDefined();         // visibility filter present
-    expect(JSON.stringify(arg.where)).toContain('insensitive'); // case-insensitive contains
-    expect(arg.take).toBe(25);
+  it('translates guest roles to visibility filter and delegates to SearchService', async () => {
+    const mockSearch = vi.fn().mockResolvedValue([]);
+    vi.doMock('./search/search.service', () => ({}));
+    vi.doMock('./search/postgres.search.service', () => ({
+      PostgresSearchService: vi.fn(() => ({ searchProducts: mockSearch })),
+    }));
+
+    const { ProductService } = await import('./product.service');
+    const service = new ProductService();
+    await service.searchProducts(undefined, 'kush', { limit: 25, offset: 0 });
+
+    expect(mockSearch).toHaveBeenCalledWith(
+      { includeHidden: false, includeVipOnly: false },
+      'kush',
+      { limit: 25, offset: 0 },
+    );
+  });
+
+  it('translates ADMIN roles to full visibility (includeHidden: true, includeVipOnly: true)', async () => {
+    const mockSearch = vi.fn().mockResolvedValue([]);
+    vi.doMock('./search/postgres.search.service', () => ({
+      PostgresSearchService: vi.fn(() => ({ searchProducts: mockSearch })),
+    }));
+
+    const { ProductService } = await import('./product.service');
+    const service = new ProductService();
+    await service.searchProducts(['ADMIN'], 'kush', { limit: 10, offset: 0 });
+
+    expect(mockSearch).toHaveBeenCalledWith(
+      { includeHidden: true, includeVipOnly: true },
+      'kush',
+      { limit: 10, offset: 0 },
+    );
+  });
+
+  it('translates VIP roles to includeHidden: false, includeVipOnly: true', async () => {
+    const mockSearch = vi.fn().mockResolvedValue([]);
+    vi.doMock('./search/postgres.search.service', () => ({
+      PostgresSearchService: vi.fn(() => ({ searchProducts: mockSearch })),
+    }));
+
+    const { ProductService } = await import('./product.service');
+    const service = new ProductService();
+    await service.searchProducts(['VIP'], 'kush', { limit: 10, offset: 0 });
+
+    expect(mockSearch).toHaveBeenCalledWith(
+      { includeHidden: false, includeVipOnly: true },
+      'kush',
+      { limit: 10, offset: 0 },
+    );
   });
 });
 

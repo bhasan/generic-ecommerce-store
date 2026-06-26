@@ -4,6 +4,8 @@ import { AppError } from '../middleware/error.middleware';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { logger } from '../utils/logger';
 import { deleteUploadedFile } from '../utils/fileUtils';
+import type { SearchService, ProductVisibilityFilter } from './search/search.service';
+import { PostgresSearchService } from './search/postgres.search.service';
 
 interface VariantQuantityOptionInput {
   quantity: number;
@@ -79,6 +81,12 @@ function slugify(value: string): string {
 }
 
 export class ProductService {
+  private searchService: SearchService;
+
+  constructor(searchService?: SearchService) {
+    this.searchService = searchService ?? new PostgresSearchService();
+  }
+
   private normalizeCategoryId(value: unknown): number | undefined {
     if (value === undefined || value === null) return undefined;
     const parsed = typeof value === 'string' ? parseInt(value, 10) : value;
@@ -138,6 +146,16 @@ export class ProductService {
     return { hidden: false, vipOnly: false };
   }
 
+  private toVisibilityFilter(userRoles: RoleName[] | undefined): ProductVisibilityFilter {
+    if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) {
+      return { includeHidden: true, includeVipOnly: true };
+    }
+    if (hasAnyRole(userRoles, ['VIP'])) {
+      return { includeHidden: false, includeVipOnly: true };
+    }
+    return { includeHidden: false, includeVipOnly: false };
+  }
+
   async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {
     const where = this.visibilityWhere(userRoles);
 
@@ -157,22 +175,13 @@ export class ProductService {
     return products.map((product) => ({ ...product, reviews: [] }));
   }
 
-  async searchProducts(userRoles: RoleName[] | undefined, q: string, { limit, offset }: { limit: number; offset: number }) {
-    const visibility = this.visibilityWhere(userRoles);
-    const term = q.trim();
-    const products = await prisma.product.findMany({
-      where: term
-        ? { AND: [visibility, { OR: [
-            { name: { contains: term, mode: 'insensitive' } },
-            { description: { contains: term, mode: 'insensitive' } },
-          ] }] }
-        : visibility,
-      include: productInclude,
-      orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
-      take: limit,
-      skip: offset,
-    });
-    return products.map((p) => ({ ...p, reviews: [] }));
+  async searchProducts(
+    userRoles: RoleName[] | undefined,
+    q: string,
+    pagination: { limit: number; offset: number },
+  ) {
+    const visibility = this.toVisibilityFilter(userRoles);
+    return this.searchService.searchProducts(visibility, q, pagination);
   }
 
   async getProductById(id: number, userRoles?: RoleName[]) {
