@@ -26,7 +26,7 @@ async function buildPayload(orderId: number): Promise<PosOrderPayload | null> {
     tax: order.tax.toNumber(),
     total: order.total.toNumber(),
     deliveryMethod: order.deliveryMethod,
-    items: order.items.map(i => ({
+    items: order.items.filter(i => !i.voided).map(i => ({
       productName: i.productName,
       variantLabel: i.variantLabel,
       quantity: i.quantity,
