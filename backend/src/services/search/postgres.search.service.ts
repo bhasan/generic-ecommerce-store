@@ -48,8 +48,7 @@ export class PostgresSearchService implements SearchService {
     // Re-sort by rank order returned from FTS query.
     const rankIndex = new Map(ids.map((id, i) => [id, i]));
     return products
-      .sort((a, b) => (rankIndex.get(a.id) ?? 0) - (rankIndex.get(b.id) ?? 0))
-      .map((p) => ({ ...p, reviews: [] }));
+      .sort((a, b) => (rankIndex.get(a.id) ?? 0) - (rankIndex.get(b.id) ?? 0));
   }
 
   private buildVisibilityWhere(visibility: ProductVisibilityFilter): Prisma.ProductWhereInput {
@@ -72,6 +71,6 @@ export class PostgresSearchService implements SearchService {
       take: limit,
       skip: offset,
     });
-    return products.map((p) => ({ ...p, reviews: [] }));
+    return products;
   }
 }

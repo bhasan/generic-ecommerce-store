@@ -181,7 +181,8 @@ export class ProductService {
     pagination: { limit: number; offset: number },
   ) {
     const visibility = this.toVisibilityFilter(userRoles);
-    return this.searchService.searchProducts(visibility, q, pagination);
+    const results = await this.searchService.searchProducts(visibility, q, pagination);
+    return results.map((p) => ({ ...p, reviews: [] }));
   }
 
   async getProductById(id: number, userRoles?: RoleName[]) {
