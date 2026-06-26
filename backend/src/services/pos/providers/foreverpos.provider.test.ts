@@ -48,19 +48,19 @@ describe('ForeverPosProvider', () => {
     expect(provider.shouldPushStatus('ARRIVED')).toBe(false);
   });
 
-  it('pushOrder calls logger.info with orderId and status', async () => {
-    await expect(provider.pushOrder(payload)).resolves.toBeUndefined();
+  it('pushOrder calls logger.info with orderId and status and resolves to { externalId: null }', async () => {
+    await expect(provider.pushOrder({ order: payload })).resolves.toEqual({ externalId: null });
     expect(mockLogger.info).toHaveBeenCalledWith(
       'ForeverPOS: pushOrder called',
       expect.objectContaining({ orderId: 1, status: 'APPROVED' })
     );
   });
 
-  it('pushPayment calls logger.info with orderId and paymentIds', async () => {
-    await expect(provider.pushPayment(payload)).resolves.toBeUndefined();
+  it('pushStatus calls logger.info with orderId and externalId', async () => {
+    await expect(provider.pushStatus({ order: payload, externalId: '12' })).resolves.toBeUndefined();
     expect(mockLogger.info).toHaveBeenCalledWith(
-      'ForeverPOS: pushPayment called',
-      expect.objectContaining({ orderId: 1, paymentIds: [5] })
+      'ForeverPOS: pushStatus called',
+      expect.objectContaining({ orderId: 1, externalId: '12' })
     );
   });
 });

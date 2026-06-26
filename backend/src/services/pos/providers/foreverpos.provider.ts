@@ -1,5 +1,5 @@
 import { logger } from '../../../utils/logger';
-import { PosOrderSync, PosOrderPayload } from '../orders/PosOrderSync';
+import { PosOrderSync, PosContext } from '../orders/PosOrderSync';
 
 // TODO: refine once ForeverPOS vendor behavior is verified
 const FOREVERPOS_PUSHABLE_STATUSES = ['APPROVED', 'DELIVERED'];
@@ -20,22 +20,19 @@ export class ForeverPosProvider implements PosOrderSync {
     return FOREVERPOS_PUSHABLE_STATUSES.includes(status);
   }
 
-  async pushOrder(order: PosOrderPayload): Promise<void> {
-    logger.info('ForeverPOS: pushOrder called', { orderId: order.id, status: order.status });
+  async pushOrder(ctx: PosContext): Promise<{ externalId: string | null }> {
+    logger.info('ForeverPOS: pushOrder called', { orderId: ctx.order.id, status: ctx.order.status });
 
     // TODO: implement when API docs available
     // POST to ForeverPOS order endpoint with order payload
     // Auth: see auth stub below
+    return { externalId: null };
   }
 
-  async pushPayment(order: PosOrderPayload): Promise<void> {
-    logger.info('ForeverPOS: pushPayment called', {
-      orderId: order.id,
-      paymentIds: order.payments.map(p => p.id),
-    });
+  async pushStatus(ctx: PosContext): Promise<void> {
+    logger.info('ForeverPOS: pushStatus called', { orderId: ctx.order.id, externalId: ctx.externalId });
 
     // TODO: implement when API docs available
-    // POST to ForeverPOS payment endpoint with payment payload
-    // Reference payments[].id as paymentId for correlation
+    // POST to ForeverPOS status endpoint with order payload
   }
 }
