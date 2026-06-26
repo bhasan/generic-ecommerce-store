@@ -26,7 +26,7 @@ export async function retryWithBackoff(
       } else {
         // Log the failure and calculate backoff delay
         logger.error(`${opts.label} failed on attempt ${attempt}/${maxAttempts}`, error, logContext);
-        const delayMs = backoffDelays[attempt - 1]; // attempt 1 -> index 0 -> 1000ms
+        const delayMs = backoffDelays[Math.min(attempt - 1, backoffDelays.length - 1)]; // attempt 1 -> index 0 -> 1000ms
         await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
