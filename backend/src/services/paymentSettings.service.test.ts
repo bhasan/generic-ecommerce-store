@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
+import { clearSettingsCache } from './settingsStore';
 
 const TEST_KEY = 'a'.repeat(64);
 
@@ -21,6 +22,7 @@ vi.mock('../utils/crypto.util', () => ({
 
 describe('payment settings service', () => {
   beforeEach(() => {
+    clearSettingsCache();
     vi.clearAllMocks();
   });
 

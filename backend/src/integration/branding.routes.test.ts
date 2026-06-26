@@ -91,7 +91,7 @@ describe('branding routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/css');
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=60, must-revalidate');
     expect(text).toContain('--color-primary: #7c3aed');
   });
 

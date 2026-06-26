@@ -130,7 +130,7 @@ describe('media routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual([{ id: 1, name: 'Visible Product' }]);
-    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, undefined, undefined);
+    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, 500, 0);
   });
 
   it('forwards limit and offset query params to the product service', async () => {

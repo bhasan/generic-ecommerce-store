@@ -102,7 +102,7 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual([{ id: 501, total: 22 }]);
-    expect(orderService.getAllOrders).toHaveBeenCalledWith(10, ['CUSTOMER'], undefined, undefined);
+    expect(orderService.getAllOrders).toHaveBeenCalledWith(10, ['CUSTOMER'], 100, 0);
   });
 
   it('forwards limit and offset query params to the order service', async () => {

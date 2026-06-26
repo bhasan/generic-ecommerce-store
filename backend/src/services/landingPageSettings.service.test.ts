@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
+import { clearSettingsCache } from './settingsStore';
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
@@ -14,6 +15,7 @@ vi.mock('../config/database', () => ({
 
 describe('landing page settings service', () => {
   beforeEach(() => {
+    clearSettingsCache();
     vi.clearAllMocks();
   });
 
