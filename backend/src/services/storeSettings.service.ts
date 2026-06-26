@@ -29,13 +29,13 @@ export interface StoreSettings {
   posConfig: PosConfig;
 }
 
-function safePosDecrypt(value: string, key: string, field: string): string {
-  if (!value) return '';
+function safePosDecrypt(value: string | undefined, key: string, field: string): string | undefined {
+  if (!value) return undefined;
   try {
     return decrypt(value, key);
   } catch {
     logger.warn('Stored POS credential could not be decrypted — treating as unconfigured', { field });
-    return '';
+    return undefined;
   }
 }
 
@@ -179,9 +179,9 @@ const store = new SettingsStore<StoreSettings>({
       ...normalized,
       posConfig: {
         ...normalized.posConfig,
-        username: safePosDecrypt(normalized.posConfig.username ?? '', POS_ENCRYPTION_KEY, 'username'),
-        password: safePosDecrypt(normalized.posConfig.password ?? '', POS_ENCRYPTION_KEY, 'password'),
-        apiKey: safePosDecrypt(normalized.posConfig.apiKey ?? '', POS_ENCRYPTION_KEY, 'apiKey'),
+        username: safePosDecrypt(normalized.posConfig.username, POS_ENCRYPTION_KEY, 'username'),
+        password: safePosDecrypt(normalized.posConfig.password, POS_ENCRYPTION_KEY, 'password'),
+        apiKey: safePosDecrypt(normalized.posConfig.apiKey, POS_ENCRYPTION_KEY, 'apiKey'),
       },
     };
   },
