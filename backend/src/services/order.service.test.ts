@@ -80,6 +80,11 @@ const deliveryEligibilityService = {
   checkDeliveryEligibility: vi.fn(),
 };
 
+const posService = vi.hoisted(() => ({
+  pushOrderCreated: vi.fn().mockResolvedValue(undefined),
+  pushOrderUpdated: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('../config/database', () => ({
   default: prismaMock,
 }));
@@ -107,6 +112,8 @@ vi.mock('./orderingConstraints.service', () => ({
 vi.mock('./deliveryEligibility.service', () => ({
   DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
 }));
+
+vi.mock('./pos/posService', () => posService);
 
 describe('getAllOrders', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -183,6 +190,8 @@ describe('getAllOrders', () => {
 describe('order service notifications', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    posService.pushOrderCreated.mockClear();
+    posService.pushOrderUpdated.mockClear();
     // Default: handle both array form (used by updateOrderStatus) and callback form (used by createOrder/addItemToOrder).
     prismaMock.$transaction.mockImplementation(async (opsOrCallback: unknown) => {
       if (typeof opsOrCallback === 'function') return opsOrCallback(prismaMock);
@@ -234,6 +243,7 @@ describe('order service notifications', () => {
     expect(thermalPrinterService.dispatchReceipt).toHaveBeenCalledWith(77, 'ORDER_CREATED', {
       userId: 5,
     });
+    await vi.waitFor(() => expect(posService.pushOrderCreated).toHaveBeenCalledWith(expect.any(Number)));
   });
 
   it('revalidates delivery eligibility during order creation and rejects out-of-zone orders', async () => {
@@ -307,6 +317,7 @@ describe('order service notifications', () => {
       OrderStatus.READY_FOR_DELIVERY,
       OrderStatus.APPROVED,
     );
+    await vi.waitFor(() => expect(posService.pushOrderUpdated).toHaveBeenCalledWith(expect.any(Number)));
   });
 
   it('creates an OrderStatusEvent row with correct fromStatus, toStatus, changedBy, and note on status update', async () => {
@@ -426,6 +437,41 @@ describe('order service notifications', () => {
       id: 78,
       status: 'PENDING',
     });
+  });
+
+  it('does not push to POS on createOrder when payment method is CC (notifiesOnCreate=false)', async () => {
+    prismaMock.productVariant.findMany.mockResolvedValue([makeVariant()]);
+    prismaMock.order.create.mockResolvedValue({
+      id: 80,
+      userId: 5,
+      total: D(10.82),
+      status: 'PENDING',
+      paymentMethod: PaymentMethod.CC,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deliveryMethod: DeliveryMethod.PICKUP,
+    });
+    prismaMock.orderItem.create.mockResolvedValue({
+      id: 903,
+      orderId: 80,
+      productId: 3,
+      quantity: 1,
+      price: 10,
+    });
+    prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.createOrder({
+      userId: 5,
+      items: [{ variantId: 3, quantity: 1 }],
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.CC,
+    });
+
+    expect(posService.pushOrderCreated).not.toHaveBeenCalled();
   });
 
   it('returns 404 when trying to reprint a nonexistent order', async () => {
