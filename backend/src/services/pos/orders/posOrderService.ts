@@ -7,6 +7,14 @@ import { PosContext, PosOrderPayload } from './PosOrderSync';
 
 const PROVIDER = 'foreverpos';
 
+/** Thrown when ORDER_UPDATED arrives before its ORDER_CREATED has completed. Worker skips without consuming an attempt. */
+export class DeferralError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'DeferralError';
+  }
+}
+
 export async function enqueue(
   tx: Prisma.TransactionClient,
   orderId: number,
@@ -40,13 +48,19 @@ async function buildPayload(orderId: number): Promise<PosOrderPayload | null> {
 export async function processOutboxRow(row: {
   id: number; orderId: number; provider: string; type: string; attempts: number;
 }): Promise<void> {
+  if (row.provider !== PROVIDER) throw new Error(`unsupported POS provider: ${row.provider}`);
+
   const settings = await new StoreSettingsService().getStoreSettings();
   const provider = getOrderSync(settings);
   if (!provider) { logger.warn('POS provider unavailable; skipping row', { orderId: row.orderId, rowId: row.id }); return; }
 
+  // Hoist the mapping lookup — both branches need it.
+  const mapping = await prisma.orderPosMapping.findUnique({
+    where: { orderId_provider: { orderId: row.orderId, provider: PROVIDER } },
+  });
+
   if (row.type === 'ORDER_CREATED') {
-    const existing = await prisma.orderPosMapping.findUnique({ where: { orderId_provider: { orderId: row.orderId, provider: PROVIDER } } });
-    if (existing) return;
+    if (mapping) return; // idempotent
 
     const payload = await buildPayload(row.orderId);
     if (!payload) return;
@@ -59,8 +73,7 @@ export async function processOutboxRow(row: {
   }
 
   if (row.type === 'ORDER_UPDATED') {
-    const mapping = await prisma.orderPosMapping.findUnique({ where: { orderId_provider: { orderId: row.orderId, provider: PROVIDER } } });
-    if (!mapping) throw new Error(`no mapping yet for order ${row.orderId} (defer ORDER_UPDATED)`);
+    if (!mapping) throw new DeferralError(`no mapping yet for order ${row.orderId}`);
     const payload = await buildPayload(row.orderId);
     if (!payload) return;
     await provider.pushStatus({ order: payload, externalId: mapping.externalId });

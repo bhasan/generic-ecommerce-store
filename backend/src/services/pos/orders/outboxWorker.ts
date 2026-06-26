@@ -1,7 +1,7 @@
 import prisma from '../../../config/database';
 import { Prisma } from '../../../../generated/prisma';
 import { logger } from '../../../utils/logger';
-import { processOutboxRow, countPending } from './posOrderService';
+import { processOutboxRow, countPending, DeferralError } from './posOrderService';
 
 const MAX_ATTEMPTS = 5;
 const POLL_MS = Number(process.env.POS_OUTBOX_POLL_MS ?? 30000);
@@ -9,10 +9,6 @@ const BATCH = 10;
 const BACKLOG_THRESHOLD = Number(process.env.POS_OUTBOX_BACKLOG_THRESHOLD ?? 50);
 
 interface OutboxRow { id: number; orderId: number; provider: string; type: string; attempts: number; }
-
-function isDeferral(err: unknown): boolean {
-  return err instanceof Error && /defer ORDER_UPDATED/.test(err.message);
-}
 
 export async function runOutboxOnce(): Promise<void> {
   const rows = await prisma.$queryRaw<OutboxRow[]>(Prisma.sql`
@@ -29,7 +25,7 @@ export async function runOutboxOnce(): Promise<void> {
       await processOutboxRow(row);
       await prisma.posOutbox.update({ where: { id: row.id }, data: { status: 'DONE' } });
     } catch (err) {
-      if (isDeferral(err)) continue;
+      if (err instanceof DeferralError) continue;
       const attempts = row.attempts + 1;
       const lastError = err instanceof Error ? err.message : String(err);
       if (attempts >= MAX_ATTEMPTS) {
@@ -41,6 +37,8 @@ export async function runOutboxOnce(): Promise<void> {
       }
     }
   }
+
+  if (rows.length === 0) return;
 
   const pending = await countPending();
   if (pending > BACKLOG_THRESHOLD) {

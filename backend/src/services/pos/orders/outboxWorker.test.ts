@@ -4,11 +4,15 @@ vi.mock('../../../config/database', () => ({ default: {
   $queryRaw: vi.fn(),
   posOutbox: { update: vi.fn() },
 } }));
-vi.mock('./posOrderService', () => ({ processOutboxRow: vi.fn(), countPending: vi.fn().mockResolvedValue(0) }));
+vi.mock('./posOrderService', () => ({
+  processOutboxRow: vi.fn(),
+  countPending: vi.fn().mockResolvedValue(0),
+  DeferralError: class DeferralError extends Error { constructor(m: string) { super(m); this.name = 'DeferralError'; } },
+}));
 vi.mock('../../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
 
 import prisma from '../../../config/database';
-import { processOutboxRow } from './posOrderService';
+import { processOutboxRow, DeferralError } from './posOrderService';
 import { runOutboxOnce } from './outboxWorker';
 import { logger } from '../../../utils/logger';
 
@@ -40,7 +44,7 @@ describe('runOutboxOnce', () => {
 
   it('defers ORDER_UPDATED without consuming an attempt', async () => {
     (prisma as any).$queryRaw.mockResolvedValue([{ id: 4, orderId: 5, provider: 'foreverpos', type: 'ORDER_UPDATED', attempts: 0 }]);
-    (processOutboxRow as any).mockRejectedValue(new Error('no mapping yet for order 5 (defer ORDER_UPDATED)'));
+    (processOutboxRow as any).mockRejectedValue(new DeferralError('no mapping yet for order 5'));
     await runOutboxOnce();
     expect((prisma as any).posOutbox.update).not.toHaveBeenCalled();
   });
