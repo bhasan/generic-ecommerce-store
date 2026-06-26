@@ -4,6 +4,9 @@ import { AppError } from '../middleware/error.middleware';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { logger } from '../utils/logger';
 import { deleteUploadedFile } from '../utils/fileUtils';
+import type { SearchService, ProductVisibilityFilter } from './search/search.service';
+import { PostgresSearchService } from './search/postgres.search.service';
+import { productInclude, visibilityFilterToWhere } from './product.shared';
 
 interface VariantQuantityOptionInput {
   quantity: number;
@@ -62,23 +65,18 @@ interface UpdateProductData {
   variants?: VariantInput[];
 }
 
-const productInclude = {
-  category: { include: { parent: true } },
-  images: { orderBy: { sortOrder: 'asc' } },
-  variants: {
-    orderBy: { sortOrder: 'asc' },
-    include: {
-      quantityOptions: { orderBy: { sortOrder: 'asc' } },
-      priceBreaks: { orderBy: { minQuantity: 'asc' } },
-    },
-  },
-} satisfies Prisma.ProductInclude;
 
 function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'product';
 }
 
 export class ProductService {
+  private searchService: SearchService;
+
+  constructor(searchService?: SearchService) {
+    this.searchService = searchService ?? new PostgresSearchService();
+  }
+
   private normalizeCategoryId(value: unknown): number | undefined {
     if (value === undefined || value === null) return undefined;
     const parsed = typeof value === 'string' ? parseInt(value, 10) : value;
@@ -132,10 +130,14 @@ export class ProductService {
     return variants.map((v, i) => ({ ...v, isDefault: hasDefault ? !!v.isDefault : i === 0 }));
   }
 
+  private toVisibilityFilter(userRoles: RoleName[] | undefined): ProductVisibilityFilter {
+    if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) return { includeHidden: true, includeVipOnly: true };
+    if (hasAnyRole(userRoles, ['VIP'])) return { includeHidden: false, includeVipOnly: true };
+    return { includeHidden: false, includeVipOnly: false };
+  }
+
   private visibilityWhere(userRoles: RoleName[] | undefined): Prisma.ProductWhereInput {
-    if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) return {};
-    if (hasAnyRole(userRoles, ['VIP'])) return { hidden: false };
-    return { hidden: false, vipOnly: false };
+    return visibilityFilterToWhere(this.toVisibilityFilter(userRoles));
   }
 
   async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {
@@ -157,22 +159,14 @@ export class ProductService {
     return products.map((product) => ({ ...product, reviews: [] }));
   }
 
-  async searchProducts(userRoles: RoleName[] | undefined, q: string, { limit, offset }: { limit: number; offset: number }) {
-    const visibility = this.visibilityWhere(userRoles);
-    const term = q.trim();
-    const products = await prisma.product.findMany({
-      where: term
-        ? { AND: [visibility, { OR: [
-            { name: { contains: term, mode: 'insensitive' } },
-            { description: { contains: term, mode: 'insensitive' } },
-          ] }] }
-        : visibility,
-      include: productInclude,
-      orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
-      take: limit,
-      skip: offset,
-    });
-    return products.map((p) => ({ ...p, reviews: [] }));
+  async searchProducts(
+    userRoles: RoleName[] | undefined,
+    q: string,
+    pagination: { limit: number; offset: number },
+  ) {
+    const visibility = this.toVisibilityFilter(userRoles);
+    const results = await this.searchService.searchProducts(visibility, q, pagination);
+    return results.map((p) => ({ ...p, reviews: [] }));
   }
 
   async getProductById(id: number, userRoles?: RoleName[]) {
