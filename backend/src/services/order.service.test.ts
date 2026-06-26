@@ -286,6 +286,32 @@ describe('order service notifications', () => {
     expect(prismaMock.order.create).not.toHaveBeenCalled();
   });
 
+  it('does not enqueue a POS update when shouldPushStatus returns false', async () => {
+    posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => false, pushOrder: vi.fn(), pushStatus: vi.fn() });
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 77,
+      userId: 5,
+      status: OrderStatus.APPROVED,
+      total: D(10),
+      paymentMethod: PaymentMethod.EXTERNAL,
+    });
+    prismaMock.order.update.mockResolvedValue({
+      id: 77,
+      userId: 5,
+      status: OrderStatus.READY_FOR_DELIVERY,
+      updatedAt: new Date('2024-01-02'),
+    });
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+    prismaMock.orderItem.findMany.mockResolvedValue([]);
+    prismaMock.productVariant.findMany.mockResolvedValue([]);
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.READY_FOR_DELIVERY }, ['MANAGEMENT']);
+
+    expect(posOrderService.enqueue).not.toHaveBeenCalled();
+  });
+
   it('emits an order-status notification after successful status update', async () => {
     prismaMock.order.findUnique.mockResolvedValue({
       id: 77,
@@ -520,6 +546,57 @@ describe('order service notifications', () => {
         OrderStatus.ARRIVED,
         OrderStatus.READY_FOR_PICKUP,
       );
+      expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), 101, 'ORDER_UPDATED', 'foreverpos');
+    });
+
+    it('does not enqueue when shouldPushStatus returns false for ARRIVED', async () => {
+      posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => false, pushOrder: vi.fn(), pushStatus: vi.fn() });
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.READY_FOR_PICKUP,
+        deliveryMethod: 'CURBSIDE',
+        deliveryAddress: 'CURBSIDE: Silver Camry',
+      });
+      prismaMock.order.update.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.ARRIVED,
+        deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+        updatedAt: new Date(),
+      });
+      prismaMock.orderItem.findMany.mockResolvedValue([]);
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+      await service.customerArrive(101, 5, 'Space 4');
+
+      expect(posOrderService.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('does not enqueue when POS is not configured', async () => {
+      posRegistry.getOrderSync.mockReturnValue(null);
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.READY_FOR_PICKUP,
+        deliveryMethod: 'CURBSIDE',
+        deliveryAddress: 'CURBSIDE: Silver Camry',
+      });
+      prismaMock.order.update.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.ARRIVED,
+        deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+        updatedAt: new Date(),
+      });
+      prismaMock.orderItem.findMany.mockResolvedValue([]);
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+      await service.customerArrive(101, 5, 'Space 4');
+
+      expect(posOrderService.enqueue).not.toHaveBeenCalled();
     });
 
     it('rejects with 404 if order does not exist', async () => {
