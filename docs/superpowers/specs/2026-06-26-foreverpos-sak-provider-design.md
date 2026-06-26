@@ -8,9 +8,10 @@
 
 Implement the real ForeverPOS provider against the SAK Retail Solutions API, and upgrade the POS push from in-process fire-and-forget to a **durable transactional outbox** so order/status sync survives restarts and never silently drifts. Providers stay pure HTTP adapters; all persistence, ordering, idempotency, and retry live in the orchestration layer, preserving POS-agnosticism.
 
-This revision incorporates a live discovery spike against the SAK API and two product decisions:
+This revision incorporates a live discovery spike against the SAK API and three decisions:
 - **Single catch-all line item** — no per-product mapping; one generic "Online Order" product carries the grand total.
 - **Push on payment settled (APPROVED)** — the SAK voucher is created when our order is approved, with payment populated, because SAK only accepts payment at creation.
+- **Capability-based module structure** — the `pos/` module is organized by capability (order sync now; inventory sync later) with a shared per-vendor client, so future ForeverPOS integrations slot in without a god-interface or duplicated auth. Only order sync is built now; inventory is a seam, not code.
 
 ## Goals
 
@@ -69,13 +70,36 @@ In-process worker loop (every 30s, env POS_OUTBOX_POLL_MS, started in index.ts)
               else → provider.pushStatus(ctx) (bulk-update) → DONE
 ```
 
-### Components
+### Module Structure (capability-based)
+
+The `pos/` module is organized by **capability**, not by one monolithic provider, so future ForeverPOS work (inventory sync, etc.) slots in without bloating an order-shaped interface or duplicating auth. This is a refactor of the currently-merged flat layout (`PosProvider.ts`, `providers/foreverpos.provider.ts`, etc.).
+
+```
+pos/
+  client/                       # shared per-vendor connection concerns (future-extensible)
+  orders/                       # ORDER-SYNC capability
+    PosOrderSync.ts             # interface (renamed from PosProvider) + PosContext/payload types
+    posOrderService.ts          # enqueue + per-type processing (renamed from posService.ts)
+    outboxWorker.ts             # 30s setInterval, FOR UPDATE SKIP LOCKED, dispatch by type
+    retry.ts                    # shared retry (moved here for now; promote to shared if reused)
+  providers/
+    foreverpos/
+      client.ts                 # ForeverPosClient: auth (lazy token, cache, refresh on 401) + HTTP. SHARED across capabilities.
+      orders.ts                 # implements PosOrderSync (pushOrder, pushStatus); field/status/payment mapping. Uses client. No DB.
+      # inventory.ts            # (FUTURE) implements PosInventorySync — not built now
+  registry.ts                   # maps providerKey → { orderSync?: PosOrderSync; inventorySync?: ... }
+```
+
+- **`ForeverPosClient`** is the only piece shared between capabilities: auth token lifecycle + raw SAK HTTP. Order sync consumes it now; inventory sync will reuse it later.
+- **`PosOrderSync`** (renamed from `PosProvider`) is the order capability only. A vendor implements the capabilities it supports; the registry resolves **per capability** (`getOrderSync(settings)`), returning `null` if unsupported/unconfigured.
+- **Inventory is NOT built now** — only the seam exists (the registry's capability map and the `providers/foreverpos/` directory). Inventory sync will be scheduled/inbound/idempotent (a poller, not an outbox) — deliberately separate machinery.
+
+### Persistence & workers
 
 - **`pos_outbox`** — durable queue, written transactionally with the status change.
 - **`order_pos_mappings`** — `(orderId, provider) → externalId` (SAK `voucherId`). Written by the worker after a successful create; gates status updates.
 - **`outboxWorker.ts`** — 30s `setInterval`; claims with `FOR UPDATE SKIP LOCKED`; dispatches by type; retry/failure transitions. Started in `index.ts`.
-- **`posService.ts`** — `enqueue(...)` (transactional) + per-type processing; owns mapping persistence + idempotency.
-- **`foreverpos.provider.ts`** — pure adapter: auth (lazy token, cache, refresh on 401), `pushOrder`, `pushStatus`. Field/status/payment mapping here; reads catch-all IDs from injected config. No DB access.
+- **`posOrderService.ts`** — `enqueue(...)` (transactional) + per-type processing; owns mapping persistence + idempotency; resolves the order-sync capability from the registry.
 
 ## Data Model (Prisma)
 
@@ -125,20 +149,30 @@ posConfig: {
 
 ## Interface Evolution
 
+The order capability interface, renamed from `PosProvider` to **`PosOrderSync`** (lives in `pos/orders/PosOrderSync.ts`):
+
 ```ts
 export interface PosContext {
   order: PosOrderPayload;        // includes status, grandTotal, payments[]
   externalId?: string | null;    // SAK voucherId, set for status updates
 }
 
-export interface PosProvider {
+export interface PosOrderSync {
   shouldPushStatus(status: string): boolean;
   pushOrder(ctx: PosContext): Promise<{ externalId: string | null }>;  // returns SAK voucherId
   pushStatus(ctx: PosContext): Promise<void>;                          // requires ctx.externalId
 }
 ```
 
-`pushPayment` is removed; payment is folded into `pushOrder`'s create payload.
+`pushPayment` is removed; payment is folded into `pushOrder`'s create payload. Future capabilities (e.g. `PosInventorySync`) are **separate interfaces**, not additions to this one.
+
+The registry resolves capabilities independently:
+
+```ts
+// registry.ts
+export function getOrderSync(settings: StoreSettings): PosOrderSync | null;
+// future: export function getInventorySync(settings): PosInventorySync | null;
+```
 
 ## Status & Payment Mapping (in provider)
 
@@ -204,15 +238,17 @@ Stable `event` field per log line for exact-match alerting:
 
 ## Implementation Sequence
 
-1. Prisma migration: `pos_outbox`, `order_pos_mappings`, `Order` back-relations.
-2. `posConfig` additions (`sakCatchAllProductId`, `sakCatchAllVariantId`); the generic "Online Order" product is created once in SAK and its IDs configured per store.
-3. `PosContext` interface change (`pushStatus` replaces `pushPayment`).
-4. `posService` enqueue + per-type processing + idempotency + mapping persistence.
-5. `outboxWorker.ts` with `FOR UPDATE SKIP LOCKED`; start in `index.ts`.
-6. Real `foreverpos.provider.ts`: auth (`/api/Users/login-email`), `pushOrder` (`POST /api/Voucher/order`, catch-all line + payment), `pushStatus` (`PUT /api/Voucher/bulk-update`), status/payment mapping.
-7. Wire enqueues into the APPROVED transition (and later status changes) in `order.service.ts`; remove the old detached calls.
-8. Structured logging events throughout.
-9. Tests (below).
+1. **Restructure** the merged `pos/` module to the capability layout: create `pos/orders/`, rename `PosProvider` → `PosOrderSync` (`pos/orders/PosOrderSync.ts`), rename `posService.ts` → `pos/orders/posOrderService.ts`, move `retry.ts` under `orders/`, and update `registry.ts` to `getOrderSync(settings)` returning a capability (capability map shape). Move tests alongside.
+2. Prisma migration: `pos_outbox`, `order_pos_mappings`, `Order` back-relations.
+3. `posConfig` additions (`sakCatchAllProductId`, `sakCatchAllVariantId`); the generic "Online Order" product is created once in SAK and its IDs configured per store.
+4. `PosContext` interface (`pushStatus` replaces `pushPayment`) on `PosOrderSync`.
+5. Extract **`providers/foreverpos/client.ts`** (`ForeverPosClient`: auth via `/api/Users/login-email`, token cache, refresh on 401, raw HTTP).
+6. **`providers/foreverpos/orders.ts`** implements `PosOrderSync`: `pushOrder` (`POST /api/Voucher/order`, catch-all line + payment), `pushStatus` (`PUT /api/Voucher/bulk-update`), status/payment mapping. Uses the client.
+7. `posOrderService` enqueue + per-type processing + idempotency + mapping persistence.
+8. `outboxWorker.ts` with `FOR UPDATE SKIP LOCKED`; start in `index.ts`.
+9. Wire enqueues into the APPROVED transition (and later status changes) in `order.service.ts`; remove the old detached calls.
+10. Structured logging events throughout.
+11. Tests (below).
 
 ## Testing
 
