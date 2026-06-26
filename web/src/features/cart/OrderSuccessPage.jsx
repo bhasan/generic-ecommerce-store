@@ -50,7 +50,7 @@ function OrderSuccessPage() {
         <div className="order-id-card">
           <div className="order-id-label">Order ID</div>
           <div className="order-id-number">
-            {typeof orderId === 'number' ? `#${orderId.toString().padStart(6, '0')}` : orderId}
+            {typeof orderId === 'number' ? `#${orderId}` : orderId}
           </div>
           <div className="order-date">{orderDate}</div>
         </div>

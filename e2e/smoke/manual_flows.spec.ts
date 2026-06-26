@@ -145,7 +145,7 @@ test.describe('Flow 1: Customer browse → variant → cart → checkout', () =>
     await ss(page, '1f_success');
 
     const rawText = await page.locator('.order-id-number').textContent();
-    const orderId = String(parseInt(rawText!.replace('#', '').trim(), 10));
+    const orderId = rawText!.replace('#', '').trim();
 
     await page.goto(`${BASE}/my-orders`);
     await page.waitForLoadState('networkidle');

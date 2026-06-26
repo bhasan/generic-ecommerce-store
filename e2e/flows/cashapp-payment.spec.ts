@@ -110,13 +110,9 @@ test.describe('CashApp payment flow', () => {
     await page.waitForURL('**/order-success', { timeout: 12_000 });
 
     // ── OrderSuccessPage: verify display consistency ───────────────────────────
-    // The big badge is padded (e.g. #000055) — cosmetic only.
     const badge = page.locator('.order-id-number');
     await expect(badge).toBeVisible({ timeout: 8_000 });
-    const badgeText = (await badge.textContent())!.trim();
-    // Strip leading zeros and compare numeric value.
-    const displayedId = parseInt(badgeText.replace(/^#0*/, '') || '0', 10);
-    expect(displayedId, 'Badge ID must equal the API order id').toBe(rawOrderId);
+    await expect(badge).toHaveText(`#${rawOrderId}`);
 
     // The memo instruction should reference the raw id (what goes in CashApp memo).
     await expect(
