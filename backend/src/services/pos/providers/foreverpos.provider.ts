@@ -1,6 +1,7 @@
 import { logger } from '../../../utils/logger';
 import { PosProvider, PosOrderPayload } from '../PosProvider';
 
+// TODO: refine once ForeverPOS vendor behavior is verified
 const FOREVERPOS_PUSHABLE_STATUSES = ['APPROVED', 'DELIVERED'];
 
 /**
