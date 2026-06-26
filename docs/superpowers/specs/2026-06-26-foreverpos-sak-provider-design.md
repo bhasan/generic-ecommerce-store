@@ -24,6 +24,7 @@ This revision incorporates a live discovery spike against the SAK API and two pr
 - Inbound sync (SAK → app webhooks)
 - Backfilling historical orders
 - Per-product line items / inventory sync in SAK (deliberately using a catch-all line — see decisions)
+- Returns / refunds sync (handled entirely on the POS side)
 - A separate worker process or external queue (Redis/BullMQ) — in-process worker only
 
 ## Confirmed API Behavior (from live spike, 2026-06-26)
@@ -153,7 +154,7 @@ export interface PosProvider {
 
 The create payload sets `status` from the order's status at push time (normally `Processing` for APPROVED).
 
-**Payment** (our payment → SAK fields; refine after confirming SAK's `credit` semantics):
+**Payment** (our payment → SAK fields). SAK's `credit` = **credit card** (not store credit):
 
 | Our payment method | SAK field |
 |---|---|
@@ -220,10 +221,9 @@ Stable `event` field per log line for exact-match alerting:
 - **Worker claim:** `FOR UPDATE SKIP LOCKED` returns oldest PENDING; concurrent claim does not double-process.
 - **Live integration:** manual, against SAK, mirroring the verified spike flow (create with payment → bulk-update status).
 
-## Open Vendor Questions (non-blocking)
+## Returns / Refunds
 
-- Confirm SAK's `credit` semantics (credit card vs store credit / on-account) to finalize the payment mapping.
-- Confirm whether a returns/refund flow should also sync (SAK has VoucherReturn endpoints) — future scope.
+Out of scope. Returns and refunds are handled entirely on the POS side and are **not** synced from our app.
 
 ## Future Considerations
 
