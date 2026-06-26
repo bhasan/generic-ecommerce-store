@@ -1,9 +1,9 @@
-import prisma from '../../config/database';
-import { logger } from '../../utils/logger';
-import { StoreSettingsService } from '../storeSettings.service';
-import { getPosProvider } from './registry';
+import prisma from '../../../config/database';
+import { logger } from '../../../utils/logger';
+import { StoreSettingsService } from '../../storeSettings.service';
+import { getOrderSync } from '../registry';
 import { retryWithBackoff } from './retry';
-import { PosOrderPayload } from './PosProvider';
+import { PosOrderPayload } from './PosOrderSync';
 
 async function buildPayload(orderId: number): Promise<PosOrderPayload | null> {
   const order = await prisma.order.findUnique({
@@ -45,7 +45,7 @@ async function buildPayload(orderId: number): Promise<PosOrderPayload | null> {
 
 export async function pushOrderCreated(orderId: number): Promise<void> {
   const settings = await new StoreSettingsService().getStoreSettings();
-  const provider = getPosProvider(settings);
+  const provider = getOrderSync(settings);
   if (!provider) return;
 
   const payload = await buildPayload(orderId);
@@ -57,7 +57,7 @@ export async function pushOrderCreated(orderId: number): Promise<void> {
 
 export async function pushOrderUpdated(orderId: number): Promise<void> {
   const settings = await new StoreSettingsService().getStoreSettings();
-  const provider = getPosProvider(settings);
+  const provider = getOrderSync(settings);
   if (!provider) return;
 
   const payload = await buildPayload(orderId);

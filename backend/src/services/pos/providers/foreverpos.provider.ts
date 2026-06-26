@@ -1,5 +1,5 @@
 import { logger } from '../../../utils/logger';
-import { PosProvider, PosOrderPayload } from '../PosProvider';
+import { PosOrderSync, PosOrderPayload } from '../orders/PosOrderSync';
 
 // TODO: refine once ForeverPOS vendor behavior is verified
 const FOREVERPOS_PUSHABLE_STATUSES = ['APPROVED', 'DELIVERED'];
@@ -9,7 +9,7 @@ const FOREVERPOS_PUSHABLE_STATUSES = ['APPROVED', 'DELIVERED'];
  * TODO: implement once ForeverPOS auth approach confirmed (user/password → token, or API key)
  * Credentials: read from posConfig (decrypted) passed to constructor, or env vars
  */
-export class ForeverPosProvider implements PosProvider {
+export class ForeverPosProvider implements PosOrderSync {
   constructor(config?: { baseUrl?: string }) {
     // TODO: store baseUrl from config or FOREVERPOS_BASE_URL env var when implementing actual API calls
     void config; // Suppress unused parameter warning

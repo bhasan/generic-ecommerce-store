@@ -10,10 +10,10 @@ vi.mock('../../utils/logger', () => ({
 }));
 
 import { logger as mockLogger } from '../../utils/logger';
-import { getPosProvider, registerPosProvider } from './registry';
-import type { PosProvider } from './PosProvider';
+import { getOrderSync, registerProvider } from './registry';
+import type { PosOrderSync } from './orders/PosOrderSync';
 
-const makeMockProvider = (): PosProvider => ({
+const makeMockProvider = (): PosOrderSync => ({
   shouldPushStatus: vi.fn().mockReturnValue(true),
   pushOrder: vi.fn().mockResolvedValue(undefined),
   pushPayment: vi.fn().mockResolvedValue(undefined),
@@ -24,36 +24,36 @@ describe('registry', () => {
     vi.clearAllMocks();
   });
 
-  it('getPosProvider returns a non-null provider for foreverpos', () => {
-    const provider = getPosProvider({ posProvider: 'foreverpos' });
+  it('getOrderSync returns a non-null provider for foreverpos', () => {
+    const provider = getOrderSync({ posProvider: 'foreverpos' });
     expect(provider).not.toBeNull();
   });
 
-  it('getPosProvider returns null for null posProvider without warning', () => {
-    const provider = getPosProvider({ posProvider: null });
+  it('getOrderSync returns null for null posProvider without warning', () => {
+    const provider = getOrderSync({ posProvider: null });
     expect(provider).toBeNull();
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  it('getPosProvider returns null for undefined posProvider without warning', () => {
-    const provider = getPosProvider({ posProvider: undefined });
+  it('getOrderSync returns null for undefined posProvider without warning', () => {
+    const provider = getOrderSync({ posProvider: undefined });
     expect(provider).toBeNull();
     expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  it('getPosProvider returns null and logs a warning for an unknown provider', () => {
-    const provider = getPosProvider({ posProvider: 'unknown-provider' });
+  it('getOrderSync returns null and logs a warning for an unknown provider', () => {
+    const provider = getOrderSync({ posProvider: 'unknown-provider' });
     expect(provider).toBeNull();
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Unknown POS provider configured',
+      'Unknown or order-sync-less POS provider configured',
       expect.objectContaining({ posProvider: 'unknown-provider' })
     );
   });
 
-  it('registerPosProvider then getPosProvider returns the registered provider', () => {
+  it('registerProvider then getOrderSync returns the registered provider', () => {
     const mock = makeMockProvider();
-    registerPosProvider('test-key', mock);
-    const result = getPosProvider({ posProvider: 'test-key' });
+    registerProvider('test-key', { orderSync: mock });
+    const result = getOrderSync({ posProvider: 'test-key' });
     expect(result).toBe(mock);
   });
 });

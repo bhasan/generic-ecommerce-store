@@ -1,25 +1,28 @@
 import { logger } from '../../utils/logger';
-import { PosProvider } from './PosProvider';
+import { PosOrderSync } from './orders/PosOrderSync';
 import { ForeverPosProvider } from './providers/foreverpos.provider';
 
-// Use a minimal local type to avoid coupling to StoreSettings before Step 6 adds posProvider
-type PosSettingsSlice = { posProvider?: string | null };
-
-const providers = new Map<string, PosProvider>();
-
-export function getPosProvider(settings: PosSettingsSlice): PosProvider | null {
-  if (!settings.posProvider) return null;
-  const provider = providers.get(settings.posProvider);
-  if (!provider) {
-    logger.warn('Unknown POS provider configured', { posProvider: settings.posProvider });
-    return null;
-  }
-  return provider;
+export interface PosCapabilities {
+  orderSync?: PosOrderSync;
 }
 
-export function registerPosProvider(key: string, provider: PosProvider): void {
-  providers.set(key, provider);
+type PosSettingsSlice = { posProvider?: string | null };
+
+const providers = new Map<string, PosCapabilities>();
+
+export function registerProvider(key: string, caps: PosCapabilities): void {
+  providers.set(key, caps);
+}
+
+export function getOrderSync(settings: PosSettingsSlice): PosOrderSync | null {
+  if (!settings.posProvider) return null;
+  const caps = providers.get(settings.posProvider);
+  if (!caps?.orderSync) {
+    logger.warn('Unknown or order-sync-less POS provider configured', { posProvider: settings.posProvider });
+    return null;
+  }
+  return caps.orderSync;
 }
 
 // Register built-in providers
-registerPosProvider('foreverpos', new ForeverPosProvider());
+registerProvider('foreverpos', { orderSync: new ForeverPosProvider() });

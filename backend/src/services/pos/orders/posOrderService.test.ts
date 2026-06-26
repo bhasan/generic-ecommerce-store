@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../storeSettings.service');
-vi.mock('./registry');
+vi.mock('../../storeSettings.service');
+vi.mock('../registry');
 vi.mock('./retry');
-vi.mock('../../config/database');
+vi.mock('../../../config/database');
 
-import { StoreSettingsService } from '../storeSettings.service';
-import { getPosProvider } from './registry';
+import { StoreSettingsService } from '../../storeSettings.service';
+import { getOrderSync } from '../registry';
 import { retryWithBackoff } from './retry';
-import prisma from '../../config/database';
-import { pushOrderCreated, pushOrderUpdated } from './posService';
-import type { PosProvider } from './PosProvider';
+import prisma from '../../../config/database';
+import { pushOrderCreated, pushOrderUpdated } from './posOrderService';
+import type { PosOrderSync } from './PosOrderSync';
 
 const mockOrder = {
   id: 1,
@@ -23,16 +23,16 @@ const mockOrder = {
   payments: [{ id: 5, method: 'EXTERNAL', amount: { toNumber: () => 11 }, status: 'SETTLED' }],
 };
 
-const makeMockProvider = (overrides: Partial<PosProvider> = {}): PosProvider => ({
+const makeMockProvider = (overrides: Partial<PosOrderSync> = {}): PosOrderSync => ({
   shouldPushStatus: vi.fn().mockReturnValue(true),
   pushOrder: vi.fn().mockResolvedValue(undefined),
   pushPayment: vi.fn().mockResolvedValue(undefined),
   ...overrides,
 });
 
-describe('posService', () => {
+describe('posOrderService', () => {
   let mockGetStoreSettings: ReturnType<typeof vi.fn>;
-  let mockGetPosProvider: ReturnType<typeof vi.mocked<typeof getPosProvider>>;
+  let mockGetOrderSync: ReturnType<typeof vi.mocked<typeof getOrderSync>>;
   let mockRetryWithBackoff: ReturnType<typeof vi.mocked<typeof retryWithBackoff>>;
   let mockPrisma: ReturnType<typeof vi.mocked<typeof prisma>>;
 
@@ -44,14 +44,14 @@ describe('posService', () => {
       getStoreSettings: mockGetStoreSettings,
     }) as any);
 
-    mockGetPosProvider = vi.mocked(getPosProvider);
+    mockGetOrderSync = vi.mocked(getOrderSync);
     mockRetryWithBackoff = vi.mocked(retryWithBackoff).mockResolvedValue(undefined);
     mockPrisma = vi.mocked(prisma) as any;
   });
 
   describe('pushOrderCreated', () => {
-    it('returns early without calling retry when getPosProvider returns null', async () => {
-      mockGetPosProvider.mockReturnValue(null);
+    it('returns early without calling retry when getOrderSync returns null', async () => {
+      mockGetOrderSync.mockReturnValue(null);
 
       await pushOrderCreated(1);
 
@@ -60,7 +60,7 @@ describe('posService', () => {
 
     it('returns early when order is not found', async () => {
       const provider = makeMockProvider();
-      mockGetPosProvider.mockReturnValue(provider);
+      mockGetOrderSync.mockReturnValue(provider);
       (mockPrisma as any).order = { findUnique: vi.fn().mockResolvedValue(null) };
 
       await pushOrderCreated(1);
@@ -70,7 +70,7 @@ describe('posService', () => {
 
     it('calls retryWithBackoff twice with correct payload when provider exists', async () => {
       const provider = makeMockProvider();
-      mockGetPosProvider.mockReturnValue(provider);
+      mockGetOrderSync.mockReturnValue(provider);
       (mockPrisma as any).order = { findUnique: vi.fn().mockResolvedValue(mockOrder) };
 
       await pushOrderCreated(1);
@@ -88,8 +88,8 @@ describe('posService', () => {
   });
 
   describe('pushOrderUpdated', () => {
-    it('returns early when getPosProvider returns null', async () => {
-      mockGetPosProvider.mockReturnValue(null);
+    it('returns early when getOrderSync returns null', async () => {
+      mockGetOrderSync.mockReturnValue(null);
 
       await pushOrderUpdated(1);
 
@@ -98,7 +98,7 @@ describe('posService', () => {
 
     it('returns early when provider.shouldPushStatus returns false', async () => {
       const provider = makeMockProvider({ shouldPushStatus: vi.fn().mockReturnValue(false) });
-      mockGetPosProvider.mockReturnValue(provider);
+      mockGetOrderSync.mockReturnValue(provider);
       (mockPrisma as any).order = { findUnique: vi.fn().mockResolvedValue(mockOrder) };
 
       await pushOrderUpdated(1);
@@ -108,7 +108,7 @@ describe('posService', () => {
 
     it('calls retryWithBackoff twice when shouldPushStatus returns true', async () => {
       const provider = makeMockProvider({ shouldPushStatus: vi.fn().mockReturnValue(true) });
-      mockGetPosProvider.mockReturnValue(provider);
+      mockGetOrderSync.mockReturnValue(provider);
       (mockPrisma as any).order = { findUnique: vi.fn().mockResolvedValue(mockOrder) };
 
       await pushOrderUpdated(1);
@@ -118,7 +118,7 @@ describe('posService', () => {
 
     it('payload has correct payment shape including id and toNumber fields', async () => {
       const provider = makeMockProvider({ shouldPushStatus: vi.fn().mockReturnValue(true) });
-      mockGetPosProvider.mockReturnValue(provider);
+      mockGetOrderSync.mockReturnValue(provider);
       (mockPrisma as any).order = { findUnique: vi.fn().mockResolvedValue(mockOrder) };
 
       // Capture the fn passed to retryWithBackoff for pushOrder

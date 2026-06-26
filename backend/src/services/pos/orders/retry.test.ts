@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../utils/logger', () => ({
+vi.mock('../../../utils/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -9,7 +9,7 @@ vi.mock('../../utils/logger', () => ({
   },
 }));
 
-import { logger as mockLogger } from '../../utils/logger';
+import { logger as mockLogger } from '../../../utils/logger';
 import { retryWithBackoff } from './retry';
 
 describe('retryWithBackoff', () => {

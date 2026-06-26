@@ -11,7 +11,7 @@ vi.mock('../../../utils/logger', () => ({
 
 import { logger as mockLogger } from '../../../utils/logger';
 import { ForeverPosProvider } from './foreverpos.provider';
-import type { PosOrderPayload } from '../PosProvider';
+import type { PosOrderPayload } from '../orders/PosOrderSync';
 
 const payload: PosOrderPayload = {
   id: 1,

@@ -12,7 +12,7 @@ import { getFulfillmentStrategy } from './fulfillment/registry';
 import { PaymentMethodEnum, DeliveryMethodEnum } from '../../generated/prisma';
 import { notificationEventsService } from './notificationEvents.service';
 import { thermalPrinterService } from './thermalPrinter.service';
-import * as posService from './pos/posService';
+import * as posService from './pos/orders/posOrderService';
 import { PaymentSettingsService } from './paymentSettings.service';
 import { authorizeNetService } from './authorizenet.service';
 
