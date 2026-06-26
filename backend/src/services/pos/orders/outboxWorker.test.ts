@@ -9,6 +9,9 @@ vi.mock('./posOrderService', () => ({
   countPending: vi.fn().mockResolvedValue(0),
   DeferralError: class DeferralError extends Error { constructor(m: string) { super(m); this.name = 'DeferralError'; } },
 }));
+const getStoreSettings = vi.hoisted(() => vi.fn());
+vi.mock('../../storeSettings.service', () => ({ StoreSettingsService: vi.fn(() => ({ getStoreSettings })) }));
+vi.mock('../registry', () => ({ getOrderSync: vi.fn(() => ({ shouldPushStatus: vi.fn(), pushOrder: vi.fn(), pushStatus: vi.fn() })) }));
 vi.mock('../../../utils/logger', () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
 
 import prisma from '../../../config/database';
@@ -16,7 +19,10 @@ import { processOutboxRow, DeferralError } from './posOrderService';
 import { runOutboxOnce } from './outboxWorker';
 import { logger } from '../../../utils/logger';
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  getStoreSettings.mockResolvedValue({ posProvider: 'foreverpos', posConfig: { baseUrl: 'x', username: 'u', password: 'p', sakCatchAllProductId: 1, sakCatchAllVariantId: 2 } });
+});
 
 describe('runOutboxOnce', () => {
   it('marks a row DONE on success', async () => {

@@ -1,9 +1,7 @@
 import prisma from '../../../config/database';
 import { Prisma } from '../../../../generated/prisma';
 import { logger } from '../../../utils/logger';
-import { StoreSettingsService } from '../../storeSettings.service';
-import { getOrderSync } from '../registry';
-import { PosContext, PosOrderPayload } from './PosOrderSync';
+import { PosContext, PosOrderPayload, PosOrderSync } from './PosOrderSync';
 
 const PROVIDER = 'foreverpos';
 
@@ -45,16 +43,16 @@ async function buildPayload(orderId: number): Promise<PosOrderPayload | null> {
   };
 }
 
-export async function processOutboxRow(row: {
-  id: number; orderId: number; provider: string; type: string; attempts: number;
-}): Promise<void> {
+/**
+ * Process a single outbox row using a pre-resolved provider.
+ * The provider is resolved once per worker batch (not per row) so the auth token stays warm.
+ */
+export async function processOutboxRow(
+  row: { id: number; orderId: number; provider: string; type: string; attempts: number },
+  provider: PosOrderSync,
+): Promise<void> {
   if (row.provider !== PROVIDER) throw new Error(`unsupported POS provider: ${row.provider}`);
 
-  const settings = await new StoreSettingsService().getStoreSettings();
-  const provider = getOrderSync(settings);
-  if (!provider) { logger.warn('POS provider unavailable; skipping row', { orderId: row.orderId, rowId: row.id }); return; }
-
-  // Hoist the mapping lookup — both branches need it.
   const mapping = await prisma.orderPosMapping.findUnique({
     where: { orderId_provider: { orderId: row.orderId, provider: PROVIDER } },
   });

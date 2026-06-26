@@ -1,6 +1,8 @@
 import prisma from '../../../config/database';
 import { Prisma } from '../../../../generated/prisma';
 import { logger } from '../../../utils/logger';
+import { StoreSettingsService } from '../../storeSettings.service';
+import { getOrderSync } from '../registry';
 import { processOutboxRow, countPending, DeferralError } from './posOrderService';
 
 const MAX_ATTEMPTS = 5;
@@ -11,6 +13,10 @@ const BACKLOG_THRESHOLD = Number(process.env.POS_OUTBOX_BACKLOG_THRESHOLD ?? 50)
 interface OutboxRow { id: number; orderId: number; provider: string; type: string; attempts: number; }
 
 export async function runOutboxOnce(): Promise<void> {
+  const settings = await new StoreSettingsService().getStoreSettings();
+  const provider = getOrderSync(settings);
+  if (!provider) return; // POS not configured for this store
+
   const rows = await prisma.$queryRaw<OutboxRow[]>(Prisma.sql`
     SELECT id, "orderId", provider, type, attempts
     FROM pos_outbox
@@ -22,7 +28,7 @@ export async function runOutboxOnce(): Promise<void> {
 
   for (const row of rows) {
     try {
-      await processOutboxRow(row);
+      await processOutboxRow(row, provider);
       await prisma.posOutbox.update({ where: { id: row.id }, data: { status: 'DONE' } });
     } catch (err) {
       if (err instanceof DeferralError) continue;
