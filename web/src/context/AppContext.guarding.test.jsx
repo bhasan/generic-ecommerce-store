@@ -6,7 +6,7 @@ import { AppProvider, useApp } from './AppContext';
 import { sampleConfig, sampleProducts, sampleCategories } from '../test/appFixtures';
 
 // Mock API modules
-const authApi = vi.hoisted(() => ({ getProfile: vi.fn(), login: vi.fn() }));
+const authApi = vi.hoisted(() => ({ getProfile: vi.fn(), login: vi.fn(), refresh: vi.fn() }));
 const productsApi = vi.hoisted(() => ({ getAllProducts: vi.fn() }));
 const categoriesApi = vi.hoisted(() => ({ getAllCategories: vi.fn() }));
 const configApi = vi.hoisted(() => ({ getConfig: vi.fn() }));
@@ -15,7 +15,7 @@ const notificationsApi = vi.hoisted(() => ({
   getUnreadNotificationCount: vi.fn().mockResolvedValue({ count: 0 }),
   getStaffNotificationCounts: vi.fn().mockResolvedValue(null),
 }));
-const apiModule = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
+const apiModule = vi.hoisted(() => ({ getAuthToken: vi.fn(), getRefreshToken: vi.fn() }));
 
 vi.mock('../services/authApi', () => authApi);
 vi.mock('../services/productsApi', () => productsApi);

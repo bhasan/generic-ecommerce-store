@@ -1,46 +1,29 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
+import { mintBearerToken } from '../helpers/auth';
 
-// Manager grants store credit to sarahjohnson via authenticated API call (using page.evaluate
-// so localStorage token is available), then customer checks out using store credit.
+// Manager grants store credit to sarahjohnson via direct authenticated API calls
+// (access token minted by an in-test API login, since the token is no longer in
+// localStorage), then customer checks out using store credit.
 test.describe('Store credit flow', () => {
   const TARGET_USERNAME = 'sarahjohnson';
   const CREDIT_AMOUNT = 500; // generous enough to cover any seeded product
 
-  test('customer can pay with granted store credit', async ({ browser }) => {
-    // --- Manager: navigate to app, then grant credit via authenticated fetch ---
-    const managerCtx = await browser.newContext({
-      storageState: ACCOUNTS.manager.storageStatePath,
-    });
-    const managerPage = await managerCtx.newPage();
-    // Navigate first so storageState (with authToken) is loaded into the browser context
-    await managerPage.goto('/');
-    await managerPage.waitForLoadState('networkidle');
+  test('customer can pay with granted store credit', async ({ browser, request }) => {
+    // --- Manager: mint a bearer token via direct API login, then grant credit ---
+    const token = await mintBearerToken(request, ACCOUNTS.manager);
+    const auth = { Authorization: `Bearer ${token}` };
 
-    const sarah = await managerPage.evaluate(async (username) => {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch('/api/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const users = await res.json();
-      return users.find((u: { username: string }) => u.username === username);
-    }, TARGET_USERNAME);
+    const usersRes = await request.get('http://localhost:3000/api/users', { headers: auth });
+    const users = await usersRes.json();
+    const sarah = users.find((u: { username: string }) => u.username === TARGET_USERNAME);
     expect(sarah, `${TARGET_USERNAME} not found in seeded users`).toBeTruthy();
 
-    const creditOk = await managerPage.evaluate(async ({ userId, amount }: { userId: number; amount: number }) => {
-      const token = localStorage.getItem('authToken');
-      const res = await fetch(`/api/storecredit/${userId}/add`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ amount, note: 'e2e test credit' }),
-      });
-      return res.ok;
-    }, { userId: sarah.id, amount: CREDIT_AMOUNT });
-    expect(creditOk, 'Credit API call failed').toBeTruthy();
-    await managerCtx.close();
+    const creditRes = await request.post(`http://localhost:3000/api/storecredit/${sarah.id}/add`, {
+      headers: auth,
+      data: { amount: CREDIT_AMOUNT, note: 'e2e test credit' },
+    });
+    expect(creditRes.ok(), 'Credit API call failed').toBeTruthy();
 
     // --- Customer (sarahjohnson): log in and checkout with CREDIT payment ---
     const customerCtx = await browser.newContext();

@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import authService from '../services/auth.service';
 import { validateRequest } from '../utils/request.util';
 import { logger } from '../utils/logger';
+import {
+  REFRESH_COOKIE,
+  refreshCookieOptions,
+  clearRefreshCookieOptions,
+} from '../utils/authCookie.util';
 
 export class AuthController {
   async register(req: Request, res: Response) : Promise<void> {
@@ -12,12 +17,15 @@ export class AuthController {
 
   async login(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
-    const result = await authService.login(req.body);
+    const { refreshToken, ...result } = await authService.login(req.body);
     logger.logEvent('auth.login_success', {
       requestId: req.requestId,
       userId: result.user?.id,
       roles: result.user?.roles,
     });
+    // Refresh token goes into an httpOnly cookie — never the JSON body, so it
+    // stays out of JavaScript's reach. The access token stays in the body.
+    res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
     res.status(200).json({ message: 'Login successful', ...result });
   }
 
@@ -30,7 +38,19 @@ export class AuthController {
     res.status(200).json(user);
   }
 
-  async logout(_req: Request, res: Response): Promise<void> {
+  async refresh(req: Request, res: Response): Promise<void> {
+    // Refresh token arrives in the httpOnly cookie set at login.
+    const rawToken = req.cookies?.[REFRESH_COOKIE];
+    const { token, refreshToken } = await authService.refresh(rawToken);
+    // Rotation: replace the cookie with the freshly minted refresh token.
+    res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions());
+    res.status(200).json({ token });
+  }
+
+  async logout(req: Request, res: Response): Promise<void> {
+    const rawToken = req.cookies?.[REFRESH_COOKIE];
+    await authService.logout(rawToken);
+    res.clearCookie(REFRESH_COOKIE, clearRefreshCookieOptions());
     res.status(200).json({ message: 'Logout successful' });
   }
 }

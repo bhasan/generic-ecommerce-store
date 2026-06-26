@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
+import { establishSession } from '../helpers/auth';
 
 // Customer places a CURBSIDE order → manager advances to READY_FOR_PICKUP → customer clicks "I'm Here"
 // → staff orders page shows "Customer Arrived".
@@ -9,9 +10,8 @@ test.describe('Curbside arrival flow', () => {
 
   test('customer arrival notification reaches staff', async ({ browser }) => {
     // --- Customer: place CURBSIDE order ---
-    const customerCtx = await browser.newContext({
-      storageState: ACCOUNTS.customer.storageStatePath,
-    });
+    const customerCtx = await browser.newContext();
+    await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
     const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
@@ -38,9 +38,8 @@ test.describe('Curbside arrival flow', () => {
     const rawId = String(parseInt(orderIdText!.replace('#', '').trim(), 10));
 
     // --- Manager: advance order to READY_FOR_PICKUP ---
-    const managerCtx = await browser.newContext({
-      storageState: ACCOUNTS.manager.storageStatePath,
-    });
+    const managerCtx = await browser.newContext();
+    await establishSession(managerCtx, ACCOUNTS.manager);
     const managerPage = await managerCtx.newPage();
     await managerPage.goto('/orders');
     // Scope to MY card by its exact id badge — kanban cards carry their own inline

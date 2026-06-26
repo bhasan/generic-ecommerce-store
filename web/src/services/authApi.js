@@ -9,6 +9,8 @@ import { post, get, setAuthToken, clearAuthToken } from './api';
 export const login = async (username, password) => {
   const response = await post('/auth/login', { username, password });
 
+  // The refresh token is delivered as an httpOnly cookie by the backend; only
+  // the access token comes back in the body, and it stays in memory.
   if (response.token) {
     setAuthToken(response.token);
   }
@@ -43,6 +45,21 @@ export const register = async (data) => {
 };
 
 /**
+ * Exchange the httpOnly refresh cookie for a new access token. The cookie is
+ * sent automatically (credentials: 'include'); no token argument is needed.
+ * @returns {Promise<{token: string}>}
+ */
+export const refresh = async () => {
+  const response = await post('/auth/refresh', {}, { skipAutoLogout: true });
+
+  if (response.token) {
+    setAuthToken(response.token);
+  }
+
+  return { token: response.token };
+};
+
+/**
  * Get current user profile
  * @returns {Promise<object>} User object
  */
@@ -62,7 +79,9 @@ export const getProfile = async () => {
  */
 export const logout = async () => {
   try {
-    await post('/auth/logout');
+    // The refresh cookie is sent automatically; the server revokes it and
+    // clears the cookie.
+    await post('/auth/logout', {});
   } finally {
     // Keep logout cleanup unconditional: the app historically treats logout as a
     // local-auth reset even when the backend request fails or times out.

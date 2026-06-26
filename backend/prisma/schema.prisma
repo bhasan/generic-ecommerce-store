@@ -39,8 +39,23 @@ model User {
   contactMessages           ContactMessage[]
   cartItems                 CartItem[]
   statusEventChanges        OrderStatusEvent[]  @relation("StatusEventChanger")
+  refreshTokens             RefreshToken[]
 
   @@map("users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique // store a hash, never the raw value
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId  String // rotation family for reuse detection
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model Role {

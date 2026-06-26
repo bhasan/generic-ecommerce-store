@@ -11,6 +11,7 @@ const authApi = vi.hoisted(() => ({
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
+  refresh: vi.fn(),
 }));
 
 const usersApi = vi.hoisted(() => ({
@@ -65,6 +66,7 @@ const landingPageSettingsApi = vi.hoisted(() => ({
 
 const apiModule = vi.hoisted(() => ({
   getAuthToken: vi.fn(),
+  getRefreshToken: vi.fn(),
 }));
 
 vi.mock('../services/authApi', () => authApi);

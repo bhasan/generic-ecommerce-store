@@ -856,8 +856,9 @@ export class OrderService {
    * Delete entire order (Admin only)
    */
   // Deletes an order and restores reserved stock so cancelled or test orders do not keep inventory locked.
-  async deleteOrder(orderId: number) {
-    logger.info('Deleting order', { orderId });
+  // requesterId: null = admin (no restrictions); number = customer (must own + must be PENDING).
+  async deleteOrder(orderId: number, requesterId: number | null) {
+    logger.info('Deleting order', { orderId, requesterId });
 
     try {
       const order = await prisma.order.findUnique({ where: { id: orderId } });
@@ -865,6 +866,11 @@ export class OrderService {
       if (!order) {
         logger.warn('Order deletion failed: order not found', { orderId });
         throw new AppError('Order not found', 404);
+      }
+
+      if (requesterId !== null) {
+        if (order.userId !== requesterId) throw new AppError('Order not found', 404);
+        if (order.status !== 'PENDING') throw new AppError('Only PENDING orders can be cancelled', 403);
       }
 
       logger.debug('Order found for deletion', {

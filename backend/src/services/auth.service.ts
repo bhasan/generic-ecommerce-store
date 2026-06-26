@@ -1,8 +1,14 @@
+import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { DeliveryEligibilitySource, DeliveryZoneStatus } from '../../generated/prisma';
 import { hashPassword, comparePassword } from '../utils/password.util';
-import { generateToken } from '../utils/jwt.util';
+import {
+  generateToken,
+  generateRefreshTokenValue,
+  hashRefreshToken,
+} from '../utils/jwt.util';
 import { AppError } from '../middleware/error.middleware';
+import { REFRESH_TOKEN_TTL_MS } from '../utils/authCookie.util';
 import { RoleName, isRoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 import { notificationEventsService } from './notificationEvents.service';
@@ -25,6 +31,11 @@ interface LoginData {
 }
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
+
+// A just-rotated refresh token replayed within this window is treated as a
+// benign concurrent refresh (e.g. multi-tab) rather than theft. Kept short to
+// bound the security weakening.
+const REFRESH_REUSE_GRACE_MS = 15 * 1000;
 
 export class AuthService {
   /**
@@ -176,6 +187,10 @@ export class AuthService {
       username: user.username,
       roles: roleNames
     });
+
+    // Start a fresh rotation family for this login session.
+    const refreshToken = await this.issueRefreshToken(user.id, randomUUID());
+
     logger.info('Login succeeded', {
       userId: user.id,
       username: user.username,
@@ -187,8 +202,167 @@ export class AuthService {
         ...user,
         roles: rolesWithNames
       }),
-      token
+      token,
+      refreshToken
     };
+  }
+
+  /**
+   * Exchange a valid refresh token for a new access token + rotated refresh
+   * token. Implements rotation with reuse detection:
+   *   - unknown token         → 401 (never issued / already rotated away)
+   *   - expired token         → 401
+   *   - already-revoked token → see grace window below, else theft → revoke family → 401
+   *   - otherwise             → revoke this row, mint a new one in the family
+   *
+   * Grace window: a token revoked very recently (within REFRESH_REUSE_GRACE_MS)
+   * is treated as a benign concurrent/duplicate refresh — e.g. two browser tabs
+   * sharing one cookie that both fire /refresh before either response lands.
+   * Instead of revoking the family (which would log the user out everywhere), we
+   * rotate the family's current live head so both callers end up with valid
+   * tokens. A revoked token replayed AFTER the grace window is still treated as
+   * theft. This bounds the weakening to a short window.
+   */
+  async refresh(rawToken: string) {
+    if (!rawToken) {
+      throw new AppError('Refresh token is required', 401);
+    }
+
+    const tokenHash = hashRefreshToken(rawToken);
+    const existing = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+
+    if (!existing) {
+      logger.warn('Refresh rejected: token not found');
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    if (existing.revokedAt) {
+      const revokedAgoMs = Date.now() - existing.revokedAt.getTime();
+      if (revokedAgoMs <= REFRESH_REUSE_GRACE_MS) {
+        // Benign concurrent reuse: rotate the family's live head instead of
+        // revoking the family.
+        const head = await prisma.refreshToken.findFirst({
+          where: { familyId: existing.familyId, revokedAt: null, expiresAt: { gt: new Date() } },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (head) {
+          logger.info('Refresh within reuse grace window — rotating live head', {
+            userId: head.userId,
+            familyId: head.familyId,
+          });
+          return this.rotateAndMint(head.id, head.userId, head.familyId);
+        }
+      }
+      // A revoked token replayed past the grace window (or with no live head)
+      // is a theft signal — revoke the whole family.
+      logger.warn('Refresh reuse detected — revoking token family', {
+        userId: existing.userId,
+        familyId: existing.familyId,
+      });
+      await this.revokeFamily(existing.familyId);
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    if (existing.expiresAt.getTime() <= Date.now()) {
+      logger.warn('Refresh rejected: token expired', { userId: existing.userId });
+      await prisma.refreshToken.update({
+        where: { id: existing.id },
+        data: { revokedAt: new Date() },
+      });
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    return this.rotateAndMint(existing.id, existing.userId, existing.familyId);
+  }
+
+  /**
+   * Revoke the given refresh-token row and mint a fresh access token + a new
+   * refresh token in the same family. Shared by the normal rotation path and
+   * the grace-window path.
+   */
+  private async rotateAndMint(tokenId: number, userId: number, familyId: string) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      logger.warn('Refresh rejected: user no longer exists', { userId });
+      await this.revokeFamily(familyId);
+      throw new AppError('Invalid refresh token', 401);
+    }
+
+    const rolesWithNames = await getUserRolesWithNames(user.id);
+    const roleNames = this.toRoleNames(rolesWithNames);
+
+    const token = generateToken({
+      userId: user.id,
+      username: user.username,
+      roles: roleNames,
+    });
+
+    // Rotate: revoke the presented/head token and mint a new one in the family.
+    const refreshToken = await prisma.$transaction(async (tx) => {
+      await tx.refreshToken.update({
+        where: { id: tokenId },
+        data: { revokedAt: new Date() },
+      });
+      const raw = generateRefreshTokenValue();
+      await tx.refreshToken.create({
+        data: {
+          tokenHash: hashRefreshToken(raw),
+          userId: user.id,
+          familyId,
+          expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+        },
+      });
+      return raw;
+    });
+
+    logger.info('Refresh succeeded', { userId: user.id, familyId });
+
+    return { token, refreshToken };
+  }
+
+  /**
+   * Revoke a single refresh token (explicit logout). No-op if the token is
+   * unknown or already revoked — logout should never error.
+   */
+  async logout(rawToken: string | undefined) {
+    if (!rawToken) return;
+    const tokenHash = hashRefreshToken(rawToken);
+    await prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /**
+   * Revoke every active refresh token for a user ("log out everywhere").
+   */
+  async revokeAllUserTokens(userId: number) {
+    await prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /** Issue and persist a new refresh token in the given family. Returns the raw value. */
+  private async issueRefreshToken(userId: number, familyId: string): Promise<string> {
+    const raw = generateRefreshTokenValue();
+    await prisma.refreshToken.create({
+      data: {
+        tokenHash: hashRefreshToken(raw),
+        userId,
+        familyId,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+      },
+    });
+    return raw;
+  }
+
+  /** Revoke all not-yet-revoked tokens in a rotation family. */
+  private async revokeFamily(familyId: string) {
+    await prisma.refreshToken.updateMany({
+      where: { familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /**

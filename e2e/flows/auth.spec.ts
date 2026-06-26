@@ -39,9 +39,10 @@ test.describe('Auth flows', () => {
     await page.getByRole('button', { name: 'Logout' }).click();
     await page.waitForURL('**/login', { timeout: 8_000 });
     expect(new URL(page.url()).pathname).toBe('/login');
-    // localStorage should be cleared
-    const token = await page.evaluate(() => localStorage.getItem('authToken'));
-    expect(token).toBeNull();
+    // The access token lives in memory (cleared on logout) and the refresh
+    // token is an httpOnly cookie the backend clears — assert the cookie is gone.
+    const cookies = await page.context().cookies();
+    expect(cookies.find(c => c.name === 'refreshToken')).toBeUndefined();
   });
 
 

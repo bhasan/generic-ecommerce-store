@@ -41,7 +41,17 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const token = getAuthToken();
+        // The access token lives in memory only, so it is always empty on a
+        // fresh load. Mint one from the httpOnly refresh cookie (if the user
+        // has a live session); otherwise fall through as a guest.
+        let token = getAuthToken();
+        if (!token) {
+          try {
+            await authApi.refresh();
+            token = getAuthToken();
+          } catch { /* no/expired cookie — fall through as unauthenticated */ }
+        }
+
         if (token) {
           try {
             const user = await authApi.getProfile();

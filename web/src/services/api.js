@@ -47,29 +47,66 @@ const notifyBackendUnavailable = (message) => {
 };
 
 /**
- * Get stored auth token from localStorage
+ * The access token lives in memory only — never localStorage — so an injected
+ * script can't exfiltrate it from storage. It is intentionally lost on a hard
+ * refresh and re-minted from the httpOnly refresh cookie via refresh-on-mount.
+ */
+let accessToken = null;
+
+/**
+ * Get the in-memory access token.
  */
 const getAuthToken = () => {
-  return localStorage.getItem('authToken');
+  return accessToken;
 };
 
 /**
- * Store auth token in localStorage
+ * Set the in-memory access token.
  */
 const setAuthToken = (token) => {
-  if (token) {
-    localStorage.setItem('authToken', token);
-  } else {
-    localStorage.removeItem('authToken');
-  }
+  accessToken = token || null;
 };
 
 /**
- * Clear auth token from localStorage
+ * Clear the in-memory access token and cached user data. The refresh token is
+ * an httpOnly cookie cleared by the backend on logout — JS cannot touch it.
  */
 const clearAuthToken = () => {
-  localStorage.removeItem('authToken');
+  accessToken = null;
   localStorage.removeItem('userData');
+};
+
+/**
+ * Single-flight refresh: exchange the httpOnly refresh cookie for a new access
+ * token. The refresh token rides in the cookie (credentials: 'include'), never
+ * in the body. All concurrent 401s share one in-flight promise so the server
+ * performs exactly one rotation — preventing a thundering herd that would trip
+ * reuse-detection and revoke the family.
+ *
+ * Returns the new access token, or null if refresh failed (no/expired cookie).
+ */
+let refreshPromise = null;
+const refreshAccessToken = () => {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Refresh failed');
+        const data = await res.json();
+        setAuthToken(data.token);
+        return data.token;
+      })
+      .finally(() => {
+        // Clears the single-flight lock whether the refresh succeeded or failed
+        // (no cookie / expired / revoked / reuse-detected). The caller falls
+        // through to the normal auth:unauthorized path on rejection.
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
 };
 
 /**
@@ -128,7 +165,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isRetryableStatus = (status) => status >= 500 && status <= 599;
 
-const apiClient = async (url, options = {}) => {
+const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
   const token = getAuthToken();
   const sessionId = currentSessionId;
   const { retries, skipAutoLogout, ...requestOptions } = options;
@@ -146,6 +183,9 @@ const apiClient = async (url, options = {}) => {
   const config = {
     ...requestOptions,
     headers,
+    // Send the httpOnly refresh cookie on auth endpoints (and harmlessly
+    // elsewhere, since it is path-scoped to /api/auth by the backend).
+    credentials: 'include',
   };
 
   let lastError;
@@ -174,6 +214,28 @@ const apiClient = async (url, options = {}) => {
         status: response.status,
         requestId: response.headers.get('x-request-id') || undefined,
       });
+
+      // On a 401 for the active session, try a single-flight token refresh and
+      // replay the request once before surfacing the failure. The
+      // alreadyRefreshed guard bounds this to exactly one refresh attempt.
+      if (
+        response.status === 401 &&
+        !skipAutoLogout &&
+        !alreadyRefreshed &&
+        Boolean(token) &&
+        getAuthToken() === token
+      ) {
+        let newToken = null;
+        try {
+          newToken = await refreshAccessToken();
+        } catch {
+          newToken = null;
+        }
+        if (newToken) {
+          clearTimeout(timeoutId);
+          return apiClient(url, options, true);
+        }
+      }
 
       const processedResponse = await handleError(response, {
         skipAutoLogout,
@@ -306,5 +368,5 @@ export const del = (url, options = {}) => {
 };
 
 // Export token management functions
-export { getAuthToken, setAuthToken, clearAuthToken };
+export { getAuthToken, setAuthToken, clearAuthToken, refreshAccessToken };
 

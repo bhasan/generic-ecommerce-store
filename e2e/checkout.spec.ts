@@ -90,11 +90,13 @@ const FAKE_DELIVERY_ELIGIBILITY = {
 // ---------------------------------------------------------------------------
 
 async function seedAndNavigate(page: Page, orderFulfillment?: object) {
-  await page.addInitScript(({ user, cart, token }: { user: object; cart: object[]; token: string }) => {
+  // The access token now lives in memory and is minted from the refresh cookie on
+  // mount (see the /api/auth/refresh mock below), so we only seed cached user/cart.
+  await page.addInitScript(({ user, cart }: { user: object; cart: object[] }) => {
     localStorage.setItem('userData', JSON.stringify(user));
-    localStorage.setItem('cartData', JSON.stringify(cart));
-    localStorage.setItem('authToken', token);
-  }, { user: FAKE_USER, cart: FAKE_CART, token: 'fake-jwt-token' });
+    // CartContext reads 'cartData_v2' (renamed during the AppContext split).
+    localStorage.setItem('cartData_v2', JSON.stringify(cart));
+  }, { user: FAKE_USER, cart: FAKE_CART });
 
   let capturedOrderBody: Record<string, unknown> = {};
 
@@ -102,8 +104,9 @@ async function seedAndNavigate(page: Page, orderFulfillment?: object) {
     const url = route.request().url();
     const method = route.request().method();
 
+    if (url.includes('/api/auth/refresh')) return route.fulfill({ json: { token: 'fake-jwt-token' } });
     if (url.includes('/api/auth/profile')) return route.fulfill({ json: FAKE_USER });
-    if (url.includes('/api/credits/')) return route.fulfill({ json: { balance: FAKE_USER.creditBalance } });
+    if (url.includes('/api/storecredit') || url.includes('/api/credits/')) return route.fulfill({ json: { balance: FAKE_USER.creditBalance } });
     if (url.includes('/api/config')) return route.fulfill({ json: FAKE_STORE_CONFIG });
     if (url.includes('/api/notifications/unread-count')) return route.fulfill({ json: { count: 0 } });
     if (url.includes('/api/notifications/staff')) return route.fulfill({ json: { count: 0 } });
@@ -129,6 +132,11 @@ async function seedAndNavigate(page: Page, orderFulfillment?: object) {
       }
       return route.fulfill({ json: [] });
     }
+
+    // Any other authed API call must NOT leak to the real backend: with a fake
+    // token it would 401, and the refresh-retry would then escalate to logout.
+    // Return a benign empty object so the mocked session stays authenticated.
+    if (url.includes('/api/')) return route.fulfill({ json: {} });
 
     return route.continue();
   });

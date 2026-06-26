@@ -20,7 +20,7 @@ vi.mock('../services/ordersApi', () => ({
   deleteOrderItem: vi.fn(),
   checkDeliveryEligibility: vi.fn(),
 }));
-vi.mock('../services/authApi', () => ({ getProfile: vi.fn().mockResolvedValue({ id: 1, name: 'Test', role: 'admin' }), login: vi.fn(), logout: vi.fn(), register: vi.fn() }));
+vi.mock('../services/authApi', () => ({ getProfile: vi.fn().mockResolvedValue({ id: 1, name: 'Test', role: 'admin' }), login: vi.fn(), logout: vi.fn(), register: vi.fn(), refresh: vi.fn() }));
 vi.mock('../services/storeCreditApi', () => ({ getUserCredit: vi.fn() }));
 vi.mock('../services/api', () => ({ getAuthToken: vi.fn(() => 'test-token'), newSession: vi.fn() }));
 vi.mock('../services/usersApi', () => ({ updateUser: vi.fn() }));

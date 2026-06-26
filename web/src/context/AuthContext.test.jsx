@@ -10,6 +10,7 @@ vi.mock('../services/authApi', () => ({
   login: vi.fn(),
   logout: vi.fn(),
   register: vi.fn(),
+  refresh: vi.fn(),
 }));
 vi.mock('../services/usersApi', () => ({ updateUser: vi.fn() }));
 vi.mock('../services/storeCreditApi', () => ({ getUserCredit: vi.fn() }));
