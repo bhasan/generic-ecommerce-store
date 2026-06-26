@@ -44,29 +44,9 @@ function safePosDecrypt(value: string | undefined, key: string, field: string): 
 const POS_ENCRYPTION_KEY = process.env.POS_ENCRYPTION_KEY ?? '';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ADMIN_EMAIL_FALLBACK_ENV_KEYS = [
-  'STORE_SUPPORT_EMAIL',
-  'SUPPORT_EMAIL',
-  'ADMIN_ALERT_EMAIL',
-  'ADMIN_EMAIL',
-] as const;
-
-const resolveDefaultAdminNotificationEmail = () => {
-  for (const key of ADMIN_EMAIL_FALLBACK_ENV_KEYS) {
-    const rawValue = process.env[key];
-    if (typeof rawValue !== 'string') continue;
-    const value = rawValue.trim();
-    if (!value) continue;
-    if (EMAIL_PATTERN.test(value)) {
-      return value;
-    }
-  }
-
-  return '';
-};
 
 const getDefaultNotificationEmailRouting = (): NotificationEmailRouting => ({
-  adminEmail: resolveDefaultAdminNotificationEmail(),
+  adminEmail: '',
   managementEmail: '',
   employeeEmail: '',
 });

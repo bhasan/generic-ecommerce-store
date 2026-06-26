@@ -33,10 +33,6 @@ vi.mock('./thermalPrinter.service', () => ({
 describe('store settings service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.STORE_SUPPORT_EMAIL;
-    delete process.env.SUPPORT_EMAIL;
-    delete process.env.ADMIN_ALERT_EMAIL;
-    delete process.env.ADMIN_EMAIL;
   });
 
   it('returns defaults when no persisted settings exist', async () => {
@@ -153,22 +149,7 @@ describe('store settings service', () => {
     expect(deliveryEligibilityService.verifyStoreAddress).not.toHaveBeenCalled();
   });
 
-  it('uses STORE_SUPPORT_EMAIL as default admin alert email when settings are missing', async () => {
-    process.env.STORE_SUPPORT_EMAIL = 'ops@example.com';
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
-    const { StoreSettingsService } = await import('./storeSettings.service');
-
-    const result = await new StoreSettingsService().getStoreSettings();
-
-    expect(result.notificationEmails).toEqual({
-      adminEmail: 'ops@example.com',
-      managementEmail: '',
-      employeeEmail: '',
-    });
-  });
-
   it('sanitizes invalid persisted notification routing emails and falls back safely', async () => {
-    process.env.STORE_SUPPORT_EMAIL = 'ops@example.com';
     prismaMock.uiSetting.findUnique.mockResolvedValue({
       value: {
         name: 'Smoke Station',
@@ -186,7 +167,7 @@ describe('store settings service', () => {
     const result = await new StoreSettingsService().getStoreSettings();
 
     expect(result.notificationEmails).toEqual({
-      adminEmail: 'ops@example.com',
+      adminEmail: '',
       managementEmail: '',
       employeeEmail: '',
     });
