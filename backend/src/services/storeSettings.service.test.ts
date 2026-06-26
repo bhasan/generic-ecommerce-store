@@ -206,4 +206,30 @@ describe('store settings service', () => {
       },
     })).rejects.toEqual(expect.any(AppError));
   });
+
+  it('persists SAK catch-all product ids in posConfig', async () => {
+    const svc = new (await import('./storeSettings.service')).StoreSettingsService();
+    prismaMock.uiSetting.upsert.mockResolvedValue({
+      value: {
+        name: 'S',
+        address: '',
+        phoneNumber: '',
+        tagline: '',
+        notificationEmails: { adminEmail: '', managementEmail: '', employeeEmail: '' },
+        posProvider: 'foreverpos',
+        posConfig: { baseUrl: 'https://api.sakretailsolutions.com', sakCatchAllProductId: 93147, sakCatchAllVariantId: 104831 },
+      },
+    });
+    const saved = await svc.updateStoreSettings({
+      name: 'S',
+      address: '',
+      phoneNumber: '',
+      tagline: '',
+      notificationEmails: { adminEmail: '', managementEmail: '', employeeEmail: '' },
+      posProvider: 'foreverpos',
+      posConfig: { baseUrl: 'https://api.sakretailsolutions.com', sakCatchAllProductId: 93147, sakCatchAllVariantId: 104831 },
+    } as any);
+    expect(saved.posConfig.sakCatchAllProductId).toBe(93147);
+    expect(saved.posConfig.sakCatchAllVariantId).toBe(104831);
+  });
 });

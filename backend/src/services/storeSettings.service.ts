@@ -17,6 +17,8 @@ export interface PosConfig {
   username?: string;
   password?: string;
   apiKey?: string;
+  sakCatchAllProductId?: number;
+  sakCatchAllVariantId?: number;
 }
 
 export interface StoreSettings {
@@ -128,6 +130,8 @@ function normalize(
       username: data?.posConfig?.username,
       password: data?.posConfig?.password,
       apiKey: data?.posConfig?.apiKey,
+      sakCatchAllProductId: data?.posConfig?.sakCatchAllProductId,
+      sakCatchAllVariantId: data?.posConfig?.sakCatchAllVariantId,
     },
   };
 }
@@ -165,6 +169,8 @@ const StoreSettingsSchema = z.object({
     username: z.string().optional(),
     password: z.string().optional(),
     apiKey: z.string().optional(),
+    sakCatchAllProductId: z.number().int().optional(),
+    sakCatchAllVariantId: z.number().int().optional(),
   }).default({}),
 });
 
