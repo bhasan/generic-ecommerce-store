@@ -111,6 +111,8 @@ model Order {
   printJobs          PrintJob[]
   statusEvents       OrderStatusEvent[]
   payments           Payment[]
+  posOutbox          PosOutbox[]
+  posMappings        OrderPosMapping[]
 
   @@index([userId])
   @@index([status])
@@ -436,6 +438,34 @@ model PrintJob {
   @@index([status, createdAt])
   @@index([claimedByAgentId])
   @@map("print_jobs")
+}
+
+model PosOutbox {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  provider  String
+  type      String   // 'ORDER_CREATED' | 'ORDER_UPDATED'
+  status    String   @default("PENDING") // 'PENDING' | 'DONE' | 'FAILED'
+  attempts  Int      @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, id])
+  @@map("pos_outbox")
+}
+
+model OrderPosMapping {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  provider   String
+  externalId String
+  createdAt  DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, provider])
+  @@map("order_pos_mappings")
 }
 
 enum CardSize {
