@@ -26,15 +26,13 @@ export class PostgresSearchService implements SearchService {
       return this.fallback(visibility, limit, offset);
     }
 
-    const visibilityWhere = this.buildVisibilityWhere(visibility);
-
     // Fetch ranked IDs from tsvector index, then load full product shape via Prisma.
     const ranked = await prisma.$queryRaw<{ id: number }[]>`
       SELECT p."id"
       FROM "products" p
       WHERE p."search_vector" @@ plainto_tsquery('english', ${term})
-        ${visibilityWhere.hidden !== undefined ? Prisma.sql`AND p."hidden" = false` : Prisma.empty}
-        ${visibilityWhere.vipOnly !== undefined ? Prisma.sql`AND p."vipOnly" = false` : Prisma.empty}
+        ${!visibility.includeHidden ? Prisma.sql`AND p."hidden" = false` : Prisma.empty}
+        ${!visibility.includeVipOnly ? Prisma.sql`AND p."vipOnly" = false` : Prisma.empty}
       ORDER BY ts_rank(p."search_vector", plainto_tsquery('english', ${term})) DESC
       LIMIT ${limit} OFFSET ${offset}
     `;

@@ -71,6 +71,23 @@ describe('PostgresSearchService', () => {
       expect(results.map((r) => r.id)).toEqual([2, 1]);
     });
 
+    it('includes visibility filter in $queryRaw for guest', async () => {
+      prismaMock.$queryRaw.mockResolvedValue([]);
+      const { PostgresSearchService } = await import('./postgres.search.service');
+      const svc = new PostgresSearchService();
+
+      await svc.searchProducts({ includeHidden: false, includeVipOnly: false }, 'kush', { limit: 10, offset: 0 });
+
+      // For a tagged template literal call tag`...${a}...${b}...`, the mock receives
+      // (templateStringsArray, a, b, ...). The conditional Prisma.sql fragments are
+      // interpolated values (indices 2 and 3: term, hiddenFrag, vipOnlyFrag, term, limit, offset).
+      const callArgs = prismaMock.$queryRaw.mock.calls[0];
+      const hiddenFrag = callArgs[2] as { strings: readonly string[] };
+      const vipOnlyFrag = callArgs[3] as { strings: readonly string[] };
+      expect(hiddenFrag.strings.join('')).toContain('"hidden"');
+      expect(vipOnlyFrag.strings.join('')).toContain('"vipOnly"');
+    });
+
     it('returns empty array when $queryRaw finds no matches', async () => {
       prismaMock.$queryRaw.mockResolvedValue([]);
       const { PostgresSearchService } = await import('./postgres.search.service');
