@@ -12,7 +12,9 @@ import { getFulfillmentStrategy } from './fulfillment/registry';
 import { PaymentMethodEnum, DeliveryMethodEnum } from '../../generated/prisma';
 import { notificationEventsService } from './notificationEvents.service';
 import { thermalPrinterService } from './thermalPrinter.service';
-import * as posService from './pos/orders/posOrderService';
+import { enqueue } from './pos/orders/posOrderService';
+import { getOrderSync } from './pos/registry';
+import { StoreSettingsService } from './storeSettings.service';
 import { PaymentSettingsService } from './paymentSettings.service';
 import { authorizeNetService } from './authorizenet.service';
 
@@ -89,8 +91,6 @@ async function dispatchOrderCreatedEffects(orderId: number, userId: number): Pro
   } catch (printerError) {
     logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, { orderId, userId });
   }
-  void posService.pushOrderCreated(orderId)
-    .catch((posError) => logger.error('POS push threw unexpectedly after order creation', posError, { orderId }));
 }
 
 // Single source for side-effects fired when order status changes.
@@ -102,8 +102,6 @@ async function dispatchOrderStatusUpdatedEffects(
   previousStatus: string,
 ): Promise<void> {
   await notificationEventsService.notifyOrderStatusUpdated(orderId, userId, newStatus, previousStatus);
-  void posService.pushOrderUpdated(orderId)
-    .catch((posError) => logger.error('POS push threw unexpectedly after status update', posError, { orderId }));
 }
 
 // Orders now carry their items via relations; one include shape feeds every read path.
@@ -597,12 +595,15 @@ export class OrderService {
         newStatus: data.status,
       });
 
-      const [updatedOrder] = await prisma.$transaction([
-        prisma.order.update({
+      const posSettings = await new StoreSettingsService().getStoreSettings();
+      const posSync = getOrderSync(posSettings);
+
+      const updatedOrder = await prisma.$transaction(async (tx) => {
+        const updated = await tx.order.update({
           where: { id: orderId },
           data: { status: data.status },
-        }),
-        prisma.orderStatusEvent.create({
+        });
+        await tx.orderStatusEvent.create({
           data: {
             orderId,
             fromStatus: order.status,
@@ -610,8 +611,25 @@ export class OrderService {
             changedBy: data.changedBy ?? null,
             note: data.note ?? null,
           },
-        }),
-      ]);
+        });
+
+        if (data.status === OrderStatus.APPROVED && order.paymentMethod === PaymentMethodEnum.EXTERNAL) {
+          await tx.payment.updateMany({
+            where: { orderId, status: PaymentStatus.PENDING },
+            data: { status: PaymentStatus.SETTLED },
+          });
+        }
+
+        if (posSync) {
+          if (data.status === OrderStatus.APPROVED) {
+            await enqueue(tx, orderId, 'ORDER_CREATED');
+          } else if (posSync.shouldPushStatus(data.status)) {
+            await enqueue(tx, orderId, 'ORDER_UPDATED');
+          }
+        }
+
+        return updated;
+      });
 
       logger.info('Order status updated in database', {
         orderId,
@@ -619,13 +637,6 @@ export class OrderService {
         newStatus: updatedOrder.status,
         updatedAt: updatedOrder.updatedAt,
       });
-
-      if (data.status === OrderStatus.APPROVED && order.paymentMethod === PaymentMethodEnum.EXTERNAL) {
-        await prisma.payment.updateMany({
-          where: { orderId, status: PaymentStatus.PENDING },
-          data: { status: PaymentStatus.SETTLED },
-        });
-      }
 
       // Fetch order items with variant/product info
       const orderItems = await prisma.orderItem.findMany({
@@ -980,8 +991,13 @@ export class OrderService {
       });
       const itemsWithProducts = orderItems.map(shapeOrderItem);
 
-      // Trigger notification updates
+      // Trigger notification updates and POS enqueue
       await dispatchOrderStatusUpdatedEffects(orderId, order.userId, OrderStatus.ARRIVED, order.status);
+      const posSettings = await new StoreSettingsService().getStoreSettings();
+      const posSync = getOrderSync(posSettings);
+      if (posSync && posSync.shouldPushStatus(OrderStatus.ARRIVED)) {
+        await enqueue(prisma as unknown as Prisma.TransactionClient, orderId, 'ORDER_UPDATED');
+      }
 
       return {
         ...updatedOrder,

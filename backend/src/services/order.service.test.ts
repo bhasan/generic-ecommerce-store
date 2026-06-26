@@ -80,10 +80,8 @@ const deliveryEligibilityService = {
   checkDeliveryEligibility: vi.fn(),
 };
 
-const posService = vi.hoisted(() => ({
-  pushOrderCreated: vi.fn().mockResolvedValue(undefined),
-  pushOrderUpdated: vi.fn().mockResolvedValue(undefined),
-}));
+const posOrderService = vi.hoisted(() => ({ enqueue: vi.fn().mockResolvedValue(undefined), pushOrderCreated: vi.fn(), pushOrderUpdated: vi.fn() }));
+const posRegistry = vi.hoisted(() => ({ getOrderSync: vi.fn() }));
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
@@ -113,7 +111,11 @@ vi.mock('./deliveryEligibility.service', () => ({
   DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
 }));
 
-vi.mock('./pos/posService', () => posService);
+vi.mock('./pos/orders/posOrderService', () => posOrderService);
+vi.mock('./pos/registry', () => posRegistry);
+vi.mock('./storeSettings.service', () => ({
+  StoreSettingsService: vi.fn(() => ({ getStoreSettings: vi.fn().mockResolvedValue({ posProvider: 'foreverpos', posConfig: {} }) })),
+}));
 
 describe('getAllOrders', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -190,8 +192,8 @@ describe('getAllOrders', () => {
 describe('order service notifications', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    posService.pushOrderCreated.mockClear();
-    posService.pushOrderUpdated.mockClear();
+    posOrderService.enqueue.mockClear();
+    posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => true, pushOrder: vi.fn(), pushStatus: vi.fn() });
     // Default: handle both array form (used by updateOrderStatus) and callback form (used by createOrder/addItemToOrder).
     prismaMock.$transaction.mockImplementation(async (opsOrCallback: unknown) => {
       if (typeof opsOrCallback === 'function') return opsOrCallback(prismaMock);
@@ -243,7 +245,7 @@ describe('order service notifications', () => {
     expect(thermalPrinterService.dispatchReceipt).toHaveBeenCalledWith(77, 'ORDER_CREATED', {
       userId: 5,
     });
-    await vi.waitFor(() => expect(posService.pushOrderCreated).toHaveBeenCalledWith(expect.any(Number)));
+    expect(posOrderService.enqueue).not.toHaveBeenCalled();
   });
 
   it('revalidates delivery eligibility during order creation and rejects out-of-zone orders', async () => {
@@ -317,7 +319,7 @@ describe('order service notifications', () => {
       OrderStatus.READY_FOR_DELIVERY,
       OrderStatus.APPROVED,
     );
-    await vi.waitFor(() => expect(posService.pushOrderUpdated).toHaveBeenCalledWith(expect.any(Number)));
+    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), expect.any(Number), 'ORDER_UPDATED');
   });
 
   it('creates an OrderStatusEvent row with correct fromStatus, toStatus, changedBy, and note on status update', async () => {
@@ -334,13 +336,9 @@ describe('order service notifications', () => {
       status: OrderStatus.APPROVED,
       updatedAt: new Date('2024-01-02'),
     };
-    // $transaction receives an array of Prisma operations; return [updatedOrder, event]
-    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
-      // ops is an array of Prisma promises; resolve them by calling the underlying mocks
-      prismaMock.order.update.mockResolvedValue(updatedOrderResult);
-      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
-      return [updatedOrderResult, { id: 1 }];
-    });
+    prismaMock.order.update.mockResolvedValue(updatedOrderResult);
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.orderItem.findMany.mockResolvedValue([]);
     prismaMock.productVariant.findMany.mockResolvedValue([]);
 
@@ -354,13 +352,7 @@ describe('order service notifications', () => {
     }, ['MANAGEMENT']);
 
     expect(prismaMock.$transaction).toHaveBeenCalled();
-    const txArgs = prismaMock.$transaction.mock.calls[0][0];
-    // $transaction is called with an array of two Prisma operation promises
-    expect(Array.isArray(txArgs)).toBe(true);
-    expect(txArgs).toHaveLength(2);
-
-    // orderStatusEvent.create is called synchronously when building the transaction array,
-    // so we can assert directly on the mock call args.
+    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), 77, 'ORDER_CREATED');
     expect(prismaMock.orderStatusEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -471,7 +463,7 @@ describe('order service notifications', () => {
       paymentMethod: PaymentMethod.CC,
     });
 
-    expect(posService.pushOrderCreated).not.toHaveBeenCalled();
+    expect(posOrderService.enqueue).not.toHaveBeenCalled();
   });
 
   it('returns 404 when trying to reprint a nonexistent order', async () => {
@@ -883,14 +875,17 @@ describe('updateOrderStatus — EXTERNAL payment settlement', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
-      const updated = { id: 77, userId: 5, status: OrderStatus.APPROVED, updatedAt: new Date() };
-      prismaMock.order.update.mockResolvedValue(updated);
-      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
-      return [updated, { id: 1 }];
+    const updated = { id: 77, userId: 5, status: OrderStatus.APPROVED, updatedAt: new Date() };
+    prismaMock.order.update.mockResolvedValue(updated);
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.$transaction.mockImplementation(async (opsOrCallback: unknown) => {
+      if (typeof opsOrCallback === 'function') return opsOrCallback(prismaMock);
+      if (Array.isArray(opsOrCallback)) return Promise.all(opsOrCallback);
+      return opsOrCallback;
     });
     prismaMock.orderItem.findMany.mockResolvedValue([]);
-    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+    posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => true, pushOrder: vi.fn(), pushStatus: vi.fn() });
   });
 
   it('settles PENDING payments when EXTERNAL order is APPROVED', async () => {
