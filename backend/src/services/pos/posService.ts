@@ -45,7 +45,7 @@ async function buildPayload(orderId: number): Promise<PosOrderPayload | null> {
 
 export async function pushOrderCreated(orderId: number): Promise<void> {
   const settings = await new StoreSettingsService().getStoreSettings();
-  const provider = getPosProvider(settings as any);
+  const provider = getPosProvider(settings);
   if (!provider) return;
 
   const payload = await buildPayload(orderId);
@@ -57,7 +57,7 @@ export async function pushOrderCreated(orderId: number): Promise<void> {
 
 export async function pushOrderUpdated(orderId: number): Promise<void> {
   const settings = await new StoreSettingsService().getStoreSettings();
-  const provider = getPosProvider(settings as any);
+  const provider = getPosProvider(settings);
   if (!provider) return;
 
   const payload = await buildPayload(orderId);

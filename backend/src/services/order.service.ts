@@ -12,6 +12,7 @@ import { getFulfillmentStrategy } from './fulfillment/registry';
 import { PaymentMethodEnum, DeliveryMethodEnum } from '../../generated/prisma';
 import { notificationEventsService } from './notificationEvents.service';
 import { thermalPrinterService } from './thermalPrinter.service';
+import * as posService from './pos/posService';
 import { PaymentSettingsService } from './paymentSettings.service';
 import { authorizeNetService } from './authorizenet.service';
 
@@ -88,6 +89,21 @@ async function dispatchOrderCreatedEffects(orderId: number, userId: number): Pro
   } catch (printerError) {
     logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, { orderId, userId });
   }
+  void posService.pushOrderCreated(orderId)
+    .catch((posError) => logger.error('POS push threw unexpectedly after order creation', posError, { orderId }));
+}
+
+// Single source for side-effects fired when order status changes.
+// Used by updateOrderStatus and customerArrive.
+async function dispatchOrderStatusUpdatedEffects(
+  orderId: number,
+  userId: number,
+  newStatus: string,
+  previousStatus: string,
+): Promise<void> {
+  await notificationEventsService.notifyOrderStatusUpdated(orderId, userId, newStatus, previousStatus);
+  void posService.pushOrderUpdated(orderId)
+    .catch((posError) => logger.error('POS push threw unexpectedly after status update', posError, { orderId }));
 }
 
 // Orders now carry their items via relations; one include shape feeds every read path.
@@ -626,12 +642,7 @@ export class OrderService {
         itemCount: itemsWithProducts.length,
       });
 
-      await notificationEventsService.notifyOrderStatusUpdated(
-        orderId,
-        order.userId,
-        updatedOrder.status,
-        order.status,
-      );
+      await dispatchOrderStatusUpdatedEffects(orderId, order.userId, updatedOrder.status, order.status);
 
       const fullUpdated = await prisma.order.findUnique({
         where: { id: orderId },
@@ -970,12 +981,7 @@ export class OrderService {
       const itemsWithProducts = orderItems.map(shapeOrderItem);
 
       // Trigger notification updates
-      await notificationEventsService.notifyOrderStatusUpdated(
-        orderId,
-        order.userId,
-        OrderStatus.ARRIVED,
-        order.status,
-      );
+      await dispatchOrderStatusUpdatedEffects(orderId, order.userId, OrderStatus.ARRIVED, order.status);
 
       return {
         ...updatedOrder,
