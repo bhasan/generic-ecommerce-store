@@ -17,21 +17,41 @@ export async function runOutboxOnce(): Promise<void> {
   const provider = getOrderSync(settings);
   if (!provider) return; // POS not configured for this store
 
-  const rows = await prisma.$queryRaw<OutboxRow[]>(Prisma.sql`
-    SELECT id, "orderId", provider, type, attempts
-    FROM pos_outbox
-    WHERE status = 'PENDING'
-    ORDER BY id
-    LIMIT ${BATCH}
-    FOR UPDATE SKIP LOCKED
-  `);
+  // Phase 1 — claim a batch atomically.
+  // FOR UPDATE SKIP LOCKED inside a transaction holds the row locks until the UPDATE commits,
+  // preventing concurrent worker instances from claiming the same rows. The locks are released
+  // as soon as we mark rows PROCESSING, so HTTP calls in phase 2 never block a DB connection.
+  const rows = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.$queryRaw<OutboxRow[]>(Prisma.sql`
+      SELECT id, "orderId", provider, type, attempts
+      FROM pos_outbox
+      WHERE status = 'PENDING'
+      ORDER BY id
+      LIMIT ${BATCH}
+      FOR UPDATE SKIP LOCKED
+    `);
+    if (claimed.length > 0) {
+      await tx.posOutbox.updateMany({
+        where: { id: { in: claimed.map(r => r.id) } },
+        data: { status: 'PROCESSING' },
+      });
+    }
+    return claimed;
+  });
 
+  if (rows.length === 0) return;
+
+  // Phase 2 — process claimed rows; no DB locks held during HTTP calls.
   for (const row of rows) {
     try {
       await processOutboxRow(row, provider);
       await prisma.posOutbox.update({ where: { id: row.id }, data: { status: 'DONE' } });
     } catch (err) {
-      if (err instanceof DeferralError) continue;
+      if (err instanceof DeferralError) {
+        // ORDER_CREATED not yet complete — reset to PENDING so the next tick retries.
+        await prisma.posOutbox.update({ where: { id: row.id }, data: { status: 'PENDING' } });
+        continue;
+      }
       const attempts = row.attempts + 1;
       const lastError = err instanceof Error ? err.message : String(err);
       if (attempts >= MAX_ATTEMPTS) {
@@ -43,8 +63,6 @@ export async function runOutboxOnce(): Promise<void> {
       }
     }
   }
-
-  if (rows.length === 0) return;
 
   const pending = await countPending();
   if (pending > BACKLOG_THRESHOLD) {

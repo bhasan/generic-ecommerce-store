@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../../config/database', () => ({ default: {
   $queryRaw: vi.fn(),
-  posOutbox: { update: vi.fn() },
+  $transaction: vi.fn(),
+  posOutbox: { update: vi.fn(), updateMany: vi.fn() },
 } }));
 vi.mock('./posOrderService', () => ({
   processOutboxRow: vi.fn(),
@@ -22,6 +23,8 @@ import { logger } from '../../../utils/logger';
 beforeEach(() => {
   vi.clearAllMocks();
   getStoreSettings.mockResolvedValue({ posProvider: 'foreverpos', posConfig: { baseUrl: 'x', username: 'u', password: 'p', sakCatchAllProductId: 1, sakCatchAllVariantId: 2 } });
+  // $transaction executes the callback with the same mock client so $queryRaw is intercepted.
+  (prisma as any).$transaction.mockImplementation((fn: (tx: typeof prisma) => unknown) => fn(prisma));
 });
 
 describe('runOutboxOnce', () => {
@@ -52,6 +55,10 @@ describe('runOutboxOnce', () => {
     (prisma as any).$queryRaw.mockResolvedValue([{ id: 4, orderId: 5, provider: 'foreverpos', type: 'ORDER_UPDATED', attempts: 0 }]);
     (processOutboxRow as any).mockRejectedValue(new DeferralError('no mapping yet for order 5'));
     await runOutboxOnce();
-    expect((prisma as any).posOutbox.update).not.toHaveBeenCalled();
+    // Row resets to PENDING (not DONE/FAILED) and attempts is not incremented.
+    expect((prisma as any).posOutbox.update).toHaveBeenCalledWith({ where: { id: 4 }, data: { status: 'PENDING' } });
+    expect((prisma as any).posOutbox.update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ attempts: expect.any(Number) }) }),
+    );
   });
 });
