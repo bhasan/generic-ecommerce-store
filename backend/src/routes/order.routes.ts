@@ -81,6 +81,8 @@ router.post(
 router.patch('/:id/items/:itemId/void', authenticate, authorizeEmployee, asyncHandler(orderController.voidOrderItem));
 router.delete('/:id/items/:itemId', authenticate, authorizeEmployee, asyncHandler(orderController.deleteOrderItem));
 router.post('/:id/print', authenticate, authorizeEmployee, asyncHandler(orderController.printOrderReceipt));
-router.delete('/:id', authenticate, authorizeAdmin, asyncHandler(orderController.deleteOrder));
+// Admins can hard-delete any order; customers can delete their own PENDING orders
+// (the cancel path in CheckoutPage after placing a CashApp order).
+router.delete('/:id', authenticate, asyncHandler(orderController.deleteOrder));
 
 export default router;

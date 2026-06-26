@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import orderService from '../services/order.service';
 import { DeliveryEligibilityService } from '../services/deliveryEligibility.service';
 import { logger } from '../utils/logger';
-import { ROLES } from '../constants/roles';
+import { ROLES, hasAnyRole } from '../constants/roles';
 import { OrderStatus } from '../../generated/prisma';
 import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
 
@@ -155,9 +155,12 @@ export class OrderController {
   }
 
   async deleteOrder(req: Request, res: Response) : Promise<void> {
+    if (!req.user) { res.status(401).json({ error: 'Authentication required' }); return; }
     const id = parseIntParam(req.params.id, res, 'order');
     if (id === null) return;
-    const result = await orderService.deleteOrder(id);
+
+    const isStaff = hasAnyRole(req.user.roles as any, [ROLES.ADMIN, ROLES.MANAGEMENT, ROLES.EMPLOYEE]);
+    const result = await orderService.deleteOrder(id, isStaff ? null : req.user.userId);
     res.status(200).json(result);
   }
 
