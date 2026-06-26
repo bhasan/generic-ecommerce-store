@@ -36,7 +36,7 @@ describe.skipIf(!process.env.DATABASE_URL)('PostgresSearchService integration', 
         data: {
           name: `${TEST_PREFIX}Mystery Box`,
           slug: `${TEST_PREFIX}mystery-box`,
-          description: 'Contains flowering herbs',
+          description: 'Contains kush terpenes in its profile',
           categoryId,
         },
       });
