@@ -37,7 +37,7 @@ Order created/updated (in DB transaction)
   └── posService.enqueue(orderId, type)        ← writes pos_outbox row in SAME tx
         (no HTTP here — just a durable to-do)
 
-In-process worker loop (every 5s, started in index.ts)
+In-process worker loop (every 30s, started in index.ts)
   └── claim PENDING rows (FOR UPDATE SKIP LOCKED, oldest first)
         ├── ORDER_CREATED → provider.pushOrder(ctx) → store mapping → DONE
         ├── PAYMENT_ADDED → look up mapping;
@@ -50,7 +50,7 @@ In-process worker loop (every 5s, started in index.ts)
 
 - **`pos_outbox` table** — the durable queue. Written transactionally with the order.
 - **`order_pos_mappings` table** — `(orderId, provider) → externalId`. Written by the worker after a successful order push. Its presence is the signal that the order reached SAK.
-- **`outboxWorker.ts`** — `setInterval` loop; claims rows with `FOR UPDATE SKIP LOCKED`; dispatches by type; handles retry/failure transitions. Started from `index.ts`.
+- **`outboxWorker.ts`** — `setInterval` loop (30s); claims rows with `FOR UPDATE SKIP LOCKED`; dispatches by type; handles retry/failure transitions. Started from `index.ts`. Interval configurable via env (e.g. `POS_OUTBOX_POLL_MS`, default 30000).
 - **`posService.ts`** — `enqueue(...)` (transactional), plus the per-type processing functions the worker calls. Owns mapping persistence and idempotency.
 - **`foreverpos.provider.ts`** — pure adapter: auth (lazy token, cache, refresh on 401), `pushOrder`, `pushPayment`. Field/status mapping lives here. No DB access.
 
