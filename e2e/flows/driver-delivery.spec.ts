@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
+import { establishSession } from '../helpers/auth';
 
 // Full DELIVERY journey across three roles:
 //   admin configures the delivery zone (ZIP allowlist) →
@@ -49,12 +50,14 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     });
     expect(creditRes.ok(), 'Credit API call failed').toBeTruthy();
 
-    // Manager UI context (storageState → refresh cookie) for the kanban dispatch below.
-    const managerCtx = await browser.newContext({ storageState: ACCOUNTS.manager.storageStatePath });
+    // Manager UI context for the kanban dispatch below.
+    const managerCtx = await browser.newContext();
+    await establishSession(managerCtx, ACCOUNTS.manager);
     const managerPage = await managerCtx.newPage();
 
     // --- Customer: place a DELIVERY × CREDIT order to the in-zone address ---
-    const customerCtx = await browser.newContext({ storageState: ACCOUNTS.customer.storageStatePath });
+    const customerCtx = await browser.newContext();
+    await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
     const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
@@ -115,7 +118,8 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     await managerCtx.close();
 
     // --- Driver: RBAC boundary + the real delivery handoff ---
-    const driverCtx = await browser.newContext({ storageState: ACCOUNTS.driver.storageStatePath });
+    const driverCtx = await browser.newContext();
+    await establishSession(driverCtx, ACCOUNTS.driver);
     const driverPage = await driverCtx.newPage();
     await driverPage.goto('/');
     await driverPage.waitForLoadState('networkidle');

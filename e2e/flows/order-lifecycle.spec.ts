@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
+import { establishSession } from '../helpers/auth';
 
 // Customer places an order; manager advances it through the full status lifecycle.
 test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED', () => {
   test('manager can advance order status end-to-end', async ({ browser }) => {
     // --- Customer: place order ---
-    const customerCtx = await browser.newContext({
-      storageState: ACCOUNTS.customer.storageStatePath,
-    });
+    const customerCtx = await browser.newContext();
+    await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
     const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
@@ -37,9 +37,8 @@ test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED'
     await customerCtx.close();
 
     // --- Manager: advance order through lifecycle ---
-    const managerCtx = await browser.newContext({
-      storageState: ACCOUNTS.manager.storageStatePath,
-    });
+    const managerCtx = await browser.newContext();
+    await establishSession(managerCtx, ACCOUNTS.manager);
     const managerPage = await managerCtx.newPage();
     await managerPage.goto('/orders');
 
