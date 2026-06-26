@@ -55,6 +55,13 @@ describe('store settings service', () => {
         managementEmail: '',
         employeeEmail: '',
       },
+      posProvider: null,
+      posConfig: {
+        baseUrl: undefined,
+        username: undefined,
+        password: undefined,
+        apiKey: undefined,
+      },
     });
   });
 
@@ -69,6 +76,17 @@ describe('store settings service', () => {
         managementEmail: 'manager@example.com',
         employeeEmail: '',
       },
+      posProvider: null,
+      posConfig: {},
+    };
+    const settingsWithPosDefaults = {
+      ...settings,
+      posConfig: {
+        baseUrl: undefined,
+        username: undefined,
+        password: undefined,
+        apiKey: undefined,
+      },
     };
     prismaMock.uiSetting.upsert.mockResolvedValue({ value: settings });
     const { StoreSettingsService } = await import('./storeSettings.service');
@@ -78,10 +96,10 @@ describe('store settings service', () => {
     expect(deliveryEligibilityService.verifyStoreAddress).toHaveBeenCalledWith('101 Example Ave');
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
       where: { key: 'store_settings' },
-      update: { value: settings },
-      create: { key: 'store_settings', value: settings },
+      update: { value: settingsWithPosDefaults },
+      create: { key: 'store_settings', value: settingsWithPosDefaults },
     });
-    expect(result).toEqual(settings);
+    expect(result).toEqual(settingsWithPosDefaults);
   });
 
   it('rejects store names longer than the allowed limit', async () => {

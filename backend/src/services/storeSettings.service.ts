@@ -3,11 +3,20 @@ import { SettingsStore, parseOrThrow } from './settingsStore';
 import { DeliveryEligibilityService, invalidateStoreAddressCache } from './deliveryEligibility.service';
 import { invalidateOfflineZipsCache } from './orderingConstraints.service';
 import { invalidateStoreNameCache } from './thermalPrinter.service';
+import { encrypt, decrypt } from '../utils/crypto.util';
+import { logger } from '../utils/logger';
 
 export interface NotificationEmailRouting {
   adminEmail: string;
   managementEmail: string;
   employeeEmail: string;
+}
+
+export interface PosConfig {
+  baseUrl?: string;
+  username?: string;
+  password?: string;
+  apiKey?: string;
 }
 
 export interface StoreSettings {
@@ -16,7 +25,21 @@ export interface StoreSettings {
   phoneNumber: string;
   tagline: string;
   notificationEmails: NotificationEmailRouting;
+  posProvider: string | null;
+  posConfig: PosConfig;
 }
+
+function safePosDecrypt(value: string, key: string, field: string): string {
+  if (!value) return '';
+  try {
+    return decrypt(value, key);
+  } catch {
+    logger.warn('Stored POS credential could not be decrypted — treating as unconfigured', { field });
+    return '';
+  }
+}
+
+const POS_ENCRYPTION_KEY = process.env.POS_ENCRYPTION_KEY ?? '';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ADMIN_EMAIL_FALLBACK_ENV_KEYS = [
@@ -52,6 +75,8 @@ const getDefaultStoreSettings = (): StoreSettings => ({
   phoneNumber: '',
   tagline: '',
   notificationEmails: getDefaultNotificationEmailRouting(),
+  posProvider: null,
+  posConfig: {},
 });
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
@@ -97,6 +122,13 @@ function normalize(
         sanitizeInvalidEmails,
       ),
     },
+    posProvider: data?.posProvider ?? null,
+    posConfig: {
+      baseUrl: data?.posConfig?.baseUrl,
+      username: data?.posConfig?.username,
+      password: data?.posConfig?.password,
+      apiKey: data?.posConfig?.apiKey,
+    },
   };
 }
 
@@ -127,13 +159,44 @@ const StoreSettingsSchema = z.object({
     },
     'Invalid store settings: notificationEmails must be an object',
   ),
+  posProvider: z.string().nullable().default(null),
+  posConfig: z.object({
+    baseUrl: z.string().optional(),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    apiKey: z.string().optional(),
+  }).default({}),
 });
 
 const store = new SettingsStore<StoreSettings>({
   key: 'store_settings',
   schema: StoreSettingsSchema,
   defaults: getDefaultStoreSettings,
-  onRead: (raw) => normalize(raw),
+  onRead: (raw) => {
+    const normalized = normalize(raw);
+    if (!POS_ENCRYPTION_KEY) return normalized;
+    return {
+      ...normalized,
+      posConfig: {
+        ...normalized.posConfig,
+        username: safePosDecrypt(normalized.posConfig.username ?? '', POS_ENCRYPTION_KEY, 'username'),
+        password: safePosDecrypt(normalized.posConfig.password ?? '', POS_ENCRYPTION_KEY, 'password'),
+        apiKey: safePosDecrypt(normalized.posConfig.apiKey ?? '', POS_ENCRYPTION_KEY, 'apiKey'),
+      },
+    };
+  },
+  onWrite: (data) => {
+    if (!POS_ENCRYPTION_KEY) return data;
+    return {
+      ...data,
+      posConfig: {
+        ...data.posConfig,
+        username: data.posConfig.username ? encrypt(data.posConfig.username, POS_ENCRYPTION_KEY) : undefined,
+        password: data.posConfig.password ? encrypt(data.posConfig.password, POS_ENCRYPTION_KEY) : undefined,
+        apiKey: data.posConfig.apiKey ? encrypt(data.posConfig.apiKey, POS_ENCRYPTION_KEY) : undefined,
+      },
+    };
+  },
 });
 
 export class StoreSettingsService {
