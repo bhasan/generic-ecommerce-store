@@ -118,9 +118,9 @@ test('add Medium variant to cart and verify in cart page', async ({ page }) => {
 
 test('admin manage panel loads and shows products', async ({ page }) => {
   await loginAs(page, 'admin', 'admin123');
-  await page.goto(`${BASE}/manage-products`);
+  await page.goto(`${BASE}/manage-store/products`);
   await page.waitForLoadState('networkidle');
-  await expect(page.locator('.products-header').first()).toBeVisible({ timeout: 8000 });
+  await expect(page.getByRole('heading', { name: 'Products' }).first()).toBeVisible({ timeout: 8000 });
   await expect(page.getByText(/test t-shirt/i)).toBeVisible({ timeout: 5000 });
   await page.screenshot({ path: '/tmp/ss_manage.png' });
 });
