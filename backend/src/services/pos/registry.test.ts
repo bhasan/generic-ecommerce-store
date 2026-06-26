@@ -45,7 +45,19 @@ describe('getOrderSync', () => {
     });
     expect(result).toBeNull();
     expect(logger.warn).toHaveBeenCalledWith(
-      'ForeverPOS configured but posConfig incomplete',
+      'ForeverPOS configured but transport config incomplete',
+      expect.objectContaining({ event: 'pos_auth_failed' }),
+    );
+  });
+
+  it('returns null and warns when transport is complete but catch-all ids are missing', () => {
+    const result = getOrderSync({
+      ...completeForeverposSettings,
+      posConfig: { baseUrl: 'https://pos.example.com', username: 'admin', password: 'secret' },
+    });
+    expect(result).toBeNull();
+    expect(logger.warn).toHaveBeenCalledWith(
+      'ForeverPOS order sync configured but catch-all product ids missing',
       expect.objectContaining({ event: 'pos_auth_failed' }),
     );
   });

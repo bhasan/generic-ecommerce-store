@@ -1,5 +1,11 @@
 import { PosOrderSync, PosContext, PosPaymentPayload } from '../../orders/PosOrderSync';
-import { ForeverPosClient, ForeverPosConfig } from './client';
+import { ForeverPosClient } from './client';
+
+/** Order-capability config — the generic SAK product/variant every online order is booked against. */
+export interface ForeverPosOrderConfig {
+  sakCatchAllProductId: number;
+  sakCatchAllVariantId: number;
+}
 
 export const STATUS_MAP: Record<string, string> = {
   APPROVED: 'Processing',
@@ -26,7 +32,7 @@ export function paymentBuckets(payments: PosPaymentPayload[]): { cash: number; c
 }
 
 export class ForeverPosOrderSync implements PosOrderSync {
-  constructor(private readonly client: ForeverPosClient, private readonly cfg: ForeverPosConfig) {}
+  constructor(private readonly client: ForeverPosClient, private readonly cfg: ForeverPosOrderConfig) {}
 
   shouldPushStatus(status: string): boolean {
     return status in STATUS_MAP;

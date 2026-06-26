@@ -3,8 +3,6 @@ import { Prisma } from '../../../../generated/prisma';
 import { logger } from '../../../utils/logger';
 import { PosContext, PosOrderPayload, PosOrderSync } from './PosOrderSync';
 
-const PROVIDER = 'foreverpos';
-
 /** Thrown when ORDER_UPDATED arrives before its ORDER_CREATED has completed. Worker skips without consuming an attempt. */
 export class DeferralError extends Error {
   constructor(reason: string) {
@@ -17,9 +15,10 @@ export async function enqueue(
   tx: Prisma.TransactionClient,
   orderId: number,
   type: 'ORDER_CREATED' | 'ORDER_UPDATED',
+  provider: string,
 ): Promise<void> {
-  await tx.posOutbox.create({ data: { orderId, provider: PROVIDER, type } });
-  logger.info('POS outbox enqueued', { event: 'pos_outbox_enqueued', orderId, type });
+  await tx.posOutbox.create({ data: { orderId, provider, type } });
+  logger.info('POS outbox enqueued', { event: 'pos_outbox_enqueued', orderId, type, provider });
 }
 
 export async function countPending(): Promise<number> {
@@ -51,10 +50,8 @@ export async function processOutboxRow(
   row: { id: number; orderId: number; provider: string; type: string; attempts: number },
   provider: PosOrderSync,
 ): Promise<void> {
-  if (row.provider !== PROVIDER) throw new Error(`unsupported POS provider: ${row.provider}`);
-
   const mapping = await prisma.orderPosMapping.findUnique({
-    where: { orderId_provider: { orderId: row.orderId, provider: PROVIDER } },
+    where: { orderId_provider: { orderId: row.orderId, provider: row.provider } },
   });
 
   if (row.type === 'ORDER_CREATED') {
@@ -65,7 +62,7 @@ export async function processOutboxRow(
     const ctx: PosContext = { order: payload };
     const { externalId } = await provider.pushOrder(ctx);
     if (!externalId) throw new Error(`pushOrder returned no externalId for order ${row.orderId}`);
-    await prisma.orderPosMapping.create({ data: { orderId: row.orderId, provider: PROVIDER, externalId } });
+    await prisma.orderPosMapping.create({ data: { orderId: row.orderId, provider: row.provider, externalId } });
     logger.info('POS order created', { event: 'pos_outbox_success', type: row.type, orderId: row.orderId, voucherId: externalId });
     return;
   }

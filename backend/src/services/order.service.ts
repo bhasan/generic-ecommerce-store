@@ -620,11 +620,11 @@ export class OrderService {
           });
         }
 
-        if (posSync) {
+        if (posSync && posSettings.posProvider) {
           if (data.status === OrderStatus.APPROVED) {
-            await enqueue(tx, orderId, 'ORDER_CREATED');
+            await enqueue(tx, orderId, 'ORDER_CREATED', posSettings.posProvider);
           } else if (posSync.shouldPushStatus(data.status)) {
-            await enqueue(tx, orderId, 'ORDER_UPDATED');
+            await enqueue(tx, orderId, 'ORDER_UPDATED', posSettings.posProvider);
           }
         }
 
@@ -975,13 +975,23 @@ export class OrderService {
         updatedAddress,
       });
 
-      const updatedOrder = await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          status: OrderStatus.ARRIVED,
-          deliveryAddress: updatedAddress,
-          parkingSpot: parkingSpot.trim(),
+      const posSettings = await new StoreSettingsService().getStoreSettings();
+      const posSync = getOrderSync(posSettings);
+
+      // Status write and the POS outbox enqueue must be atomic — same guarantee as updateOrderStatus.
+      const updatedOrder = await prisma.$transaction(async (tx) => {
+        const updated = await tx.order.update({
+          where: { id: orderId },
+          data: {
+            status: OrderStatus.ARRIVED,
+            deliveryAddress: updatedAddress,
+            parkingSpot: parkingSpot.trim(),
+          }
+        });
+        if (posSync && posSettings.posProvider && posSync.shouldPushStatus(OrderStatus.ARRIVED)) {
+          await enqueue(tx, orderId, 'ORDER_UPDATED', posSettings.posProvider);
         }
+        return updated;
       });
 
       // Fetch order items with variant/product info
@@ -991,13 +1001,8 @@ export class OrderService {
       });
       const itemsWithProducts = orderItems.map(shapeOrderItem);
 
-      // Trigger notification updates and POS enqueue
+      // Trigger notification updates (non-transactional side effects)
       await dispatchOrderStatusUpdatedEffects(orderId, order.userId, OrderStatus.ARRIVED, order.status);
-      const posSettings = await new StoreSettingsService().getStoreSettings();
-      const posSync = getOrderSync(posSettings);
-      if (posSync && posSync.shouldPushStatus(OrderStatus.ARRIVED)) {
-        await enqueue(prisma as unknown as Prisma.TransactionClient, orderId, 'ORDER_UPDATED');
-      }
 
       return {
         ...updatedOrder,

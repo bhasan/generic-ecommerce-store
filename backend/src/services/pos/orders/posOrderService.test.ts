@@ -26,7 +26,7 @@ beforeEach(() => vi.clearAllMocks());
 describe('enqueue', () => {
   it('creates a pos_outbox row on the given tx', async () => {
     const tx = { posOutbox: { create: vi.fn() } } as any;
-    await enqueue(tx, 5, 'ORDER_CREATED');
+    await enqueue(tx, 5, 'ORDER_CREATED', 'foreverpos');
     expect(tx.posOutbox.create).toHaveBeenCalledWith({ data: { orderId: 5, provider: 'foreverpos', type: 'ORDER_CREATED' } });
   });
 });

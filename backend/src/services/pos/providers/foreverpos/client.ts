@@ -1,11 +1,10 @@
 import { logger } from '../../../../utils/logger';
 
+/** Transport-layer config shared by every ForeverPOS capability (orders, inventory, …). */
 export interface ForeverPosConfig {
   baseUrl: string;
   username: string;
   password: string;
-  sakCatchAllProductId: number;
-  sakCatchAllVariantId: number;
 }
 
 export class ForeverPosClient {

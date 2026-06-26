@@ -9,6 +9,9 @@ const MAX_ATTEMPTS = 5;
 const POLL_MS = Number(process.env.POS_OUTBOX_POLL_MS ?? 30000);
 const BATCH = 10;
 const BACKLOG_THRESHOLD = Number(process.env.POS_OUTBOX_BACKLOG_THRESHOLD ?? 50);
+// Rows claimed (PROCESSING) but never finished — e.g. the worker crashed mid-batch — are
+// reclaimed after this lease expires so they can never get orphaned.
+const LEASE_MS = Number(process.env.POS_OUTBOX_LEASE_MS ?? 5 * 60 * 1000);
 
 interface OutboxRow { id: number; orderId: number; provider: string; type: string; attempts: number; }
 
@@ -21,11 +24,13 @@ export async function runOutboxOnce(): Promise<void> {
   // FOR UPDATE SKIP LOCKED inside a transaction holds the row locks until the UPDATE commits,
   // preventing concurrent worker instances from claiming the same rows. The locks are released
   // as soon as we mark rows PROCESSING, so HTTP calls in phase 2 never block a DB connection.
+  const leaseCutoff = new Date(Date.now() - LEASE_MS);
   const rows = await prisma.$transaction(async (tx) => {
     const claimed = await tx.$queryRaw<OutboxRow[]>(Prisma.sql`
       SELECT id, "orderId", provider, type, attempts
       FROM pos_outbox
       WHERE status = 'PENDING'
+         OR (status = 'PROCESSING' AND "updatedAt" < ${leaseCutoff})
       ORDER BY id
       LIMIT ${BATCH}
       FOR UPDATE SKIP LOCKED

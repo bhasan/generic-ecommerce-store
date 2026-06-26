@@ -319,7 +319,7 @@ describe('order service notifications', () => {
       OrderStatus.READY_FOR_DELIVERY,
       OrderStatus.APPROVED,
     );
-    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), expect.any(Number), 'ORDER_UPDATED');
+    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), expect.any(Number), 'ORDER_UPDATED', 'foreverpos');
   });
 
   it('creates an OrderStatusEvent row with correct fromStatus, toStatus, changedBy, and note on status update', async () => {
@@ -352,7 +352,7 @@ describe('order service notifications', () => {
     }, ['MANAGEMENT']);
 
     expect(prismaMock.$transaction).toHaveBeenCalled();
-    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), 77, 'ORDER_CREATED');
+    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), 77, 'ORDER_CREATED', 'foreverpos');
     expect(prismaMock.orderStatusEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
