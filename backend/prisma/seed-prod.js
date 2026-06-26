@@ -14,7 +14,7 @@ const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DEL
 async function seedProd() {
   console.log('🌱 Production seed: roles, admin user, admin role mapping...');
 
-  const plainPassword = 'admin';
+  const plainPassword = 'changeme123';
   const username = 'admin';
 
   // 1. Roles: ensure all app roles exist
