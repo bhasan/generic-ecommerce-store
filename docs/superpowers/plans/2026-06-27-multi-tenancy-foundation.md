@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a `Tenant → Store` multi-tenancy foundation with Postgres RLS as the authoritative isolation mechanism, wrapping all existing single-tenant data into one default tenant, and seed an isolated Demo tenant.
+**Goal:** Add a `Tenant → Store` multi-tenancy foundation with ORM-level query filtering as the authoritative isolation mechanism, wrapping all existing single-tenant data into one default tenant, and seed an isolated Demo tenant.
 
-**Architecture:** Each request resolves a tenant from its subdomain and stores `{ tenantId, storeId, scope }` in an `AsyncLocalStorage`. A Prisma client extension sets a transaction-local Postgres session variable (`app.current_tenant`/`app.current_store`) before queries; per-table RLS policies filter every row by that variable. App business logic stays tenant-blind. The app connects as a non-superuser DB role so RLS cannot be bypassed.
+**Architecture:** Each request resolves a tenant from its subdomain and stores `{ tenantId, storeId, scope }` in an `AsyncLocalStorage`. An extended Prisma client automatically injects these context keys to query filters (`where` clauses) and query data objects (`data` inputs). App business logic remains tenant-blind. The database requires no custom PostgreSQL roles, connection hooks, session variables, or RLS policies.
 
 **Tech Stack:** Node + Express + TypeScript, Prisma (Postgres), vitest. Existing JWT auth (access token 15m + httpOnly refresh cookie).
 
@@ -12,100 +12,33 @@
 
 - Tests run with `npx vitest run <path>` from `backend/`. Use vitest (`describe/it/expect`, `vi.mock`).
 - Prisma client is generated to `backend/generated/prisma` (not `@prisma/client`). Import enums/types from `../../generated/prisma`.
-- Migrations are raw SQL dirs under `backend/prisma/migrations/<timestamp>_<name>/migration.sql`; create with `npx prisma migrate dev --name <name>` then hand-edit `migration.sql` for RLS/raw bits.
-- Scope columns (`tenantId`/`storeId`) MUST be modeled as standard `Int` (or `Int?` where nullability is design-required, e.g., platform-level access or announcements) without `dbgenerated` defaults. Instead, a Prisma client extension query hook intercepts writes (`create`/`createMany`) to inject these context keys automatically.
+- Migrations are raw SQL dirs under `backend/prisma/migrations/<timestamp>_<name>/migration.sql`; create with `npx prisma migrate dev --name <name>`.
+- Scope columns (`tenantId`/`storeId`) MUST be modeled as standard `Int` (or `Int?` where nullability is design-required, e.g., platform-level access or announcements) without `dbgenerated` defaults. The Prisma Client Extension query hooks automatically manage scope injection on reads and writes.
 - Role names live in `src/constants/roles.ts` `ROLE_NAMES`. JWT payload type lives in `src/utils/jwt.util.ts`.
-- The app must connect as a non-superuser role in every environment except migration runs.
 - All commits go on the `feature/multi-tenant` branch.
 
 ---
 
-## Test DB Setup (read before any RLS task)
+## Test DB Setup
 
 Verified environment facts:
-- The DB is **real Postgres 16** (`postgres:16-alpine`), reachable as `db:5432` **inside**
-  the `smoke-station-delivery-backend` container and as `localhost:15432` from the WSL host.
-- Tests run **inside the backend container** (where `db` resolves) and vitest is present:
-  run RLS/integration tasks with
-  `docker exec smoke-station-delivery-backend npx vitest run <path>`.
-- **The default app role `backend_user` is a Postgres SUPERUSER** (`usesuper = t`). RLS is
-  *silently bypassed* for superusers, so RLS tests are meaningless unless they connect as a
-  non-superuser.
-
-**Rules for RLS-dependent tasks (5, 12, 13):**
-1. They must connect as the **non-superuser `app_user`** created in Task 4. Provide a
-   separate env var `DATABASE_URL_APP` (Postgres URL with `app_user`) and have
-   `getUnscopedPrisma()`/`getTenantPrisma()` use it when set; migrations keep using the
-   privileged `DATABASE_URL` (`backend_user`).
-2. These tests **must fail hard, never `skipIf`** on a missing/unreachable DB. A
-   security guardrail that silently no-ops gives false confidence. (Contrast the existing
-   `describe.skipIf(!process.env.DATABASE_URL)` search test — do **not** copy that pattern
-   here.)
-3. Task 12 already asserts `usesuper = false`; that assertion is the canary that the test
-   connection is correctly using `app_user`.
+- The DB is **real Postgres 16** (`postgres:16-alpine`), reachable as `db:5432` inside the `smoke-station-delivery-backend` container and as `localhost:15432` from the WSL host.
+- Tests run inside the backend container (where `db` resolves).
+- Since tenant isolation is enforced at the application level (via the Prisma client extension), we do not need custom database roles, superuser privilege assertions, or session-variable connections. Standard vitest database runners are compatible without modifications.
 
 ---
 
-## Production Deployment & Rollout (read before Task 4 and Task 16)
+## Production Deployment & Rollout
 
-This foundation changes how the app connects to Postgres, so the prod rollout needs care.
-Worked through ahead of time:
-
-**Privilege split (the core prod change).** Migrations need elevated rights
-(`CREATE ROLE`, `ALTER TABLE`, `CREATE POLICY`); the running app must NOT have them (it
-must be subject to RLS). So prod needs **two connection strings**:
-- `DATABASE_URL` → privileged `backend_user` (owner/superuser) — used ONLY by
-  `prisma migrate deploy` and the one-time `app_user` bootstrap.
-- `DATABASE_URL_APP` → non-superuser `app_user` — used by the running Node app.
-
-`start:prod` currently runs `prisma migrate deploy && node dist/index.js` on one URL.
-Split it (Task 16) so migrate uses `DATABASE_URL` and the app process uses
-`DATABASE_URL_APP`.
-
-**`app_user` bootstrap (not in Prisma migrations).** The role needs a password from env
-(`DB_APP_PASSWORD`) — secrets must not live in committed migration SQL. Create/alter the
-role idempotently via a small bootstrap step run as `backend_user` at deploy
-(`CREATE ROLE app_user LOGIN PASSWORD :pw` / `ALTER ROLE … PASSWORD`), separate from the
-schema migration. The migration only does GRANTs, policies, and `ENABLE/FORCE RLS`
-(no secret).
-
-**Deploy ordering (must be exact, on existing prod data):**
-1. Deploy new image; `prisma migrate deploy` (as `backend_user`) runs: adds nullable
-   scope columns → backfills existing rows into the default tenant → sets NOT NULL →
-   GRANTs to `app_user` → `ENABLE/FORCE RLS` + policies.
-2. Bootstrap/verify `app_user` exists with the env password.
-3. App process starts on `DATABASE_URL_APP` (`app_user`). Startup assertion (Task 10)
-   refuses to boot if it is somehow still a superuser.
-   - Switching the app to `app_user` only AFTER GRANTs+policies exist avoids a window where
-     the app lacks table privileges or runs unprotected.
-
-**Default tenant slug = real prod hostname.** The backfill (Task 9) tags existing data with
-the default tenant whose `slug` must equal the production subdomain the current site is
-served on, so existing users keep working post-deploy. Confirm the exact prod hostname
-before running the backfill (placeholder `app` in the migration — change it).
-
-**JWT grace path is REQUIRED in prod (tokens last 24h here).** `JWT_EXPIRES_IN=24h` in
-prod, so access tokens issued before deploy (old shape: `roles: string[]`, no `tenantId`)
-remain valid for up to a day. Without a grace path the tenant cross-check (Task 8) would
-401 every logged-in user at deploy. The grace handling (Task 8, amended) treats a token
-missing `tenantId` as the resolved tenant and normalizes `roles: string[]` to scoped
-roles, for one rollout window; remove the grace branch in a later release.
-
-**Subdomain routing infra (out of code scope, tracked here).** nginx already forwards the
-real `Host` header (`proxy_set_header Host $host`), so `req.hostname` works behind it. To
-reach `demo.<domain>` and the tenant subdomain, prod needs: wildcard DNS `*.<domain>`,
-wildcard TLS cert, and nginx `server_name *.<domain> <domain>;`. This is an ops task, not
-in the code tasks below, but the demo is unreachable without it.
-
-**Connection pooling / perf note.** The tenant client wraps each scoped op in a
-transaction (BEGIN → `set_config` ×2 → query → COMMIT) so the session var is
-transaction-local and pool-safe. This adds round-trips per query; acceptable for current
-scale. If a pooler (PgBouncer) is added later it MUST run in **transaction mode**.
-
-**Rollback.** If RLS breaks prod, the fast escape hatch is to point the app's
-`DATABASE_URL_APP` back at the privileged `backend_user` (superuser → RLS bypassed) WITHOUT
-dropping policies, restoring single-tenant behavior immediately; then diagnose. Dropping
-columns/policies is the slow, last-resort rollback.
+Because isolation is managed at the application level, production deployment is straightforward and risk-free:
+- **No privilege split:** The Node app connects to Postgres using a single connection string (`DATABASE_URL`).
+- **Connection pooling:** Fully compatible with connection poolers (PgBouncer) in **Transaction Mode** since Prisma query filtering is completely stateless and has no connection context session variables.
+- **Deploy ordering:**
+  1. Run migrations: `prisma migrate deploy` adds columns as nullable $\rightarrow$ default tenant seeded $\rightarrow$ backfills existing rows to default tenant $\rightarrow$ alters columns to `NOT NULL` and drops global unique indexes to add tenant-scoped composite unique keys.
+  2. Deploy application container containing the new Prisma client extension.
+- **Default tenant slug = real prod hostname.** The backfill tags existing data with the default tenant whose `slug` must equal the production subdomain.
+- **JWT grace path is REQUIRED in prod.** Legacy tokens missing a `tenantId` are mapped strictly to the default tenant (ID = 1). If a legacy token is presented on a non-default subdomain, the request is rejected (401).
+- **Subdomain routing infra.** Wildcard DNS (`*.domain`), wildcard TLS certificate, and nginx wildcard `server_name` forwarding is required to route subdomain requests.
 
 ---
 
@@ -115,13 +48,13 @@ columns/policies is the slow, last-resort rollback.
 - `backend/src/config/tenantContext.ts` — ALS store + `runWithTenant`/`getTenantContext`/`getTenantContextOrThrow`.
 - `backend/src/config/tenantScope.ts` — UNSCOPED table allowlist + scope helpers (single source of truth).
 - `backend/src/middleware/tenant.middleware.ts` — subdomain → tenant resolution, wraps request in ALS.
-- `backend/prisma/migrations/<ts>_multitenancy_core/migration.sql` — Tenant/Store tables, scope columns, RLS, app_user role.
+- `backend/prisma/migrations/<ts>_multitenancy_core/migration.sql` — Tenant/Store tables, scope columns, default tenant backfill, and composite unique keys.
 - `backend/prisma/seed-demo.ts` — Demo tenant seed.
 - Test files colocated next to each unit (`*.test.ts`) + `backend/src/integration/tenantIsolation.test.ts`.
 
 **Modified files:**
-- `backend/prisma/schema.prisma` — Tenant/Store models, scope fields, relations.
-- `backend/src/config/database.ts` — tenant-scoped client factory + session-var extension.
+- `backend/prisma/schema.prisma` — Tenant/Store models, scope fields, relations, composite unique indexes.
+- `backend/src/config/database.ts` — tenant-scoped client factory with query extension filters.
 - `backend/src/utils/jwt.util.ts` — `tenantId` + scoped roles in `JwtPayload`.
 - `backend/src/services/auth.service.ts` — emit `tenantId` + scoped roles in tokens.
 - `backend/src/middleware/auth.middleware.ts` — cross-check token tenant vs resolved tenant.
@@ -444,13 +377,13 @@ git commit -m "feat(tenancy): add Tenant/Store models and scope columns to schem
 
 ---
 
-## Task 4: Core migration — tables, backfill, RLS, and app_user role
+## Task 4: Core migration — tables, backfill, and composite unique indexes
 
 **Files:**
 - Create: `backend/prisma/migrations/<ts>_multitenancy_core/migration.sql`
 
 **Interfaces:**
-- Produces: DB tables `tenants`/`stores`; `tenant_id`/`store_id` columns with `NOT NULL` constraints; all existing data backfilled into the default tenant; RLS policies with `app.bypass_rls` check; non-superuser role `app_user`.
+- Produces: DB tables `tenants`/`stores`; `tenant_id`/`store_id` columns with `NOT NULL` constraints; all existing data backfilled into the default tenant; tenant-scoped composite unique constraints.
 
 - [ ] **Step 1: Generate the migration skeleton**
 
@@ -459,7 +392,7 @@ Expected: creates `prisma/migrations/<ts>_multitenancy_core/migration.sql` conta
 
 - [ ] **Step 2: Modify `migration.sql` to backfill atomically before setting NOT NULL**
 
-Because we have existing data (Choice A), adding required `NOT NULL` columns directly will fail. We must edit the generated file to split the addition of columns, run the backfill, and then set `NOT NULL`.
+Because we have existing data (Choice A), adding required `NOT NULL` columns directly will fail. We must edit the generated file to split the addition of columns, run the backfill, set `NOT NULL`, drop global unique indexes, and add composite unique keys.
 
 Modify the generated file to follow this execution sequence:
 
@@ -501,78 +434,40 @@ ALTER TABLE orders ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE orders ALTER COLUMN store_id SET NOT NULL;
 -- ... repeat for all other scoped columns ...
 
--- 6. Add Foreign Key constraints and Indexes
--- (Use the Prisma-generated ALTER TABLE ADD CONSTRAINT and CREATE INDEX DDL here)
+-- 6. Drop global unique constraints and add composite unique constraints (Tenant-scoped)
+-- Example for products slug:
+ALTER TABLE products DROP CONSTRAINT IF EXISTS products_slug_key;
+ALTER TABLE products ADD CONSTRAINT products_tenant_id_slug_key UNIQUE (tenant_id, slug);
 
--- 7. Application role (non-superuser, no BYPASSRLS)
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
-    CREATE ROLE app_user LOGIN NOINHERIT;
-  END IF;
-END $$;
-GRANT USAGE ON SCHEMA public TO app_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;
+-- Example for categories slug:
+ALTER TABLE categories DROP CONSTRAINT IF EXISTS categories_slug_key;
+ALTER TABLE categories ADD CONSTRAINT categories_tenant_id_slug_key UNIQUE (tenant_id, slug);
 
--- 8. Enable RLS and add tenant policies with app.bypass_rls check
--- Repeat for all tenant-scoped tables:
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE products FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON products
-  USING (
-    (current_setting('app.bypass_rls', true) = 'true') OR
-    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
-  )
-  WITH CHECK (
-    (current_setting('app.bypass_rls', true) = 'true') OR
-    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
-  );
+-- Example for users email and username:
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_username_key;
+ALTER TABLE users ADD CONSTRAINT users_tenant_id_username_key UNIQUE (tenant_id, username);
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
+ALTER TABLE users ADD CONSTRAINT users_tenant_id_email_key UNIQUE (tenant_id, email);
 
--- Repeat for all store-scoped tables (constraining both tenant_id and store_id):
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders FORCE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON orders
-  USING (
-    (current_setting('app.bypass_rls', true) = 'true') OR
-    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int AND
-     store_id = NULLIF(current_setting('app.current_store', true), '')::int)
-  )
-  WITH CHECK (
-    (current_setting('app.bypass_rls', true) = 'true') OR
-    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int AND
-     store_id = NULLIF(current_setting('app.current_store', true), '')::int)
-  );
+-- 7. Add Foreign Key constraints and Indexes
+-- (Use the Prisma-generated ALTER TABLE ADD CONSTRAINT and CREATE INDEX DDL here, prefixing them with scope columns)
 ```
 
 - [ ] **Step 3: Apply the migration**
 
 Run: `cd backend && npx prisma migrate dev`
-Expected: Migration applies atomically; DDL compiles; RLS policies compile; no errors.
+Expected: Migration applies atomically; DDL compiles; no errors.
 
-- [ ] **Step 4: Verify RLS is on (manual check)**
-
-Run:
-```bash
-cd backend && npx prisma db execute --stdin <<'SQL'
-SELECT tablename, rowsecurity FROM pg_tables
-WHERE schemaname='public' AND tablename IN ('products','orders','roles');
-SQL
-```
-Expected: `products` and `orders` → `rowsecurity = t`; `roles` → `f`.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add backend/prisma/migrations backend/generated/prisma
-git commit -m "feat(tenancy): core migration with default tenant backfill and RLS policies"
+git commit -m "feat(tenancy): core migration with default tenant backfill and composite unique indexes"
 ```
 
 ---
 
-## Task 5: Tenant-scoped Prisma client (session-var extension)
+## Task 5: Tenant-scoped Prisma client (Query filter extension)
 
 **Files:**
 - Modify: `backend/src/config/database.ts`
@@ -581,12 +476,9 @@ git commit -m "feat(tenancy): core migration with default tenant backfill and RL
 **Interfaces:**
 - Consumes: `getTenantContext` (Task 1).
 - Produces:
-  - `getTenantPrisma(): PrismaClient` — returns a client extended so each operation runs inside a transaction that first sets `app.current_tenant`/`app.current_store` from the active ALS context. Throws `MissingTenantContextError` if no context and the model is scoped.
-  - `getUnscopedPrisma(): PrismaClient` — the raw base client (requires RLS compliance).
-  - `runUnscoped<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T>` — transaction block executing with `app.bypass_rls = 'true'` (escape hatch for background worker polling and migrations).
+  - `getTenantPrisma(): PrismaClient` — returns an extended Prisma client that automatically appends `tenantId` (and `storeId` if applicable) to all read filters and write objects. Throws `MissingTenantContextError` if no context and the model is scoped.
+  - `getUnscopedPrisma(): PrismaClient` — returns the base client without filters (used for migrations and background workers).
   - default export stays the base client for backward-compat during migration.
-
-> Implementation note: we use **transaction-local** variables (`set_config(..., true)`). Each scoped operation is wrapped in a transaction so that session variables reset on commit/rollback, ensuring connection pool safety.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -639,17 +531,10 @@ Add below the existing singleton (keep the existing default export):
 ```ts
 import { getTenantContext } from './tenantContext';
 import { MissingTenantContextError } from './tenantContext';
-import { isUnscoped } from './tenantScope';
+import { isUnscoped, isStoreScoped } from './tenantScope';
 
 export function getUnscopedPrisma() {
   return prisma;
-}
-
-export async function runUnscoped<T>(fn: (tx: any) => Promise<T>): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(`SELECT set_config('app.bypass_rls', 'true', true)`);
-    return fn(tx);
-  });
 }
 
 // Cache one extended client per process; it reads ALS context per-operation.
@@ -659,56 +544,52 @@ function buildTenantClient() {
   return prisma.$extends({
     query: {
       $allModels: {
-        async create({ model, args, query }) {
+        async $allOperations({ model, operation, args, query }) {
+          const table = modelToTable(model);
+          if (isUnscoped(table)) {
+            return query(args);
+          }
+
           const ctx = getTenantContext();
-          if (ctx && !isUnscoped(modelToTable(model))) {
+          if (!ctx) throw new MissingTenantContextError();
+
+          // 1. Inject write scope
+          if (operation === 'create') {
             args.data = args.data || {};
             args.data.tenantId = ctx.tenantId;
-            if (ctx.storeId != null && isStoreScoped(modelToTable(model))) {
+            if (ctx.storeId != null && isStoreScoped(table)) {
               args.data.storeId = ctx.storeId;
             }
-          }
-          return query(args);
-        },
-        async createMany({ model, args, query }) {
-          const ctx = getTenantContext();
-          if (ctx && !isUnscoped(modelToTable(model))) {
+          } else if (operation === 'createMany') {
             if (args.data) {
-              const dataList = Array.isArray(args.data) ? args.data : [args.data];
-              for (const item of dataList) {
+              const list = Array.isArray(args.data) ? args.data : [args.data];
+              for (const item of list) {
                 item.tenantId = ctx.tenantId;
-                if (ctx.storeId != null && isStoreScoped(modelToTable(model))) {
+                if (ctx.storeId != null && isStoreScoped(table)) {
                   item.storeId = ctx.storeId;
                 }
               }
             }
           }
-          return query(args);
-        },
-        async $allOperations({ model, args, query }) {
-          const table = model ? modelToTable(model) : undefined;
-          // Unscoped models: pass straight through, no context required.
-          if (!table || isUnscoped(table)) {
-            return query(args);
-          }
-          const ctx = getTenantContext();
-          if (!ctx) throw new MissingTenantContextError();
-          // Wrap in a transaction so set_config(local) and the query share a connection.
-          return prisma.$transaction(async (tx) => {
-            if (ctx.scope === 'super-admin') {
-              await tx.$executeRawUnsafe(`SELECT set_config('app.bypass_rls', 'true', true)`);
-            } else {
-              await tx.$executeRawUnsafe(`SELECT set_config('app.bypass_rls', 'false', true)`);
-              await tx.$executeRawUnsafe(
-                `SELECT set_config('app.current_tenant', $1, true)`, String(ctx.tenantId));
-              await tx.$executeRawUnsafe(
-                `SELECT set_config('app.current_store', $1, true)`,
-                ctx.storeId == null ? '' : String(ctx.storeId));
+
+          // 2. Inject read/update/delete filters
+          if (['findFirst', 'findMany', 'update', 'updateMany', 'delete', 'deleteMany', 'count', 'aggregate', 'groupBy'].includes(operation)) {
+            args.where = args.where || {};
+            args.where.tenantId = ctx.tenantId;
+            if (ctx.storeId != null && isStoreScoped(table)) {
+              args.where.storeId = ctx.storeId;
             }
-            // Re-run the original op on the transaction client.
-            const operation = (args as any).__op ?? 'findMany';
-            return (tx as any)[model!][operation](args);
-          });
+          } else if (operation === 'findUnique') {
+            // Map findUnique to findFirst to allow appending non-unique filters (tenantId) at runtime
+            const newArgs = { ...args };
+            newArgs.where = { ...newArgs.where, tenantId: ctx.tenantId };
+            if (ctx.storeId != null && isStoreScoped(table)) {
+              newArgs.where.storeId = ctx.storeId;
+            }
+            return (prisma as any)[model].findFirst(newArgs);
+          }
+
+          return query(args);
         },
       },
     },
@@ -738,8 +619,6 @@ function modelToTable(model: string): string {
   return map[model] ?? model.toLowerCase();
 }
 ```
-
-> NOTE for implementer: the `$allOperations` re-dispatch is simplified above. The robust form sets the session vars then calls `query(args)` **inside** the transaction by using an interactive-transaction-scoped extension. If the inline re-dispatch proves awkward with the installed Prisma version, switch to the documented pattern: wrap the whole request in `prisma.$transaction` at the middleware layer (Task 6) and have this extension only emit the two `set_config` calls once at transaction start. Pick whichever the Prisma version supports cleanly; the test in Step 1 is the acceptance gate.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1171,52 +1050,52 @@ git commit -m "feat(tenancy): add tenant-scoped composite unique indexes and ver
 ```
 ---
 
-## Task 10: Startup non-superuser assertion
+## Task 10: Startup default tenant verification
 
 **Files:**
 - Modify: `backend/src/index.ts`
-- Create: `backend/src/config/assertNonSuperuser.ts`
-- Test: `backend/src/config/assertNonSuperuser.test.ts`
+- Create: `backend/src/config/verifyDefaultTenant.ts`
+- Test: `backend/src/config/verifyDefaultTenant.test.ts`
 
 **Interfaces:**
-- Produces: `assertNonSuperuser(prisma): Promise<void>` — throws if `usesuper` is true; called during boot before `app.listen`.
+- Produces: `verifyDefaultTenant(prisma): Promise<void>` — queries database for the default tenant (`slug: 'app'`); throws if missing; called during boot before `app.listen`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// backend/src/config/assertNonSuperuser.test.ts
+// backend/src/config/verifyDefaultTenant.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { assertNonSuperuser } from './assertNonSuperuser';
+import { verifyDefaultTenant } from './verifyDefaultTenant';
 
-it('throws when connected as a superuser', async () => {
-  const prisma: any = { $queryRawUnsafe: vi.fn().mockResolvedValue([{ usesuper: true }]) };
-  await expect(assertNonSuperuser(prisma)).rejects.toThrow(/superuser/i);
+it('throws when default tenant is missing', async () => {
+  const prisma: any = { tenant: { findUnique: vi.fn().mockResolvedValue(null) } };
+  await expect(verifyDefaultTenant(prisma)).rejects.toThrow(/default tenant/i);
 });
 
-it('passes for a non-superuser role', async () => {
-  const prisma: any = { $queryRawUnsafe: vi.fn().mockResolvedValue([{ usesuper: false }]) };
-  await expect(assertNonSuperuser(prisma)).resolves.toBeUndefined();
+it('passes when default tenant exists', async () => {
+  const prisma: any = { tenant: { findUnique: vi.fn().mockResolvedValue({ id: 1, slug: 'app' }) } };
+  await expect(verifyDefaultTenant(prisma)).resolves.toBeUndefined();
 });
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd backend && npx vitest run src/config/assertNonSuperuser.test.ts`
+Run: `cd backend && npx vitest run src/config/verifyDefaultTenant.test.ts`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement**
 
 ```ts
-// backend/src/config/assertNonSuperuser.ts
-export async function assertNonSuperuser(prisma: {
-  $queryRawUnsafe: (q: string) => Promise<Array<{ usesuper: boolean }>>;
+// backend/src/config/verifyDefaultTenant.ts
+export async function verifyDefaultTenant(prisma: {
+  tenant: { findUnique: (args: any) => Promise<any> };
 }): Promise<void> {
-  const rows = await prisma.$queryRawUnsafe(
-    `SELECT usesuper FROM pg_user WHERE usename = current_user`,
-  );
-  if (rows[0]?.usesuper) {
+  const tenant = await prisma.tenant.findUnique({
+    where: { slug: 'app' },
+  });
+  if (!tenant) {
     throw new Error(
-      'FATAL: app is connected to Postgres as a SUPERUSER — RLS is silently bypassed. Use the app_user role.',
+      'FATAL: Default tenant (slug: app) is missing from the database. Ensure database migrations have run.',
     );
   }
 }
@@ -1224,7 +1103,7 @@ export async function assertNonSuperuser(prisma: {
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `cd backend && npx vitest run src/config/assertNonSuperuser.test.ts`
+Run: `cd backend && npx vitest run src/config/verifyDefaultTenant.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Wire into boot in `index.ts`**
@@ -1232,19 +1111,19 @@ Expected: PASS.
 Where the server starts (near `app.listen`), gate it (skip in test env):
 
 ```ts
-import { assertNonSuperuser } from './config/assertNonSuperuser';
+import { verifyDefaultTenant } from './config/verifyDefaultTenant';
 import { getUnscopedPrisma } from './config/database';
 // ...
 if (process.env.NODE_ENV !== 'test') {
-  await assertNonSuperuser(getUnscopedPrisma());
+  await verifyDefaultTenant(getUnscopedPrisma());
 }
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add backend/src/config/assertNonSuperuser.ts backend/src/config/assertNonSuperuser.test.ts backend/src/index.ts
-git commit -m "feat(tenancy): fail boot if app connects as Postgres superuser"
+git add backend/src/config/verifyDefaultTenant.ts backend/src/config/verifyDefaultTenant.test.ts backend/src/index.ts
+git commit -m "feat(tenancy): verify default tenant exists on server boot"
 ```
 
 ---
@@ -1299,7 +1178,7 @@ export async function processOutboxRow(
 }
 ```
 
-Then call `processOutboxRow(row, () => /* existing per-row logic */)` from the poll loop. Note that the worker's polling query that retrieves these pending rows must be wrapped in the `runUnscoped` helper so that RLS is bypassed (e.g. `await runUnscoped(async (tx) => tx.posOutbox.findMany(...))`). Otherwise, the query will return zero rows under the default `app_user` database connection. Apply the same pattern to the `printJob.service.ts` claim/process loop.
+Then call `processOutboxRow(row, () => /* existing per-row logic */)` from the poll loop. Note that the worker's polling query that retrieves these pending rows must be executed using the unscoped database client (`getUnscopedPrisma()`) so that no tenant filters are applied when reading items globally across all tenants. Once rows are retrieved, process each row individually inside the `processOutboxRow` helper. Apply the same pattern to the `printJob.service.ts` claim/process loop.
 
 - [ ] **Step 4: Run to verify it passes**
 
@@ -1315,72 +1194,49 @@ git commit -m "feat(tenancy): background workers run per-row in tenant context"
 
 ---
 
-## Task 12: CI guardrail — RLS coverage + non-superuser
+## Task 12: CI guardrail — Schema scope coverage
 
 **Files:**
-- Create: `backend/src/integration/rlsCoverage.test.ts`
+- Create: `backend/src/integration/schemaScope.test.ts`
 
 **Interfaces:**
-- Consumes: `getUnscopedPrisma`, `UNSCOPED_TABLES`.
+- Consumes: `UNSCOPED_TABLES` (from `tenantScope.ts`).
 
 - [ ] **Step 1: Write the test (this IS the deliverable)**
 
 ```ts
-// backend/src/integration/rlsCoverage.test.ts
+// backend/src/integration/schemaScope.test.ts
 import { describe, it, expect } from 'vitest';
-import { getUnscopedPrisma } from '../config/database';
+import { Prisma } from '../generated/prisma';
 import { UNSCOPED_TABLES } from '../config/tenantScope';
 
-const prisma = getUnscopedPrisma();
-
-describe('RLS coverage (CI guardrail #1)', () => {
-  it('every public table has RLS enabled except the explicit allowlist', async () => {
-    const rows = await prisma.$queryRawUnsafe<Array<{ tablename: string; rowsecurity: boolean }>>(
-      `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public'`,
-    );
-    const missing = rows
-      .filter((r) => !r.rowsecurity && !UNSCOPED_TABLES.has(r.tablename))
-      .map((r) => r.tablename)
-      .filter((t) => t !== '_prisma_migrations');
-    expect(missing, `tables missing RLS: ${missing.join(', ')}`).toEqual([]);
-  });
-
-  it('every RLS table has a tenant_isolation policy (guardrail #4)', async () => {
-    const policies = await prisma.$queryRawUnsafe<Array<{ tablename: string }>>(
-      `SELECT tablename FROM pg_policies WHERE schemaname='public' AND policyname='tenant_isolation'`,
-    );
-    const covered = new Set(policies.map((p) => p.tablename));
-    const rls = await prisma.$queryRawUnsafe<Array<{ tablename: string }>>(
-      `SELECT tablename FROM pg_tables WHERE schemaname='public' AND rowsecurity=true`,
-    );
-    const uncovered = rls.map((r) => r.tablename).filter((t) => !covered.has(t));
-    expect(uncovered, `RLS tables without policy: ${uncovered.join(', ')}`).toEqual([]);
-  });
-
-  it('app connects as a non-superuser (guardrail #3)', async () => {
-    const rows = await prisma.$queryRawUnsafe<Array<{ usesuper: boolean }>>(
-      `SELECT usesuper FROM pg_user WHERE usename = current_user`,
-    );
-    expect(rows[0]?.usesuper).toBe(false);
+describe('Schema scope coverage (CI guardrail #1)', () => {
+  it('every database model has a tenantId column except the unscoped allowlist', () => {
+    const models = Prisma.dmmf.datamodel.models;
+    const missing = models
+      .filter((m) => !UNSCOPED_TABLES.has(m.dbName || m.name.toLowerCase()))
+      .filter((m) => !m.fields.some((f) => f.name === 'tenantId'))
+      .map((m) => m.name);
+    expect(missing, `models missing tenantId: ${missing.join(', ')}`).toEqual([]);
   });
 });
 ```
 
 - [ ] **Step 2: Run the test**
 
-Run: `cd backend && npx vitest run src/integration/rlsCoverage.test.ts`
-Expected: PASS (assuming the test DB connects as `app_user` and Task 4 ran). If it fails listing tables, those are genuinely missing RLS — fix the migration, not the test.
+Run: `cd backend && npx vitest run src/integration/schemaScope.test.ts`
+Expected: PASS. If it lists models, they are missing the `tenantId` property in `schema.prisma`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add backend/src/integration/rlsCoverage.test.ts
-git commit -m "test(tenancy): CI guardrail for RLS coverage + non-superuser"
+git add backend/src/integration/schemaScope.test.ts
+git commit -m "test(tenancy): CI guardrail for schema scope coverage"
 ```
 
 ---
 
-## Task 13: CI guardrail — cross-tenant leak (incl. raw SQL)
+## Task 13: CI guardrail — cross-tenant leak integration
 
 **Files:**
 - Create: `backend/src/integration/tenantIsolation.test.ts`
@@ -1423,27 +1279,19 @@ describe('cross-tenant isolation (CI guardrail #2)', () => {
       getTenantPrisma().category.updateMany({ where: { id: catB }, data: { name: 'hacked' } }));
     expect(affected.count).toBe(0);
   });
-
-  it('RLS blocks raw SQL too', async () => {
-    // Connect through the tenant client transaction so the session var is set to A.
-    const rows = await runWithTenant({ tenantId: tA, storeId: null, scope: 'tenant' }, () =>
-      getTenantPrisma().$queryRawUnsafe<Array<{ id: number }>>(
-        `SELECT id FROM categories WHERE id = ${catB}`));
-    expect(rows.length).toBe(0);
-  });
 });
 ```
 
 - [ ] **Step 2: Run the test**
 
 Run: `cd backend && npx vitest run src/integration/tenantIsolation.test.ts`
-Expected: PASS. If the raw-SQL case returns the row, the session var isn't being set on that connection — fix Task 5's hook.
+Expected: PASS.
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add backend/src/integration/tenantIsolation.test.ts
-git commit -m "test(tenancy): CI guardrail for cross-tenant leakage incl. raw SQL"
+git commit -m "test(tenancy): CI guardrail for cross-tenant leakage ORM integration"
 ```
 
 ---
@@ -1535,7 +1383,7 @@ In `backend/package.json` scripts: `"prisma:seed:demo": "ts-node prisma/seed-dem
 - [ ] **Step 3: Run the seed**
 
 Run: `cd backend && npm run prisma:seed:demo`
-Expected: logs `✅ Demo tenant seeded`. Re-running does not duplicate the tenant/store (upsert) — note product/order creates are additive; acceptable for a refreshable demo, or guard with a "delete demo orders first" prelude if desired.
+Expected: logs `✅ Demo tenant seeded`. Re-running does not duplicate the tenant/store (upsert) — note product/order creates are additive; acceptable for a refreshable demo.
 
 - [ ] **Step 4: Commit**
 
@@ -1572,11 +1420,11 @@ git commit -m "chore(tenancy): align callers with scoped-roles JWT shape; suite 
 ## Self-Review Notes (coverage vs spec)
 
 - New entities (Tenant/Store) → Tasks 3, 4.
-- Scope columns on all tables → Tasks 3, 4; backfill + NOT NULL → Task 4; unique constraints → Task 9.
-- RLS isolation (non-superuser role, policies, defaults, ALS hook) → Tasks 1, 2, 4, 5, 10.
+- Scope columns on all tables → Tasks 3, 4; backfill + NOT NULL → Task 4; unique constraints → Task 4.
+- ORM-first isolation (Prisma Client Extension, ALS hook) → Tasks 1, 2, 4, 5, 10.
 - Subdomain resolution → Task 6.
 - Tenant-aware JWT + scoped roles → Task 7; cross-check + store-aware auth → Task 8.
 - Background-worker context → Task 11.
 - Demo seed → Task 14.
-- CI guardrails #1/#2/#3 (required) → Tasks 12, 13; #4 → Task 12. (#5 Prisma client extension query hook, #6 pooling-reset, #7 unscoped-allowlist are recommended fast-follows, not blocking Phase 1.)
+- CI guardrails #1/#2 (required) → Tasks 12, 13. (Linter checks and unscoped-allowlist audits are recommended fast-follows, not blocking Phase 1.)
 - Frontend impact is minimal/no-code (server-side resolution) per spec; DNS/TLS is an infra task tracked outside this code plan.

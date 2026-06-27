@@ -31,37 +31,18 @@ orchestration layer, offering three isolation shapes: shared-infra multi-store,
 database-per-tenant, and a hybrid. Their "Store + Sales Channels" concept maps to our
 **Tenant → Store** split, not to tenant isolation itself.
 
-The field-proven way to do *shared-database* tenant isolation (incl. the Medusa
-community RLS guide) is **Postgres Row-Level Security as the primary, authoritative
-enforcement**, with **AsyncLocalStorage (ALS)** carrying the tenant id to a DB
-connection hook that sets a session variable. Business logic needs **zero** changes,
-and isolation cannot be bypassed by a forgotten `where` clause. We adopt this directly.
+The clean and lightweight way to do *shared-database* tenant isolation is **Prisma Client Extensions that automatically inject `tenantId` (and `storeId` if applicable) into query filters and write payloads**, using **AsyncLocalStorage (ALS)** to carry the active request context. Business logic needs **zero** changes, connection pooling works natively in transaction mode, and the database requires no raw SQL RLS policies, custom configuration variables, or database privilege splits.
 
 ## Conceptual Model (decisions made)
 
-- **Hierarchy:** `Tenant` (the owning business) → `Store` (a storefront/location) →
-  Users, Orders. A tenant may have many stores; Phase 1 ships each tenant with one
-  default store.
-- **Catalog:** tenant-level master catalog **+ per-store overrides** (override layer is
-  Phase 2; Phase 1 ships the tenant-level master catalog only).
-- **Customers:** tenant-level — one customer account shops any store within the tenant.
-  Orders are still tied to a specific store. (`approved` becomes per-tenant for free,
-  since customers are tenant-scoped user rows.)
-- **Website/branding settings (`UiSetting`):** tenant-level. No per-store override in
-  Phase 1.
-- **Tenant resolution:** subdomain → tenant (`acme.yourapp.com` → tenant Acme). Store is
-  selected *inside* the app (location picker — Phase 2), not in the URL, so the auth
-  cookie and customer account span all of a tenant's stores.
-- **Platform administration:** a super-admin console (later phase). Phase 1 creates
-  tenants via seed/CLI.
-- **Isolation strategy:** **Postgres Row-Level Security (RLS) is the primary mechanism,
-  enabled in Phase 1.** ALS carries `{ tenantId, storeId }` per request; a DB hook sets
-  the Postgres session variable; RLS policies filter every query in the database. The
-  app's business logic is unchanged. An optional Prisma `where`-injection extension may
-  be added purely for friendlier in-app dev errors, but it is **not** load-bearing.
-- **Roles:** **global role catalog + scoped assignment.** Role *names* are fixed
-  platform-wide; scope comes from `User.tenantId` and `UserRole.storeId`. No per-tenant
-  custom roles (deferred indefinitely).
+- **Hierarchy:** `Tenant` (the owning business) → `Store` (a storefront/location) → Users, Orders. A tenant may have many stores; Phase 1 ships each tenant with one default store.
+- **Catalog:** tenant-level master catalog **+ per-store overrides** (override layer is Phase 2; Phase 1 ships the tenant-level master catalog only).
+- **Customers:** tenant-level — one customer account shops any store within the tenant. Orders are still tied to a specific store. (`approved` becomes per-tenant for free, since customers are tenant-scoped user rows.)
+- **Website/branding settings (`UiSetting`):** tenant-level. No per-store override in Phase 1.
+- **Tenant resolution:** subdomain → tenant (`acme.yourapp.com` → tenant Acme). Store is selected *inside* the app (location picker — Phase 2), not in the URL, so the auth cookie and customer account span all of a tenant's stores.
+- **Platform administration:** a super-admin console (later phase). Phase 1 creates tenants via seed/CLI.
+- **Isolation strategy:** **Prisma Client Extension query filtering is the primary mechanism.** ALS carries `{ tenantId, storeId }` per request; Prisma automatically appends the matching `tenantId`/`storeId` to all query read `where` filters and write `data` payloads. The app's business logic remains unchanged and clean.
+- **Roles:** **global role catalog + scoped assignment.** Role *names* are fixed platform-wide; scope comes from `User.tenantId` and `UserRole.storeId`. No per-tenant custom roles (deferred indefinitely).
 
 ## Scope of Phase 1
 
@@ -70,19 +51,12 @@ In scope:
 1. New core entities: `Tenant`, `Store`.
 2. Add `tenantId` / `storeId` columns across all existing tenant/store tables.
 3. Data migration wrapping existing data into a **default tenant + default store**.
-4. **RLS isolation**: non-superuser application DB role, per-table RLS policies, ALS
-   context + connection hook that sets the tenant session variable, auto-tagging column
-   defaults.
+4. **ORM Isolation**: Prisma Client Extension query filtering, supported by ALS request context.
 5. Subdomain → tenant resolution middleware.
-6. Tenant-aware JWT (`tenantId` + scoped roles in token, cross-checked against resolved
-   subdomain).
-7. User ↔ Store ↔ Role model (`User.tenantId`, `UserRole.storeId`) + store-aware
-   authorization middleware.
-8. Seed the **Demo tenant** (fake catalog + orders across all stages, a Management demo
-   user, a customer demo user).
-9. **CI guardrails** for tenant isolation (see CI Guardrails section): required checks
-   #1 (RLS-on-every-scoped-table), #2 (cross-tenant leak test, incl. raw SQL), #3
-   (non-superuser app role).
+6. Tenant-aware JWT (`tenantId` + scoped roles in token, cross-checked against resolved subdomain).
+7. User ↔ Store ↔ Role model (`User.tenantId`, `UserRole.storeId`) + store-aware authorization middleware.
+8. Seed the **Demo tenant** (fake catalog + orders across all stages, a Management demo user, a customer demo user).
+9. **CI guardrails** for tenant isolation (see CI Guardrails section): verification checks asserting that the Prisma extension correctly injects tenant constraints and prevents cross-tenant leaks.
 
 Out of scope (later phases):
 
@@ -144,39 +118,17 @@ platform-level `SUPER_ADMIN` role. It is the only user type that lives above ten
 `Tenant`/`Store` (the tenancy tables themselves), `RefreshToken` (scoped transitively
 through its `User`; revisit if direct queries need protection).
 
-## Isolation: RLS-first (the security core)
+## Isolation: ORM-first (the security core)
 
-**1. Non-superuser application role.** RLS is *silently bypassed for Postgres
-superusers*. The app must connect as a dedicated **non-superuser** role
-(e.g. `app_user`) owning no `BYPASSRLS`. A startup assertion verifies
-`SELECT usesuper FROM pg_user WHERE usename = current_user` is false and fails fast
-otherwise. (Today's `DATABASE_URL` user is likely the superuser — creating and
-switching to `app_user` is a Phase 1 migration task.)
+**1. Prisma Client Extension.** Isolation is enforced at the application/ORM layer. A Prisma Client Extension intercepts all operations on scoped models, automatically injecting the tenant filter (`where: { tenantId: ctx.tenantId }`) on reads/updates/deletes and the scope keys (`data: { tenantId: ctx.tenantId }`) on inserts.
 
-**2. Tenant-tagged columns with automatic injection.** Each scoped table gets a standard required `tenantId` (store tables also `storeId`) with **no database-level default** in `schema.prisma`. Instead, a **Prisma Client Extension** intercepts all write operations (`create`/`createMany`) and automatically injects the `tenantId`/`storeId` from the `AsyncLocalStorage` context. Any write that bypasses the extension will fail-closed with a `NOT NULL` database constraint violation.
+**2. Tenant-tagged columns with no defaults.** Scoped tables carry standard, required `tenantId` (store tables also `storeId`) columns in `schema.prisma`. Any writes bypassing the extended client (e.g. un-instrumented migrations) fail-closed with a standard database `NOT NULL` constraint violation.
 
-**3. RLS policies per table with bypass capability.** Enable RLS and add policies (SELECT/INSERT/UPDATE/DELETE) keyed on the session variable, with an escape hatch for super-admin/unscoped bypass:
-```sql
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON products
-  USING (
-    (current_setting('app.bypass_rls', true) = 'true') OR
-    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
-  )
-  WITH CHECK (
-    (current_setting('app.bypass_rls', true) = 'true') OR
-    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
-  );
-```
-Store-scoped tables additionally constrain `store_id` (except announcements/messages which allow null `store_id`). A documented **"super-admin mode"** (setting `app.bypass_rls = 'true'`) is permitted only for the explicit unscoped/super-admin connection path, never for tenant requests.
+**3. Connection pooling & PgBouncer compatibility.** Because query filtering is completely stateless and does not depend on database roles, transactions, or session-level configurations, connection pools (including PgBouncer running in **Transaction Mode**) scale natively without connection context leaks.
 
-**4. ALS context + connection hook.** `src/config/tenantContext.ts` exposes an `AsyncLocalStorage<{ tenantId, storeId, scope }>`. Middleware wraps each request in it. A Prisma client extension runs `SELECT set_config('app.current_tenant', $tenantId, true)` and `SELECT set_config('app.bypass_rls', 'false', true)` (or `'true'` for super-admin scope) before queries inside a transaction. This ensures connection-pool safety.
+**4. Background workers.** Background tasks poll using the base unscoped client to fetch pending items across all tenants (e.g. outbox items or print jobs). Once fetched, the worker enters the specific ALS tenant context for that row to process the execution in isolation.
 
-**5. Background workers** (outbox worker, print job poller, POS order service — `src/services/pos/orders/outboxWorker.ts`, `posOrderService.ts`, `printJob.service.ts`, `thermalPrinter.service.ts`) run outside requests. Their global poll queries (e.g., fetching pending outbox records) run in Super-Admin mode (bypassing RLS with `app.bypass_rls = 'true'`) to fetch entries across all tenants. Once rows are retrieved, processing loops enter the specific ALS tenant context (`tenantId`/`storeId`) for the respective row's data execution. Processing queries must never run without a tenant context.
-
-**6. Explicit escape hatch.** `getUnscopedPrisma()` (or a connection that sets the session var empty) is the only sanctioned way to query across tenants — for migrations, the super-admin console, and platform ops. Grep-able and reviewed.
-
-**7. Optional ergonomic extension (non-load-bearing).** We may add a Prisma `where`-injection extension so a developer who forgets context gets a clear error instead of an empty result. Isolation correctness does **not** depend on it — RLS is authoritative.
+**5. Explicit escape hatch.** `getUnscopedPrisma()` returns the base Prisma client without query filters, providing a clear and audit-friendly escape hatch for platform-wide metrics, migrations, and platform console admin actions.
 
 ## Tenant-Aware JWT & Roles
 
@@ -275,48 +227,27 @@ prove undesirable.
 ## CI Guardrails
 
 Tenant-isolation failures are *silent* (a leak, not an error), so they will not surface
-in manual testing. These automated checks make a regression turn the build red. They are
-designed to **fail safe**: a newly added table is unprotected until explicitly
-classified, so the build breaks rather than the data leaking. Tests that read Postgres's
-own catalogs (`pg_tables`, `pg_policies`, `pg_user`) verify the *database's* actual
-enforcement state, where a leak would originate.
+These automated checks make a regression turn the build red. They are designed to **fail safe**: a newly added table is unprotected until explicitly classified.
 
 **Required in Phase 1 (the catastrophic cases):**
 
-1. **Every scoped table has RLS enabled.** Query `pg_tables` for `rowsecurity = false`
-   minus an explicit UNSCOPED allowlist (`roles`, `address_geocode_cache`, `tenants`,
-   `stores`, `refresh_tokens`). A new table is RLS-off by default → fails until
-   classified.
-2. **Cross-tenant leak integration test.** Seed two tenants; under tenant A's context
-   assert reads return only A's rows and a write targeting B's id affects zero rows —
-   **including via `$queryRaw`** (proves RLS, not just app filtering).
-3. **App connects as a non-superuser.** Assert `usesuper = false` and no `BYPASSRLS`
-   (superuser silently disables RLS). Mirrored as a runtime startup assertion.
+1. **Every scoped table has the scope key.** Check schema model definitions to ensure all tables except the UNSCOPED allowlist contain `tenantId` (and `storeId` if store-scoped).
+2. **Cross-tenant leak integration test.** Seed two tenants; under tenant A's context, assert reads return only A's rows, and updates targeting B's IDs affect zero rows.
+3. **Query extension validation.** Assert that the extended client is active and that standard queries are automatically injected with the resolved tenant constraints.
 
-**Strongly recommended (add in Phase 1 if cheap, else fast-follow):**
+**Strongly recommended:**
 
-4. **Every scoped table has all four policies** (SELECT/INSERT/UPDATE/DELETE) via
-   `pg_policies` — RLS enabled with no policy is a misconfiguration.
-5. **Scope columns are injected on write by Prisma Client Extension** (query hook check) — so Prisma automatically injects the tenant ID on writes and the database fails-closed if bypassed.
-6. **Pooled-connection context-reset test** — two sequential requests for different tenants forced onto the same connection; request 2 must not see request 1's context.
-7. **Unscoped-access allowlist** — `getUnscopedPrisma()` may only be imported in approved files (migrations, super-admin, worker bootstrap); a new call site fails until reviewed.
-
-**Nice-to-have hardening:** background-worker context test (worker with no context throws, not leaks); JWT cross-tenant rejection test (token for A on B's subdomain → 401).
+4. **Unscoped-access allowlist** — `getUnscopedPrisma()` or raw Prisma client imports may only be used in approved files (migrations, worker startup, platform controllers). A new call site fails until reviewed.
+5. **Raw SQL Audit.** Since raw SQL (`$queryRaw` / `$executeRaw`) bypasses the Prisma Client Extension query hooks, raw queries must be audited in CI to verify they explicitly enforce `tenant_id` constraints.
 
 ## Risks & Open Items
 
-- **Pervasive `tenantId`** touches ~25 tables — but with RLS-first, *service code is unchanged*; risk concentrates in the migration and the connection hook.
-- **Superuser footgun:** must run as `app_user`; enforced by startup assertion + test.
-- **Connection pooling:** session var must be transaction-local (or per-acquire + WeakMap). When a pooler (PgBouncer) is later added it must run in **transaction mode**.
-- **Raw queries / nested writes** are now covered by RLS (the previous gap is closed).
-- **Subdomain/DNS/TLS** infra is a prerequisite for the demo to be reachable in prod.
-- **Prisma Client Extension vs. DB defaults.** To avoid Prisma CLI migration drift, we do not use `dbgenerated(...)` in schema.prisma. Instead, a Prisma client extension intercepts `create` and `createMany` queries to inject `tenantId`/`storeId`. The database columns are standard `NOT NULL` fields, which ensures any queries bypassing the client fail-closed in the database.
-- **Transaction-local config constrains query execution (decide in implementation).** `set_config('app.current_tenant', …, true)` is transaction-local, so it only persists for queries inside an explicit transaction. Two viable paths: (a) run each request's DB work inside one interactive `$transaction`, or (b) use session-level config (`false`) + reset-on-connection-release guarded by a per-connection WeakMap (the approach used by the Medusa/Rigby implementation). Path (a) is cleaner but forces a one-transaction-per-request shape; path (b) avoids that but must guarantee reset on release. Pick one early — it shapes the connection hook and pooling story.
-- **JWT payload shape change needs a grace path.** Tokens move from `roles: RoleName[]` to `tenantId` + scoped `roles: { name, storeId }[]`. Access tokens issued before deploy won't carry the new fields. To prevent user disruption, a brief tolerance window treats tokens missing a `tenantId` as mapped **strictly to the default tenant**. If a legacy token is presented on a non-default tenant subdomain, it must be rejected (401).
+- **Pervasive `tenantId`** touches ~25 tables — but with ORM-first, *service code is unchanged*; risk concentrates in the model definitions and the Prisma Client Extension.
+- **Raw Queries Leak Window:** Raw SQL statements bypass Prisma Client Extensions. A code linter or regex scan in CI should alert on any `$queryRaw` usage that does not contain a `tenant_id` pattern.
+- **JWT payload shape change needs a grace path.** Tokens move from `roles: RoleName[]` to `tenantId` + scoped `roles: { name, storeId }[]`. Access tokens issued before deploy won't carry the new fields. To prevent user disruption, a brief tolerance window treats tokens missing a `tenantId` as mapped **strictly to the default tenant** (ID = 1). If a legacy token is presented on a non-default tenant subdomain, it must be rejected (401).
 
 ## Phasing (recap)
 
-1. **Phase 1 (this spec)** — Foundation + Demo, RLS-first isolation.
-2. **Phase 2** — Location picker, `StoreVariantOverride` (per-store price/stock/
-   visibility, stock relocation), staff store-assignment, store-scoped dashboards.
+1. **Phase 1 (this spec)** — Foundation + Demo, ORM-first isolation.
+2. **Phase 2** — Location picker, `StoreVariantOverride` (per-store price/stock/visibility, stock relocation), staff store-assignment, store-scoped dashboards.
 3. **Phase 3** — Super-admin console; later, self-service tenant signup.

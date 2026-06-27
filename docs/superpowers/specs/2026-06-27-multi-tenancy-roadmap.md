@@ -20,9 +20,7 @@ layer, offering shared-multi-store, database-per-tenant, and hybrid isolation sh
 Its "Store + Sales Channels" maps to our Tenant→Store split, not to tenant isolation.
 The field-proven shared-DB isolation pattern (incl. the Medusa community guide) is
 **Postgres RLS as primary enforcement + AsyncLocalStorage to carry tenant context** —
-which this roadmap adopts from Phase 1.
-
-## Core Decisions (apply across all phases)
+which this roadmap adopts from## Core Decisions (apply across all phases)
 
 - **Hierarchy:** Tenant (owning business) → Store (location/storefront) → Users/Orders.
 - **Catalog:** tenant-level master catalog + per-store overrides.
@@ -30,35 +28,28 @@ which this roadmap adopts from Phase 1.
 - **Website/branding settings:** tenant-level.
 - **Tenant resolution:** subdomain → tenant; store selected in-app (not in URL).
 - **Platform admin:** super-admin console above all tenants.
-- **Isolation:** **Postgres RLS is primary, from Phase 1**; ALS carries `{tenantId, storeId}` per request to a connection hook that sets transaction-local session variables. App connects as a **non-superuser** role. **Write operations automatically inject tenant context via a Prisma Client Extension** on scoped models, and DB columns are standard required `NOT NULL` fields (fail-closed). An optional Prisma where-injection extension is dev-ergonomic sugar only.
-- **Roles:** global role-name catalog + scoped assignment (`User.tenantId`,
-  `UserRole.storeId`); store-aware authorization. No per-tenant custom roles.
+- **Isolation:** **Prisma Query Extension is primary, from Phase 1**; ALS carries `{tenantId, storeId}` per request, and an extended Prisma client automatically appends `tenantId` (and `storeId` if store-scoped) to all query filters (`where` clauses) and write objects (`data`). App business logic is unchanged and tenant-blind. The database requires no RLS policies, custom session configurations, or database role privilege splits.
+- **Roles:** global role-name catalog + scoped assignment (`User.tenantId`, `UserRole.storeId`); store-aware authorization. No per-tenant custom roles.
 - The `tenantId`/`storeId` columns are the only irreversible decision; added in Phase 1.
 
 ## Phases at a Glance
 
 | Phase | Theme | Ships | Spec |
 |-------|-------|-------|------|
-| 1 | Foundation + Demo | Tenant/Store models, full `tenantId`/`storeId` scoping, data migration into a default tenant, **RLS-first isolation** (non-superuser role, policies, ALS context hook), subdomain middleware, tenant-aware JWT + scoped roles, seeded Demo tenant | `2026-06-27-multi-tenancy-foundation-design.md` |
+| 1 | Foundation + Demo | Tenant/Store models, full `tenantId`/`storeId` scoping, data migration into a default tenant, **ORM-enforced isolation** (Prisma client extension query filters), subdomain middleware, tenant-aware JWT + scoped roles, seeded Demo tenant | `2026-06-27-multi-tenancy-foundation-design.md` |
 | 2 | Store mechanics | Location picker, `StoreVariantOverride` (per-store price/stock/visibility + stock relocation), staff multi-store assignment, store-scoped dashboards | TBD |
 | 3 | Super-admin console | Create/suspend tenants, manage plans/branding; later self-service tenant signup | TBD |
 
 ## Phase 1 — Foundation + Demo
 
-**Goal:** stand up the multi-tenant skeleton with database-enforced isolation and
-deliver the isolated Demo tenant. Wraps all existing data into a default tenant so the
-live app is unaffected.
+**Goal:** stand up the multi-tenant skeleton with ORM-enforced isolation and deliver the isolated Demo tenant. Wraps all existing data into a default tenant so the live app is unaffected.
 
 - New `Tenant`/`Store` entities; `tenantId`/`storeId` across all scoped tables.
-- Non-destructive data migration (nullable → backfill → NOT NULL → RLS enable).
-- **RLS isolation:** non-superuser `app_user` role, per-table policies keyed on
-  `current_setting('app.current_tenant')`, auto-tagging column defaults, ALS context +
-  transaction-local `set_config` connection hook, background-worker context entry.
+- Non-destructive data migration (nullable → backfill → NOT NULL).
+- **ORM isolation:** Prisma query extension that automatically injects tenant scope to `where` query filters and `create` write objects; ALS context resolves tenant ID per request.
 - Subdomain resolution middleware + tenant-aware JWT (mismatch rejected).
-- `User.tenantId` (null = super-admin), `UserRole.storeId` (null = tenant-wide),
-  store-aware authorization middleware; `SUPER_ADMIN` added to the role catalog.
-- Demo tenant seed: fake catalog, orders in every stage, Management + customer demo
-  users.
+- `User.tenantId` (null = super-admin), `UserRole.storeId` (null = tenant-wide), store-aware authorization middleware; `SUPER_ADMIN` added to the role catalog.
+- Demo tenant seed: fake catalog, orders in every stage, Management + customer demo users.
 
 **Out of scope here:** per-store overrides, store picker, super-admin UI.
 
@@ -66,30 +57,25 @@ live app is unaffected.
 
 Turns "one default store per tenant" into real multi-store operation.
 
-- **Location picker:** customer chooses/switches store; selection persists; single-store
-  tenants auto-select.
-- **`StoreVariantOverride`:** per-store `hidden`/`priceOverride`/`stock`; **stock
-  relocates** from `ProductVariant` to this table.
-- **Staff store-assignment UI:** assign EMPLOYEE/MANAGEMENT/DELIVERY_DRIVER to specific
-  stores (multiple rows for multi-store staff).
+- **Location picker:** customer chooses/switches store; selection persists; single-store tenants auto-select.
+- **`StoreVariantOverride`:** per-store `hidden`/`priceOverride`/`stock`; **stock relocates** from `ProductVariant` to this table.
+- **Staff store-assignment UI:** assign EMPLOYEE/MANAGEMENT/DELIVERY_DRIVER to specific stores (multiple rows for multi-store staff).
 - **Store-scoped dashboards:** orders, print jobs, POS routing filtered by store.
 
 ## Phase 3 — Super-Admin Console (+ later: self-service)
 
 The platform control plane.
 
-- Super-admin (`tenantId=null`) UI: create/suspend tenants, provision subdomains, seed
-  per-tenant defaults, manage plans/branding.
-- Later: public self-service tenant signup with automated provisioning and abuse
-  prevention.
+- Super-admin (`tenantId=null`) UI: create/suspend tenants, provision subdomains, seed per-tenant defaults, manage plans/branding.
+- Later: public self-service tenant signup with automated provisioning and abuse prevention.
 
 ## Cross-Cutting Infra
 
-- App connects as non-superuser `app_user`; startup assertion fails otherwise.
-- Connection pooling: transaction-local session var now; if a pooler (PgBouncer) is added later it must run in **transaction mode** (RLS dictates pooling mode).
+- App connects via standard connection pools. No custom database roles or privilege splits required.
+- Connection pooling: fully compatible with connection poolers (PgBouncer) in **Transaction Mode** since Prisma query filtering is completely stateless.
 - Wildcard DNS (`*.yourapp.com`) + wildcard TLS for per-tenant subdomains.
 - Composite indexes leading with `tenantId`/`storeId` on hot paths.
-- **Background Worker Polling:** Worker query loops (e.g., polling pending outbox items) run in Super-Admin mode (setting `app.bypass_rls = 'true'`) to query items across all tenants, and then enter an ALS tenant context derived from each row's `tenantId` to process individual rows.
+- Background workers (print agent, POS outbox) enter an ALS tenant context derived from each row's `tenantId` to automatically filter queries during processing.
 - **Media & Asset Isolation:** Media storage (AWS S3/local directories) isolates uploaded assets using prefixes/folders named `tenants/:tenantId/` to prevent cross-tenant asset exposure.
 - **Subdomain Cookie Scoping:** To prevent session cookie collision, auth cookies are scoped strictly to the individual subdomain (e.g., `shop-a.yourapp.com`), not the apex domain (`.yourapp.com`).
 - **Soft-Delete Lifecycle:** Tenant deletion/removal changes `Tenant.status` to `SUSPENDED` or `DELETED` and blocks requests at the middleware layer, avoiding database hard deletes and preserving historical records.
