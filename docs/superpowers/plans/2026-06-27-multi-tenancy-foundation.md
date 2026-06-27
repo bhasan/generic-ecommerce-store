@@ -20,6 +20,95 @@
 
 ---
 
+## Test DB Setup (read before any RLS task)
+
+Verified environment facts:
+- The DB is **real Postgres 16** (`postgres:16-alpine`), reachable as `db:5432` **inside**
+  the `smoke-station-delivery-backend` container and as `localhost:15432` from the WSL host.
+- Tests run **inside the backend container** (where `db` resolves) and vitest is present:
+  run RLS/integration tasks with
+  `docker exec smoke-station-delivery-backend npx vitest run <path>`.
+- **The default app role `backend_user` is a Postgres SUPERUSER** (`usesuper = t`). RLS is
+  *silently bypassed* for superusers, so RLS tests are meaningless unless they connect as a
+  non-superuser.
+
+**Rules for RLS-dependent tasks (5, 12, 13):**
+1. They must connect as the **non-superuser `app_user`** created in Task 4. Provide a
+   separate env var `DATABASE_URL_APP` (Postgres URL with `app_user`) and have
+   `getUnscopedPrisma()`/`getTenantPrisma()` use it when set; migrations keep using the
+   privileged `DATABASE_URL` (`backend_user`).
+2. These tests **must fail hard, never `skipIf`** on a missing/unreachable DB. A
+   security guardrail that silently no-ops gives false confidence. (Contrast the existing
+   `describe.skipIf(!process.env.DATABASE_URL)` search test — do **not** copy that pattern
+   here.)
+3. Task 12 already asserts `usesuper = false`; that assertion is the canary that the test
+   connection is correctly using `app_user`.
+
+---
+
+## Production Deployment & Rollout (read before Task 4 and Task 16)
+
+This foundation changes how the app connects to Postgres, so the prod rollout needs care.
+Worked through ahead of time:
+
+**Privilege split (the core prod change).** Migrations need elevated rights
+(`CREATE ROLE`, `ALTER TABLE`, `CREATE POLICY`); the running app must NOT have them (it
+must be subject to RLS). So prod needs **two connection strings**:
+- `DATABASE_URL` → privileged `backend_user` (owner/superuser) — used ONLY by
+  `prisma migrate deploy` and the one-time `app_user` bootstrap.
+- `DATABASE_URL_APP` → non-superuser `app_user` — used by the running Node app.
+
+`start:prod` currently runs `prisma migrate deploy && node dist/index.js` on one URL.
+Split it (Task 16) so migrate uses `DATABASE_URL` and the app process uses
+`DATABASE_URL_APP`.
+
+**`app_user` bootstrap (not in Prisma migrations).** The role needs a password from env
+(`DB_APP_PASSWORD`) — secrets must not live in committed migration SQL. Create/alter the
+role idempotently via a small bootstrap step run as `backend_user` at deploy
+(`CREATE ROLE app_user LOGIN PASSWORD :pw` / `ALTER ROLE … PASSWORD`), separate from the
+schema migration. The migration only does GRANTs, policies, and `ENABLE/FORCE RLS`
+(no secret).
+
+**Deploy ordering (must be exact, on existing prod data):**
+1. Deploy new image; `prisma migrate deploy` (as `backend_user`) runs: adds nullable
+   scope columns → backfills existing rows into the default tenant → sets NOT NULL →
+   GRANTs to `app_user` → `ENABLE/FORCE RLS` + policies.
+2. Bootstrap/verify `app_user` exists with the env password.
+3. App process starts on `DATABASE_URL_APP` (`app_user`). Startup assertion (Task 10)
+   refuses to boot if it is somehow still a superuser.
+   - Switching the app to `app_user` only AFTER GRANTs+policies exist avoids a window where
+     the app lacks table privileges or runs unprotected.
+
+**Default tenant slug = real prod hostname.** The backfill (Task 9) tags existing data with
+the default tenant whose `slug` must equal the production subdomain the current site is
+served on, so existing users keep working post-deploy. Confirm the exact prod hostname
+before running the backfill (placeholder `app` in the migration — change it).
+
+**JWT grace path is REQUIRED in prod (tokens last 24h here).** `JWT_EXPIRES_IN=24h` in
+prod, so access tokens issued before deploy (old shape: `roles: string[]`, no `tenantId`)
+remain valid for up to a day. Without a grace path the tenant cross-check (Task 8) would
+401 every logged-in user at deploy. The grace handling (Task 8, amended) treats a token
+missing `tenantId` as the resolved tenant and normalizes `roles: string[]` to scoped
+roles, for one rollout window; remove the grace branch in a later release.
+
+**Subdomain routing infra (out of code scope, tracked here).** nginx already forwards the
+real `Host` header (`proxy_set_header Host $host`), so `req.hostname` works behind it. To
+reach `demo.<domain>` and the tenant subdomain, prod needs: wildcard DNS `*.<domain>`,
+wildcard TLS cert, and nginx `server_name *.<domain> <domain>;`. This is an ops task, not
+in the code tasks below, but the demo is unreachable without it.
+
+**Connection pooling / perf note.** The tenant client wraps each scoped op in a
+transaction (BEGIN → `set_config` ×2 → query → COMMIT) so the session var is
+transaction-local and pool-safe. This adds round-trips per query; acceptable for current
+scale. If a pooler (PgBouncer) is added later it MUST run in **transaction mode**.
+
+**Rollback.** If RLS breaks prod, the fast escape hatch is to point the app's
+`DATABASE_URL_APP` back at the privileged `backend_user` (superuser → RLS bypassed) WITHOUT
+dropping policies, restoring single-tenant behavior immediately; then diagnose. Dropping
+columns/policies is the slow, last-resort rollback.
+
+---
+
 ## File Structure
 
 **New files:**
