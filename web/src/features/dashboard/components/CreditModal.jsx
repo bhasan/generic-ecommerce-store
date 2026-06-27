@@ -3,6 +3,7 @@ import { X, Plus, Minus, Wallet } from 'lucide-react';
 import * as storeCreditApi from '../../../services/storeCreditApi';
 import './CreditModal.css';
 import { formatPrice } from '../../../utils/currencyUtils';
+import { formatDate } from '../../../utils/dateUtils';
 import BaseModal from '../../../components/common/BaseModal';
 
 function CreditModal({ user, onClose, onCreditAdded }) {
@@ -75,17 +76,6 @@ function CreditModal({ user, onClose, onCreditAdded }) {
       setRemoveError(err.message || 'Failed to remove credit');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-    } catch {
-      return dateString;
     }
   };
 
