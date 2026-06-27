@@ -542,7 +542,10 @@ export function getUnscopedPrisma() {
 let tenantClient: ReturnType<typeof buildTenantClient> | undefined;
 
 function buildTenantClient() {
-  return prisma.$extends({
+  // ext is declared before assignment so the findUnique branch can reference it
+  // via closure (by the time any operation fires, ext is fully initialized).
+  let ext: ReturnType<typeof prisma.$extends>;
+  ext = prisma.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
@@ -581,13 +584,17 @@ function buildTenantClient() {
               args.where.storeId = ctx.storeId;
             }
           } else if (operation === 'findUnique') {
-            // Map findUnique to findFirst to allow appending non-unique filters (tenantId) at runtime
-            const newArgs = { ...args };
-            newArgs.where = { ...newArgs.where, tenantId: ctx.tenantId };
-            if (ctx.storeId != null && isStoreScoped(table)) {
-              newArgs.where.storeId = ctx.storeId;
-            }
-            return (prisma as any)[model].findFirst(newArgs);
+            // Prisma findUnique requires the where clause to satisfy a unique constraint
+            // exactly — you cannot append tenantId to a single-column unique lookup.
+            // Fix: redirect to findFirst on the EXTENDED client (ext, not base prisma)
+            // so other extension hooks still apply. The closure ref is safe because ext
+            // is fully assigned before any operation is ever invoked.
+            const modelKey = (model.charAt(0).toLowerCase() + model.slice(1)) as keyof typeof ext;
+            const newArgs = {
+              where: { ...args.where, tenantId: ctx.tenantId,
+                ...(ctx.storeId != null && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
+            };
+            return (ext[modelKey] as any).findFirst(newArgs);
           }
 
           return query(args);
@@ -595,6 +602,7 @@ function buildTenantClient() {
       },
     },
   });
+  return ext;
 }
 
 export function getTenantPrisma() {
@@ -851,6 +859,8 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
       runWithTenant({ tenantId: 0, storeId: null, scope: 'super-admin' }, () => next());
       return;
     }
+    // Apex domain (no subdomain) or www → default tenant.
+    // Any other subdomain is treated as a named tenant slug; if not found → 404.
     resolvedSlug = (sub && sub !== 'www') ? sub : 'app';
   }
 
@@ -869,13 +879,11 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
     });
   }
 
-  // 5. Fallback to default 'app' tenant if resolved tenant doesn't exist
+  // 5. If no tenant found: apex/www route already resolved to slug 'app' above —
+  // if even 'app' is missing the DB is misconfigured. Named subdomains that don't
+  // match any tenant 404 rather than silently falling through to default data.
   if (!tenant) {
-    tenant = await prisma.tenant.findUnique({ where: { slug: 'app' } });
-  }
-
-  if (!tenant) {
-    res.status(404).json({ error: 'Tenant configuration missing' });
+    res.status(404).json({ error: 'Tenant not found' });
     return;
   }
 
@@ -960,7 +968,21 @@ describe('tenant-aware JWT', () => {
 Run: `cd backend && npx vitest run src/utils/jwt.util.test.ts`
 Expected: FAIL — type error / `tenantId` missing.
 
-- [ ] **Step 3: Update `JwtPayload`**
+- [ ] **Step 3: Add `SUPER_ADMIN` to the role constants**
+
+In `backend/src/constants/roles.ts`, add `'SUPER_ADMIN'` to `ROLE_NAMES`:
+
+```ts
+export const ROLE_NAMES = [
+  'GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN',
+  'DELIVERY_DRIVER', 'SUPER_ADMIN',
+] as const;
+export type RoleName = typeof ROLE_NAMES[number];
+```
+
+Run: `cd backend && npx tsc --noEmit` — expect no errors from the added literal.
+
+- [ ] **Step 4: Update `JwtPayload`**
 
 ```ts
 // backend/src/utils/jwt.util.ts — replace the interface
@@ -972,7 +994,7 @@ export interface JwtPayload {
 }
 ```
 
-- [ ] **Step 4: Update `auth.service.ts` token emission**
+- [ ] **Step 5: Update `auth.service.ts` token emission**
 
 In both `generateToken({...})` call sites (login ~line 185, refresh ~line 294), change `roles: roleNames` to the scoped shape and add `tenantId`. Add a helper near `toRoleNames`:
 
@@ -1000,16 +1022,16 @@ const token = generateToken({
 
 > `getUserRolesWithNames` must also select `storeId`. Update its `include`/`select` in `userRoles.helper.ts` to return `storeId` on each `userRole` row.
 
-- [ ] **Step 5: Run test to verify it passes**
+- [ ] **Step 6: Run test to verify it passes**
 
 Run: `cd backend && npx vitest run src/utils/jwt.util.test.ts`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add backend/src/utils/jwt.util.ts backend/src/services/auth.service.ts backend/src/services/userRoles.helper.ts backend/src/utils/jwt.util.test.ts
-git commit -m "feat(tenancy): tenant-aware JWT with store-scoped roles"
+git add backend/src/constants/roles.ts backend/src/utils/jwt.util.ts backend/src/services/auth.service.ts backend/src/services/userRoles.helper.ts backend/src/utils/jwt.util.test.ts
+git commit -m "feat(tenancy): add SUPER_ADMIN role, tenant-aware JWT with store-scoped roles"
 ```
 
 ---
@@ -1456,6 +1478,13 @@ async function main() {
     update: {},
     create: { tenantId: tenant.id, name: 'Demo Store', slug: 'main', isDefault: true, status: 'ACTIVE' },
   });
+
+  // Wipe and recreate all demo content so re-runs produce a clean, consistent state.
+  // Orders/items/categories/products under the demo tenant are reset each run.
+  await prisma.order.deleteMany({ where: { tenantId: tenant.id } });
+  await prisma.product.deleteMany({ where: { tenantId: tenant.id } });
+  await prisma.category.deleteMany({ where: { tenantId: tenant.id } });
+  await prisma.user.deleteMany({ where: { tenantId: tenant.id, username: { in: ['demo-manager', 'demo-customer'] } } });
 
   // Fake catalog
   const cat = await prisma.category.create({
