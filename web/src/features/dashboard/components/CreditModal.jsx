@@ -3,6 +3,7 @@ import { X, Plus, Minus, Wallet } from 'lucide-react';
 import * as storeCreditApi from '../../../services/storeCreditApi';
 import './CreditModal.css';
 import { formatPrice } from '../../../utils/currencyUtils';
+import BaseModal from '../../../components/common/BaseModal';
 
 function CreditModal({ user, onClose, onCreditAdded }) {
   const [addAmount, setAddAmount] = useState('');
@@ -101,151 +102,144 @@ function CreditModal({ user, onClose, onCreditAdded }) {
   const balance = typeof user.storeCreditBalance === 'number' ? user.storeCreditBalance : 0;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="credit-modal-container" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="credit-modal-header">
-          <div className="credit-modal-title-group">
-            <Wallet size={20} />
-            <div>
-              <h2 className="credit-modal-title">{user.username}</h2>
-              <span className="credit-modal-balance">Current balance: <strong>{formatPrice(balance)}</strong></span>
-            </div>
+    <BaseModal isOpen={true} onClose={onClose} className="credit-modal-container" maxWidth="560px">
+      <div className="credit-modal-header">
+        <div className="credit-modal-title-group">
+          <Wallet size={20} />
+          <div>
+            <h2 className="credit-modal-title">{user.username}</h2>
+            <span className="credit-modal-balance">Current balance: <strong>{formatPrice(balance)}</strong></span>
           </div>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
-            <X size={20} />
-          </button>
+        </div>
+        <button className="modal-close-btn" onClick={onClose} aria-label="Close">
+          <X size={20} />
+        </button>
+      </div>
+
+      <div className="credit-modal-body">
+        <div className="credit-modal-forms-row">
+          <div className="credit-modal-form-block">
+            <h3 className="credit-modal-section-title">Add Credit</h3>
+            <form onSubmit={handleAdd} className="credit-modal-form">
+              <div className="form-group">
+                <label htmlFor="credit-add-amount">Amount ($)</label>
+                <input
+                  id="credit-add-amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={addAmount}
+                  onChange={(e) => { setAddAmount(e.target.value); setAddError(''); }}
+                  className={`form-input${addError ? ' form-error' : ''}`}
+                  autoFocus
+                />
+                {addError && <span className="error-message">{addError}</span>}
+              </div>
+              <div className="form-group">
+                <label htmlFor="credit-add-note">Note <span className="optional-badge">(optional)</span></label>
+                <input
+                  id="credit-add-note"
+                  type="text"
+                  placeholder="e.g. Paid $50 cash in store"
+                  value={addNote}
+                  onChange={(e) => setAddNote(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn-action btn-primary credit-modal-submit"
+                disabled={isSubmitting}
+              >
+                <Plus size={16} />
+                {isSubmitting ? 'Saving...' : 'Add Credit'}
+              </button>
+            </form>
+          </div>
+
+          <div className="credit-modal-forms-divider" />
+
+          <div className="credit-modal-form-block">
+            <h3 className="credit-modal-section-title">Remove Credit</h3>
+            <form onSubmit={handleRemove} className="credit-modal-form">
+              <div className="form-group">
+                <label htmlFor="credit-remove-amount">Amount ($)</label>
+                <input
+                  id="credit-remove-amount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={removeAmount}
+                  onChange={(e) => { setRemoveAmount(e.target.value); setRemoveError(''); }}
+                  className={`form-input${removeError ? ' form-error' : ''}`}
+                />
+                {removeError && <span className="error-message">{removeError}</span>}
+              </div>
+              <div className="form-group">
+                <label htmlFor="credit-remove-note">Note <span className="optional-badge">(optional)</span></label>
+                <input
+                  id="credit-remove-note"
+                  type="text"
+                  placeholder="e.g. Correction"
+                  value={removeNote}
+                  onChange={(e) => setRemoveNote(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn-action btn-danger credit-modal-submit"
+                disabled={isSubmitting}
+              >
+                <Minus size={16} />
+                {isSubmitting ? 'Saving...' : 'Remove Credit'}
+              </button>
+            </form>
+          </div>
         </div>
 
-        <div className="credit-modal-body">
-          {/* Add / Remove forms side by side */}
-          <div className="credit-modal-forms-row">
-            {/* Add Credit */}
-            <div className="credit-modal-form-block">
-              <h3 className="credit-modal-section-title">Add Credit</h3>
-              <form onSubmit={handleAdd} className="credit-modal-form">
-                <div className="form-group">
-                  <label htmlFor="credit-add-amount">Amount ($)</label>
-                  <input
-                    id="credit-add-amount"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={addAmount}
-                    onChange={(e) => { setAddAmount(e.target.value); setAddError(''); }}
-                    className={`form-input${addError ? ' form-error' : ''}`}
-                    autoFocus
-                  />
-                  {addError && <span className="error-message">{addError}</span>}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="credit-add-note">Note <span className="optional-badge">(optional)</span></label>
-                  <input
-                    id="credit-add-note"
-                    type="text"
-                    placeholder="e.g. Paid $50 cash in store"
-                    value={addNote}
-                    onChange={(e) => setAddNote(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="btn-action btn-primary credit-modal-submit"
-                  disabled={isSubmitting}
-                >
-                  <Plus size={16} />
-                  {isSubmitting ? 'Saving...' : 'Add Credit'}
-                </button>
-              </form>
+        <div className="credit-modal-history">
+          <h3 className="credit-modal-section-title">Transaction History</h3>
+          {isLoadingTx ? (
+            <div className="credit-tx-loading">
+              <div className="loading-spinner loading-spinner-sm" />
+              <span>Loading...</span>
             </div>
-
-            <div className="credit-modal-forms-divider" />
-
-            {/* Remove Credit */}
-            <div className="credit-modal-form-block">
-              <h3 className="credit-modal-section-title">Remove Credit</h3>
-              <form onSubmit={handleRemove} className="credit-modal-form">
-                <div className="form-group">
-                  <label htmlFor="credit-remove-amount">Amount ($)</label>
-                  <input
-                    id="credit-remove-amount"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={removeAmount}
-                    onChange={(e) => { setRemoveAmount(e.target.value); setRemoveError(''); }}
-                    className={`form-input${removeError ? ' form-error' : ''}`}
-                  />
-                  {removeError && <span className="error-message">{removeError}</span>}
-                </div>
-                <div className="form-group">
-                  <label htmlFor="credit-remove-note">Note <span className="optional-badge">(optional)</span></label>
-                  <input
-                    id="credit-remove-note"
-                    type="text"
-                    placeholder="e.g. Correction"
-                    value={removeNote}
-                    onChange={(e) => setRemoveNote(e.target.value)}
-                    className="form-input"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="btn-action btn-danger credit-modal-submit"
-                  disabled={isSubmitting}
-                >
-                  <Minus size={16} />
-                  {isSubmitting ? 'Saving...' : 'Remove Credit'}
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {/* Transaction History */}
-          <div className="credit-modal-history">
-            <h3 className="credit-modal-section-title">Transaction History</h3>
-            {isLoadingTx ? (
-              <div className="credit-tx-loading">
-                <div className="loading-spinner loading-spinner-sm" />
-                <span>Loading...</span>
-              </div>
-            ) : transactions.length === 0 ? (
-              <p className="credit-tx-empty">No transactions yet.</p>
-            ) : (
-              <div className="credit-tx-scroll">
-                <table className="credits-tx-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Type</th>
-                      <th>Amount</th>
-                      <th>Note</th>
-                      <th>Added By</th>
+          ) : transactions.length === 0 ? (
+            <p className="credit-tx-empty">No transactions yet.</p>
+          ) : (
+            <div className="credit-tx-scroll">
+              <table className="credits-tx-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Note</th>
+                    <th>Added By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map(tx => (
+                    <tr key={tx.id}>
+                      <td>{formatDate(tx.createdAt)}</td>
+                      <td>{getTxLabel(tx.type)}</td>
+                      <td className={tx.type === 'USED' ? 'credit-tx-negative' : 'credit-tx-positive'}>
+                        {tx.amount > 0 ? '+' : ''}{formatPrice(Math.abs(tx.amount))}
+                      </td>
+                      <td>{tx.note || (tx.orderId ? `Order #${tx.orderId}` : '—')}</td>
+                      <td>{tx.createdByUsername ?? '—'}</td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map(tx => (
-                      <tr key={tx.id}>
-                        <td>{formatDate(tx.createdAt)}</td>
-                        <td>{getTxLabel(tx.type)}</td>
-                        <td className={tx.type === 'USED' ? 'credit-tx-negative' : 'credit-tx-positive'}>
-                          {tx.amount > 0 ? '+' : ''}{formatPrice(Math.abs(tx.amount))}
-                        </td>
-                        <td>{tx.note || (tx.orderId ? `Order #${tx.orderId}` : '—')}</td>
-                        <td>{tx.createdByUsername ?? '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </BaseModal>
   );
 }
 
