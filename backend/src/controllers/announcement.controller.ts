@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { AnnouncementService } from '../services/announcement.service';
 import { logger } from '../utils/logger';
 import { parseIntParam } from '../utils/request.util';
+import { logAuditEvent } from '../utils/auditLog.util';
 
 const announcementService = new AnnouncementService();
 
@@ -36,9 +37,7 @@ export class AnnouncementController {
       return;
     }
 
-    logger.info('Announcement create requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Announcement create requested', {
       type: type || 'INFO',
       enabled: enabled !== undefined ? enabled : true,
     });
@@ -67,9 +66,7 @@ export class AnnouncementController {
       return;
     }
 
-    logger.info('Announcement update requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Announcement update requested', {
       targetAnnouncementId: id,
       fields: Object.keys(req.body || {}),
     });
@@ -80,9 +77,7 @@ export class AnnouncementController {
   async deleteAnnouncement(req: Request, res: Response) : Promise<void> {
     const id = parseIntParam(req.params.id, res, 'announcement');
     if (id === null) return;
-    logger.info('Announcement delete requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Announcement delete requested', {
       targetAnnouncementId: id,
     });
     await announcementService.deleteAnnouncement(id);

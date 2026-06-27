@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import categoryService from '../services/category.service';
 import { logger } from '../utils/logger';
 import { validateRequest, parseIntParam } from '../utils/request.util';
+import { logAuditEvent } from '../utils/auditLog.util';
 
 export class CategoryController {
   async getAllCategories(_req: Request, res: Response) : Promise<void> {
@@ -11,9 +12,7 @@ export class CategoryController {
 
   async createCategory(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
-    logger.info('Category create requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Category create requested', {
       name: req.body.name,
       parentId: req.body.parentId ?? null,
     });
@@ -25,9 +24,7 @@ export class CategoryController {
     const id = parseIntParam(req.params.id, res, 'category');
     if (id === null) return;
     if (!validateRequest(req, res)) return;
-    logger.info('Category update requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Category update requested', {
       targetCategoryId: id,
       fields: Object.keys(req.body || {}),
     });
@@ -38,9 +35,7 @@ export class CategoryController {
   async deleteCategory(req: Request, res: Response) : Promise<void> {
     const id = parseIntParam(req.params.id, res, 'category');
     if (id === null) return;
-    logger.info('Category delete requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Category delete requested', {
       targetCategoryId: id,
     });
     const result = await categoryService.deleteCategory(id);

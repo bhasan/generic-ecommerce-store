@@ -3,6 +3,7 @@ import productService from '../services/product.service';
 import { streamProductsExportZip } from '../services/productExport.service';
 import { logger } from '../utils/logger';
 import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
+import { logAuditEvent } from '../utils/auditLog.util';
 
 export class ProductController {
   async getAllProducts(req: Request, res: Response) : Promise<void> {
@@ -33,9 +34,7 @@ export class ProductController {
 
   async createProduct(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
-    logger.info('Product create requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Product create requested', {
       name: req.body.name,
       categoryId: req.body.categoryId,
     });
@@ -47,9 +46,7 @@ export class ProductController {
     const id = parseIntParam(req.params.id, res, 'product');
     if (id === null) return;
     if (!validateRequest(req, res)) return;
-    logger.info('Product update requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Product update requested', {
       targetProductId: id,
       fields: Object.keys(req.body || {}),
     });
@@ -64,9 +61,7 @@ export class ProductController {
   async deleteProduct(req: Request, res: Response) : Promise<void> {
     const id = parseIntParam(req.params.id, res, 'product');
     if (id === null) return;
-    logger.info('Product delete requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Product delete requested', {
       targetProductId: id,
     });
     const result = await productService.deleteProduct(id);
