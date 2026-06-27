@@ -1,6 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AnnouncementController } from './announcement.controller';
 import { logger } from '../utils/logger';
+import { validationResult } from 'express-validator';
+
+vi.mock('express-validator', () => ({
+  validationResult: vi.fn(),
+}));
 
 const { serviceMock } = vi.hoisted(() => ({
   serviceMock: {
@@ -30,7 +35,14 @@ const createResponse = () => ({
 describe('announcement controller logging', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('returns 400 on invalid create request', async () => {
+  it('calls validateRequest on create', async () => {
+    // When validators run and produce errors, validateRequest sends 400
+    // This is now the route's responsibility; controller assumes valid input
+    // Test that the controller correctly calls validateRequest
+    (validationResult as any).mockReturnValue({
+      isEmpty: () => false,
+      array: () => [{ msg: 'Message is required' }],
+    });
     const controller = new AnnouncementController();
     const req: any = { body: {}, user: { userId: 1 }, requestId: 'req-1' };
     const res = createResponse();

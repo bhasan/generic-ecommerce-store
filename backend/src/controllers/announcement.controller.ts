@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AnnouncementService } from '../services/announcement.service';
 import { logAuditEvent } from '../utils/auditLog.util';
+import { validateRequest } from '../utils/request.util';
 
 const announcementService = new AnnouncementService();
 
@@ -22,17 +23,8 @@ export class AnnouncementController {
   }
 
   async createAnnouncement(req: Request, res: Response) : Promise<void> {
+    if (!validateRequest(req, res)) return;
     const { message, type, dismissible, enabled } = req.body;
-
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      res.status(400).json({ error: 'Message is required' });
-      return;
-    }
-
-    if (type && !['INFO', 'WARNING', 'SUCCESS'].includes(type)) {
-      res.status(400).json({ error: 'Invalid type. Must be INFO, WARNING, or SUCCESS' });
-      return;
-    }
 
     logAuditEvent(req, 'Announcement create requested', {
       type: type || 'INFO',
@@ -48,19 +40,10 @@ export class AnnouncementController {
   }
 
   async updateAnnouncement(req: Request, res: Response) : Promise<void> {
+    if (!validateRequest(req, res)) return;
     const id = parseInt(req.params.id, 10);
 
     const { message, type, dismissible, enabled } = req.body;
-
-    if (message !== undefined && (typeof message !== 'string' || message.trim().length === 0)) {
-      res.status(400).json({ error: 'Message cannot be empty' });
-      return;
-    }
-
-    if (type && !['INFO', 'WARNING', 'SUCCESS'].includes(type)) {
-      res.status(400).json({ error: 'Invalid type. Must be INFO, WARNING, or SUCCESS' });
-      return;
-    }
 
     logAuditEvent(req, 'Announcement update requested', {
       targetAnnouncementId: id,
