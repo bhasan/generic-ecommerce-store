@@ -132,7 +132,9 @@ REMOTE_DIR="/docker/smoke-station"
 DEPLOY_TS="$(date +%Y%m%d_%H%M%S)"
 DEPLOY_BACKUP_DIR="$REMOTE_DIR/backups/${DEPLOY_TS}-deploy"
 REMOTE_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.shared-edge.override.yml"
-[[ "$NO_MONITORING" == "false" ]] && REMOTE_COMPOSE="$REMOTE_COMPOSE -f monitoring/docker-compose.monitoring.yml"
+# Monitoring runs as a separate compose project to prevent its `name: smoke-station-monitoring`
+# from overriding the main stack's project name and causing volume prefix collisions on `db`.
+REMOTE_COMPOSE_MONITORING="docker compose -f monitoring/docker-compose.monitoring.yml"
 # Config files synced (relative to PROJECT_ROOT and REMOTE_DIR) when --sync-config
 # is passed. Paths with subdirs (e.g. nginx/) must already exist on the server.
 CONFIG_FILES=(
@@ -365,7 +367,7 @@ ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE
 if [[ "$NO_MONITORING" == "false" ]]; then
   echo ""
   echo "==> Starting monitoring services (promtail, prometheus)..."
-  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d promtail prometheus"
+  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE_MONITORING --env-file .env.prod up -d promtail prometheus"
 fi
 
 if [[ "$NGINX_SYNCED" == "true" ]]; then
