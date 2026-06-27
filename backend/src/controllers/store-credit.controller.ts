@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
 import storeCreditService from '../services/store-credit.service';
 import { hasAnyRole } from '../constants/roles';
-import { validateRequest, parseIntParam } from '../utils/request.util';
+import { validateRequest } from '../utils/request.util';
 
 export class StoreCreditController {
   async getBalance(req: Request, res: Response) : Promise<void> {
-    const targetUserId = parseIntParam(req.params.userId, res, 'user');
-    if (targetUserId === null) return;
+    const targetUserId = parseInt(req.params.userId, 10);
     const requesterId = req.user!.userId;
     const requesterRoles = req.user!.roles;
     const isStaff = hasAnyRole(requesterRoles, ['MANAGEMENT', 'ADMIN']);
@@ -19,8 +18,7 @@ export class StoreCreditController {
   }
 
   async getTransactions(req: Request, res: Response) : Promise<void> {
-    const targetUserId = parseIntParam(req.params.userId, res, 'user');
-    if (targetUserId === null) return;
+    const targetUserId = parseInt(req.params.userId, 10);
     const requesterId = req.user!.userId;
     const requesterRoles = req.user!.roles;
     const isStaff = hasAnyRole(requesterRoles, ['MANAGEMENT', 'ADMIN']);
@@ -34,8 +32,7 @@ export class StoreCreditController {
 
   async addCredit(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
-    const targetUserId = parseIntParam(req.params.userId, res, 'user');
-    if (targetUserId === null) return;
+    const targetUserId = parseInt(req.params.userId, 10);
     const { amount, note } = req.body;
     const createdBy = req.user!.userId;
     const transaction = await storeCreditService.addCredit(targetUserId, amount, note, createdBy);
@@ -45,8 +42,7 @@ export class StoreCreditController {
 
   async removeCredit(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
-    const targetUserId = parseIntParam(req.params.userId, res, 'user');
-    if (targetUserId === null) return;
+    const targetUserId = parseInt(req.params.userId, 10);
     const { amount, note } = req.body;
     const createdBy = req.user!.userId;
     const transaction = await storeCreditService.removeCredit(targetUserId, amount, note, createdBy);

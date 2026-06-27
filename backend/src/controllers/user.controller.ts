@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import userService from '../services/user.service';
-import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
+import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 
 export class UserController {
@@ -14,8 +14,7 @@ export class UserController {
   }
 
   async getUserById(req: Request, res: Response) : Promise<void> {
-    const userId = parseIntParam(req.params.id, res, 'user');
-    if (userId === null) return;
+    const userId = parseInt(req.params.id, 10);
     const requestingUserId = req.user?.userId;
     const requestingUserRoles = req.user?.roles;
     const user = await userService.getUserById(userId, requestingUserId, requestingUserRoles);
@@ -24,8 +23,7 @@ export class UserController {
 
   async updateUser(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
-    const userId = parseIntParam(req.params.id, res, 'user');
-    if (userId === null) return;
+    const userId = parseInt(req.params.id, 10);
     const requestingUserId = req.user?.userId;
     const requestingUserRoles = req.user?.roles;
     const updatedUser = await userService.updateUser(userId, req.body, requestingUserId, requestingUserRoles);
@@ -41,8 +39,7 @@ export class UserController {
   }
 
   async approveUser(req: Request, res: Response) : Promise<void> {
-    const userId = parseIntParam(req.params.id, res, 'user');
-    if (userId === null) return;
+    const userId = parseInt(req.params.id, 10);
     logAuditEvent(req, 'User approval requested', {
       targetUserId: userId,
     });
@@ -56,8 +53,7 @@ export class UserController {
   }
 
   async rejectUser(req: Request, res: Response) : Promise<void> {
-    const userId = parseIntParam(req.params.id, res, 'user');
-    if (userId === null) return;
+    const userId = parseInt(req.params.id, 10);
     const { rejectionNote } = req.body;
     logAuditEvent(req, 'User rejection requested', {
       targetUserId: userId,
@@ -68,8 +64,7 @@ export class UserController {
   }
 
   async unRejectUser(req: Request, res: Response) : Promise<void> {
-    const userId = parseIntParam(req.params.id, res, 'user');
-    if (userId === null) return;
+    const userId = parseInt(req.params.id, 10);
     logAuditEvent(req, 'User un-reject requested', {
       targetUserId: userId,
     });
@@ -78,8 +73,7 @@ export class UserController {
   }
 
   async deleteUser(req: Request, res: Response) : Promise<void> {
-    const userId = parseIntParam(req.params.id, res, 'user');
-    if (userId === null) return;
+    const userId = parseInt(req.params.id, 10);
     logAuditEvent(req, 'User delete requested', {
       targetUserId: userId,
     });

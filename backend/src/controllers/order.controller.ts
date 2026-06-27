@@ -4,7 +4,7 @@ import { DeliveryEligibilityService } from '../services/deliveryEligibility.serv
 import { logger } from '../utils/logger';
 import { ROLES, hasAnyRole } from '../constants/roles';
 import { OrderStatus } from '../../generated/prisma';
-import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
+import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
 
@@ -42,8 +42,7 @@ export class OrderController {
       res.status(401).json({ error: 'Authentication required' });
       return;
     }
-    const id = parseIntParam(req.params.id, res, 'order');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     const order = await orderService.getOrderById(id, req.user.userId, req.user.roles);
     res.status(200).json(order);
   }
@@ -94,8 +93,7 @@ export class OrderController {
   }
 
   async updateOrderStatus(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'order');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     if (!validateRequest(req, res)) return;
     if (!req.user) {
       res.status(401).json({ error: 'Authentication required' });
@@ -128,8 +126,7 @@ export class OrderController {
   }
 
   async addItemToOrder(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'order');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     // Validation keeps manual staff edits aligned with checkout quantity rules before the service mutates totals.
     if (!validateRequest(req, res)) return;
     const orderItem = await orderService.addItemToOrder(id, req.body);
@@ -137,27 +134,22 @@ export class OrderController {
   }
 
   async voidOrderItem(req: Request, res: Response) : Promise<void> {
-    const orderId = parseIntParam(req.params.id, res, 'order');
-    if (orderId === null) return;
-    const itemId = parseIntParam(req.params.itemId, res, 'item');
-    if (itemId === null) return;
+    const orderId = parseInt(req.params.id, 10);
+    const itemId = parseInt(req.params.itemId, 10);
     const orderItem = await orderService.voidOrderItem(orderId, itemId);
     res.status(200).json({ message: 'Order item voided successfully', orderItem });
   }
 
   async deleteOrderItem(req: Request, res: Response) : Promise<void> {
-    const orderId = parseIntParam(req.params.id, res, 'order');
-    if (orderId === null) return;
-    const itemId = parseIntParam(req.params.itemId, res, 'item');
-    if (itemId === null) return;
+    const orderId = parseInt(req.params.id, 10);
+    const itemId = parseInt(req.params.itemId, 10);
     const result = await orderService.deleteOrderItem(orderId, itemId);
     res.status(200).json(result);
   }
 
   async deleteOrder(req: Request, res: Response) : Promise<void> {
     if (!req.user) { res.status(401).json({ error: 'Authentication required' }); return; }
-    const id = parseIntParam(req.params.id, res, 'order');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
 
     const isStaff = hasAnyRole(req.user.roles as any, [ROLES.ADMIN, ROLES.MANAGEMENT, ROLES.EMPLOYEE]);
     const result = await orderService.deleteOrder(id, isStaff ? null : req.user.userId);
@@ -165,8 +157,7 @@ export class OrderController {
   }
 
   async printOrderReceipt(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'order');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     const result = await orderService.printOrderReceipt(id, {
       actor: { userId: req.user?.userId, username: req.user?.username },
     });
@@ -184,23 +175,20 @@ export class OrderController {
       return;
     }
     if (!validateRequest(req, res)) return;
-    const id = parseIntParam(req.params.id, res, 'order');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     const order = await orderService.customerArrive(id, req.user.userId, req.body.parkingSpot);
     res.status(200).json({ message: 'Arrival notification sent successfully', order });
   }
 
   async getPaymentToken(req: Request, res: Response) : Promise<void> {
-    const orderId = parseIntParam(req.params.id, res, 'order');
-    if (orderId === null) return;
+    const orderId = parseInt(req.params.id, 10);
     const userId = req.user!.userId;
     const result = await orderService.getPaymentToken(orderId, userId);
     res.status(200).json(result);
   }
 
   async verifyPayment(req: Request, res: Response) : Promise<void> {
-    const orderId = parseIntParam(req.params.id, res, 'order');
-    if (orderId === null) return;
+    const orderId = parseInt(req.params.id, 10);
     if (!validateRequest(req, res)) return;
     const userId = req.user!.userId;
     const { transId } = req.body;

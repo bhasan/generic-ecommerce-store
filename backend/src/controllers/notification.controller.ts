@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { notificationService } from '../services/notification.service';
-import { parseIntParam } from '../utils/request.util';
 
 export const getStaffNotificationCounts = async (
   _req: Request,
@@ -43,8 +42,7 @@ export const markNotificationRead = async (
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
-  const notificationId = parseIntParam(req.params.id, res, 'notification');
-  if (notificationId === null) return;
+  const notificationId = parseInt(req.params.id, 10);
   const result = await notificationService.markAsRead(notificationId, req.user.userId);
   res.json(result);
 };

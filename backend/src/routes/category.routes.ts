@@ -4,6 +4,7 @@ import categoryController from '../controllers/category.controller';
 import { authenticate } from '../middleware/auth.middleware';
 import { authorizeManagement } from '../middleware/role.middleware';
 import { asyncHandler } from '../utils/asyncHandler.util';
+import { requireIntParam } from '../middleware/parseParam.middleware';
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.put(
   '/:id',
   authenticate,
   authorizeManagement,
+  requireIntParam('id', 'category'),
   [
     body('name').optional().notEmpty().withMessage('Category name cannot be empty'),
     body('description').optional().isString(),
@@ -35,6 +37,6 @@ router.put(
   asyncHandler(categoryController.updateCategory)
 );
 
-router.delete('/:id', authenticate, authorizeManagement, asyncHandler(categoryController.deleteCategory));
+router.delete('/:id', authenticate, authorizeManagement, requireIntParam('id', 'category'), asyncHandler(categoryController.deleteCategory));
 
 export default router;

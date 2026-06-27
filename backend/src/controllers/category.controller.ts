@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import categoryService from '../services/category.service';
-import { validateRequest, parseIntParam } from '../utils/request.util';
+import { validateRequest } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 
 export class CategoryController {
@@ -20,8 +20,7 @@ export class CategoryController {
   }
 
   async updateCategory(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'category');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     if (!validateRequest(req, res)) return;
     logAuditEvent(req, 'Category update requested', {
       targetCategoryId: id,
@@ -32,8 +31,7 @@ export class CategoryController {
   }
 
   async deleteCategory(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'category');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     logAuditEvent(req, 'Category delete requested', {
       targetCategoryId: id,
     });

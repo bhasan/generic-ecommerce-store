@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import productService from '../services/product.service';
 import { streamProductsExportZip } from '../services/productExport.service';
-import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
+import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 
 export class ProductController {
@@ -25,8 +25,7 @@ export class ProductController {
   }
 
   async getProductById(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'product');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     const product = await productService.getProductById(id, req.user?.roles);
     res.status(200).json(product);
   }
@@ -42,8 +41,7 @@ export class ProductController {
   }
 
   async updateProduct(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'product');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     if (!validateRequest(req, res)) return;
     logAuditEvent(req, 'Product update requested', {
       targetProductId: id,
@@ -58,8 +56,7 @@ export class ProductController {
   }
 
   async deleteProduct(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'product');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     logAuditEvent(req, 'Product delete requested', {
       targetProductId: id,
     });

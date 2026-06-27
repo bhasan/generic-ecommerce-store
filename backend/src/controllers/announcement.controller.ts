@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { AnnouncementService } from '../services/announcement.service';
-import { parseIntParam } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 
 const announcementService = new AnnouncementService();
@@ -17,8 +16,7 @@ export class AnnouncementController {
   }
 
   async getAnnouncementById(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'announcement');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     const announcement = await announcementService.getAnnouncementById(id);
     res.status(200).json(announcement);
   }
@@ -50,8 +48,7 @@ export class AnnouncementController {
   }
 
   async updateAnnouncement(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'announcement');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
 
     const { message, type, dismissible, enabled } = req.body;
 
@@ -74,8 +71,7 @@ export class AnnouncementController {
   }
 
   async deleteAnnouncement(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'announcement');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     logAuditEvent(req, 'Announcement delete requested', {
       targetAnnouncementId: id,
     });
