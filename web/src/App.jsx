@@ -71,7 +71,7 @@ function AppContent() {
       <Navbar />
       <Notification />
       <main className={isOrdersPage ? 'full-width-layout main-content' : 'container main-content'}>
-        <Routes key={location.pathname}>
+        <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
