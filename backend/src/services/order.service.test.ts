@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 const D = (n: number) => new Prisma.Decimal(n);
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
@@ -116,6 +116,10 @@ vi.mock('./pos/registry', () => posRegistry);
 vi.mock('./storeSettings.service', () => ({
   StoreSettingsService: vi.fn(() => ({ getStoreSettings: vi.fn().mockResolvedValue({ posProvider: 'foreverpos', posConfig: {} }) })),
 }));
+
+beforeAll(async () => {
+  await import('../subscribers/order.subscriber');
+});
 
 describe('getAllOrders', () => {
   beforeEach(() => vi.clearAllMocks());

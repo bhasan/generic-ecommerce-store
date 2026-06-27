@@ -10,15 +10,11 @@ import { StructuredDeliveryAddress } from '../utils/address.util';
 import { getPaymentStrategy } from './payments/registry';
 import { getFulfillmentStrategy } from './fulfillment/registry';
 import { PaymentMethodEnum, DeliveryMethodEnum } from '../../generated/prisma';
-import { notificationEventsService } from './notificationEvents.service';
-import { thermalPrinterService } from './thermalPrinter.service';
 import { enqueue } from './pos/orders/posOrderService';
 import { getOrderSync } from './pos/registry';
 import { StoreSettingsService } from './storeSettings.service';
-import { PaymentSettingsService } from './paymentSettings.service';
-import { authorizeNetService } from './authorizenet.service';
-
-const paymentSettingsService = new PaymentSettingsService();
+import eventBus from './event-bus.service';
+import { thermalPrinterService } from './thermalPrinter.service';
 
 // Resolves the Authorize.net communicator.html callback URL from server config only.
 // Never uses client-supplied values — the Origin header is attacker-controlled and
@@ -85,12 +81,7 @@ async function decrementStockGuarded(
 // Single source for the notify+print side-effects fired when an order becomes active.
 // Used by createOrder (non-CC) and confirmCardPayment (CC, deferred until payment confirmed).
 async function dispatchOrderCreatedEffects(orderId: number, userId: number): Promise<void> {
-  await notificationEventsService.notifyOrderCreated(orderId, userId);
-  try {
-    await thermalPrinterService.dispatchReceipt(orderId, 'ORDER_CREATED', { userId });
-  } catch (printerError) {
-    logger.error('Thermal printer dispatch threw unexpectedly after order creation', printerError, { orderId, userId });
-  }
+  eventBus.publish('order.placed', { orderId, userId });
 }
 
 // Single source for side-effects fired when order status changes.
@@ -101,7 +92,7 @@ async function dispatchOrderStatusUpdatedEffects(
   newStatus: string,
   previousStatus: string,
 ): Promise<void> {
-  await notificationEventsService.notifyOrderStatusUpdated(orderId, userId, newStatus, previousStatus);
+  eventBus.publish('order.status_changed', { orderId, userId, newStatus, previousStatus });
 }
 
 // Orders now carry their items via relations; one include shape feeds every read path.
@@ -1022,26 +1013,8 @@ export class OrderService {
     if (order.paymentMethod !== PaymentMethod.CC) throw new AppError('Order is not a card payment', 400);
     if (order.status !== OrderStatus.PENDING_PAYMENT) throw new AppError('Order is not awaiting payment', 400);
 
-    const settings = await paymentSettingsService.getPaymentSettings();
-    if (!settings.cc_payment?.enabled) throw new AppError('Card payments are not enabled', 400);
-
-    const communicatorUrl = resolveCommunicatorUrl();
-
-    const token = await authorizeNetService.getHostedPageToken(
-      orderId,
-      order.total.toNumber(),
-      communicatorUrl,
-      settings.cc_payment
-    );
-
-    // Accept Hosted requires the token to be submitted via an HTTP POST form field
-    // (name="token") to this URL — passing it as a GET query param yields
-    // "Missing or invalid token". The frontend renders an auto-submitting form.
-    const paymentFormUrl = settings.cc_payment.sandboxMode
-      ? 'https://test.authorize.net/payment/payment'
-      : 'https://accept.authorize.net/payment/payment';
-
-    return { token, paymentFormUrl };
+    const strategy = getPaymentStrategy(order.paymentMethod as PaymentMethodEnum);
+    return strategy.initializePaymentSession(orderId, order.total.toNumber());
   }
 
   async confirmCardPayment(orderId: number, userId: number, transId: string): Promise<{ id: number; status: string }> {
@@ -1059,17 +1032,12 @@ export class OrderService {
     });
     if (duplicate) throw new AppError('This payment has already been applied to another order', 400);
 
-    const settings = await paymentSettingsService.getPaymentSettings();
-    await authorizeNetService.verifyTransaction(transId, order.total.toNumber(), orderId, settings.cc_payment);
-
-    const updated = await prisma.order.update({
-      where: { id: orderId },
-      data: { status: OrderStatus.PENDING },
-    });
+    const strategy = getPaymentStrategy(order.paymentMethod as PaymentMethodEnum);
+    const result = await strategy.confirmPayment(orderId, userId, transId, order.total.toNumber());
 
     await dispatchOrderCreatedEffects(orderId, userId);
 
-    return { id: updated.id, status: updated.status };
+    return result;
   }
 }
 

@@ -7,6 +7,9 @@ import dotenv from 'dotenv';
 import prisma from './config/database';
 import { logger } from './utils/logger';
 
+// Import subscribers to register event listeners
+import './subscribers/order.subscriber';
+
 // Import routes
 import authRoutes from './routes/auth.routes';
 import productRoutes from './routes/product.routes';
