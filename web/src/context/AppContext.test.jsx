@@ -402,6 +402,9 @@ describe('AppContext', () => {
   it('leaves featuredProductIds and promotions at defaults when landing page API returns null', async () => {
     apiModule.getAuthToken.mockReturnValue('token-123');
     authApi.getProfile.mockResolvedValue(users.customer);
+    // Override sampleConfig so loadConfig doesn't set featuredProductIds — this test verifies
+    // that landing page returning null leaves state at the config-provided defaults (empty here).
+    configApi.getConfig.mockResolvedValue({ ...sampleConfig, featuredProductIds: [], promotions: [] });
     landingPageSettingsApi.getLandingPageSettings.mockResolvedValue(null);
 
     renderWithProviders(
