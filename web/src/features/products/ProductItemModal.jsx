@@ -7,6 +7,7 @@ import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, g
 import './ProductsShared.css';
 import './ProductItemModal.css';
 import { formatPrice } from '../../utils/currencyUtils';
+import BaseModal from '../../components/common/BaseModal';
 
 const isVideo = (url) => {
   if (!url) return false;
@@ -42,18 +43,6 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
     }
   }, [selectedVariant?.id, allowedQuantities.length]);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
   const handleCopyLink = () => {
     const url = `${window.location.origin}/products/${productId}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -64,13 +53,11 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
 
   if (isLoadingProducts || !product) {
     return (
-      <div className="product-modal-backdrop" onClick={onClose}>
-        <div className="product-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="product-modal-loading">
-            {isLoadingProducts ? 'Loading...' : 'Product not found.'}
-          </div>
+      <BaseModal isOpen={true} onClose={onClose} className="product-modal" maxWidth="900px">
+        <div className="product-modal-loading">
+          {isLoadingProducts ? 'Loading...' : 'Product not found.'}
         </div>
-      </div>
+      </BaseModal>
     );
   }
 
@@ -97,8 +84,8 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const priceBreaks = selectedVariant?.priceBreaks ?? [];
 
   return (
-    <div className="product-modal-backdrop" onClick={onClose}>
-      <div className="product-modal" onClick={(e) => e.stopPropagation()}>
+    <>
+    <BaseModal isOpen={true} onClose={onClose} className="product-modal" maxWidth="900px">
         <div className="product-modal-header">
           <span className="product-modal-title">{product.name}</span>
           <div className="product-modal-actions">
@@ -289,14 +276,16 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
         </div>
       </div>
 
-      {mediaModalOpen && (
-        <ProductMediaModal
-          product={product}
-          initialIndex={selectedImageIndex}
-          onClose={() => setMediaModalOpen(false)}
-        />
-      )}
-    </div>
+    </BaseModal>
+
+    {mediaModalOpen && (
+      <ProductMediaModal
+        product={product}
+        initialIndex={selectedImageIndex}
+        onClose={() => setMediaModalOpen(false)}
+      />
+    )}
+    </>
   );
 }
 
