@@ -4,6 +4,7 @@ import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import MediaLibraryModal from '../../components/common/MediaLibraryModal';
+import BaseModal from '../../components/common/BaseModal';
 
 const getDisplayName = (url) => {
   if (!url) return '';
@@ -256,15 +257,12 @@ function ProductFormModal({
     setFormData({ ...formData, variants });
   };
 
-  if (!isOpen) return null;
-
   const images = formData.images ?? [];
   const variants = formData.variants ?? [];
 
   return (
     <>
-      <div className="modal-overlay" onClick={onCancel}>
-        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+      <BaseModal isOpen={isOpen} onClose={onCancel} className="product-form-modal" maxWidth="900px">
           <div className="product-form-card surface-card-accent">
             <div className="form-header">
               <h3 className="form-title">{title}</h3>
@@ -404,8 +402,7 @@ function ProductFormModal({
               <button onClick={onCancel} className="btn-cancel">Cancel</button>
             </div>
           </div>
-        </div>
-      </div>
+      </BaseModal>
 
       <MediaLibraryModal
         isOpen={activeMediaLibraryIndex !== null}
