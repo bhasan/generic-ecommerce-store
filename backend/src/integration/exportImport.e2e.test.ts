@@ -106,7 +106,8 @@ async function importZip(
     body: form,
   });
   expect(res.status).toBe(200);
-  return res.json();
+  const json = await res.json();
+  return json.data ?? json;
 }
 
 // ── Fixture setup / teardown ──────────────────────────────────────────────────

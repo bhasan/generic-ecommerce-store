@@ -82,7 +82,7 @@ describe('notification routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual([{ id: 101, title: 'New order' }]);
+    expect(body).toEqual({ success: true, data: [{ id: 101, title: 'New order' }] });
     expect(notificationService.listForUser).toHaveBeenCalledWith(7, { unreadOnly: false });
   });
 
@@ -95,7 +95,7 @@ describe('notification routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ count: 3 });
+    expect(body).toEqual({ success: true, data: { count: 3 } });
     expect(notificationService.getUnreadCount).toHaveBeenCalledWith(9);
   });
 
@@ -113,7 +113,7 @@ describe('notification routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ updated: true });
+    expect(body).toEqual({ success: true, data: { updated: true } });
     expect(notificationService.markAsRead).toHaveBeenCalledWith(44, 9);
   });
 
@@ -131,7 +131,7 @@ describe('notification routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ updated: 4 });
+    expect(body).toEqual({ success: true, data: { updated: 4 } });
     expect(notificationService.markAllAsRead).toHaveBeenCalledWith(9);
   });
 });

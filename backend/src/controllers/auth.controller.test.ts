@@ -83,9 +83,9 @@ describe('auth controller', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
+      success: true,
       message: 'Login successful',
-      user: { id: 1 },
-      token: 'token',
+      data: { user: { id: 1 }, token: 'token' },
     });
     expect(next).not.toHaveBeenCalled();
   });

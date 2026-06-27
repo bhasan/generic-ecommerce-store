@@ -63,6 +63,6 @@ describe('announcement controller logging', () => {
       actorUserId: 1,
       targetAnnouncementId: 6,
     }));
-    expect(res.json).toHaveBeenCalledWith({ message: 'Announcement deleted successfully' });
+    expect(res.json).toHaveBeenCalledWith({ success: true, message: 'Announcement deleted successfully', data: null });
   });
 });

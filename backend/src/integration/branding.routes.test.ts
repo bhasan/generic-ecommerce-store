@@ -146,9 +146,9 @@ describe('branding routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body.storeName).toBe('Acme Shop');
-    expect(body.palette).toBe('blue-dark');
-    expect(body.faviconUrls).toEqual({ '16': '', '32': '', '180': '' });
+    expect(body.data.storeName).toBe('Acme Shop');
+    expect(body.data.palette).toBe('blue-dark');
+    expect(body.data.faviconUrls).toEqual({ '16': '', '32': '', '180': '' });
   });
 
   // ── PUT /api/branding ──────────────────────────────────────────────────
@@ -179,8 +179,8 @@ describe('branding routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body.message).toBe('Branding updated successfully');
-    expect(body.branding.storeName).toBe('New Store');
-    expect(body.branding.tagline).toBe('Fresh start');
+    expect(body.data.branding.storeName).toBe('New Store');
+    expect(body.data.branding.tagline).toBe('Fresh start');
     expect(brandingService.updateBranding).toHaveBeenCalledWith({
       storeName: 'New Store',
       tagline: 'Fresh start',

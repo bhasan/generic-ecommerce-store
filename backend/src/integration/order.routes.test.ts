@@ -101,7 +101,7 @@ describe('order routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual([{ id: 501, total: 22 }]);
+    expect(body).toEqual({ success: true, data: [{ id: 501, total: 22 }] });
     expect(orderService.getAllOrders).toHaveBeenCalledWith(10, ['CUSTOMER'], 100, 0);
   });
 
@@ -177,8 +177,9 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(201);
     expect(body).toEqual({
+      success: true,
       message: 'Order created successfully',
-      order: { id: 900, total: 42.5, status: 'PENDING' },
+      data: { order: { id: 900, total: 42.5, status: 'PENDING' } },
     });
     expect(orderService.createOrder).toHaveBeenCalledWith({
       userId: 10,
@@ -221,12 +222,15 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
-      deliverable: true,
-      deliveryStatus: 'IN_ZONE',
-      deliverySource: 'ZIP_FALLBACK',
-      distanceMiles: null,
-      thresholdMiles: 5,
-      message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
+      success: true,
+      data: {
+        deliverable: true,
+        deliveryStatus: 'IN_ZONE',
+        deliverySource: 'ZIP_FALLBACK',
+        distanceMiles: null,
+        thresholdMiles: 5,
+        message: 'Delivery verified by ZIP fallback while Google address verification is temporarily unavailable.',
+      },
     });
     expect(deliveryEligibilityService.checkDeliveryEligibility).toHaveBeenCalledWith(payload.deliveryAddress);
   });
@@ -263,8 +267,9 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
+      success: true,
       message: 'Order status updated successfully',
-      order: { id: 12, status: 'DELIVERED' },
+      data: { order: { id: 12, status: 'DELIVERED' } },
     });
     expect(orderService.updateOrderStatus).toHaveBeenCalledWith(12, { status: 'DELIVERED', changedBy: 22 }, ['DELIVERY_DRIVER']);
   });
@@ -306,11 +311,14 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(202);
     expect(body).toEqual({
+      success: true,
       message: 'Order receipt queued for printing',
-      result: {
-        queued: true,
-        reason: 'MANUAL_REPRINT',
-        orderId: 44,
+      data: {
+        result: {
+          queued: true,
+          reason: 'MANUAL_REPRINT',
+          orderId: 44,
+        },
       },
     });
     expect(orderService.printOrderReceipt).toHaveBeenCalledWith(44, {
@@ -357,11 +365,14 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(202);
     expect(body).toEqual({
+      success: true,
       message: 'Printer is not configured; receipt was not queued',
-      result: {
-        queued: false,
-        reason: 'MANUAL_REPRINT',
-        orderId: 44,
+      data: {
+        result: {
+          queued: false,
+          reason: 'MANUAL_REPRINT',
+          orderId: 44,
+        },
       },
     });
   });
@@ -387,8 +398,9 @@ describe('order routes integration', () => {
 
     expect(response.status).toBe(201);
     expect(body).toEqual({
+      success: true,
       message: 'Order created successfully',
-      order: { id: 901, total: 10.83, status: 'PENDING' },
+      data: { order: { id: 901, total: 10.83, status: 'PENDING' } },
     });
     expect(orderService.createOrder).toHaveBeenCalledWith({
       userId: 10,
@@ -459,12 +471,15 @@ describe('order routes integration', () => {
 
       expect(response.status).toBe(200);
       expect(body).toEqual({
+        success: true,
         message: 'Arrival notification sent successfully',
-        order: {
-          id: 701,
-          status: 'ARRIVED',
-          deliveryMethod: 'CURBSIDE',
-          deliveryAddress: 'CURBSIDE: Blue Civic | SPOT: Space 3',
+        data: {
+          order: {
+            id: 701,
+            status: 'ARRIVED',
+            deliveryMethod: 'CURBSIDE',
+            deliveryAddress: 'CURBSIDE: Blue Civic | SPOT: Space 3',
+          },
         },
       });
       expect(orderService.customerArrive).toHaveBeenCalledWith(701, 10, 'Space 3');
@@ -514,8 +529,11 @@ describe('order routes integration', () => {
 
       expect(response.status).toBe(200);
       expect(body).toEqual({
-        token: 'tok_sandbox',
-        iframeUrl: 'https://test.authorize.net/payment/payment?token=tok_sandbox',
+        success: true,
+        data: {
+          token: 'tok_sandbox',
+          iframeUrl: 'https://test.authorize.net/payment/payment?token=tok_sandbox',
+        },
       });
       expect(orderService.getPaymentToken).toHaveBeenCalledWith(42, 7);
     });
@@ -557,7 +575,7 @@ describe('order routes integration', () => {
       });
 
       expect(response.status).toBe(200);
-      expect(body).toEqual({ message: 'Payment confirmed', order: { id: 42, status: 'PENDING' } });
+      expect(body).toEqual({ success: true, message: 'Payment confirmed', data: { order: { id: 42, status: 'PENDING' } } });
       expect(orderService.confirmCardPayment).toHaveBeenCalledWith(42, 7, 'txn_abc');
     });
 
@@ -604,9 +622,9 @@ describe('order routes integration', () => {
       });
 
       expect(response.status).toBe(201);
-      expect(body.order.payments).toHaveLength(1);
-      expect(body.order.payments[0]).toMatchObject({ method: 'EXTERNAL', status: 'PENDING', paymentHandle: '$my-handle' });
-      expect(body.order.statusEvents).toEqual([]);
+      expect(body.data.order.payments).toHaveLength(1);
+      expect(body.data.order.payments[0]).toMatchObject({ method: 'EXTERNAL', status: 'PENDING', paymentHandle: '$my-handle' });
+      expect(body.data.order.statusEvents).toEqual([]);
     });
 
     it('updateOrderStatus response includes settled payments[] and statusEvents[] after EXTERNAL APPROVED', async () => {
@@ -629,9 +647,9 @@ describe('order routes integration', () => {
       });
 
       expect(response.status).toBe(200);
-      expect(body.order.payments[0]).toMatchObject({ method: 'EXTERNAL', status: 'SETTLED' });
-      expect(body.order.statusEvents).toHaveLength(1);
-      expect(body.order.statusEvents[0]).toMatchObject({ fromStatus: 'PENDING', toStatus: 'APPROVED' });
+      expect(body.data.order.payments[0]).toMatchObject({ method: 'EXTERNAL', status: 'SETTLED' });
+      expect(body.data.order.statusEvents).toHaveLength(1);
+      expect(body.data.order.statusEvents[0]).toMatchObject({ fromStatus: 'PENDING', toStatus: 'APPROVED' });
     });
 
     it('updateOrderStatus forwards the note field to the service', async () => {
