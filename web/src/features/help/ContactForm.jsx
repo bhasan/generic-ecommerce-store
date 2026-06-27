@@ -3,6 +3,7 @@ import './ContactForm.css';
 import { useApp } from '../../context/AppContext';
 import { Send, User, Mail, Phone, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { submitContactForm } from '../../services/contactApi';
+import useFormValidation from '../../hooks/useFormValidation';
 
 const SUBJECT_OPTIONS = [
   { value: '', label: 'Select a topic...' },
@@ -22,8 +23,8 @@ function ContactForm({ prefilledOrderId = '', prefilledSubject = '' }) {
     orderId: prefilledOrderId || '',
     message: ''
   });
-  
-  const [errors, setErrors] = useState({});
+
+  const { errors, clearFieldError, setFieldErrors: setErrors } = useFormValidation({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -41,11 +42,9 @@ function ContactForm({ prefilledOrderId = '', prefilledSubject = '' }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
     // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    clearFieldError(name);
   };
 
   const validateForm = () => {

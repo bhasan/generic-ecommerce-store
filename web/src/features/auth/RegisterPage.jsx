@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
 import { UserPlus, AtSign, Lock, Phone, DollarSign, AlertCircle, MapPin, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import useFormValidation from '../../hooks/useFormValidation';
 
 function RegisterPage() {
   const { register, showNotification, pickupLocation, paymentSettings } = useApp();
@@ -16,7 +17,7 @@ function RegisterPage() {
     phoneNumber: ''
   });
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ username: '', password: '', cashapp: '', phoneNumber: '' });
+  const { errors: fieldErrors, clearFieldError, setFieldErrors } = useFormValidation({ username: '', password: '', cashapp: '', phoneNumber: '' });
   const [isLoading, setIsLoading] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -24,7 +25,7 @@ function RegisterPage() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }));
+    clearFieldError(name);
   };
 
   const handleSubmit = async (e) => {
@@ -206,7 +207,7 @@ function RegisterPage() {
                   let value = e.target.value;
                   if (value && !value.startsWith('$')) value = '$' + value;
                   setFormData({ ...formData, cashapp: value });
-                  if (fieldErrors.cashapp) setFieldErrors((prev) => ({ ...prev, cashapp: '' }));
+                  clearFieldError('cashapp');
                 }}
                 className={`form-input ${fieldErrors.cashapp ? 'form-input-error' : ''}`}
                 placeholder="$YourCashApp"
