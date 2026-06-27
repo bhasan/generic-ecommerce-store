@@ -290,7 +290,6 @@ function ProductMediaModal({ product, initialIndex = 0, onClose }) {
             ))}
           </div>
         )}
-      </div>
     </BaseModal>
   );
 }
