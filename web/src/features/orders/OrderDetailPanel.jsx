@@ -26,6 +26,7 @@ import {
 import './OrderDetailPanel.css';
 import { OrderStatus } from '../../constants/orderStatuses';
 import { useApp } from '../../context/AppContext';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 const STATUSES = Object.values(OrderStatus);
 
@@ -119,7 +120,7 @@ function OrderDetailPanel({
             <span className={`order-detail-method-badge ${order.deliveryMethod === 'DELIVERY' ? 'method-delivery' : 'method-pickup'}`}>
               {order.deliveryMethod === 'CURBSIDE' ? 'Curbside Pickup' : order.deliveryMethod === 'PICKUP' ? 'Pickup' : 'Delivery'}
             </span>
-            <span className="order-detail-total">${order.total.toFixed(2)}</span>
+            <span className="order-detail-total">${formatCurrency(order.total)}</span>
           </div>
 
           <div className="order-detail-status-block">
@@ -290,7 +291,7 @@ function OrderDetailPanel({
                     </div>
                     <div className="order-item-right">
                       <span className="order-item-price">
-                        ${(Number(item.unitPrice ?? item.price ?? 0) * item.quantity).toFixed(2)}
+                        ${formatCurrency(Number(item.unitPrice ?? item.price ?? 0) * item.quantity)}
                       </span>
                       {isEditing && !item.voided && (
                         <div className="order-item-actions">
@@ -332,7 +333,7 @@ function OrderDetailPanel({
                         {products.flatMap((p) =>
                           (p.variants ?? []).filter(v => v.active).map(v => (
                             <option key={v.id} value={v.id}>
-                              {p.name}{v.label !== 'Default' ? ` — ${v.label}` : ''} — ${Number(v.basePrice).toFixed(2)}
+                              {p.name}{v.label !== 'Default' ? ` — ${v.label}` : ''} — ${formatCurrency(Number(v.basePrice))}
                             </option>
                           ))
                         )}
@@ -412,7 +413,7 @@ function OrderDetailPanel({
                     </div>
                     <div className="customer-info-row">
                       <span className="customer-info-label">Amount:</span>
-                      <span className="customer-info-value">${Number(payment.amount).toFixed(2)}</span>
+                      <span className="customer-info-value">${formatCurrency(Number(payment.amount))}</span>
                     </div>
                     {payment.transactionId && (
                       <div className="customer-info-row">

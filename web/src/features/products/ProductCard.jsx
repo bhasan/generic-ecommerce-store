@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductImage from './ProductImage';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 const SWIPE_THRESHOLD = 30;
 
@@ -76,11 +77,11 @@ function ProductCard({ product, imageSrc, images, categoryLabel, onClick, onImag
           <div className="product-price-container">
             {hasDiscount ? (
               <>
-                <span className="product-price-original">${originalTotal.toFixed(2)}</span>
-                <span className="product-price product-price-discounted">${discountedTotal.toFixed(2)}</span>
+                <span className="product-price-original">${formatCurrency(originalTotal)}</span>
+                <span className="product-price product-price-discounted">${formatCurrency(discountedTotal)}</span>
               </>
             ) : (
-              <span className="product-price">${originalTotal.toFixed(2)}</span>
+              <span className="product-price">${formatCurrency(originalTotal)}</span>
             )}
           </div>
           <div className="product-footer-actions">{children}</div>

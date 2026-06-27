@@ -23,6 +23,7 @@ import ErrorMessage from './checkout/ErrorMessage';
 import PaymentSelector from './checkout/PaymentSelector';
 import PaymentDetails from './checkout/PaymentDetails';
 import FulfillmentSelector from './checkout/FulfillmentSelector';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 // Creates the empty delivery-check state used before validation starts or after it is reset.
 const createInitialEligibilityState = () => ({
@@ -127,7 +128,7 @@ function CheckoutPage() {
   const deliveryBlocked = deliveryDisabled || deliveryMinimumBlocked;
   const deliveryBlockedReason = deliveryDisabled
     ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
-    : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)`;
+    : `Delivery requires a $${formatCurrency(minimumDeliveryOrder)} minimum ($${formatCurrency(minimumDeliveryOrder - subtotal)} more needed)`;
   const deliverySubmitBlocked = isDelivery && (
     deliveryBlocked
     || !deliveryAddressComplete
@@ -446,9 +447,9 @@ function CheckoutPage() {
                     <div className="checkout-item-details">
                       <h4>{item.name}</h4>
                       <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
-                      <p className="checkout-item-price">${unitPrice.toFixed(2)} x {item.quantity}</p>
+                      <p className="checkout-item-price">${formatCurrency(unitPrice)} x {item.quantity}</p>
                     </div>
-                    <div className="checkout-item-total">${(unitPrice * item.quantity).toFixed(2)}</div>
+                    <div className="checkout-item-total">${formatCurrency(unitPrice * item.quantity)}</div>
                   </div>
                 );
               })}
@@ -537,16 +538,16 @@ function CheckoutPage() {
             <div className="summary-details">
               <div className="summary-row">
                 <span>Subtotal ({cart.length} {cart.length === 1 ? 'item' : 'items'})</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>${formatCurrency(subtotal)}</span>
               </div>
               <div className="summary-row">
                 <span>Tax ({(taxRate * 100).toFixed(2).replace(/\.00$/, '')}%)</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>${formatCurrency(tax)}</span>
               </div>
               <div className="summary-divider"></div>
               <div className="summary-row summary-total">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>${formatCurrency(total)}</span>
               </div>
             </div>
 
@@ -581,7 +582,7 @@ function CheckoutPage() {
             <p>{paymentRetryOrder.reason || 'Your card could not be processed. Your order has been saved.'}</p>
             <div className="payment-retry-order-info">
               <span>Order #{paymentRetryOrder.orderId}</span>
-              <span>Total: ${paymentRetryOrder.amount?.toFixed(2)}</span>
+              <span>Total: ${formatCurrency(paymentRetryOrder.amount)}</span>
             </div>
             <div className="payment-retry-actions">
               <button

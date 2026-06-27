@@ -8,6 +8,7 @@ import ProductMediaModal from './ProductMediaModal';
 import './ProductsShared.css';
 import './ProductItemPage.css';
 import { hasRole } from '../../utils/roles';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 const isVideo = (url) => {
   if (!url) return false;
@@ -29,7 +30,7 @@ function PriceBreaksTable({ variant }) {
         {sorted.map((pb, i) => (
           <div key={i} className="discount-tier">
             <span className="discount-qty">{Number(pb.minQuantity)}+:</span>
-            <span className="discount-value">${Number(pb.unitPrice).toFixed(2)} each</span>
+            <span className="discount-value">${formatCurrency(Number(pb.unitPrice))} each</span>
           </div>
         ))}
       </div>
@@ -50,18 +51,18 @@ function DynamicPriceDisplay({ variant, quantity }) {
         <>
           <div className="price-row price-total-row">
             <span className="price-label">Total ({quantity} items):</span>
-            <span className="price-original">${originalTotal.toFixed(2)}</span>
+            <span className="price-original">${formatCurrency(originalTotal)}</span>
             <span className="price-arrow">→</span>
-            <span className="price-total">${totalPrice.toFixed(2)}</span>
+            <span className="price-total">${formatCurrency(totalPrice)}</span>
           </div>
           <div className="price-row">
-            <span className="price-savings">Save ${(originalTotal - totalPrice).toFixed(2)}</span>
+            <span className="price-savings">Save ${formatCurrency(originalTotal - totalPrice)}</span>
           </div>
         </>
       ) : (
         <div className="price-row price-total-row">
           <span className="price-label">Total ({quantity} items):</span>
-          <span className="price-total">${totalPrice.toFixed(2)}</span>
+          <span className="price-total">${formatCurrency(totalPrice)}</span>
         </div>
       )}
     </div>
@@ -243,7 +244,7 @@ function ProductItemPage() {
           <h1 className="product-title">{product.name}</h1>
 
           <div className="product-price-display">
-            ${basePrice.toFixed(2)}
+            ${formatCurrency(basePrice)}
             {(selectedVariant?.priceBreaks?.length ?? 0) > 0 && (
               <span className="price-per-unit">/ each</span>
             )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, Minus, Wallet } from 'lucide-react';
 import * as storeCreditApi from '../../../services/storeCreditApi';
 import './CreditModal.css';
+import { formatCurrency } from '../../../utils/currencyUtils';
 
 function CreditModal({ user, onClose, onCreditAdded }) {
   const [addAmount, setAddAmount] = useState('');
@@ -108,7 +109,7 @@ function CreditModal({ user, onClose, onCreditAdded }) {
             <Wallet size={20} />
             <div>
               <h2 className="credit-modal-title">{user.username}</h2>
-              <span className="credit-modal-balance">Current balance: <strong>${balance.toFixed(2)}</strong></span>
+              <span className="credit-modal-balance">Current balance: <strong>${formatCurrency(balance)}</strong></span>
             </div>
           </div>
           <button className="modal-close" onClick={onClose} aria-label="Close">
@@ -231,7 +232,7 @@ function CreditModal({ user, onClose, onCreditAdded }) {
                         <td>{formatDate(tx.createdAt)}</td>
                         <td>{getTxLabel(tx.type)}</td>
                         <td className={tx.type === 'USED' ? 'credit-tx-negative' : 'credit-tx-positive'}>
-                          {tx.amount > 0 ? '+' : ''}${Math.abs(tx.amount).toFixed(2)}
+                          {tx.amount > 0 ? '+' : ''}${formatCurrency(Math.abs(tx.amount))}
                         </td>
                         <td>{tx.note || (tx.orderId ? `Order #${tx.orderId}` : '—')}</td>
                         <td>{tx.createdByUsername ?? '—'}</td>

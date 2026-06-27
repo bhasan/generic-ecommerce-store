@@ -7,6 +7,7 @@ import { ShoppingCart, Trash2, Plus, Minus } from 'lucide-react';
 import { getAllowedQuantities, getDiscountedUnitPrice, getProductCategoryLabel, getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
 import HeaderDivider from '../../components/common/HeaderDivider';
+import { formatCurrency } from '../../utils/currencyUtils';
 
 function CartPage() {
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ function CartPage() {
                       <p className="cart-item-variant">{item.variantLabel}</p>
                     )}
                     <p className="cart-item-price">
-                      ${unitPrice.toFixed(2)} each
+                      ${formatCurrency(unitPrice)} each
                     </p>
                   </div>
 
@@ -104,7 +105,7 @@ function CartPage() {
                     )}
 
                     <div className="cart-item-total">
-                      ${(unitPrice * item.quantity).toFixed(2)}
+                      ${formatCurrency(unitPrice * item.quantity)}
                     </div>
 
                     <button
@@ -129,7 +130,7 @@ function CartPage() {
               onClick={() => !deliveryBlocked && setDeliveryMethod(DeliveryMethod.DELIVERY)}
               className={`toggle-btn ${deliveryMethod === DeliveryMethod.DELIVERY ? 'active' : ''} ${deliveryBlocked ? 'disabled' : ''}`}
               disabled={deliveryBlocked}
-              title={deliveryBlocked ? (deliveryDisabled ? (deliveryDisabledMessage || 'Delivery is currently unavailable.') : `Add $${(minimumDeliveryOrder - total).toFixed(2)} more for delivery`) : undefined}
+              title={deliveryBlocked ? (deliveryDisabled ? (deliveryDisabledMessage || 'Delivery is currently unavailable.') : `Add $${formatCurrency(minimumDeliveryOrder - total)} more for delivery`) : undefined}
             >
               Delivery
             </button>
@@ -145,23 +146,23 @@ function CartPage() {
             <div className="minimum-order-notice">
               {deliveryDisabled
                 ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
-                : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - total).toFixed(2)} more needed)`}
+                : `Delivery requires a $${formatCurrency(minimumDeliveryOrder)} minimum ($${formatCurrency(minimumDeliveryOrder - total)} more needed)`}
             </div>
           )}
 
           <div className="cart-summary-details">
             <div className="summary-row">
               <span>Subtotal</span>
-              <span>${total.toFixed(2)}</span>
+              <span>${formatCurrency(total)}</span>
             </div>
             <div className="summary-row">
               <span>Tax (estimated)</span>
-              <span>${(total * taxRate).toFixed(2)}</span>
+              <span>${formatCurrency(total * taxRate)}</span>
             </div>
             <div className="summary-divider"></div>
             <div className="summary-row summary-total">
               <span>Total</span>
-              <span>${(total * (1 + taxRate)).toFixed(2)}</span>
+              <span>${formatCurrency(total * (1 + taxRate))}</span>
             </div>
           </div>
 

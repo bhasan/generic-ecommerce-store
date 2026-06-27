@@ -3,6 +3,7 @@ import { Wallet, Search, Users } from 'lucide-react';
 import * as usersApi from '../../../services/usersApi';
 import CreditModal from './CreditModal';
 import './CreditsSection.css';
+import { formatCurrency } from '../../../utils/currencyUtils';
 
 function CreditsSection({ showNotification }) {
   const [users, setUsers] = useState([]);
@@ -27,7 +28,7 @@ function CreditsSection({ showNotification }) {
   }, [loadUsers]);
 
   const handleCreditAdded = (userId, newBalance) => {
-    showNotification(`Balance updated. New balance: $${newBalance.toFixed(2)}`, 'success');
+    showNotification(`Balance updated. New balance: $${formatCurrency(newBalance)}`, 'success');
     setUsers(prev => prev.map(u =>
       u.id === userId ? { ...u, storeCreditBalance: newBalance } : u
     ));
@@ -64,7 +65,7 @@ function CreditsSection({ showNotification }) {
           </h3>
           <div className="credits-total-badge">
             <span className="credits-total-label">Total in circulation</span>
-            <span className="credits-total-amount">${totalCredit.toFixed(2)}</span>
+            <span className="credits-total-amount">${formatCurrency(totalCredit)}</span>
           </div>
         </div>
 
@@ -112,7 +113,7 @@ function CreditsSection({ showNotification }) {
                       </td>
                       <td>
                         <span className={`credits-balance-badge ${balance > 0 ? 'credits-balance-positive' : 'credits-balance-zero'}`}>
-                          ${balance.toFixed(2)}
+                          ${formatCurrency(balance)}
                         </span>
                       </td>
                       <td className="credits-actions-cell">

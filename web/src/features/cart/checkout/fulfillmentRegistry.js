@@ -1,4 +1,5 @@
 import { DeliveryMethod } from '../../../constants/orderMethods';
+import { formatCurrency } from '../../../utils/currencyUtils';
 
 /**
  * Fulfillment method registry — drives validation and payload building for each method.
@@ -17,7 +18,7 @@ export const fulfillmentRegistry = [
         errors.zipCode = 'ZIP code must contain 5 digits';
       }
       if (ctx.deliveryMinimumBlocked) {
-        errors.deliveryEligibility = `Delivery requires a $${ctx.minimumDeliveryOrder.toFixed(2)} minimum subtotal.`;
+        errors.deliveryEligibility = `Delivery requires a $${formatCurrency(ctx.minimumDeliveryOrder)} minimum subtotal.`;
       } else if (!ctx.deliveryAddressComplete) {
         errors.deliveryEligibility = 'Complete the delivery address so we can verify eligibility.';
       } else if (ctx.deliveryEligibility.status === 'checking') {
