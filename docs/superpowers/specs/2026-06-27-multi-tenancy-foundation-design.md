@@ -171,22 +171,12 @@ CREATE POLICY tenant_isolation ON products
 Store-scoped tables additionally constrain `store_id` (except announcements/messages which allow null `store_id`). A documented **"super-admin mode"** (setting `app.bypass_rls = 'true'`) is permitted only for the explicit unscoped/super-admin connection path, never for tenant requests.
 
 **4. ALS context + connection hook.** `src/config/tenantContext.ts` exposes an `AsyncLocalStorage<{ tenantId, storeId, scope }>`. Middleware wraps each request in it. A Prisma client extension runs `SELECT set_config('app.current_tenant', $tenantId, true)` and `SELECT set_config('app.bypass_rls', 'false', true)` (or `'true'` for super-admin scope) before queries inside a transaction. This ensures connection-pool safety.
-Either way, **a pooled connection must never carry another tenant's context** — covered
-by tests.
 
-**5. Background workers** (outbox worker, print job poller, POS order service —
-`src/services/pos/orders/outboxWorker.ts`, `posOrderService.ts`,
-`printJob.service.ts`, `thermalPrinter.service.ts`) run outside requests: each reads a
-row, then enters an ALS context from that row's `tenantId`/`storeId` before doing
-per-row work. They must never run scoped queries without a context.
+**5. Background workers** (outbox worker, print job poller, POS order service — `src/services/pos/orders/outboxWorker.ts`, `posOrderService.ts`, `printJob.service.ts`, `thermalPrinter.service.ts`) run outside requests. Their global poll queries (e.g., fetching pending outbox records) run in Super-Admin mode (bypassing RLS with `app.bypass_rls = 'true'`) to fetch entries across all tenants. Once rows are retrieved, processing loops enter the specific ALS tenant context (`tenantId`/`storeId`) for the respective row's data execution. Processing queries must never run without a tenant context.
 
-**6. Explicit escape hatch.** `getUnscopedPrisma()` (or a connection that sets the
-session var empty) is the only sanctioned way to query across tenants — for migrations,
-the super-admin console, and platform ops. Grep-able and reviewed.
+**6. Explicit escape hatch.** `getUnscopedPrisma()` (or a connection that sets the session var empty) is the only sanctioned way to query across tenants — for migrations, the super-admin console, and platform ops. Grep-able and reviewed.
 
-**7. Optional ergonomic extension (non-load-bearing).** We may add a Prisma `where`
--injection extension so a developer who forgets context gets a clear error instead of an
-empty result. Isolation correctness does **not** depend on it — RLS is authoritative.
+**7. Optional ergonomic extension (non-load-bearing).** We may add a Prisma `where`-injection extension so a developer who forgets context gets a clear error instead of an empty result. Isolation correctness does **not** depend on it — RLS is authoritative.
 
 ## Tenant-Aware JWT & Roles
 
@@ -203,33 +193,42 @@ empty result. Isolation correctness does **not** depend on it — RLS is authori
 - **Store-aware authorization:** `role.middleware.ts` changes from "has role name X" to
   "has role name X for the store this request targets." A tenant-wide role
   (`storeId=null`, e.g. ADMIN) satisfies any store; a store-scoped role matches only its
-  store. The acting store comes from request context (Phase 1: the tenant's single
-  default store).
+  store. The acting store comes from request context (Phase 1: the tenant's single default store).
 - `SUPER_ADMIN` is added to `ROLE_NAMES`. The role *catalog* stays global; only
   assignment is scoped (via `User.tenantId` + `UserRole.storeId`).
 
+## Tenant Lifecycle, Media, and Cookies
+
+- **Soft-Delete Lifecycle:** Tenant deletion/suspension changes the status field (e.g. `TenantStatus.SUSPENDED` or a new `DELETED` state) on the `Tenant` table, cutting off access at the resolver middleware. We preserve historical data in the database rather than running cascaded hard deletes.
+- **Media & Asset Isolation:** Product images, store banners, and user logos are uploaded to isolated file paths (e.g., `uploads/tenants/:tenantId/` or S3 folder prefixes `tenants/:tenantId/`) to prevent cross-tenant directory traversals and namespace collisions.
+
+## Frontend Impact (Phase 1, minimal)
+
+- API base stays `/api`; the browser sends the correct `Host` subdomain, so tenant resolution is server-side — no per-request tenant param.
+- **Auth/Session Cookie Domain Scope:** Authentication cookies are scoped strictly to the host subdomain (e.g., `tenant.yourapp.com`), not the apex domain (`.yourapp.com`), preventing session conflicts when using multiple tenants.
+- No location picker yet (single default store per tenant).
+- Deployment: wildcard DNS (`*.yourapp.com`) + wildcard TLS so `demo.` and the real tenant subdomain resolve. (Infra task in the plan.)
+
 ## Data Migration (wrapping existing data)
 
-Executed in order:
+Executed atomically in a single core migration file:
 
 1. Create `Tenant`/`Store` tables and `TenantStatus`/`StoreStatus` enums.
-2. Create the non-superuser `app_user` role; grant table privileges (no `BYPASSRLS`).
-3. Add `tenantId`/`storeId` columns as **nullable** (with the `current_setting` DEFAULT).
-4. Insert the **default tenant** (the real smoke shop; slug = production subdomain) and
-   its **default store** (`isDefault=true`).
-5. Backfill every existing row's `tenantId` = default tenant; store-scoped rows'
-   `storeId` = default store. Existing admin user → tenant `ADMIN` (`storeId=null`).
-6. Alter scoped columns to **NOT NULL**, add FKs + composite indexes (leading with
-   `tenantId`/`storeId`).
-7. Enable RLS + create policies on all scoped tables.
-8. Switch the app's runtime `DATABASE_URL` to `app_user`.
+2. Create the non-superuser `app_user` role; grant public schema privileges (no `BYPASSRLS`).
+3. Add `tenantId`/`storeId` columns to existing scoped tables as **nullable** (`INTEGER`).
+4. Insert the **default tenant** (the real smoke shop; slug = production subdomain) and its **default store** (`isDefault=true`).
+5. Backfill every existing row's `tenantId` = default tenant; store-scoped rows' `storeId` = default store.
+6. Alter all scoped columns to **NOT NULL**.
+7. Drop global unique constraints on `slug`, `email`, and `username`, and add tenant-scoped composite unique constraints (e.g. `@@unique([tenantId, slug])`).
+8. Add Foreign Keys + composite indexes leading with `tenantId`/`storeId` on hot paths.
+9. Enable RLS and apply policies on all scoped tables, including the `app.bypass_rls` super-admin check.
+10. Switch the app's runtime `DATABASE_URL` to `app_user`.
 
-Non-destructive and reversible up to the NOT NULL / RLS-enable steps. The live app
-behaves identically because exactly one tenant exists until the Demo is seeded.
+The database changes are safe and atomic, meaning columns are created, backfilled, and locked down all within the same transaction before any queries hit them.
 
 ### Indexing
 
-Hot single-column indexes become composite, leading with the scope key:
+Composite indexes lead with the scope key:
 `Order @@index([storeId, status])`, `@@index([storeId, createdAt])`,
 `Product @@index([tenantId, categoryId])`, etc.
 

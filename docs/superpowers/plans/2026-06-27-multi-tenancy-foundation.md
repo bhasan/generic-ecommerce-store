@@ -582,10 +582,11 @@ git commit -m "feat(tenancy): core migration with default tenant backfill and RL
 - Consumes: `getTenantContext` (Task 1).
 - Produces:
   - `getTenantPrisma(): PrismaClient` — returns a client extended so each operation runs inside a transaction that first sets `app.current_tenant`/`app.current_store` from the active ALS context. Throws `MissingTenantContextError` if no context and the model is scoped.
-  - `getUnscopedPrisma(): PrismaClient` — the raw base client (escape hatch).
+  - `getUnscopedPrisma(): PrismaClient` — the raw base client (requires RLS compliance).
+  - `runUnscoped<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T>` — transaction block executing with `app.bypass_rls = 'true'` (escape hatch for background worker polling and migrations).
   - default export stays the base client for backward-compat during migration.
 
-> Implementation note (open item from spec): we use **transaction-local** `set_config(..., true)`. Each scoped operation is wrapped in `$transaction` so the SET and the query share one connection and the var resets on commit — pool-safe.
+> Implementation note: we use **transaction-local** variables (`set_config(..., true)`). Each scoped operation is wrapped in a transaction so that session variables reset on commit/rollback, ensuring connection pool safety.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -642,6 +643,13 @@ import { isUnscoped } from './tenantScope';
 
 export function getUnscopedPrisma() {
   return prisma;
+}
+
+export async function runUnscoped<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SELECT set_config('app.bypass_rls', 'true', true)`);
+    return fn(tx);
+  });
 }
 
 // Cache one extended client per process; it reads ALS context per-operation.
@@ -1291,7 +1299,7 @@ export async function processOutboxRow(
 }
 ```
 
-Then call `processOutboxRow(row, () => /* existing per-row logic */)` from the poll loop. Apply the same pattern to `printJob.service.ts`'s claim/process loop.
+Then call `processOutboxRow(row, () => /* existing per-row logic */)` from the poll loop. Note that the worker's polling query that retrieves these pending rows must be wrapped in the `runUnscoped` helper so that RLS is bypassed (e.g. `await runUnscoped(async (tx) => tx.posOutbox.findMany(...))`). Otherwise, the query will return zero rows under the default `app_user` database connection. Apply the same pattern to the `printJob.service.ts` claim/process loop.
 
 - [ ] **Step 4: Run to verify it passes**
 
