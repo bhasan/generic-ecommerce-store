@@ -15,6 +15,7 @@ import { getCategoryLabel, getProductCategoryLabel } from '../../products/produc
 import { IMAGE_INPUT_ACCEPT, MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile } from '../../../utils/mediaUpload';
 import * as uploadApi from '../../../services/uploadApi';
 import ImageCropModal from '../../../components/common/ImageCropModal';
+import useModalState from '../../../hooks/useModalState';
 import './ManageStoreProductsPage.css';
 
 const emptyVariant = () => ({
@@ -53,7 +54,7 @@ function ManageStoreProductsPage() {
   const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', variants: '' });
   const [categoryQuery, setCategoryQuery] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [deleteModal, setDeleteModal] = useState({ open: false, product: null });
+  const deleteModal = useModalState();
   const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
   const [cropState, setCropState] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
@@ -191,7 +192,7 @@ function ManageStoreProductsPage() {
       product, dragEnabled: drag, canManage, canDelete,
       onToggleHidden: (id, hidden) => updateProduct(id, { hidden: !hidden }),
       onEdit: handleEdit,
-      onDeleteClick: (id, name) => setDeleteModal({ open: true, product: { id, name } }),
+      onDeleteClick: (id, name) => deleteModal.openModal({ id, name }),
       getProductLabel: getProductCategoryLabel,
       editingDisabled: editingId !== null || showAddForm,
     };
@@ -298,14 +299,14 @@ function ManageStoreProductsPage() {
       )}
 
       <ConfirmationModal
-        isOpen={deleteModal.open}
-        onClose={() => setDeleteModal({ open: false, product: null })}
+        isOpen={deleteModal.isOpen}
+        onClose={() => deleteModal.closeModal()}
         onConfirm={() => {
-          if (deleteModal.product) deleteProduct(deleteModal.product.id);
-          setDeleteModal({ open: false, product: null });
+          if (deleteModal.data) deleteProduct(deleteModal.data.id);
+          deleteModal.closeModal();
         }}
         title="Delete Product"
-        message={<>Are you sure you want to delete <strong>"{deleteModal.product?.name || ''}"</strong>?<br /><br />This action cannot be undone.</>}
+        message={<>Are you sure you want to delete <strong>"{deleteModal.data?.name || ''}"</strong>?<br /><br />This action cannot be undone.</>}
         confirmText="Delete"
         cancelText="Cancel"
         type="danger"

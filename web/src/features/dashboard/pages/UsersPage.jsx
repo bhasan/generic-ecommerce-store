@@ -5,6 +5,7 @@ import { formatDateShort } from '../../../utils/dateUtils';
 import { getRoleBadgeClass, ROLES } from '../../../utils/roles';
 import UsersSection from '../components/UsersSection';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
+import useModalState from '../../../hooks/useModalState';
 
 function UsersPage() {
   const { showNotification, currentUser } = useApp();
@@ -15,7 +16,7 @@ function UsersPage() {
   const [editingRoles, setEditingRoles] = useState([]);
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [deleteModal, setDeleteModal] = useState({ open: false, user: null });
+  const deleteModal = useModalState();
 
   const loadUsers = useCallback(async () => {
     try {
@@ -91,15 +92,15 @@ function UsersPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteModal.user) return;
+    if (!deleteModal.data) return;
     try {
-      await usersApi.deleteUser(deleteModal.user.id);
+      await usersApi.deleteUser(deleteModal.data.id);
       showNotification('User deleted successfully', 'success');
-      setDeleteModal({ open: false, user: null });
+      deleteModal.closeModal();
       loadUsers();
     } catch (error) {
       showNotification(error.message || 'Failed to delete user', 'error');
-      setDeleteModal({ open: false, user: null });
+      deleteModal.closeModal();
     }
   };
 
@@ -126,19 +127,19 @@ function UsersPage() {
         onSaveRoles={handleSaveRoles}
         onCancelEdit={() => { setEditingUserId(null); setEditingRoles([]); }}
         onEditRoles={handleEditRoles}
-        onDeleteUser={(id, name) => setDeleteModal({ open: true, user: { id, name } })}
+        onDeleteUser={(id, name) => deleteModal.openModal({ id, name })}
         formatDateShort={formatDateShort}
         getRoleBadgeClass={getRoleBadgeClass}
       />
 
       <ConfirmationModal
-        isOpen={deleteModal.open}
-        onClose={() => setDeleteModal({ open: false, user: null })}
+        isOpen={deleteModal.isOpen}
+        onClose={() => deleteModal.closeModal()}
         onConfirm={handleDeleteConfirm}
         title="Delete User"
         message={
           <>
-            Are you sure you want to delete user <strong>"{deleteModal.user?.name || ''}"</strong>?
+            Are you sure you want to delete user <strong>"{deleteModal.data?.name || ''}"</strong>?
             <br /><br />This action cannot be undone.
           </>
         }
