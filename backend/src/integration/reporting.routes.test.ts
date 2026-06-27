@@ -123,7 +123,7 @@ describe('online store reporting routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('x-request-id')).toBe('req-client-health');
-    expect(body).toEqual({
+    expect(body.data).toEqual({
       status: 'ok',
       service: 'online_store_reporting_api',
       provider_key: 'ONLINE_STORE',
@@ -175,14 +175,14 @@ describe('online store reporting routes', () => {
       expect.objectContaining({ page: 2, pageSize: 3, skip: 3, take: 4 }),
       expect.objectContaining({ updatedSince: new Date('2026-06-01T00:00:00Z') })
     );
-    expect(body.data).toEqual([{ id: 'prod_1' }, { id: 'prod_2' }, { id: 'prod_3' }]);
-    expect(body.pagination).toEqual({
+    expect(body.data.data).toEqual([{ id: 'prod_1' }, { id: 'prod_2' }, { id: 'prod_3' }]);
+    expect(body.data.pagination).toEqual({
       page: 2,
       page_size: 3,
       has_next: true,
       next_page: 3,
     });
-    expect(body.meta).toEqual(expect.objectContaining({
+    expect(body.data.meta).toEqual(expect.objectContaining({
       request_id: 'req-products',
       source_system: 'online_store',
       provider_key: 'ONLINE_STORE',
@@ -211,8 +211,8 @@ describe('online store reporting routes', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body.data).toEqual([]);
-    expect(body.meta).toEqual(expect.objectContaining({
+    expect(body.data.data).toEqual([]);
+    expect(body.data.meta).toEqual(expect.objectContaining({
       request_id: 'req-refunds',
       refunds_supported: false,
     }));

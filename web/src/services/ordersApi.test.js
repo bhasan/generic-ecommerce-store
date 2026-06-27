@@ -29,11 +29,9 @@ describe('ordersApi', () => {
 
     expect(api.post).toHaveBeenCalledWith('/orders/55/print', {});
     expect(result).toEqual({
-      result: {
-        queued: true,
-        reason: 'MANUAL_REPRINT',
-        orderId: 55,
-      },
+      queued: true,
+      reason: 'MANUAL_REPRINT',
+      orderId: 55,
     });
   });
 

@@ -111,7 +111,8 @@ export const deleteOrder = async (id) => {
  * @returns {Promise<object>} Queue result
  */
 export const printOrderReceipt = async (id) => {
-  return post(`/orders/${id}/print`, {});
+  const data = await post(`/orders/${id}/print`, {});
+  return data?.result ?? data;
 };
 
 /**
