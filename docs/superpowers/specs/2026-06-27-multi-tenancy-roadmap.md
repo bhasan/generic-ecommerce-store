@@ -30,11 +30,7 @@ which this roadmap adopts from Phase 1.
 - **Website/branding settings:** tenant-level.
 - **Tenant resolution:** subdomain → tenant; store selected in-app (not in URL).
 - **Platform admin:** super-admin console above all tenants.
-- **Isolation:** **Postgres RLS is primary, from Phase 1**; ALS carries `{tenantId,
-  storeId}` per request to a connection hook that sets the session variable. App
-  business logic is unchanged. App connects as a **non-superuser** role (RLS is bypassed
-  for superusers). An optional Prisma where-injection extension is dev-ergonomic sugar
-  only, not load-bearing.
+- **Isolation:** **Postgres RLS is primary, from Phase 1**; ALS carries `{tenantId, storeId}` per request to a connection hook that sets transaction-local session variables. App connects as a **non-superuser** role. **Write operations automatically inject tenant context via a Prisma Client Extension** on scoped models, and DB columns are standard required `NOT NULL` fields (fail-closed). An optional Prisma where-injection extension is dev-ergonomic sugar only.
 - **Roles:** global role-name catalog + scoped assignment (`User.tenantId`,
   `UserRole.storeId`); store-aware authorization. No per-tenant custom roles.
 - The `tenantId`/`storeId` columns are the only irreversible decision; added in Phase 1.
@@ -90,10 +86,11 @@ The platform control plane.
 ## Cross-Cutting Infra
 
 - App connects as non-superuser `app_user`; startup assertion fails otherwise.
-- Connection pooling: transaction-local session var now; if a pooler (PgBouncer) is
-  added later it must run in **transaction mode** (RLS dictates pooling mode).
+- Connection pooling: transaction-local session var now; if a pooler (PgBouncer) is added later it must run in **transaction mode** (RLS dictates pooling mode).
 - Wildcard DNS (`*.yourapp.com`) + wildcard TLS for per-tenant subdomains.
 - Composite indexes leading with `tenantId`/`storeId` on hot paths.
-- Background workers (print agent, POS outbox) enter an ALS tenant context derived from
-  each row's `tenantId` before running scoped queries.
+- **Background Worker Polling:** Worker query loops (e.g., polling pending outbox items) run in Super-Admin mode (setting `app.bypass_rls = 'true'`) to query items across all tenants, and then enter an ALS tenant context derived from each row's `tenantId` to process individual rows.
+- **Media & Asset Isolation:** Media storage (AWS S3/local directories) isolates uploaded assets using prefixes/folders named `tenants/:tenantId/` to prevent cross-tenant asset exposure.
+- **Subdomain Cookie Scoping:** To prevent session cookie collision, auth cookies are scoped strictly to the individual subdomain (e.g., `shop-a.yourapp.com`), not the apex domain (`.yourapp.com`).
+- **Soft-Delete Lifecycle:** Tenant deletion/removal changes `Tenant.status` to `SUSPENDED` or `DELETED` and blocks requests at the middleware layer, avoiding database hard deletes and preserving historical records.
 - Future scaling: per-table `tenantId` keeps DB-per-tenant sharding tractable later.
