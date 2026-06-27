@@ -6,11 +6,11 @@ import './DashboardPage.css';
 
 function DashboardPage() {
   return (
-    <div className="dashboard-page-container">
+    <div className="dashboard-grid-container">
       <DashboardHeader />
-      <div className="dashboard-layout">
+      <div className="dashboard-grid-layout">
         <DashboardSidebar />
-        <main className="dashboard-main-content">
+        <main className="dashboard-grid-content">
           <Outlet />
         </main>
       </div>

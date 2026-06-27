@@ -35,6 +35,13 @@ import StoreCreditPage from './features/credits/StoreCreditPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import OrderHistoryPage from './features/orders/OrderHistoryPage';
 import WebsiteManagementPage from './features/website/WebsiteManagementPage';
+import StoreIdentityPage from './features/website/pages/StoreIdentityPage';
+import BrandColorsPage from './features/website/pages/BrandColorsPage';
+import HeroImagePage from './features/website/pages/HeroImagePage';
+import FaviconPage from './features/website/pages/FaviconPage';
+import StoreInfoPage from './features/website/pages/StoreInfoPage';
+import PaymentPage from './features/website/pages/PaymentPage';
+import DeliveryPage from './features/website/pages/DeliveryPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
 import ManageStorePage from './features/manage-store/ManageStorePage';
@@ -64,7 +71,7 @@ function AppContent() {
       <Navbar />
       <Notification />
       <main className={isOrdersPage ? 'full-width-layout main-content' : 'container main-content'}>
-        <Routes key={location.pathname}>
+        <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
@@ -170,14 +177,20 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          <Route
-            path="/website-management"
-            element={
-              <ProtectedRoute roles={[ROLES.ADMIN]}>
-                <WebsiteManagementPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/website-management" element={
+            <ProtectedRoute roles={[ROLES.ADMIN]}>
+              <WebsiteManagementPage />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="identity" replace />} />
+            <Route path="identity" element={<StoreIdentityPage />} />
+            <Route path="colors" element={<BrandColorsPage />} />
+            <Route path="hero" element={<HeroImagePage />} />
+            <Route path="favicon" element={<FaviconPage />} />
+            <Route path="info" element={<StoreInfoPage />} />
+            <Route path="payment" element={<PaymentPage />} />
+            <Route path="delivery" element={<DeliveryPage />} />
+          </Route>
 
           {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
           <Route path="/delivery-dashboard" element={

@@ -6,11 +6,11 @@ import './ManageStorePage.css';
 
 function ManageStorePage() {
   return (
-    <div className="manage-store-page-container">
+    <div className="dashboard-grid-container">
       <ManageStoreHeader />
-      <div className="manage-store-layout">
+      <div className="dashboard-grid-layout">
         <ManageStoreSidebar />
-        <main className="manage-store-content">
+        <main className="dashboard-grid-content">
           <Outlet />
         </main>
       </div>

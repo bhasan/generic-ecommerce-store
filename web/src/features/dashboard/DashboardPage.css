@@ -1,11 +1,4 @@
 
-.dashboard-page-container {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 2rem;
-  animation: fadeIn 0.3s ease-in;
-}
-
 .dashboard-header {
   margin-bottom: 2rem;
 }
@@ -14,71 +7,6 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-/* Dashboard Layout with Sidebar */
-/* TODO(mobile): Dashboard is responsive but not fully phone-hardened. Audit sidebar-to-content flow, dense cards, and data tables for real mobile usability. */
-.dashboard-layout {
-  display: flex;
-  gap: 2rem;
-  align-items: flex-start;
-}
-
-/* Sidebar Styles */
-.dashboard-sidebar {
-  width: 280px;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-  border: 1px solid var(--border-color);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  position: sticky;
-  top: 2rem;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.sidebar-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.25rem;
-  background: transparent;
-  border: none;
-  border-radius: 0.75rem;
-  color: var(--text-secondary);
-  font-size: 0.9375rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-  width: 100%;
-}
-
-.sidebar-nav-item:hover {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-.sidebar-nav-item.active {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  color: white;
-  box-shadow: 0 4px 12px var(--color-primary-border);
-}
-
-.sidebar-nav-item svg {
-  flex-shrink: 0;
-}
-
-
-/* Main Content Area */
-.dashboard-main-content {
-  flex: 1;
-  min-width: 0; /* Prevents flex item from overflowing */
 }
 
 .dashboard-content-section {

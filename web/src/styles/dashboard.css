@@ -1,4 +1,28 @@
-.manage-store-sidebar {
+/* Unified layout grid and sidebar styles for dashboards */
+
+.dashboard-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  min-height: calc(100vh - var(--navbar-height) - var(--spacing-lg) * 2);
+}
+
+.dashboard-grid-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  gap: var(--spacing-lg);
+}
+
+.dashboard-grid-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-xl);
+  min-height: 400px;
+}
+
+/* Reusable Sidebar Component styling */
+.sidebar-container {
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   background: var(--bg-dashboard-sidebar);
@@ -10,13 +34,13 @@
   align-self: flex-start;
 }
 
-.manage-store-sidebar-nav {
+.sidebar-nav {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
 }
 
-.manage-store-nav-item {
+.sidebar-nav-item {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -31,12 +55,12 @@
   background: transparent;
 }
 
-.manage-store-nav-item:hover {
+.sidebar-nav-item:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
 }
 
-.manage-store-nav-item.active {
+.sidebar-nav-item.active {
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
   color: var(--text-on-primary);
   box-shadow: var(--shadow-primary);

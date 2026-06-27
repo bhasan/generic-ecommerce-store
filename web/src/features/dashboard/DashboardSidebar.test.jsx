@@ -22,14 +22,14 @@ const renderSidebar = (route = '/dashboard/pending-registrations') =>
   );
 
 describe('DashboardSidebar', () => {
-  it('renders an aside with dashboard-sidebar class', () => {
+  it('renders a nav with sidebar-container class', () => {
     const { container } = renderSidebar();
-    expect(container.querySelector('aside.dashboard-sidebar')).toBeInTheDocument();
+    expect(container.querySelector('nav.sidebar-container')).toBeInTheDocument();
   });
 
-  it('renders a sidebar-nav inside the aside', () => {
+  it('renders a sidebar-nav inside the nav container', () => {
     const { container } = renderSidebar();
-    expect(container.querySelector('aside.dashboard-sidebar nav.sidebar-nav')).toBeInTheDocument();
+    expect(container.querySelector('nav.sidebar-container div.sidebar-nav')).toBeInTheDocument();
   });
 
   it('renders all 7 nav items as links', () => {
