@@ -28,6 +28,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const activeVariants = (product?.variants ?? []).filter(v => v.active);
   const selectedVariant = activeVariants.find(v => v.id === selectedVariantId) ?? getDefaultVariant(product);
   const allowedQuantities = selectedVariant ? getAllowedQuantities(selectedVariant) : [];
+  const { basePrice, unitPrice, totalPrice, originalTotal, hasDiscount } = usePriceCalculation(selectedVariant, selectedQuantity);
 
   useEffect(() => {
     if (product) {
@@ -72,7 +73,6 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const images = getProductAllImages(product);
   const showStock = selectedVariant?.stockEnabled !== false;
   const isOutOfStock = showStock && Number(selectedVariant?.stock ?? 0) === 0;
-  const { basePrice, unitPrice, totalPrice, originalTotal, hasDiscount } = usePriceCalculation(selectedVariant, selectedQuantity);
 
   const handleAddToCart = () => {
     if (selectedVariant) addToCart(product, selectedVariant, selectedQuantity);
