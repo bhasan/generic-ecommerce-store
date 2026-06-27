@@ -166,15 +166,12 @@ through its `User`; revisit if direct queries need protection).
 Executed atomically in a single core migration file:
 
 1. Create `Tenant`/`Store` tables and `TenantStatus`/`StoreStatus` enums.
-2. Create the non-superuser `app_user` role; grant public schema privileges (no `BYPASSRLS`).
-3. Add `tenantId`/`storeId` columns to existing scoped tables as **nullable** (`INTEGER`).
-4. Insert the **default tenant** (the real smoke shop; slug = production subdomain) and its **default store** (`isDefault=true`).
-5. Backfill every existing row's `tenantId` = default tenant; store-scoped rows' `storeId` = default store.
-6. Alter all scoped columns to **NOT NULL**.
-7. Drop global unique constraints on `slug`, `email`, and `username`, and add tenant-scoped composite unique constraints (e.g. `@@unique([tenantId, slug])`).
-8. Add Foreign Keys + composite indexes leading with `tenantId`/`storeId` on hot paths.
-9. Enable RLS and apply policies on all scoped tables, including the `app.bypass_rls` super-admin check.
-10. Switch the app's runtime `DATABASE_URL` to `app_user`.
+2. Add `tenantId`/`storeId` columns to existing scoped tables as **nullable** (`INTEGER`).
+3. Insert the **default tenant** (the real smoke shop; slug = production subdomain) and its **default store** (`isDefault=true`).
+4. Backfill every existing row's `tenantId` = default tenant; store-scoped rows' `storeId` = default store.
+5. Alter all scoped columns to **NOT NULL**.
+6. Drop global unique constraints on `slug`, `email`, and `username`, and add tenant-scoped composite unique constraints (e.g. `@@unique([tenantId, slug])`).
+7. Add Foreign Keys + composite indexes leading with `tenantId`/`storeId` on hot paths.
 
 The database changes are safe and atomic, meaning columns are created, backfilled, and locked down all within the same transaction before any queries hit them.
 
@@ -214,14 +211,9 @@ prove undesirable.
 
 ## Testing Strategy
 
-- **Isolation (the priority):** two tenants seeded; assert tenant A's API can never
-  read/modify tenant B's products/orders/users **at the DB level** (RLS), including via
-  raw queries; super-admin/unscoped path can; pooled-connection reuse never leaks
-  context; startup fails if connected as superuser.
-- **Resolution/auth:** host→tenant mapping; unknown/suspended tenant rejected; JWT
-  tenant mismatch rejected; store-aware role checks (tenant-wide vs store-scoped).
-- **Migration:** run against a snapshot of single-tenant data; all rows acquire the
-  default tenant/store; app behaves identically; `app_user` has no BYPASSRLS.
+- **Isolation (the priority):** two tenants seeded; assert tenant A's API can never read/modify tenant B's products/orders/users via the extended Prisma client; verify that standard ORM queries automatically inject tenant-filtering constraints; verify that startup fails if the default tenant is missing.
+- **Resolution/auth:** host→tenant mapping; unknown/suspended tenant rejected; JWT tenant mismatch rejected; store-aware role checks (tenant-wide vs store-scoped).
+- **Migration:** run against a snapshot of single-tenant data; all rows acquire the default tenant/store; app behaves identically.
 - Existing service/controller suites run under a tenant context.
 
 ## CI Guardrails
