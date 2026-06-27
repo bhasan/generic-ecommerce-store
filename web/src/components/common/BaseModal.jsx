@@ -13,25 +13,27 @@ function BaseModal({
 }) {
   const containerRef = useRef(null);
   const previousFocusRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+
+  // Keep ref current without adding to effect deps
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     if (!isOpen) return;
 
-    // Save currently focused element
     previousFocusRef.current = document.activeElement;
 
-    // Lock body scroll
     document.body.style.overflow = 'hidden';
 
-    // Focus the modal container
     if (containerRef.current) {
       containerRef.current.focus();
     }
 
-    // Esc key handler
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose();
+        onCloseRef.current();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
@@ -39,12 +41,11 @@ function BaseModal({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
-      // Restore focus
       if (previousFocusRef.current && previousFocusRef.current.focus) {
         previousFocusRef.current.focus();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
