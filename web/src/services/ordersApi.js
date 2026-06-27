@@ -42,8 +42,8 @@ export const createOrder = async (items, cashAppUsername, deliveryMethod, paymen
   if (paymentMethod) payload.paymentMethod = paymentMethod;
   if (deliveryMethod === 'DELIVERY' && deliveryAddress) payload.deliveryAddress = deliveryAddress;
   if (deliveryMethod === 'CURBSIDE' && vehicleDescription) payload.vehicleDescription = vehicleDescription;
-  const response = await post('/orders', payload);
-  return response.order || response;
+  const data = await post('/orders', payload);
+  return data.order ?? data;
 };
 
 /**
@@ -62,8 +62,7 @@ export const checkDeliveryEligibility = async (deliveryAddress) => {
  * @returns {Promise<object>} Updated order object
  */
 export const updateOrderStatus = async (id, status) => {
-  const response = await patch(`/orders/${id}/status`, { status });
-  return response.order || response;
+  return patch(`/orders/${id}/status`, { status });
 };
 
 /**
@@ -74,8 +73,7 @@ export const updateOrderStatus = async (id, status) => {
  * @returns {Promise<object>} Order item object
  */
 export const addItemToOrder = async (orderId, variantId, quantity) => {
-  const response = await post(`/orders/${orderId}/items`, { variantId, quantity });
-  return response.orderItem || response;
+  return post(`/orders/${orderId}/items`, { variantId, quantity });
 };
 
 /**
@@ -85,8 +83,7 @@ export const addItemToOrder = async (orderId, variantId, quantity) => {
  * @returns {Promise<object>} Voided order item object
  */
 export const voidOrderItem = async (orderId, itemId) => {
-  const response = await patch(`/orders/${orderId}/items/${itemId}/void`);
-  return response.orderItem || response;
+  return patch(`/orders/${orderId}/items/${itemId}/void`);
 };
 
 /**
@@ -114,8 +111,7 @@ export const deleteOrder = async (id) => {
  * @returns {Promise<object>} Queue result
  */
 export const printOrderReceipt = async (id) => {
-  const response = await post(`/orders/${id}/print`, {});
-  return response.result || response;
+  return post(`/orders/${id}/print`, {});
 };
 
 /**
@@ -141,8 +137,7 @@ export const getOutForDeliveryOrders = async () => {
  * @returns {Promise<object>} Response with order details
  */
 export const notifyArrival = async (id, parkingSpot) => {
-  const response = await post(`/orders/${id}/arrive`, { parkingSpot });
-  return response.order || response;
+  return post(`/orders/${id}/arrive`, { parkingSpot });
 };
 
 export const getPaymentToken = async (orderId) => {

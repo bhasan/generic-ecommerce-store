@@ -18,7 +18,6 @@ describe('ordersApi', () => {
 
   it('posts to the print endpoint and returns the queue result', async () => {
     api.post.mockResolvedValue({
-      message: 'Order receipt queued for printing',
       result: {
         queued: true,
         reason: 'MANUAL_REPRINT',
@@ -30,15 +29,16 @@ describe('ordersApi', () => {
 
     expect(api.post).toHaveBeenCalledWith('/orders/55/print', {});
     expect(result).toEqual({
-      queued: true,
-      reason: 'MANUAL_REPRINT',
-      orderId: 55,
+      result: {
+        queued: true,
+        reason: 'MANUAL_REPRINT',
+        orderId: 55,
+      },
     });
   });
 
   it('posts to the arrive endpoint with the parking spot and returns order status', async () => {
     api.post.mockResolvedValue({
-      message: 'Arrival notification sent successfully',
       order: {
         id: 701,
         status: 'ARRIVED',
@@ -51,15 +51,17 @@ describe('ordersApi', () => {
 
     expect(api.post).toHaveBeenCalledWith('/orders/701/arrive', { parkingSpot: 'Space 3' });
     expect(result).toEqual({
-      id: 701,
-      status: 'ARRIVED',
-      deliveryMethod: 'CURBSIDE',
-      deliveryAddress: 'CURBSIDE: Blue Civic | SPOT: Space 3',
+      order: {
+        id: 701,
+        status: 'ARRIVED',
+        deliveryMethod: 'CURBSIDE',
+        deliveryAddress: 'CURBSIDE: Blue Civic | SPOT: Space 3',
+      },
     });
   });
 
   it('posts to the create endpoint and includes vehicleDescription for CURBSIDE orders', async () => {
-    api.post.mockResolvedValue({ id: 801, deliveryMethod: 'CURBSIDE' });
+    api.post.mockResolvedValue({ order: { id: 801, deliveryMethod: 'CURBSIDE' } });
 
     const result = await ordersApi.createOrder(
       [{ productId: 101, quantity: 1 }], 'some_cashapp', 'CURBSIDE', 'IN_STORE',

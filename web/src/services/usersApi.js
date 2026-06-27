@@ -23,8 +23,7 @@ export const getUserById = usersResource.getById;
  * @returns {Promise<object>} Updated user object
  */
 export const updateUser = async (id, data) => {
-  const response = await put(`/users/${id}`, data, { skipAutoLogout: true });
-  return response.user || response;
+  return put(`/users/${id}`, data, { skipAutoLogout: true });
 };
 
 /**
@@ -49,8 +48,7 @@ export const getRejectedUsers = async () => {
  * @returns {Promise<object>} Approved user object
  */
 export const approveUser = async (id) => {
-  const response = await post(`/users/${id}/approve`);
-  return response.user || response;
+  return post(`/users/${id}/approve`);
 };
 
 /**

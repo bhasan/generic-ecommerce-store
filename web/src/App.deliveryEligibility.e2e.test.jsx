@@ -176,7 +176,7 @@ const installApiMock = ({
       createOrderBodies.push(body);
       createdOrders = [createdOrder];
       return jsonResponse(
-        { message: 'Order created successfully', order: createdOrder },
+        { success: true, message: 'Order created successfully', data: { order: createdOrder } },
         { status: 201 }
       );
     }
