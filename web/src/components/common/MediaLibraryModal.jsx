@@ -4,6 +4,7 @@ import { getImages, deleteImage, uploadFile, uploadFiles } from '../../services/
 import { MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile, isVideoUrl } from '../../utils/mediaUpload';
 import ImageCropModal from './ImageCropModal';
 import './MediaLibraryModal.css';
+import BaseModal from './BaseModal';
 
 function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hideInsertButton = false, hideCloseButton = false }) {
   const [images, setImages] = useState([]);
@@ -82,7 +83,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
           await deleteImage(filename);
         }
       }
-      
+
       // Update state
       setImages((prev) => prev.filter((img) => !selectedItems.includes(img.url)));
       setSelectedItems([]);
@@ -147,8 +148,8 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
   const handleItemClick = (url) => {
     if (multiSelect) {
-      setSelectedItems(prev => 
-        prev.includes(url) 
+      setSelectedItems(prev =>
+        prev.includes(url)
           ? prev.filter(item => item !== url)
           : [...prev, url]
       );
@@ -161,26 +162,23 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     onSelect(multiSelect ? selectedItems : selectedItems[0]);
   };
 
-  if (!isOpen) return null;
-
   return (
     <>
-    <div className="media-modal-overlay" onClick={onClose}>
-      <div className="media-modal-content surface-card-accent" onClick={(e) => e.stopPropagation()}>
+      <BaseModal isOpen={isOpen} onClose={onClose} className="media-modal-content surface-card-accent" maxWidth="1000px">
         <div className="media-modal-header">
           <h3 className="media-modal-title">Media Library</h3>
-          
+
           <div className="media-modal-actions">
             <div className="view-mode-toggle">
-              <button 
-                className={`btn-icon ${viewMode === 'grid' ? 'active' : ''}`} 
+              <button
+                className={`btn-icon ${viewMode === 'grid' ? 'active' : ''}`}
                 onClick={() => setViewMode('grid')}
                 title="Grid View"
               >
                 <Grid size={18} />
               </button>
-              <button 
-                className={`btn-icon ${viewMode === 'list' ? 'active' : ''}`} 
+              <button
+                className={`btn-icon ${viewMode === 'list' ? 'active' : ''}`}
                 onClick={() => setViewMode('list')}
                 title="List View"
               >
@@ -195,7 +193,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
               <span>{isUploading ? 'Uploading...' : 'Upload New'}</span>
               <input type="file" accept={MEDIA_INPUT_ACCEPT} multiple onChange={handleUpload} disabled={isUploading} hidden />
             </label>
-            
+
             <button className="btn btn-secondary btn-icon" onClick={fetchImages} title="Refresh Library">
               <RefreshCw size={18} />
             </button>
@@ -209,7 +207,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
         <div className="media-modal-body">
           {error && <div className="media-error-banner">{error}</div>}
-          
+
           {isLoading ? (
             <div className="media-loading-state">
               <Loader2 size={32} className="spin text-primary" />
@@ -226,9 +224,9 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
               {images.map((image) => {
                 const isSelected = selectedItems.includes(image.url);
                 return (
-                  <div 
-                    key={image.filename} 
-                    className={`media-item ${isSelected ? 'selected' : ''}`} 
+                  <div
+                    key={image.filename}
+                    className={`media-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleItemClick(image.url)}
                   >
                     <div className="media-item-preview">
@@ -237,7 +235,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                           <CheckCircle2 size={24} className="check-icon" />
                         </div>
                       )}
-                      
+
                       {isVideoUrl(image.url) ? (
                         <>
                           <video src={image.url} className="media-thumbnail-video" />
@@ -249,7 +247,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                         <img src={image.url} alt={image.filename} loading="lazy" />
                       )}
                     </div>
-                    
+
                     <div className="media-item-info">
                       <div className="media-item-name" title={image.filename}>{image.filename}</div>
                       <div className="media-item-meta">
@@ -258,8 +256,8 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                           <span className="media-item-size">{dimensions[image.url].width}×{dimensions[image.url].height}</span>
                         )}
                         <span className="media-item-date">{new Date(image.createdAt).toLocaleDateString()}</span>
-                        <button 
-                          className="btn btn-ghost btn-icon btn-sm btn-delete-media" 
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm btn-delete-media"
                           onClick={(e) => handleDelete(image.filename, e)}
                           title="Delete Media"
                         >
@@ -273,13 +271,13 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
             </div>
           )}
         </div>
-        
+
         {multiSelect && selectedItems.length > 0 && (
           <div className="media-modal-footer">
             <span className="media-selected-count">{selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected</span>
             <div className="media-footer-actions">
-              <button 
-                className="btn btn-ghost" 
+              <button
+                className="btn btn-ghost"
                 style={{ color: 'var(--danger-color)' }}
                 onClick={handleBulkDelete}
               >
@@ -295,16 +293,15 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
             </div>
           </div>
         )}
-      </div>
-    </div>
-    {cropFile && (
-      <ImageCropModal
-        file={cropFile}
-        onConfirm={handleCropDone}
-        onSkip={handleCropDone}
-        onCancel={() => setCropFile(null)}
-      />
-    )}
+      </BaseModal>
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          onConfirm={handleCropDone}
+          onSkip={handleCropDone}
+          onCancel={() => setCropFile(null)}
+        />
+      )}
     </>
   );
 }
