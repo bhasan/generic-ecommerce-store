@@ -8,6 +8,7 @@ function BaseModal({
   children,
   className,
   maxWidth = '500px',
+  overlayClassName,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledby,
 }) {
@@ -50,7 +51,7 @@ function BaseModal({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className={`modal-overlay${overlayClassName ? ` ${overlayClassName}` : ''}`} onClick={onClose}>
       <div
         className={`modal-container ${className || ''}`}
         style={{ maxWidth }}

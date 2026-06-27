@@ -326,7 +326,7 @@ export default function CsvImportModal({ isOpen, onClose, products, categories }
   };
 
   return (
-    <BaseModal isOpen={isOpen} onClose={canDismiss ? resetAndClose : () => {}} className="csv-modal-content" maxWidth="680px">
+    <BaseModal isOpen={isOpen} onClose={canDismiss ? resetAndClose : () => {}} className="csv-modal-content" maxWidth="680px" overlayClassName="csv-modal-overlay">
       <div className="csv-modal-header">
         <h2 className="csv-modal-title">{titles[step]}</h2>
         {canDismiss && (
