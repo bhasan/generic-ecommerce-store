@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import userService from '../services/user.service';
-import { logger } from '../utils/logger';
 import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 

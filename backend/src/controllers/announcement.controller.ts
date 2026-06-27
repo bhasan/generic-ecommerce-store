@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { AnnouncementService } from '../services/announcement.service';
-import { logger } from '../utils/logger';
 import { parseIntParam } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 

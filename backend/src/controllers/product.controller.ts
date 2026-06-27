@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import productService from '../services/product.service';
 import { streamProductsExportZip } from '../services/productExport.service';
-import { logger } from '../utils/logger';
 import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 

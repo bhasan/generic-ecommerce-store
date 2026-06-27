@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import categoryService from '../services/category.service';
-import { logger } from '../utils/logger';
 import { validateRequest, parseIntParam } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 
