@@ -29,7 +29,10 @@ The field-proven shared-DB isolation pattern is **Prisma Client Extensions that 
 - **Tenant resolution:** resolved via a priority chain: request headers, active JWT sessions, or custom domains/subdomain slugs (with fallback to default tenant on main domain).
 - **Platform admin:** super-admin console above all tenants.
 - **Isolation:** **Prisma Query Extension is primary, from Phase 1**; ALS carries `{tenantId, storeId}` per request, and an extended Prisma client automatically appends `tenantId` (and `storeId` if store-scoped) to all query filters (`where` clauses) and write objects (`data`). App business logic is unchanged and tenant-blind. The database requires no RLS policies, custom session configurations, or database role privilege splits.
-- **Roles:** global role-name catalog + scoped assignment (`User.tenantId`, `UserRole.storeId`); store-aware authorization. No per-tenant custom roles.
+- **Roles:** global role-name catalog + scoped assignment (`User.tenantId`, `UserRole.storeId`); store-aware authorization. No per-tenant custom roles. `SUPER_ADMIN` is a platform-level role (`tenantId = null`).
+- **Tenant resolution:** priority chain — explicit request headers → JWT → custom domain → subdomain slug → apex/default. Subdomains are an enhancement, not a requirement; single-domain deployments work via headers.
+- **Custom domains:** `Tenant.customDomain` field; tenant CNAMEs their domain to your server; TLS managed per-domain via Let's Encrypt (Phase 2+).
+- **Per-tenant DB:** `tenantId` on every row makes per-tenant DB migration tractable at any future point; controlled via optional `Tenant.dbUrl` (Phase 3+).
 - The `tenantId`/`storeId` columns are the only irreversible decision; added in Phase 1.
 
 ## Phases at a Glance

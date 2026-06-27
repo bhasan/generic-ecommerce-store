@@ -154,12 +154,34 @@ through its `User`; revisit if direct queries need protection).
 - **Soft-Delete Lifecycle:** Tenant deletion/suspension changes the status field (e.g. `TenantStatus.SUSPENDED` or a new `DELETED` state) on the `Tenant` table, cutting off access at the resolver middleware. We preserve historical data in the database rather than running cascaded hard deletes.
 - **Media & Asset Isolation:** Product images, store banners, and user logos are uploaded to isolated file paths (e.g., `uploads/tenants/:tenantId/` or S3 folder prefixes `tenants/:tenantId/`) to prevent cross-tenant directory traversals and namespace collisions.
 
+## Tenant Resolution & Deployment Flexibility
+
+Tenant resolution uses a **priority chain** so the system is not locked to any single deployment topology:
+
+| Priority | Source | How it works |
+|----------|--------|--------------|
+| 1 | `X-Tenant-ID` / `X-Tenant-Slug` request headers | Explicit override — ideal for single-domain SPAs, API testing, or non-subdomain deployments |
+| 2 | JWT token `tenantId` | If the user is already authenticated, their token carries the tenant |
+| 3 | `Host` header → custom domain (`Tenant.customDomain`) | Tenant maps their own domain: `store.customdomain.com → CNAME → yourapp.com` |
+| 4 | `Host` header → subdomain slug | `acme.yourapp.com` → slug `acme` |
+| 5 | Apex / `www` | No subdomain → default tenant (`slug: 'app'`) |
+
+**Consequence:** subdomains are an enhancement, not a requirement. A single-domain deployment works out of the box using headers or JWT resolution. Wildcard DNS and TLS are only needed if you want subdomain-per-tenant branding.
+
+### Custom domains (`store.customdomain.com`)
+
+A tenant can map their own domain by setting `Tenant.customDomain = 'store.customdomain.com'`. They point a CNAME at your server. The middleware matches the incoming `Host` header against `customDomain` at priority 3. You need a TLS cert per custom domain — this can be automated with Let's Encrypt (certbot or Caddy) as an ops task.
+
+### Per-tenant database isolation (future scaling path)
+
+With `tenantId` on every row, a large tenant can be migrated to their own Postgres instance at any time. The mechanism: add a nullable `dbUrl` column to `Tenant`. `getTenantPrisma()` checks whether the current tenant has a `dbUrl` set and, if so, instantiates a separate PrismaClient pointed at that URL. For the 99% case (no `dbUrl`), the shared connection pool is used unchanged. This is tracked as a Phase 3+ concern.
+
 ## Frontend Impact (Phase 1, minimal)
 
 - API base stays `/api`; the browser sends the correct `Host` subdomain, so tenant resolution is server-side — no per-request tenant param.
 - **Auth/Session Cookie Domain Scope:** Authentication cookies are scoped strictly to the host subdomain (e.g., `tenant.yourapp.com`), not the apex domain (`.yourapp.com`), preventing session conflicts when using multiple tenants.
 - No location picker yet (single default store per tenant).
-- Deployment: wildcard DNS (`*.yourapp.com`) + wildcard TLS so `demo.` and the real tenant subdomain resolve. (Infra task in the plan.)
+- Deployment: wildcard DNS (`*.yourapp.com`) + wildcard TLS so `demo.` and the real tenant subdomain resolve. (Infra task in the plan.) **Not required for single-domain or header-based deployments.**
 
 ## Data Migration (wrapping existing data)
 

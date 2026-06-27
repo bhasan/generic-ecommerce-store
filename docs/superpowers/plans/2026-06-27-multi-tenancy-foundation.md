@@ -922,11 +922,29 @@ import { resolveTenant } from './middleware/tenant.middleware';
 app.use('/api', resolveTenant);
 ```
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Enrich request logs and error tracking with `tenantId`**
+
+Every log line and error report must carry `tenantId` so incidents are diagnosable per-tenant. In the existing request-logging middleware (find it near the morgan/logger setup in `src/index.ts` or `src/middleware/`), add `tenantId` after `resolveTenant` runs:
+
+```ts
+// Add after resolveTenant in the middleware chain
+app.use('/api', (req, _res, next) => {
+  // Attach tenantId to the logger context so all downstream log calls carry it.
+  // req.tenantId is set by resolveTenant; null means super-admin scope.
+  if (req.logger) {
+    req.logger = req.logger.child({ tenantId: req.tenantId ?? 'super-admin' });
+  }
+  next();
+});
+```
+
+If the project uses a global logger rather than `req.logger`, attach tenantId via ALS instead — `getTenantContext()?.tenantId` is available from any log call inside a request. Update any Sentry/error-tracking `captureException` call sites to include `{ extra: { tenantId: req.tenantId } }` in the scope.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add backend/src/middleware/tenant.middleware.ts backend/src/middleware/tenant.middleware.test.ts backend/src/types/express.d.ts backend/src/index.ts
-git commit -m "feat(tenancy): subdomain tenant-resolution middleware"
+git commit -m "feat(tenancy): subdomain tenant-resolution middleware + tenantId log enrichment"
 ```
 
 ---
@@ -1178,6 +1196,18 @@ In `backend/prisma/schema.prisma`, update the unique constraints for all scoped 
 - On `Category`: replace `@unique` on `slug` with `@@unique([tenantId, slug])`.
 - On `User`: replace `@unique` on `username` and `email` with `@@unique([tenantId, username])` and `@@unique([tenantId, email])`.
 - (Repeat for other scoped models with unique keys, ensuring they are prefixed with `tenantId`).
+
+> **Performance note — hot-path findUnique bypass:** After adding `@@unique([tenantId, email])` to `User`, Prisma generates a compound key accessor `tenantId_email`. Auth service lookups (user by email on every login) are the hottest Prisma call in the app. These should call `findUnique` with the compound key directly, which satisfies the unique constraint WITH tenantId already embedded — the extension's `findUnique → findFirst` redirect is never triggered, and Postgres uses the unique index directly.
+>
+> In `backend/src/services/auth.service.ts`, change user-by-email lookups from:
+> ```ts
+> prisma.user.findUnique({ where: { email } })
+> ```
+> to:
+> ```ts
+> getTenantPrisma().user.findUnique({ where: { tenantId_email: { tenantId: ctx.tenantId, email } } })
+> ```
+> Apply the same pattern to username lookups: `tenantId_username: { tenantId, username }`.
 
 - [ ] **Step 2: Generate unique index migration**
 
@@ -1573,6 +1603,281 @@ Expected: all suites pass. Existing tests that construct `JwtPayload` or call `r
 ```bash
 git add -A
 git commit -m "chore(tenancy): align callers with scoped-roles JWT shape; suite green"
+```
+
+---
+
+## Task 16: Super-admin tenant deletion (GDPR / data management)
+
+**Files:**
+- Create: `backend/src/services/tenant.service.ts`
+- Create: `backend/src/controllers/admin/tenant.admin.controller.ts`
+- Modify: `backend/src/index.ts` (mount admin router)
+- Test: `backend/src/services/tenant.service.test.ts`
+
+**Interfaces:**
+- Consumes: `getUnscopedPrisma` (Task 5). Caller must hold `SUPER_ADMIN` role.
+- Produces: `deleteTenant(tenantId: number): Promise<void>` — hard-deletes all tenant data in FK-safe order, then the tenant row. `DELETE /admin/tenants/:id` endpoint, SUPER_ADMIN only.
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+// backend/src/services/tenant.service.test.ts
+import { describe, it, expect, vi } from 'vitest';
+import { deleteTenant } from './tenant.service';
+
+const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+const deleteOne = vi.fn().mockResolvedValue({});
+const prisma: any = {
+  orderItem: { deleteMany }, orderStatusEvent: { deleteMany },
+  payment: { deleteMany }, cartItem: { deleteMany },
+  printJob: { deleteMany }, posOutbox: { deleteMany },
+  orderPosMapping: { deleteMany }, order: { deleteMany },
+  storeCreditTransaction: { deleteMany }, reviewVote: { deleteMany },
+  review: { deleteMany }, announcement: { deleteMany },
+  contactMessage: { deleteMany }, productImage: { deleteMany },
+  variantQuantityOption: { deleteMany }, variantPriceBreak: { deleteMany },
+  productVariant: { deleteMany }, product: { deleteMany },
+  category: { deleteMany }, uiSetting: { deleteMany },
+  userRole: { deleteMany }, user: { deleteMany },
+  store: { deleteMany }, tenant: { delete: deleteOne },
+};
+
+it('deletes in FK-safe order and removes the tenant row last', async () => {
+  await deleteTenant(42, prisma);
+  // orderItem before order
+  const callNames = (deleteMany.mock.calls as any[]).map(
+    (_, i) => deleteMany.mock.instances[i]
+  );
+  expect(deleteOne).toHaveBeenCalledWith({ where: { id: 42 } });
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+Run: `cd backend && npx vitest run src/services/tenant.service.test.ts`
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement `deleteTenant`**
+
+```ts
+// backend/src/services/tenant.service.ts
+import { getUnscopedPrisma } from '../config/database';
+import { PrismaClient } from '../../generated/prisma';
+
+// Deletes all data for one tenant in FK-safe order (children before parents).
+// Uses the unscoped client — this runs outside any tenant ALS context intentionally.
+export async function deleteTenant(
+  tenantId: number,
+  db: Pick<PrismaClient, 'orderItem' | 'orderStatusEvent' | 'payment' | 'cartItem' |
+    'printJob' | 'posOutbox' | 'orderPosMapping' | 'order' | 'storeCreditTransaction' |
+    'reviewVote' | 'review' | 'announcement' | 'contactMessage' | 'productImage' |
+    'variantQuantityOption' | 'variantPriceBreak' | 'productVariant' | 'product' |
+    'category' | 'uiSetting' | 'userRole' | 'user' | 'store' | 'tenant'> = getUnscopedPrisma(),
+): Promise<void> {
+  const w = { where: { tenantId } };
+  // Order items / events before orders
+  await db.orderItem.deleteMany(w);
+  await db.orderStatusEvent.deleteMany(w);
+  await db.payment.deleteMany(w);
+  await db.cartItem.deleteMany(w);
+  await db.printJob.deleteMany(w);
+  await db.posOutbox.deleteMany(w);
+  await db.orderPosMapping.deleteMany(w);
+  await db.order.deleteMany(w);
+  // Product structure
+  await db.storeCreditTransaction.deleteMany(w);
+  await db.reviewVote.deleteMany(w);
+  await db.review.deleteMany(w);
+  await db.announcement.deleteMany(w);
+  await db.contactMessage.deleteMany(w);
+  await db.productImage.deleteMany(w);
+  await db.variantQuantityOption.deleteMany(w);
+  await db.variantPriceBreak.deleteMany(w);
+  await db.productVariant.deleteMany(w);
+  await db.product.deleteMany(w);
+  await db.category.deleteMany(w);
+  await db.uiSetting.deleteMany(w);
+  // Users
+  await db.userRole.deleteMany(w);
+  await db.user.deleteMany(w);
+  // Stores, then tenant row
+  await db.store.deleteMany(w);
+  await db.tenant.delete({ where: { id: tenantId } });
+}
+```
+
+- [ ] **Step 4: Add the admin controller and route**
+
+```ts
+// backend/src/controllers/admin/tenant.admin.controller.ts
+import { Request, Response } from 'express';
+import { deleteTenant } from '../../services/tenant.service';
+
+export async function deleteTenantHandler(req: Request, res: Response): Promise<void> {
+  const tenantId = Number(req.params.id);
+  if (!tenantId || isNaN(tenantId)) {
+    res.status(400).json({ error: 'Invalid tenant id' });
+    return;
+  }
+  // Prevent super-admin from deleting the default tenant (slug: 'app')
+  const { getUnscopedPrisma } = await import('../../config/database');
+  const tenant = await getUnscopedPrisma().tenant.findUnique({ where: { id: tenantId } });
+  if (!tenant) { res.status(404).json({ error: 'Tenant not found' }); return; }
+  if (tenant.slug === 'app') {
+    res.status(403).json({ error: 'Cannot delete the default tenant' });
+    return;
+  }
+  await deleteTenant(tenantId);
+  res.status(204).send();
+}
+```
+
+Mount in `backend/src/index.ts` under the super-admin scope (the `admin` subdomain path already resolves to `scope: 'super-admin'` in Task 6):
+
+```ts
+import { deleteTenantHandler } from './controllers/admin/tenant.admin.controller';
+import { requireRole } from './middleware/role.middleware';
+// ...
+app.delete('/admin/tenants/:id', requireRole(['SUPER_ADMIN']), deleteTenantHandler);
+```
+
+- [ ] **Step 5: Run to verify test passes**
+
+Run: `cd backend && npx vitest run src/services/tenant.service.test.ts`
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/src/services/tenant.service.ts backend/src/services/tenant.service.test.ts backend/src/controllers/admin/tenant.admin.controller.ts backend/src/index.ts
+git commit -m "feat(tenancy): super-admin tenant deletion endpoint"
+```
+
+---
+
+## Task 17: Demo reset button + demo rate limiting
+
+**Files:**
+- Create: `backend/src/controllers/admin/demo.admin.controller.ts`
+- Modify: `backend/src/middleware/rateLimit.middleware.ts` (create if absent)
+- Modify: `backend/src/index.ts`
+- Test: `backend/src/controllers/admin/demo.admin.controller.test.ts`
+
+**Interfaces:**
+- Produces: `POST /admin/demo/reset` (SUPER_ADMIN only) — re-runs demo seed; stricter rate limits on all `/api` routes when `req.tenantId` matches the demo tenant.
+
+- [ ] **Step 1: Create the reset endpoint**
+
+```ts
+// backend/src/controllers/admin/demo.admin.controller.ts
+import { Request, Response } from 'express';
+import { getUnscopedPrisma } from '../../config/database';
+
+// Extracted reset logic (same as seed-demo.ts main() but callable from a route)
+export async function resetDemoHandler(_req: Request, res: Response): Promise<void> {
+  const prisma = getUnscopedPrisma();
+  const tenant = await prisma.tenant.findUnique({ where: { slug: 'demo' } });
+  if (!tenant) {
+    res.status(404).json({ error: 'Demo tenant not found. Run prisma:seed:demo first.' });
+    return;
+  }
+  // Reuse the idempotent seed function (import the reset logic, not the CLI wrapper)
+  const { resetDemoTenant } = await import('../../prisma/seed-demo');
+  await resetDemoTenant(tenant.id);
+  res.json({ ok: true, message: 'Demo tenant reset.' });
+}
+```
+
+Refactor `backend/prisma/seed-demo.ts` to export a `resetDemoTenant(tenantId: number)` function alongside the existing `main()` CLI entry point so it can be imported by the controller.
+
+- [ ] **Step 2: Write the failing test**
+
+```ts
+// backend/src/controllers/admin/demo.admin.controller.test.ts
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('../../config/database', () => ({
+  getUnscopedPrisma: () => ({
+    tenant: { findUnique: vi.fn().mockResolvedValue({ id: 9, slug: 'demo' }) },
+  }),
+}));
+vi.mock('../../prisma/seed-demo', () => ({
+  resetDemoTenant: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { resetDemoHandler } from './demo.admin.controller';
+
+it('calls resetDemoTenant and returns ok', async () => {
+  const req: any = {};
+  const res: any = { json: vi.fn(), status: vi.fn().mockReturnThis() };
+  await resetDemoHandler(req, res);
+  expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ ok: true }));
+});
+```
+
+- [ ] **Step 3: Run to verify it fails**
+
+Run: `cd backend && npx vitest run src/controllers/admin/demo.admin.controller.test.ts`
+Expected: FAIL — module not found.
+
+- [ ] **Step 4: Add demo rate limiting middleware**
+
+Install if not present: `npm install express-rate-limit` in `backend/`.
+
+```ts
+// backend/src/middleware/rateLimit.middleware.ts
+import rateLimit from 'express-rate-limit';
+import { getUnscopedPrisma } from '../config/database';
+
+let demoTenantId: number | null | undefined = undefined; // undefined = not yet loaded
+
+async function getDemoTenantId(): Promise<number | null> {
+  if (demoTenantId !== undefined) return demoTenantId;
+  const t = await getUnscopedPrisma().tenant.findUnique({ where: { slug: 'demo' } });
+  demoTenantId = t?.id ?? null;
+  return demoTenantId;
+}
+
+// Strict rate limit applied only to demo tenant requests.
+// 30 req/min per IP on demo, vs the default (no limit) on real tenants.
+export const demoRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req: any) => `demo:${req.ip}`,
+  skip: async (req: any) => {
+    const id = await getDemoTenantId();
+    return req.tenantId !== id; // skip (no limit) when not the demo tenant
+  },
+  message: { error: 'Too many requests to the demo — please slow down.' },
+});
+```
+
+Mount in `backend/src/index.ts` after `resolveTenant`:
+
+```ts
+import { demoRateLimit } from './middleware/rateLimit.middleware';
+// ...
+app.use('/api', resolveTenant);
+app.use('/api', demoRateLimit);
+```
+
+- [ ] **Step 5: Mount the reset route and run tests**
+
+```ts
+// backend/src/index.ts
+import { resetDemoHandler } from './controllers/admin/demo.admin.controller';
+app.post('/admin/demo/reset', requireRole(['SUPER_ADMIN']), resetDemoHandler);
+```
+
+Run: `cd backend && npx vitest run src/controllers/admin/demo.admin.controller.test.ts`
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add backend/src/controllers/admin/demo.admin.controller.ts backend/src/controllers/admin/demo.admin.controller.test.ts backend/src/middleware/rateLimit.middleware.ts backend/prisma/seed-demo.ts backend/src/index.ts
+git commit -m "feat(tenancy): demo reset endpoint + demo rate limiting"
 ```
 
 ---
