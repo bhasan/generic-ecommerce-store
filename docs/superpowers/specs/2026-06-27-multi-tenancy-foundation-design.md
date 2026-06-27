@@ -39,7 +39,7 @@ The clean and lightweight way to do *shared-database* tenant isolation is **Pris
 - **Catalog:** tenant-level master catalog **+ per-store overrides** (override layer is Phase 2; Phase 1 ships the tenant-level master catalog only).
 - **Customers:** tenant-level — one customer account shops any store within the tenant. Orders are still tied to a specific store. (`approved` becomes per-tenant for free, since customers are tenant-scoped user rows.)
 - **Website/branding settings (`UiSetting`):** tenant-level. No per-store override in Phase 1.
-- **Tenant resolution:** subdomain → tenant (`acme.yourapp.com` → tenant Acme). Store is selected *inside* the app (location picker — Phase 2), not in the URL, so the auth cookie and customer account span all of a tenant's stores.
+- **Tenant resolution:** resolved using a chain of priority: explicit request headers (`X-Tenant-ID` or `X-Tenant-Slug`), active user session JWTs, or hostname custom domains / subdomain slugs. Falls back to the default tenant (`slug: 'app'`) on the main domain.
 - **Platform administration:** a super-admin console (later phase). Phase 1 creates tenants via seed/CLI.
 - **Isolation strategy:** **Prisma Client Extension query filtering is the primary mechanism.** ALS carries `{ tenantId, storeId }` per request; Prisma automatically appends the matching `tenantId`/`storeId` to all query read `where` filters and write `data` payloads. The app's business logic remains unchanged and clean.
 - **Roles:** **global role catalog + scoped assignment.** Role *names* are fixed platform-wide; scope comes from `User.tenantId` and `UserRole.storeId`. No per-tenant custom roles (deferred indefinitely).
@@ -52,8 +52,8 @@ In scope:
 2. Add `tenantId` / `storeId` columns across all existing tenant/store tables.
 3. Data migration wrapping existing data into a **default tenant + default store**.
 4. **ORM Isolation**: Prisma Client Extension query filtering, supported by ALS request context.
-5. Subdomain → tenant resolution middleware.
-6. Tenant-aware JWT (`tenantId` + scoped roles in token, cross-checked against resolved subdomain).
+5. Multi-channel tenant resolution middleware (headers, sessions, hostnames).
+6. Tenant-aware JWT (`tenantId` + scoped roles in token, cross-checked against resolved tenant).
 7. User ↔ Store ↔ Role model (`User.tenantId`, `UserRole.storeId`) + store-aware authorization middleware.
 8. Seed the **Demo tenant** (fake catalog + orders across all stages, a Management demo user, a customer demo user).
 9. **CI guardrails** for tenant isolation (see CI Guardrails section): verification checks asserting that the Prisma extension correctly injects tenant constraints and prevents cross-tenant leaks.
@@ -202,12 +202,10 @@ prove undesirable.
 
 ## Frontend Impact (Phase 1, minimal)
 
-- API base stays `/api`; the browser sends the correct `Host` subdomain, so tenant
-  resolution is server-side — no per-request tenant param.
-- Auth/session works per-subdomain (cookie scoped to the tenant subdomain).
+- API base stays `/api`. The active tenant context is resolved server-side from headers, active JWT sessions, or custom hostnames/subdomains.
+- Auth/session works per-domain or subdomain (cookie scoped to the specific host domain) to prevent login conflicts.
 - No location picker yet (single default store per tenant).
-- Deployment: wildcard DNS (`*.yourapp.com`) + wildcard TLS so `demo.` and the real
-  tenant subdomain resolve. (Infra task in the plan.)
+- Deployment: wildcard DNS and wildcard TLS are required only if subdomain-based routing is used; single-domain setups require no DNS adjustments.
 
 ## Testing Strategy
 
