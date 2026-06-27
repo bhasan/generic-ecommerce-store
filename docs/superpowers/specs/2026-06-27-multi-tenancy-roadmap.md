@@ -18,15 +18,15 @@ Medusa (reference commerce platform) does **not** ship multi-tenancy natively �
 a tenant-agnostic engine and pushes tenancy governance into an external orchestration
 layer, offering shared-multi-store, database-per-tenant, and hybrid isolation shapes.
 Its "Store + Sales Channels" maps to our Tenant→Store split, not to tenant isolation.
-The field-proven shared-DB isolation pattern (incl. the Medusa community guide) is
-**Postgres RLS as primary enforcement + AsyncLocalStorage to carry tenant context** —
-which this roadmap adopts from## Core Decisions (apply across all phases)
+The field-proven shared-DB isolation pattern is **Prisma Client Extensions that automatically inject tenant filters into all queries + AsyncLocalStorage to carry tenant context** — which this roadmap adopts.
+
+## Core Decisions (apply across all phases)
 
 - **Hierarchy:** Tenant (owning business) → Store (location/storefront) → Users/Orders.
 - **Catalog:** tenant-level master catalog + per-store overrides.
 - **Customers:** tenant-level (one account shops any store in the tenant).
 - **Website/branding settings:** tenant-level.
-- **Tenant resolution:** subdomain → tenant; store selected in-app (not in URL).
+- **Tenant resolution:** resolved via a priority chain: request headers, active JWT sessions, or custom domains/subdomain slugs (with fallback to default tenant on main domain).
 - **Platform admin:** super-admin console above all tenants.
 - **Isolation:** **Prisma Query Extension is primary, from Phase 1**; ALS carries `{tenantId, storeId}` per request, and an extended Prisma client automatically appends `tenantId` (and `storeId` if store-scoped) to all query filters (`where` clauses) and write objects (`data`). App business logic is unchanged and tenant-blind. The database requires no RLS policies, custom session configurations, or database role privilege splits.
 - **Roles:** global role-name catalog + scoped assignment (`User.tenantId`, `UserRole.storeId`); store-aware authorization. No per-tenant custom roles.
@@ -47,7 +47,7 @@ which this roadmap adopts from## Core Decisions (apply across all phases)
 - New `Tenant`/`Store` entities; `tenantId`/`storeId` across all scoped tables.
 - Non-destructive data migration (nullable → backfill → NOT NULL).
 - **ORM isolation:** Prisma query extension that automatically injects tenant scope to `where` query filters and `create` write objects; ALS context resolves tenant ID per request.
-- Subdomain resolution middleware + tenant-aware JWT (mismatch rejected).
+- Multi-channel tenant resolution middleware (headers, sessions, domains) + tenant-aware JWT (mismatch rejected on protected routes).
 - `User.tenantId` (null = super-admin), `UserRole.storeId` (null = tenant-wide), store-aware authorization middleware; `SUPER_ADMIN` added to the role catalog.
 - Demo tenant seed: fake catalog, orders in every stage, Management + customer demo users.
 
