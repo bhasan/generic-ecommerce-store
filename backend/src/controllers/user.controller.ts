@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import userService from '../services/user.service';
 import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 export class UserController {
   async getAllUsers(req: Request, res: Response) : Promise<void> {
@@ -10,7 +11,7 @@ export class UserController {
       { defaultLimit: 100, maxLimit: 500 },
     );
     const users = await userService.getAllUsers(limit, offset);
-    res.status(200).json(users);
+    res.status(200).json(successResponse(users));
   }
 
   async getUserById(req: Request, res: Response) : Promise<void> {
@@ -18,7 +19,7 @@ export class UserController {
     const requestingUserId = req.user?.userId;
     const requestingUserRoles = req.user?.roles;
     const user = await userService.getUserById(userId, requestingUserId, requestingUserRoles);
-    res.status(200).json(user);
+    res.status(200).json(successResponse(user));
   }
 
   async updateUser(req: Request, res: Response) : Promise<void> {
@@ -30,12 +31,12 @@ export class UserController {
     logAuditEvent(req, 'User update completed', {
       targetUserId: userId,
     });
-    res.status(200).json({ message: 'User updated successfully', user: updatedUser });
+    res.status(200).json(successResponse({ user: updatedUser }, 'User updated successfully'));
   }
 
   async getPendingRegistrations(_req: Request, res: Response) : Promise<void> {
     const pendingUsers = await userService.getPendingRegistrations();
-    res.status(200).json(pendingUsers);
+    res.status(200).json(successResponse(pendingUsers));
   }
 
   async approveUser(req: Request, res: Response) : Promise<void> {
@@ -44,12 +45,12 @@ export class UserController {
       targetUserId: userId,
     });
     const approvedUser = await userService.approveUser(userId);
-    res.status(200).json({ message: 'User approved successfully', user: approvedUser });
+    res.status(200).json(successResponse({ user: approvedUser }, 'User approved successfully'));
   }
 
   async getRejectedUsers(_req: Request, res: Response) : Promise<void> {
     const rejectedUsers = await userService.getRejectedUsers();
-    res.status(200).json(rejectedUsers);
+    res.status(200).json(successResponse(rejectedUsers));
   }
 
   async rejectUser(req: Request, res: Response) : Promise<void> {
@@ -60,7 +61,7 @@ export class UserController {
       hasRejectionNote: Boolean(rejectionNote),
     });
     const result = await userService.rejectUser(userId, rejectionNote);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 
   async unRejectUser(req: Request, res: Response) : Promise<void> {
@@ -69,7 +70,7 @@ export class UserController {
       targetUserId: userId,
     });
     const result = await userService.unRejectUser(userId);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 
   async deleteUser(req: Request, res: Response) : Promise<void> {
@@ -78,12 +79,12 @@ export class UserController {
       targetUserId: userId,
     });
     const result = await userService.deleteUser(userId);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 
   async getAllRoles(_req: Request, res: Response) : Promise<void> {
     const roles = await userService.getAllRoles();
-    res.status(200).json(roles);
+    res.status(200).json(successResponse(roles));
   }
 }
 

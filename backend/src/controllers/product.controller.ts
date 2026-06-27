@@ -3,6 +3,7 @@ import productService from '../services/product.service';
 import { streamProductsExportZip } from '../services/productExport.service';
 import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 export class ProductController {
   async getAllProducts(req: Request, res: Response) : Promise<void> {
@@ -11,7 +12,7 @@ export class ProductController {
       { defaultLimit: 500, maxLimit: 1000 }, // catalog browse stays generous; pathological growth capped
     );
     const products = await productService.getAllProducts(req.user?.roles, limit, offset);
-    res.status(200).json(products);
+    res.status(200).json(successResponse(products));
   }
 
   async searchProducts(req: Request, res: Response): Promise<void> {
@@ -21,13 +22,13 @@ export class ProductController {
       { defaultLimit: 50, maxLimit: 200 },
     );
     const products = await productService.searchProducts(req.user?.roles, q, { limit, offset });
-    res.status(200).json(products);
+    res.status(200).json(successResponse(products));
   }
 
   async getProductById(req: Request, res: Response) : Promise<void> {
     const id = parseInt(req.params.id, 10);
     const product = await productService.getProductById(id, req.user?.roles);
-    res.status(200).json(product);
+    res.status(200).json(successResponse(product));
   }
 
   async createProduct(req: Request, res: Response) : Promise<void> {
@@ -37,7 +38,7 @@ export class ProductController {
       categoryId: req.body.categoryId,
     });
     const product = await productService.createProduct(req.body);
-    res.status(201).json({ message: 'Product created successfully', product });
+    res.status(201).json(successResponse({ product }, 'Product created successfully'));
   }
 
   async updateProduct(req: Request, res: Response) : Promise<void> {
@@ -48,7 +49,7 @@ export class ProductController {
       fields: Object.keys(req.body || {}),
     });
     const product = await productService.updateProduct(id, req.body);
-    res.status(200).json({ message: 'Product updated successfully', product });
+    res.status(200).json(successResponse({ product }, 'Product updated successfully'));
   }
 
   async exportZip(_req: Request, res: Response) : Promise<void> {
@@ -61,7 +62,7 @@ export class ProductController {
       targetProductId: id,
     });
     const result = await productService.deleteProduct(id);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 }
 

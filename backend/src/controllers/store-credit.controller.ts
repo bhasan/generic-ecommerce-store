@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import storeCreditService from '../services/store-credit.service';
 import { hasAnyRole } from '../constants/roles';
 import { validateRequest } from '../utils/request.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 export class StoreCreditController {
   async getBalance(req: Request, res: Response) : Promise<void> {
@@ -14,7 +15,7 @@ export class StoreCreditController {
       return;
     }
     const balance = await storeCreditService.getUserCreditBalance(targetUserId);
-    res.json({ userId: targetUserId, balance });
+    res.json(successResponse({ userId: targetUserId, balance }));
   }
 
   async getTransactions(req: Request, res: Response) : Promise<void> {
@@ -27,7 +28,7 @@ export class StoreCreditController {
       return;
     }
     const transactions = await storeCreditService.getStoreCreditTransactions(targetUserId);
-    res.json(transactions);
+    res.json(successResponse(transactions));
   }
 
   async addCredit(req: Request, res: Response) : Promise<void> {
@@ -37,7 +38,7 @@ export class StoreCreditController {
     const createdBy = req.user!.userId;
     const transaction = await storeCreditService.addCredit(targetUserId, amount, note, createdBy);
     const newBalance = await storeCreditService.getUserCreditBalance(targetUserId);
-    res.status(201).json({ transaction, newBalance });
+    res.status(201).json(successResponse({ transaction, newBalance }));
   }
 
   async removeCredit(req: Request, res: Response) : Promise<void> {
@@ -47,7 +48,7 @@ export class StoreCreditController {
     const createdBy = req.user!.userId;
     const transaction = await storeCreditService.removeCredit(targetUserId, amount, note, createdBy);
     const newBalance = await storeCreditService.getUserCreditBalance(targetUserId);
-    res.status(201).json({ transaction, newBalance });
+    res.status(201).json(successResponse({ transaction, newBalance }));
   }
 }
 

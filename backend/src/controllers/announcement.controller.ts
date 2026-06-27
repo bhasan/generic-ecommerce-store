@@ -2,24 +2,25 @@ import { Request, Response } from 'express';
 import { AnnouncementService } from '../services/announcement.service';
 import { logAuditEvent } from '../utils/auditLog.util';
 import { validateRequest } from '../utils/request.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 const announcementService = new AnnouncementService();
 
 export class AnnouncementController {
   async getActiveAnnouncements(_req: Request, res: Response) : Promise<void> {
     const announcements = await announcementService.getActiveAnnouncements();
-    res.status(200).json(announcements);
+    res.status(200).json(successResponse(announcements));
   }
 
   async getAllAnnouncements(_req: Request, res: Response) : Promise<void> {
     const announcements = await announcementService.getAllAnnouncements();
-    res.status(200).json(announcements);
+    res.status(200).json(successResponse(announcements));
   }
 
   async getAnnouncementById(req: Request, res: Response) : Promise<void> {
     const id = parseInt(req.params.id, 10);
     const announcement = await announcementService.getAnnouncementById(id);
-    res.status(200).json(announcement);
+    res.status(200).json(successResponse(announcement));
   }
 
   async createAnnouncement(req: Request, res: Response) : Promise<void> {
@@ -36,7 +37,7 @@ export class AnnouncementController {
       dismissible: dismissible !== undefined ? dismissible : true,
       enabled: enabled !== undefined ? enabled : true,
     });
-    res.status(201).json({ message: 'Announcement created successfully', announcement });
+    res.status(201).json(successResponse({ announcement }, 'Announcement created successfully'));
   }
 
   async updateAnnouncement(req: Request, res: Response) : Promise<void> {
@@ -50,7 +51,7 @@ export class AnnouncementController {
       fields: Object.keys(req.body || {}),
     });
     const announcement = await announcementService.updateAnnouncement(id, { message, type, dismissible, enabled });
-    res.status(200).json({ message: 'Announcement updated successfully', announcement });
+    res.status(200).json(successResponse({ announcement }, 'Announcement updated successfully'));
   }
 
   async deleteAnnouncement(req: Request, res: Response) : Promise<void> {
@@ -59,6 +60,6 @@ export class AnnouncementController {
       targetAnnouncementId: id,
     });
     await announcementService.deleteAnnouncement(id);
-    res.status(200).json({ message: 'Announcement deleted successfully' });
+    res.status(200).json(successResponse(null, 'Announcement deleted successfully'));
   }
 }

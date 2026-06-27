@@ -6,6 +6,7 @@ import { AppError } from '../middleware/error.middleware';
 import { UPLOADS_DIR } from '../utils/fileUtils';
 import { BrandingService } from '../services/branding.service';
 import { processUploadedImage, processFaviconUpload } from '../services/imageProcessing.service';
+import { successResponse } from '../utils/responseEnvelope';
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
@@ -18,7 +19,7 @@ export class UploadController {
       throw new AppError('No file uploaded. Please select an image.', 400);
     }
     const filename = await processUploadedImage(req.file);
-    res.status(201).json({ url: `/api/uploads/${filename}` });
+    res.status(201).json(successResponse({ url: `/api/uploads/${filename}` }));
   }
 
   async uploadImages(req: MulterRequest, res: Response) : Promise<void> {
@@ -27,12 +28,12 @@ export class UploadController {
     }
     const filenames = await Promise.all((req.files as any[]).map(processUploadedImage));
     const urls = filenames.map((filename) => `/api/uploads/${filename}`);
-    res.status(201).json({ urls });
+    res.status(201).json(successResponse({ urls }));
   }
 
   async getImages(_req: Request, res: Response) : Promise<void> {
     if (!fs.existsSync(UPLOADS_DIR)) {
-      res.status(200).json({ images: [] });
+      res.status(200).json(successResponse({ images: [] }));
       return;
     }
 
@@ -46,7 +47,7 @@ export class UploadController {
     );
     const images = statResults.filter((x): x is NonNullable<typeof x> => x !== null);
     images.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-    res.status(200).json({ images });
+    res.status(200).json(successResponse({ images }));
   }
 
   async importZip(req: Request, res: Response) : Promise<void> {
@@ -81,7 +82,7 @@ export class UploadController {
       imported++;
     }
 
-    res.json({ imported, skipped });
+    res.json(successResponse({ imported, skipped }));
   }
 
   async uploadFavicon(req: MulterRequest, res: Response) : Promise<void> {
@@ -91,7 +92,7 @@ export class UploadController {
     const faviconUrls = await processFaviconUpload(req.file, Date.now());
     const brandingService = new BrandingService();
     await brandingService.updateBranding({ faviconUrls });
-    res.status(201).json({ urls: faviconUrls });
+    res.status(201).json(successResponse({ urls: faviconUrls }));
   }
 
   async deleteImage(req: Request, res: Response) : Promise<void> {
@@ -110,7 +111,7 @@ export class UploadController {
     }
 
     await fs.promises.unlink(filePath);
-    res.status(200).json({ message: 'Image deleted successfully' });
+    res.status(200).json(successResponse(null, 'Image deleted successfully'));
   }
 }
 

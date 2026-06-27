@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import orderService from '../services/order.service';
+import { successResponse } from '../utils/responseEnvelope';
 import { DeliveryEligibilityService } from '../services/deliveryEligibility.service';
 import { logger } from '../utils/logger';
 import { ROLES, hasAnyRole } from '../constants/roles';
@@ -19,22 +20,22 @@ export class OrderController {
       { defaultLimit: 100, maxLimit: 500 },
     );
     const orders = await orderService.getAllOrders(req.user.userId, req.user.roles, limit, offset);
-    res.status(200).json(orders);
+    res.status(200).json(successResponse(orders));
   }
 
   async getReadyForDeliveryOrders(_req: Request, res: Response) : Promise<void> {
     const orders = await orderService.getReadyForDeliveryOrders();
-    res.status(200).json(orders);
+    res.status(200).json(successResponse(orders));
   }
 
   async getOutForDeliveryOrders(_req: Request, res: Response) : Promise<void> {
     const orders = await orderService.getOutForDeliveryOrders();
-    res.status(200).json(orders);
+    res.status(200).json(successResponse(orders));
   }
 
   async getDeliveredOrders(_req: Request, res: Response) : Promise<void> {
     const orders = await orderService.getDeliveredOrders();
-    res.status(200).json(orders);
+    res.status(200).json(successResponse(orders));
   }
 
   async getOrderById(req: Request, res: Response) : Promise<void> {
@@ -44,7 +45,7 @@ export class OrderController {
     }
     const id = parseInt(req.params.id, 10);
     const order = await orderService.getOrderById(id, req.user.userId, req.user.roles);
-    res.status(200).json(order);
+    res.status(200).json(successResponse(order));
   }
 
   async checkDeliveryEligibility(req: Request, res: Response) : Promise<void> {
@@ -54,14 +55,14 @@ export class OrderController {
     }
     if (!validateRequest(req, res)) return;
     const result = await deliveryEligibilityService.checkDeliveryEligibility(req.body.deliveryAddress);
-    res.status(200).json({
+    res.status(200).json(successResponse({
       deliverable: result.deliverable,
       deliveryStatus: result.deliveryStatus,
       deliverySource: result.deliverySource,
       distanceMiles: result.distanceMiles,
       thresholdMiles: result.thresholdMiles,
       message: result.message,
-    });
+    }));
   }
 
   async createOrder(req: Request, res: Response) : Promise<void> {
@@ -89,7 +90,7 @@ export class OrderController {
       paymentMethod: req.body.paymentMethod,
       itemCount: req.body.items?.length || 0,
     });
-    res.status(201).json({ message: 'Order created successfully', order });
+    res.status(201).json(successResponse({ order }, 'Order created successfully'));
   }
 
   async updateOrderStatus(req: Request, res: Response) : Promise<void> {
@@ -122,7 +123,7 @@ export class OrderController {
       changedBy: req.user.userId,
       changedByRoles: userRoles,
     });
-    res.status(200).json({ message: 'Order status updated successfully', order });
+    res.status(200).json(successResponse({ order }, 'Order status updated successfully'));
   }
 
   async addItemToOrder(req: Request, res: Response) : Promise<void> {
@@ -130,21 +131,21 @@ export class OrderController {
     // Validation keeps manual staff edits aligned with checkout quantity rules before the service mutates totals.
     if (!validateRequest(req, res)) return;
     const orderItem = await orderService.addItemToOrder(id, req.body);
-    res.status(201).json({ message: 'Item added to order successfully', orderItem });
+    res.status(201).json(successResponse({ orderItem }, 'Item added to order successfully'));
   }
 
   async voidOrderItem(req: Request, res: Response) : Promise<void> {
     const orderId = parseInt(req.params.id, 10);
     const itemId = parseInt(req.params.itemId, 10);
     const orderItem = await orderService.voidOrderItem(orderId, itemId);
-    res.status(200).json({ message: 'Order item voided successfully', orderItem });
+    res.status(200).json(successResponse({ orderItem }, 'Order item voided successfully'));
   }
 
   async deleteOrderItem(req: Request, res: Response) : Promise<void> {
     const orderId = parseInt(req.params.id, 10);
     const itemId = parseInt(req.params.itemId, 10);
     const result = await orderService.deleteOrderItem(orderId, itemId);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 
   async deleteOrder(req: Request, res: Response) : Promise<void> {
@@ -153,7 +154,7 @@ export class OrderController {
 
     const isStaff = hasAnyRole(req.user.roles as any, [ROLES.ADMIN, ROLES.MANAGEMENT, ROLES.EMPLOYEE]);
     const result = await orderService.deleteOrder(id, isStaff ? null : req.user.userId);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 
   async printOrderReceipt(req: Request, res: Response) : Promise<void> {
@@ -161,12 +162,10 @@ export class OrderController {
     const result = await orderService.printOrderReceipt(id, {
       actor: { userId: req.user?.userId, username: req.user?.username },
     });
-    res.status(202).json({
-      message: result.queued
-        ? 'Order receipt queued for printing'
-        : 'Printer is not configured; receipt was not queued',
-      result,
-    });
+    const msg = result.queued
+      ? 'Order receipt queued for printing'
+      : 'Printer is not configured; receipt was not queued';
+    res.status(202).json(successResponse({ result }, msg));
   }
 
   async customerArrive(req: Request, res: Response) : Promise<void> {
@@ -177,14 +176,14 @@ export class OrderController {
     if (!validateRequest(req, res)) return;
     const id = parseInt(req.params.id, 10);
     const order = await orderService.customerArrive(id, req.user.userId, req.body.parkingSpot);
-    res.status(200).json({ message: 'Arrival notification sent successfully', order });
+    res.status(200).json(successResponse({ order }, 'Arrival notification sent successfully'));
   }
 
   async getPaymentToken(req: Request, res: Response) : Promise<void> {
     const orderId = parseInt(req.params.id, 10);
     const userId = req.user!.userId;
     const result = await orderService.getPaymentToken(orderId, userId);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 
   async verifyPayment(req: Request, res: Response) : Promise<void> {
@@ -199,7 +198,7 @@ export class OrderController {
       userId,
       transId,
     });
-    res.status(200).json({ message: 'Payment confirmed', order: result });
+    res.status(200).json(successResponse({ order: result }, 'Payment confirmed'));
   }
 }
 

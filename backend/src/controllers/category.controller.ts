@@ -2,11 +2,12 @@ import { Request, Response } from 'express';
 import categoryService from '../services/category.service';
 import { validateRequest } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 export class CategoryController {
   async getAllCategories(_req: Request, res: Response) : Promise<void> {
     const categories = await categoryService.getAllCategories();
-    res.status(200).json(categories);
+    res.status(200).json(successResponse(categories));
   }
 
   async createCategory(req: Request, res: Response) : Promise<void> {
@@ -16,7 +17,7 @@ export class CategoryController {
       parentId: req.body.parentId ?? null,
     });
     const category = await categoryService.createCategory(req.body);
-    res.status(201).json({ message: 'Category created successfully', category });
+    res.status(201).json(successResponse({ category }, 'Category created successfully'));
   }
 
   async updateCategory(req: Request, res: Response) : Promise<void> {
@@ -27,7 +28,7 @@ export class CategoryController {
       fields: Object.keys(req.body || {}),
     });
     const category = await categoryService.updateCategory(id, req.body);
-    res.status(200).json({ message: 'Category updated successfully', category });
+    res.status(200).json(successResponse({ category }, 'Category updated successfully'));
   }
 
   async deleteCategory(req: Request, res: Response) : Promise<void> {
@@ -36,7 +37,7 @@ export class CategoryController {
       targetCategoryId: id,
     });
     const result = await categoryService.deleteCategory(id);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 }
 
