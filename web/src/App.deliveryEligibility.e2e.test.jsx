@@ -157,6 +157,14 @@ const installApiMock = ({
       return jsonResponse({ count: 0 });
     }
 
+    if (method === 'GET' && url.pathname === '/api/landing-page-settings') {
+      return jsonResponse({ featuredProductIds: [], promotions: [] });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/auth/refresh') {
+      return jsonResponse({ token: 'customer-token' });
+    }
+
     if (method === 'POST' && url.pathname === '/api/orders/delivery-eligibility') {
       const body = JSON.parse(init.body);
       eligibilityBodies.push(body);
@@ -294,7 +302,7 @@ describe('delivery eligibility end-to-end journey', () => {
 
     expect(await screen.findByText(/thank you for your order/i)).toBeInTheDocument();
     expect(screen.getAllByText('123 Main St, Houston, TX 77083').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('#000901')).toBeInTheDocument();
+    expect(screen.getAllByText('#000901')[0]).toBeInTheDocument();
 
     await waitFor(() => expect(api.getProfileCalls()).toBeGreaterThanOrEqual(2));
   });

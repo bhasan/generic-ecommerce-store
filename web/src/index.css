@@ -5,5 +5,8 @@
 /* Base styles - Global resets, typography, base elements */
 @import './styles/base.css';
 
+/* Dashboard and Sidebar layouts */
+@import './styles/dashboard.css';
+
 /* Responsive overrides */
 @import './responsive.css';

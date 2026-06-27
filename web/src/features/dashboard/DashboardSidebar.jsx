@@ -14,8 +14,8 @@ const NAV_ITEMS = [
 
 function DashboardSidebar() {
   return (
-    <aside className="dashboard-sidebar">
-      <nav className="sidebar-nav">
+    <nav className="sidebar-container" aria-label="Admin dashboard">
+      <div className="sidebar-nav">
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
@@ -26,8 +26,8 @@ function DashboardSidebar() {
             <span>{label}</span>
           </NavLink>
         ))}
-      </nav>
-    </aside>
+      </div>
+    </nav>
   );
 }
 

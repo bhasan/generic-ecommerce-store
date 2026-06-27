@@ -28,6 +28,7 @@ function OrderSuccessPage() {
   }
 
   const orderId = orderData.order?.id || 'Pending';
+  const formattedOrderId = typeof orderId === 'number' ? `#${String(orderId).padStart(6, '0')}` : orderId;
   const orderDate = new Date(orderData.order?.createdAt || Date.now()).toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -50,7 +51,7 @@ function OrderSuccessPage() {
         <div className="order-id-card">
           <div className="order-id-label">Order ID</div>
           <div className="order-id-number">
-            {typeof orderId === 'number' ? `#${orderId}` : orderId}
+            {formattedOrderId}
           </div>
           <div className="order-date">{orderDate}</div>
         </div>
@@ -216,7 +217,7 @@ function OrderSuccessPage() {
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
                         <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
-                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
+                      <p>Include <strong>{formattedOrderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}
@@ -238,7 +239,7 @@ function OrderSuccessPage() {
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
                         <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
-                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
+                      <p>Include <strong>{formattedOrderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}
@@ -269,7 +270,7 @@ function OrderSuccessPage() {
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
                         <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
-                      <p>Include <strong>#{orderId}</strong> in the memo/note field.</p>
+                      <p>Include <strong>{formattedOrderId}</strong> in the memo/note field.</p>
                     </div>
                   </div>
                 )}

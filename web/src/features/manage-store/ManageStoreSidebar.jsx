@@ -1,7 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Package, Tag, Image, Upload } from 'lucide-react';
-import './ManageStoreSidebar.css';
 
 const NAV_ITEMS = [
   { to: '/manage-store/products', icon: Package, label: 'Products' },
@@ -12,14 +11,14 @@ const NAV_ITEMS = [
 
 function ManageStoreSidebar() {
   return (
-    <nav className="manage-store-sidebar" aria-label="Store management">
-      <div className="manage-store-sidebar-nav">
+    <nav className="sidebar-container" aria-label="Store management">
+      <div className="sidebar-nav">
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `manage-store-nav-item${isActive ? ' active' : ''}`
+              `sidebar-nav-item${isActive ? ' active' : ''}`
             }
           >
             <Icon size={18} />

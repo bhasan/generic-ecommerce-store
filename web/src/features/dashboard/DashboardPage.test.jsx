@@ -9,7 +9,7 @@ vi.mock('./components/DashboardHeader', () => ({
 }));
 
 vi.mock('./DashboardSidebar', () => ({
-  default: () => <aside className="dashboard-sidebar"><nav className="sidebar-nav" /></aside>,
+  default: () => <nav className="sidebar-container"><div className="sidebar-nav" /></nav>,
 }));
 
 const renderDashboard = (route = '/dashboard') =>
@@ -29,16 +29,16 @@ describe('DashboardPage layout shell', () => {
   it('renders the dashboard-layout wrapper with sidebar and main content', () => {
     const { container } = renderDashboard();
 
-    const layout = container.querySelector('.dashboard-layout');
+    const layout = container.querySelector('.dashboard-grid-layout');
     expect(layout).toBeInTheDocument();
 
-    expect(layout?.querySelector('aside.dashboard-sidebar')).toBeInTheDocument();
-    expect(layout?.querySelector('.dashboard-main-content')).toBeInTheDocument();
+    expect(layout?.querySelector('.sidebar-container')).toBeInTheDocument();
+    expect(layout?.querySelector('.dashboard-grid-content')).toBeInTheDocument();
   });
 
   it('renders the page container', () => {
     const { container } = renderDashboard();
-    expect(container.querySelector('.dashboard-page-container')).toBeInTheDocument();
+    expect(container.querySelector('.dashboard-grid-container')).toBeInTheDocument();
   });
 
   it('renders the DashboardHeader', () => {
