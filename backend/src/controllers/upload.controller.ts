@@ -1,36 +1,11 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
 import unzipper from 'unzipper';
 import { AppError } from '../middleware/error.middleware';
 import { UPLOADS_DIR } from '../utils/fileUtils';
 import { BrandingService } from '../services/branding.service';
-
-const MAX_IMAGE_DIMENSION = 1920;
-const WEBP_QUALITY = 85;
-
-const isVideoMime = (mime: string) => mime.startsWith('video/');
-
-/**
- * Process an uploaded image file with Sharp: resize to max 1920px and convert to WebP.
- * Returns the new filename. The original file is deleted.
- */
-async function processImage(file: any): Promise<string> {
-  if (isVideoMime(file.mimetype)) return file.filename;
-
-  const inputPath = path.join(UPLOADS_DIR, file.filename);
-  const webpFilename = file.filename.replace(/\.[^.]+$/, '.webp');
-  const outputPath = path.join(UPLOADS_DIR, webpFilename);
-
-  await sharp(inputPath)
-    .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, { fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: WEBP_QUALITY })
-    .toFile(outputPath);
-
-  await fs.promises.unlink(inputPath);
-  return webpFilename;
-}
+import { processUploadedImage, processFaviconUpload } from '../services/imageProcessing.service';
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
@@ -42,7 +17,7 @@ export class UploadController {
     if (!req.file) {
       throw new AppError('No file uploaded. Please select an image.', 400);
     }
-    const filename = await processImage(req.file);
+    const filename = await processUploadedImage(req.file);
     res.status(201).json({ url: `/api/uploads/${filename}` });
   }
 
@@ -50,7 +25,7 @@ export class UploadController {
     if (!req.files || req.files.length === 0) {
       throw new AppError('No files uploaded. Please select at least one image.', 400);
     }
-    const filenames = await Promise.all((req.files as any[]).map((file) => processImage(file)));
+    const filenames = await Promise.all((req.files as any[]).map(processUploadedImage));
     const urls = filenames.map((filename) => `/api/uploads/${filename}`);
     res.status(201).json({ urls });
   }
@@ -113,23 +88,7 @@ export class UploadController {
     if (!req.file) {
       throw new AppError('No file uploaded. Please select an image.', 400);
     }
-    const sizes: Array<{ key: '16' | '32' | '180'; size: number }> = [
-      { key: '16', size: 16 },
-      { key: '32', size: 32 },
-      { key: '180', size: 180 },
-    ];
-    const inputPath = path.join(UPLOADS_DIR, req.file.filename);
-    const faviconUrls: { '16': string; '32': string; '180': string } = { '16': '', '32': '', '180': '' };
-
-    const version = Date.now();
-    await Promise.all(sizes.map(async ({ key, size }) => {
-      const outFilename = `favicon-${size}.png`;
-      const outPath = path.join(UPLOADS_DIR, outFilename);
-      await sharp(inputPath).resize(size, size, { fit: 'cover' }).png().toFile(outPath);
-      faviconUrls[key] = `/api/uploads/${outFilename}?v=${version}`;
-    }));
-
-    await fs.promises.unlink(inputPath);
+    const faviconUrls = await processFaviconUpload(req.file, Date.now());
     const brandingService = new BrandingService();
     await brandingService.updateBranding({ faviconUrls });
     res.status(201).json({ urls: faviconUrls });
