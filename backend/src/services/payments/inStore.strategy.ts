@@ -1,9 +1,10 @@
 import { OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../../../generated/prisma';
 import { AppError } from '../../middleware/error.middleware';
 import { DeliveryMethod } from '../../constants/orderMethods';
-import { PaymentStrategy, OrderContext } from './PaymentStrategy';
+import { OrderContext } from './PaymentStrategy';
+import { BasePaymentStrategy } from './BasePaymentStrategy';
 
-export class InStorePaymentStrategy implements PaymentStrategy {
+export class InStorePaymentStrategy extends BasePaymentStrategy {
   readonly method = PaymentMethodEnum.IN_STORE;
 
   validate(ctx: OrderContext): void {

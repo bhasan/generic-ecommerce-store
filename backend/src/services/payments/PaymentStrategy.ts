@@ -27,4 +27,10 @@ export interface PaymentStrategy {
 
   /** Cleanup when an order is deleted (e.g. refund credit). Called outside a transaction. */
   refundOnDelete(orderId: number, userId: number, total: number): Promise<void>;
+
+  /** Optional: Initialize payment token/session for online payment forms (e.g. Authorize.Net). */
+  initializePaymentSession?(orderId: number, total: number): Promise<{ token: string; paymentFormUrl: string }>;
+
+  /** Optional: Verify and finalize card payment. */
+  confirmPayment?(orderId: number, userId: number, transId: string, total: number): Promise<{ id: number; status: string }>;
 }
