@@ -21,15 +21,9 @@ run_local_check() {
   local proxy_probe_url="${PROXY_PROBE_URL:-http://localhost/api/notifications/unread-count}"
   local log_lines="${LOG_LINES:-300}"
 
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "Error: docker is required."
-    exit 1
-  fi
-
-  if ! command -v curl >/dev/null 2>&1; then
-    echo "Error: curl is required."
-    exit 1
-  fi
+  for cmd in docker curl; do
+    command -v "$cmd" >/dev/null 2>&1 || { echo "Error: $cmd is required."; exit 1; }
+  done
 
   echo "==> Post-deploy hardening checklist (UTC $(date -u '+%Y-%m-%dT%H:%M:%SZ'))"
   echo "    APP_DIR=$app_dir"
@@ -41,9 +35,9 @@ run_local_check() {
     exit 1
   fi
 
-  local has_web_container="false"
+  local has_web_container=false
   if docker ps --format '{{.Names}}' | grep -qx "$web_container"; then
-    has_web_container="true"
+    has_web_container=true
   else
     echo "Warning: web container '$web_container' is not running; nginx config snapshot skipped."
   fi
@@ -85,7 +79,7 @@ run_local_check() {
     fi
   '
 
-  if [[ "$has_web_container" == "true" ]]; then
+  if $has_web_container; then
     echo ""
     echo "==> Active nginx real-ip directives (from running web container)"
     docker exec "$web_container" sh -lc "grep -E 'real_ip_header|real_ip_recursive|set_real_ip_from' /etc/nginx/conf.d/default.conf || true"
