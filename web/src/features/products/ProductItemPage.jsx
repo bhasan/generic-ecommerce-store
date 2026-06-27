@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest } from '../../utils/roles';
 import { ArrowLeft, ShoppingCart, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
-import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDefaultVariant } from './productsHelpers';
+import usePriceCalculation from '../../hooks/usePriceCalculation';
 import ProductMediaModal from './ProductMediaModal';
 import './ProductsShared.css';
 import './ProductItemPage.css';
@@ -39,11 +40,7 @@ function PriceBreaksTable({ variant }) {
 }
 
 function DynamicPriceDisplay({ variant, quantity }) {
-  const basePrice = Number(variant?.basePrice ?? 0);
-  const unitPrice = getDiscountedUnitPrice(variant, quantity);
-  const totalPrice = unitPrice * quantity;
-  const hasDiscount = unitPrice < basePrice;
-  const originalTotal = basePrice * quantity;
+  const { totalPrice, hasDiscount, originalTotal } = usePriceCalculation(variant, quantity);
 
   return (
     <div className="dynamic-price-display">

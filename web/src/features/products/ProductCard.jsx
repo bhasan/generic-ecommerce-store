@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import ProductImage from './ProductImage';
-import { formatPrice } from '../../utils/currencyUtils';
+import PriceDisplay from '../../components/common/PriceDisplay';
 
 const SWIPE_THRESHOLD = 30;
 
@@ -75,14 +75,14 @@ function ProductCard({ product, imageSrc, images, categoryLabel, onClick, onImag
 
         <div className="product-footer">
           <div className="product-price-container">
-            {hasDiscount ? (
-              <>
-                <span className="product-price-original">{formatPrice(originalTotal)}</span>
-                <span className="product-price product-price-discounted">{formatPrice(discountedTotal)}</span>
-              </>
-            ) : (
-              <span className="product-price">{formatPrice(originalTotal)}</span>
-            )}
+            <PriceDisplay
+              price={discountedTotal}
+              originalPrice={originalTotal}
+              hasDiscount={hasDiscount}
+              className="product-price"
+              originalClassName="product-price-original"
+              discountedClassName="product-price product-price-discounted"
+            />
           </div>
           <div className="product-footer-actions">{children}</div>
         </div>

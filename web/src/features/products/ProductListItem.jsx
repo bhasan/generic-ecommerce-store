@@ -1,6 +1,6 @@
 import React from 'react';
 import ProductImage from './ProductImage';
-import { formatPrice } from '../../utils/currencyUtils';
+import PriceDisplay from '../../components/common/PriceDisplay';
 
 function ProductListItem({
   product,
@@ -43,14 +43,14 @@ function ProductListItem({
             </div>
           </div>
           <div className="product-list-price-container">
-            {hasDiscount ? (
-              <>
-                <span className="product-list-price-original">{formatPrice(originalTotal)}</span>
-                <span className="product-list-price product-list-price-discounted">{formatPrice(discountedTotal)}</span>
-              </>
-            ) : (
-              <span className="product-list-price">{formatPrice(originalTotal)}</span>
-            )}
+            <PriceDisplay
+              price={discountedTotal}
+              originalPrice={originalTotal}
+              hasDiscount={hasDiscount}
+              className="product-list-price"
+              originalClassName="product-list-price-original"
+              discountedClassName="product-list-price product-list-price-discounted"
+            />
           </div>
         </div>
 

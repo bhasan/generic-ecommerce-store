@@ -3,11 +3,12 @@ import { useApp } from '../../context/AppContext';
 import { isGuest, ROLES } from '../../utils/roles';
 import { X, ExternalLink, Link, ShoppingCart, ChevronLeft, ChevronRight, PlayCircle, AlertCircle, Tag } from 'lucide-react';
 import ProductMediaModal from './ProductMediaModal';
-import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDefaultVariant } from './productsHelpers';
 import './ProductsShared.css';
 import './ProductItemModal.css';
 import { formatPrice } from '../../utils/currencyUtils';
 import BaseModal from '../../components/common/BaseModal';
+import usePriceCalculation from '../../hooks/usePriceCalculation';
 
 const isVideo = (url) => {
   if (!url) return false;
@@ -71,11 +72,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const images = getProductAllImages(product);
   const showStock = selectedVariant?.stockEnabled !== false;
   const isOutOfStock = showStock && Number(selectedVariant?.stock ?? 0) === 0;
-  const basePrice = Number(selectedVariant?.basePrice ?? 0);
-  const unitPrice = selectedVariant ? getDiscountedUnitPrice(selectedVariant, selectedQuantity) : basePrice;
-  const totalPrice = unitPrice * selectedQuantity;
-  const originalTotal = basePrice * selectedQuantity;
-  const hasDiscount = unitPrice < basePrice;
+  const { basePrice, unitPrice, totalPrice, originalTotal, hasDiscount } = usePriceCalculation(selectedVariant, selectedQuantity);
 
   const handleAddToCart = () => {
     if (selectedVariant) addToCart(product, selectedVariant, selectedQuantity);
