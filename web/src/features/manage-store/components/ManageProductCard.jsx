@@ -7,7 +7,7 @@ import { getProductImageSrc, getDefaultVariant } from '../../products/productsHe
 import './ManageProductCard.css';
 import '../../products/ProductsPageAdmin.css';
 import '../../products/ProductsShared.css';
-import { formatCurrency } from '../../../utils/currencyUtils';
+import { formatPrice } from '../../../utils/currencyUtils';
 
 function ManageProductCard({
   product, dragEnabled, onToggleHidden, onEdit, onDeleteClick,
@@ -56,7 +56,7 @@ function ManageProductCard({
         <div className="manage-product-meta">
           <div className="manage-meta-item">
             <span className="manage-meta-label">Price</span>
-            <span className="manage-product-price">${formatCurrency(price)}</span>
+            <span className="manage-product-price">{formatPrice(price)}</span>
           </div>
           {showStock && (
             <div className="manage-meta-item">

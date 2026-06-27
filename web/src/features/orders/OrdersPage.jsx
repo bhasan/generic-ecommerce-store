@@ -33,7 +33,7 @@ import { hasRole, ROLES } from '../../utils/roles';
 import OrderDetailPanel from './OrderDetailPanel';
 import CustomerOrderList from './CustomerOrderList';
 import { OrderStatus } from '../../constants/orderStatuses';
-import { formatCurrency } from '../../utils/currencyUtils';
+import { formatPrice } from '../../utils/currencyUtils';
 
 const FILTER_STATUSES = Object.values(OrderStatus);
 const DEFAULT_SELECTED_STATUSES = [
@@ -352,7 +352,7 @@ function OrdersPage({ forceCustomerView = false }) {
       const isPayInStore = order?.paymentMethod === 'IN_STORE';
       setConfirmDialog({
         title: 'Take Payment in Store',
-        message: `Order Total: $${formatCurrency(order.total)}\n\n⚠️ REMINDER: Please ensure payment has been collected before proceeding.`,
+        message: `Order Total: ${formatPrice(order.total)}\n\n⚠️ REMINDER: Please ensure payment has been collected before proceeding.`,
         confirmLabel: 'Paid',
         confirmVariant: 'success',
         onConfirm: () => performStatusUpdate(orderId, newStatus)
@@ -697,7 +697,7 @@ function OrdersPage({ forceCustomerView = false }) {
                           </div>
                         )}
                         <div className="kanban-card-meta">
-                          ${formatCurrency(order.total)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
+                          {formatPrice(order.total)} · {itemCount} item{itemCount !== 1 ? 's' : ''}
                         </div>
                         <div className={`kanban-card-payment-info ${order.user?.cashapp ? 'has' : 'none'}`}>
                           {order.user?.cashapp ? `@${order.user.cashapp}` : (isPayInStore ? 'Payment in Store' : 'No payment username')}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { verifyPayment } from '../../services/ordersApi';
-import { formatCurrency } from '../../utils/currencyUtils';
+import { formatPrice } from '../../utils/currencyUtils';
 
 const IFRAME_NAME = 'authnet-payment-frame';
 
@@ -125,7 +125,7 @@ export default function AuthorizeNetPaymentModal({ orderId, token, paymentFormUr
         </div>
 
         <div className="modal-footer">
-          <p><Lock size={14} /> Total: <strong>${formatCurrency(amount)}</strong> — Card details processed by Authorize.Net</p>
+          <p><Lock size={14} /> Total: <strong>{formatPrice(amount)}</strong> — Card details processed by Authorize.Net</p>
         </div>
       </div>
     </div>

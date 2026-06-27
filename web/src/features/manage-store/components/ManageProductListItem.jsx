@@ -6,7 +6,7 @@ import ProductImage from '../../products/ProductImage';
 import { getProductImageSrc, getDefaultVariant } from '../../products/productsHelpers';
 import '../../products/ProductsPageAdmin.css';
 import '../../products/ProductsShared.css';
-import { formatCurrency } from '../../../utils/currencyUtils';
+import { formatPrice } from '../../../utils/currencyUtils';
 
 function ManageProductListItem({
   product, dragEnabled, onToggleHidden, onEdit, onDeleteClick,
@@ -46,7 +46,7 @@ function ManageProductListItem({
               {product.hidden && <span className="product-list-hidden">Hidden</span>}
             </div>
           </div>
-          <span className="product-list-price">${formatCurrency(price)}</span>
+          <span className="product-list-price">{formatPrice(price)}</span>
         </div>
         {product.description && <p className="product-list-description">{product.description}</p>}
       </div>

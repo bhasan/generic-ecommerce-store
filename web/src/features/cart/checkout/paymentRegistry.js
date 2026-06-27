@@ -1,5 +1,5 @@
 import { PaymentMethod } from '../../../constants/orderMethods';
-import { formatCurrency } from '../../../utils/currencyUtils';
+import { formatPrice } from '../../../utils/currencyUtils';
 
 /**
  * Payment method registry — each entry drives selector visibility, detail rendering,
@@ -35,10 +35,10 @@ export const paymentRegistry = [
     label: 'Store Credit',
     iconName: 'Wallet',
     isAvailable: (ctx) => ctx.creditBalance > 0,
-    badge: (ctx) => `$${formatCurrency(ctx.creditBalance)} available`,
+    badge: (ctx) => `${formatPrice(ctx.creditBalance)} available`,
     validate(ctx, errors) {
       if (ctx.creditBalance < ctx.total) {
-        errors.credit = `Insufficient credit balance. You have $${formatCurrency(ctx.creditBalance)} but the order total is $${formatCurrency(ctx.total)}.`;
+        errors.credit = `Insufficient credit balance. You have ${formatPrice(ctx.creditBalance)} but the order total is ${formatPrice(ctx.total)}.`;
       }
       return errors;
     },

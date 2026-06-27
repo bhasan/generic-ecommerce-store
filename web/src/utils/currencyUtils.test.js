@@ -23,6 +23,8 @@ describe('formatCurrency', () => {
   it('handles null and undefined by returning 0.00', () => {
     expect(formatCurrency(null)).toBe('0.00');
     expect(formatCurrency(undefined)).toBe('0.00');
+    expect(formatCurrency(null, 3)).toBe('0.000');
+    expect(formatCurrency(undefined, 1)).toBe('0.0');
   });
 
   it('respects custom decimal places', () => {

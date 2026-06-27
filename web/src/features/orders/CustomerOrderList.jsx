@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import AuthorizeNetPaymentModal from '../cart/AuthorizeNetPaymentModal';
 import * as ordersApi from '../../services/ordersApi';
-import { formatCurrency } from '../../utils/currencyUtils';
+import { formatPrice } from '../../utils/currencyUtils';
 
 const ACTIVE_STATUSES = ['PENDING_PAYMENT', 'PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'READY_FOR_PICKUP', 'ARRIVED'];
 
@@ -274,7 +274,7 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
 
                 <div className="order-card-footer">
                   <span className="order-card-total">
-                    ${formatCurrency(order.total)} &middot; {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                    {formatPrice(order.total)} &middot; {itemCount} {itemCount === 1 ? 'item' : 'items'}
                   </span>
                   <button
                     type="button"

@@ -6,7 +6,7 @@ import ProductMediaModal from './ProductMediaModal';
 import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
 import './ProductsShared.css';
 import './ProductItemModal.css';
-import { formatCurrency } from '../../utils/currencyUtils';
+import { formatPrice } from '../../utils/currencyUtils';
 
 const isVideo = (url) => {
   if (!url) return false;
@@ -185,7 +185,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
             <h2 className="product-modal-product-title">{product.name}</h2>
 
             <div className="product-price-display">
-              ${formatCurrency(basePrice)}
+              {formatPrice(basePrice)}
               {priceBreaks.length > 0 && <span className="price-per-unit">/ each</span>}
             </div>
 
@@ -216,7 +216,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
                   {[...priceBreaks].sort((a, b) => Number(a.minQuantity) - Number(b.minQuantity)).map((pb, i) => (
                     <div key={i} className="discount-tier">
                       <span className="discount-qty">{Number(pb.minQuantity)}+:</span>
-                      <span className="discount-value">${formatCurrency(Number(pb.unitPrice))} each</span>
+                      <span className="discount-value">{formatPrice(Number(pb.unitPrice))} each</span>
                     </div>
                   ))}
                 </div>
@@ -254,18 +254,18 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
                 <>
                   <div className="price-row price-total-row">
                     <span className="price-label">Total ({selectedQuantity} items):</span>
-                    <span className="price-original">${formatCurrency(originalTotal)}</span>
+                    <span className="price-original">{formatPrice(originalTotal)}</span>
                     <span className="price-arrow">→</span>
-                    <span className="price-total">${formatCurrency(totalPrice)}</span>
+                    <span className="price-total">{formatPrice(totalPrice)}</span>
                   </div>
                   <div className="price-row">
-                    <span className="price-savings">Save ${formatCurrency(originalTotal - totalPrice)}</span>
+                    <span className="price-savings">Save {formatPrice(originalTotal - totalPrice)}</span>
                   </div>
                 </>
               ) : (
                 <div className="price-row price-total-row">
                   <span className="price-label">Total ({selectedQuantity} items):</span>
-                  <span className="price-total">${formatCurrency(totalPrice)}</span>
+                  <span className="price-total">{formatPrice(totalPrice)}</span>
                 </div>
               )}
             </div>

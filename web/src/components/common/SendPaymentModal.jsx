@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle, PackageCheck, MapPin, X } from 'lucide-react';
 import './SendPaymentModal.css';
 import { DeliveryMethod } from '../../constants/orderMethods';
-import { formatCurrency } from '../../utils/currencyUtils';
+import { formatPrice } from '../../utils/currencyUtils';
 
 function SendPaymentModal({ isOpen, onDone, onCancel, pendingOrderState, storeCashappUsername, paymentSettings }) {
   const [paymentSent, setPaymentSent] = useState(false);
@@ -45,7 +45,7 @@ function SendPaymentModal({ isOpen, onDone, onCancel, pendingOrderState, storeCa
           <div className="send-payment-instructions-block">
             <h3 className="send-payment-instructions-heading">Payment Instructions</h3>
             <p className="send-payment-modal-message">
-              Please send <strong>${formatCurrency(total)}</strong> to complete your order.
+              Please send <strong>{formatPrice(total)}</strong> to complete your order.
             </p>
 
             <div className="send-payment-memo-card">

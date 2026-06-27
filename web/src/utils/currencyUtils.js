@@ -8,7 +8,7 @@
  */
 export const formatCurrency = (amount, decimals = 2) => {
   if (amount === null || amount === undefined) {
-    return '0.00';
+    return Number(0).toFixed(decimals);
   }
   return Number(amount).toFixed(decimals);
 };
@@ -21,8 +21,5 @@ export const formatCurrency = (amount, decimals = 2) => {
  * @returns {string} Formatted price string (e.g., "$12.50")
  */
 export const formatPrice = (amount) => {
-  if (amount === null || amount === undefined) {
-    return '$0.00';
-  }
-  return `$${Number(amount).toFixed(2)}`;
+  return `$${formatCurrency(amount)}`;
 };
