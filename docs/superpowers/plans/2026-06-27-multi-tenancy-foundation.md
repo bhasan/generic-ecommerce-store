@@ -296,14 +296,15 @@ git commit -m "feat(tenancy): add scope classification source of truth"
 
 ```prisma
 model Tenant {
-  id        Int          @id @default(autoincrement())
-  slug      String       @unique
-  name      String
-  status    TenantStatus @default(ACTIVE)
-  plan      String?
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  stores    Store[]
+  id           Int          @id @default(autoincrement())
+  slug         String       @unique
+  name         String
+  customDomain String?      @unique
+  status       TenantStatus @default(ACTIVE)
+  plan         String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  stores       Store[]
   @@map("tenants")
 }
 
@@ -629,7 +630,80 @@ Expected: PASS — tenant A sees only `catA`.
 
 ```bash
 git add backend/src/config/database.ts backend/src/config/database.tenant.test.ts
-git commit -m "feat(tenancy): tenant-scoped Prisma client via session-var extension"
+git commit -m "feat(tenancy): tenant-scoped Prisma client via query filtering extension"
+```
+
+---
+
+## Task 5B: Scoping Raw SQL Queries
+
+**Files:**
+- Modify: `backend/src/services/printJob.service.ts`
+- Modify: `backend/src/services/search/postgres.search.service.ts`
+
+**Interfaces:**
+- Consumes: `getTenantContext` (Task 1).
+- Produces: Scopes print job claiming and product text searches to prevent cross-tenant data leaks in raw SQL queries.
+
+- [ ] **Step 1: Inject scope filters in print job claiming**
+
+In `backend/src/services/printJob.service.ts`'s `claimNextJob`, locate the raw SQL query and inject `"tenantId"` and `"storeId"` checks from the active tenant context:
+
+```ts
+    const ctx = getTenantContext();
+    if (!ctx) throw new MissingTenantContextError();
+
+    const rows = await prisma.$queryRaw<PrintJobRow[]>`
+      UPDATE "print_jobs"
+      SET
+        "status" = 'CLAIMED'::"PrintJobStatus",
+        "claimedByAgentId" = ${data.agentId},
+        "claimedAt" = NOW(),
+        "completedAt" = NULL,
+        "failedAt" = NULL
+      WHERE "id" = (
+        SELECT "id"
+        FROM "print_jobs"
+        WHERE
+          ("status" = 'PENDING'::"PrintJobStatus"
+           OR (
+             "status" = 'CLAIMED'::"PrintJobStatus"
+             AND "claimedAt" < NOW() - INTERVAL '5 minutes'
+           ))
+          AND "tenantId" = ${ctx.tenantId}
+          AND "storeId" = ${ctx.storeId}
+        ORDER BY "createdAt" ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      )
+      RETURNING ...
+```
+
+- [ ] **Step 2: Inject scope filters in PostgreSQL product searches**
+
+In `backend/src/services/search/postgres.search.service.ts`'s `searchProducts`, inject `"tenantId"` check into the `search_vector` query:
+
+```ts
+    const ctx = getTenantContext();
+    if (!ctx) throw new MissingTenantContextError();
+
+    const ranked = await prisma.$queryRaw<{ id: number }[]>`
+      SELECT p."id"
+      FROM "products" p
+      WHERE p."search_vector" @@ plainto_tsquery('english', ${term})
+        AND p."tenantId" = ${ctx.tenantId}
+        ${!visibility.includeHidden ? Prisma.sql`AND p."hidden" = false` : Prisma.empty}
+        ${!visibility.includeVipOnly ? Prisma.sql`AND p."vipOnly" = false` : Prisma.empty}
+      ORDER BY ts_rank(p."search_vector", plainto_tsquery('english', ${term})) DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+```
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add backend/src/services/printJob.service.ts backend/src/services/search/postgres.search.service.ts
+git commit -m "feat(tenancy): scope raw SQL queries by tenant context"
 ```
 
 ---
@@ -721,8 +795,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getUnscopedPrisma } from '../config/database';
 import { runWithTenant } from '../config/tenantContext';
 
-const RESERVED = new Set(['admin', 'www', '']);
-const ROOT_DOMAIN_LABELS = 2; // yourapp.com -> the tenant label is index 0
+const ROOT_DOMAIN_LABELS = 2;
 
 function subdomainOf(hostname: string): string {
   const labels = hostname.split('.');
@@ -731,11 +804,12 @@ function subdomainOf(hostname: string): string {
 }
 
 export async function resolveTenant(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const sub = subdomainOf(req.hostname);
+  const host = req.hostname;
+  const sub = subdomainOf(host);
   const prisma = getUnscopedPrisma();
 
-  if (RESERVED.has(sub)) {
-    // Super-admin / platform context: no tenant scoping here.
+  // 1. Super-admin Console Check
+  if (sub === 'admin') {
     req.tenantId = null;
     req.tenant = null;
     req.store = null;
@@ -743,13 +817,29 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
     return;
   }
 
-  const tenant = await prisma.tenant.findUnique({ where: { slug: sub } });
+  // 2. Resolve by custom domain OR subdomain (slug). Fallback to 'app' on apex/www.
+  const lookupSlug = (sub && sub !== 'www') ? sub : 'app';
+  let tenant = await prisma.tenant.findFirst({
+    where: {
+      OR: [
+        { customDomain: host },
+        { slug: lookupSlug }
+      ]
+    }
+  });
+
+  // 3. Fallback to default 'app' tenant if not found (helps with localhost dev testing)
   if (!tenant) {
-    res.status(404).json({ error: 'Unknown store' });
+    tenant = await prisma.tenant.findUnique({ where: { slug: 'app' } });
+  }
+
+  if (!tenant) {
+    res.status(404).json({ error: 'Tenant configuration missing' });
     return;
   }
+
   if (tenant.status !== 'ACTIVE') {
-    res.status(403).json({ error: 'This store is unavailable' });
+    res.status(403).json({ error: 'This store is suspended' });
     return;
   }
 
