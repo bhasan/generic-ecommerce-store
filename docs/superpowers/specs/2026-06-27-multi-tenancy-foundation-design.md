@@ -153,31 +153,24 @@ superusers*. The app must connect as a dedicated **non-superuser** role
 otherwise. (Today's `DATABASE_URL` user is likely the superuser — creating and
 switching to `app_user` is a Phase 1 migration task.)
 
-**2. Tenant-tagged columns with auto-populating defaults.** Each scoped table gets a
-`tenantId` (store tables also `storeId`) with a DB `DEFAULT` derived from the session
-variable, so inserts auto-tag at the database layer:
-```
-tenantId  ... DEFAULT NULLIF(current_setting('app.current_tenant', true), '')::int
-```
+**2. Tenant-tagged columns with automatic injection.** Each scoped table gets a standard required `tenantId` (store tables also `storeId`) with **no database-level default** in `schema.prisma`. Instead, a **Prisma Client Extension** intercepts all write operations (`create`/`createMany`) and automatically injects the `tenantId`/`storeId` from the `AsyncLocalStorage` context. Any write that bypasses the extension will fail-closed with a `NOT NULL` database constraint violation.
 
-**3. RLS policies per table.** Enable RLS and add policies (SELECT/INSERT/UPDATE/DELETE)
-keyed on the session variable:
+**3. RLS policies per table with bypass capability.** Enable RLS and add policies (SELECT/INSERT/UPDATE/DELETE) keyed on the session variable, with an escape hatch for super-admin/unscoped bypass:
 ```sql
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON products
-  USING (tenant_id = current_setting('app.current_tenant')::int)
-  WITH CHECK (tenant_id = current_setting('app.current_tenant')::int);
+  USING (
+    (current_setting('app.bypass_rls', true) = 'true') OR
+    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
+  )
+  WITH CHECK (
+    (current_setting('app.bypass_rls', true) = 'true') OR
+    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
+  );
 ```
-Store-scoped tables additionally constrain `store_id`. A documented **"admin mode"**
-(session var empty/NULL) is permitted *only* for the explicit unscoped/super-admin
-connection path, never for tenant requests.
+Store-scoped tables additionally constrain `store_id` (except announcements/messages which allow null `store_id`). A documented **"super-admin mode"** (setting `app.bypass_rls = 'true'`) is permitted only for the explicit unscoped/super-admin connection path, never for tenant requests.
 
-**4. ALS context + connection hook.** `src/config/tenantContext.ts` exposes an
-`AsyncLocalStorage<{ tenantId, storeId, scope }>`. Middleware wraps each request in it.
-A Prisma client extension/hook (`query` component or a `$on`/connection wrapper) runs
-`SELECT set_config('app.current_tenant', $tenantId, true)` (transaction-local) before
-the request's queries. Connection-pool safety: transaction-local config resets on
-transaction end; alternatively set-per-acquire with a per-connection WeakMap guard.
+**4. ALS context + connection hook.** `src/config/tenantContext.ts` exposes an `AsyncLocalStorage<{ tenantId, storeId, scope }>`. Middleware wraps each request in it. A Prisma client extension runs `SELECT set_config('app.current_tenant', $tenantId, true)` and `SELECT set_config('app.bypass_rls', 'false', true)` (or `'true'` for super-admin scope) before queries inside a transaction. This ensures connection-pool safety.
 Either way, **a pooled connection must never carry another tenant's context** — covered
 by tests.
 
@@ -305,48 +298,22 @@ enforcement state, where a leak would originate.
 
 4. **Every scoped table has all four policies** (SELECT/INSERT/UPDATE/DELETE) via
    `pg_policies` — RLS enabled with no policy is a misconfiguration.
-5. **Scope columns are `@default(dbgenerated(...))`, not required** (DMMF/schema check) —
-   so Prisma omits them and the DB default fires (see open item below).
-6. **Pooled-connection context-reset test** — two sequential requests for different
-   tenants forced onto the same connection; request 2 must not see request 1's context.
-7. **Unscoped-access allowlist** — `getUnscopedPrisma()` may only be imported in approved
-   files (migrations, super-admin, worker bootstrap); a new call site fails until
-   reviewed.
+5. **Scope columns are injected on write by Prisma Client Extension** (query hook check) — so Prisma automatically injects the tenant ID on writes and the database fails-closed if bypassed.
+6. **Pooled-connection context-reset test** — two sequential requests for different tenants forced onto the same connection; request 2 must not see request 1's context.
+7. **Unscoped-access allowlist** — `getUnscopedPrisma()` may only be imported in approved files (migrations, super-admin, worker bootstrap); a new call site fails until reviewed.
 
-**Nice-to-have hardening:** background-worker context test (worker with no context
-throws, not leaks); JWT cross-tenant rejection test (token for A on B's subdomain → 401).
+**Nice-to-have hardening:** background-worker context test (worker with no context throws, not leaks); JWT cross-tenant rejection test (token for A on B's subdomain → 401).
 
 ## Risks & Open Items
 
-- **Pervasive `tenantId`** touches ~25 tables — but with RLS-first, *service code is
-  unchanged*; risk concentrates in the migration and the connection hook.
+- **Pervasive `tenantId`** touches ~25 tables — but with RLS-first, *service code is unchanged*; risk concentrates in the migration and the connection hook.
 - **Superuser footgun:** must run as `app_user`; enforced by startup assertion + test.
-- **Connection pooling:** session var must be transaction-local (or per-acquire +
-  WeakMap). When a pooler (PgBouncer) is later added it must run in **transaction mode**.
+- **Connection pooling:** session var must be transaction-local (or per-acquire + WeakMap). When a pooler (PgBouncer) is later added it must run in **transaction mode**.
 - **Raw queries / nested writes** are now covered by RLS (the previous gap is closed).
 - **Subdomain/DNS/TLS** infra is a prerequisite for the demo to be reachable in prod.
-- **Prisma vs. the DB auto-tag default (decide in implementation).** The
-  `DEFAULT NULLIF(current_setting('app.current_tenant', true), '')::int` auto-tag only
-  fires if Prisma *omits* `tenantId` from the `INSERT`. A required model field would make
-  Prisma send `NULL`, the default would never fire, and the RLS `WITH CHECK` would reject
-  the row. Therefore the scope columns must be modeled as
-  `@default(dbgenerated("..."))` (so Prisma leaves them out of inserts), and the raw
-  `current_setting` default must be applied via a hand-written migration (it is not
-  expressible in plain Prisma schema). Do **not** model `tenantId`/`storeId` as ordinary
-  required fields.
-- **Transaction-local config constrains query execution (decide in implementation).**
-  `set_config('app.current_tenant', …, true)` is transaction-local, so it only persists
-  for queries inside an explicit transaction. Two viable paths: (a) run each request's DB
-  work inside one interactive `$transaction`, or (b) use session-level config (`false`) +
-  reset-on-connection-release guarded by a per-connection WeakMap (the approach used by
-  the Medusa/Rigby implementation). Path (a) is cleaner but forces a one-transaction-per-
-  request shape; path (b) avoids that but must guarantee reset on release. Pick one early
-  — it shapes the connection hook and pooling story.
-- **JWT payload shape change needs a grace path.** Tokens move from `roles: RoleName[]`
-  to `tenantId` + scoped `roles: { name, storeId }[]`. Access tokens issued before deploy
-  won't carry the new fields; since access tokens are short-lived (15m) and refresh
-  rotates them, a brief tolerance window (treat missing `tenantId` as the default tenant,
-  or force re-auth) avoids a logout storm at deploy.
+- **Prisma Client Extension vs. DB defaults.** To avoid Prisma CLI migration drift, we do not use `dbgenerated(...)` in schema.prisma. Instead, a Prisma client extension intercepts `create` and `createMany` queries to inject `tenantId`/`storeId`. The database columns are standard `NOT NULL` fields, which ensures any queries bypassing the client fail-closed in the database.
+- **Transaction-local config constrains query execution (decide in implementation).** `set_config('app.current_tenant', …, true)` is transaction-local, so it only persists for queries inside an explicit transaction. Two viable paths: (a) run each request's DB work inside one interactive `$transaction`, or (b) use session-level config (`false`) + reset-on-connection-release guarded by a per-connection WeakMap (the approach used by the Medusa/Rigby implementation). Path (a) is cleaner but forces a one-transaction-per-request shape; path (b) avoids that but must guarantee reset on release. Pick one early — it shapes the connection hook and pooling story.
+- **JWT payload shape change needs a grace path.** Tokens move from `roles: RoleName[]` to `tenantId` + scoped `roles: { name, storeId }[]`. Access tokens issued before deploy won't carry the new fields. To prevent user disruption, a brief tolerance window treats tokens missing a `tenantId` as mapped **strictly to the default tenant**. If a legacy token is presented on a non-default tenant subdomain, it must be rejected (401).
 
 ## Phasing (recap)
 

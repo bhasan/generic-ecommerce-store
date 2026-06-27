@@ -13,7 +13,7 @@
 - Tests run with `npx vitest run <path>` from `backend/`. Use vitest (`describe/it/expect`, `vi.mock`).
 - Prisma client is generated to `backend/generated/prisma` (not `@prisma/client`). Import enums/types from `../../generated/prisma`.
 - Migrations are raw SQL dirs under `backend/prisma/migrations/<timestamp>_<name>/migration.sql`; create with `npx prisma migrate dev --name <name>` then hand-edit `migration.sql` for RLS/raw bits.
-- Scope columns (`tenantId`/`storeId`) MUST be modeled `@default(dbgenerated("..."))` so Prisma omits them from inserts and the DB default fires. Never model them as ordinary required fields.
+- Scope columns (`tenantId`/`storeId`) MUST be modeled as standard `Int` (or `Int?` where nullability is design-required, e.g., platform-level access or announcements) without `dbgenerated` defaults. Instead, a Prisma client extension query hook intercepts writes (`create`/`createMany`) to inject these context keys automatically.
 - Role names live in `src/constants/roles.ts` `ROLE_NAMES`. JWT payload type lives in `src/utils/jwt.util.ts`.
 - The app must connect as a non-superuser role in every environment except migration runs.
 - All commits go on the `feature/multi-tenant` branch.
@@ -355,9 +355,9 @@ git commit -m "feat(tenancy): add scope classification source of truth"
 - Modify: `backend/prisma/schema.prisma`
 
 **Interfaces:**
-- Produces: Prisma models `Tenant`, `Store`; `tenantId Int? @default(dbgenerated(...))` on scoped models; `storeId` on store-scoped models; `User.tenantId`, `UserRole.storeId`.
+- Produces: Prisma models `Tenant`, `Store`; `tenantId Int` (or `Int?` for `User`) on scoped models; `storeId Int` on store-scoped models (or `Int?` for announcements/messages); `User.tenantId`, `UserRole.storeId`.
 
-> Note: scope columns are declared **optional** in Prisma (`Int?`) with a `dbgenerated` default so Prisma omits them from inserts (the DB default fills them). The NOT NULL enforcement is added at the SQL level in Task 4 after backfill. This avoids Prisma requiring the field in `create()` calls.
+> Note: scope columns are declared as standard fields (e.g., `Int`). Since we are handling Choice A (migrating existing data), the SQL migration will add them as nullable, backfill the default tenant/store IDs, and then alter the columns to `NOT NULL`. This matches our final Prisma schema definitions.
 
 - [ ] **Step 1: Add the new models and enums to `schema.prisma`**
 
@@ -394,23 +394,31 @@ enum StoreStatus  { ACTIVE SUSPENDED }
 
 - [ ] **Step 2: Add `tenantId` to each tenant-scoped model**
 
-Add this field to `User`, `Product`, `Category`, `ProductVariant`, `ProductImage`, `VariantQuantityOption`, `VariantPriceBreak`, `Review`, `ReviewVote`, `StoreCreditTransaction`, `UiSetting`, `UserRole`:
+Add this field to `Product`, `Category`, `ProductVariant`, `ProductImage`, `VariantQuantityOption`, `VariantPriceBreak`, `Review`, `ReviewVote`, `StoreCreditTransaction`, `UiSetting`, `UserRole`:
 
 ```prisma
-  tenantId Int? @default(dbgenerated("NULLIF(current_setting('app.current_tenant', true), '')::int"))
+  tenantId Int
 ```
 
-On `User` additionally make it nullable-by-design (super-admins have null tenant) — keep the same line. Add `@@index([tenantId])` to each.
+On `User` make it nullable-by-design (super-admins have null tenant):
+
+```prisma
+  tenantId Int?
+```
+
+Add `@@index([tenantId])` to each of these models.
 
 - [ ] **Step 3: Add `storeId` to each store-scoped model**
 
-Add to `Order`, `OrderItem`, `OrderStatusEvent`, `Payment`, `CartItem`, `PrintJob`, `PosOutbox`, `OrderPosMapping` (plus the `tenantId` line from Step 2):
+Add to `Order`, `OrderItem`, `OrderStatusEvent`, `Payment`, `CartItem`, `PrintJob`, `PosOutbox`, `OrderPosMapping` (plus the `tenantId Int` line from Step 2):
 
 ```prisma
-  storeId Int? @default(dbgenerated("NULLIF(current_setting('app.current_store', true), '')::int"))
+  storeId Int
 ```
 
-For `Announcement` and `ContactMessage`, add `tenantId` (Step 2) and a **nullable** `storeId Int?` WITHOUT the dbgenerated default (null = tenant-wide broadcast):
+Add `@@index([storeId])` to each.
+
+For `Announcement` and `ContactMessage`, add `tenantId Int` (Step 2) and a **nullable** `storeId Int?` (null = tenant-wide broadcast):
 
 ```prisma
   storeId Int?
@@ -436,25 +444,67 @@ git commit -m "feat(tenancy): add Tenant/Store models and scope columns to schem
 
 ---
 
-## Task 4: Core migration — tables, RLS, app_user role
+## Task 4: Core migration — tables, backfill, RLS, and app_user role
 
 **Files:**
 - Create: `backend/prisma/migrations/<ts>_multitenancy_core/migration.sql`
 
 **Interfaces:**
-- Produces: DB tables `tenants`/`stores`; `tenant_id`/`store_id` columns with `current_setting` defaults; RLS policies on all scoped tables; non-superuser role `app_user`.
+- Produces: DB tables `tenants`/`stores`; `tenant_id`/`store_id` columns with `NOT NULL` constraints; all existing data backfilled into the default tenant; RLS policies with `app.bypass_rls` check; non-superuser role `app_user`.
 
 - [ ] **Step 1: Generate the migration skeleton**
 
 Run: `cd backend && npx prisma migrate dev --name multitenancy_core --create-only`
-Expected: creates `prisma/migrations/<ts>_multitenancy_core/migration.sql` containing the Prisma-derived DDL (new tables + nullable columns + indexes). Do NOT apply yet.
+Expected: creates `prisma/migrations/<ts>_multitenancy_core/migration.sql` containing the DDL to create new tables, add columns (as `NOT NULL`), and build indexes. Do NOT apply yet.
 
-- [ ] **Step 2: Append the non-superuser role + RLS block to `migration.sql`**
+- [ ] **Step 2: Modify `migration.sql` to backfill atomically before setting NOT NULL**
 
-Append after the Prisma-generated DDL (use the exact scoped table list; `<each scoped table>` = every tenant-scoped and store-scoped table from `tenantScope.ts`):
+Because we have existing data (Choice A), adding required `NOT NULL` columns directly will fail. We must edit the generated file to split the addition of columns, run the backfill, and then set `NOT NULL`.
+
+Modify the generated file to follow this execution sequence:
 
 ```sql
--- 1. Application role (non-superuser, no BYPASSRLS). Password from env at deploy.
+-- 1. Create Tenant and Store tables
+-- (Use the Prisma-generated CREATE TABLE DDL for tenants and stores here)
+
+-- 2. Add columns as NULLABLE initially so the database accepts them
+ALTER TABLE products ADD COLUMN tenant_id INTEGER;
+ALTER TABLE orders ADD COLUMN tenant_id INTEGER;
+ALTER TABLE orders ADD COLUMN store_id INTEGER;
+-- ... repeat for all other scoped tables ...
+
+-- 3. Insert the Default Tenant + Default Store
+INSERT INTO tenants (slug, name, status, "createdAt", "updatedAt")
+VALUES ('app', 'Default Store', 'ACTIVE', now(), now())
+ON CONFLICT (slug) DO NOTHING;
+
+INSERT INTO stores (tenant_id, name, slug, "isDefault", status, "createdAt", "updatedAt")
+SELECT t.id, 'Main', 'main', true, 'ACTIVE', now(), now()
+FROM tenants t WHERE t.slug = 'app'
+ON CONFLICT (tenant_id, slug) DO NOTHING;
+
+-- 4. Backfill existing data to the Default Tenant / Store
+UPDATE products SET tenant_id = (SELECT id FROM tenants WHERE slug='app') WHERE tenant_id IS NULL;
+UPDATE categories SET tenant_id = (SELECT id FROM tenants WHERE slug='app') WHERE tenant_id IS NULL;
+UPDATE users SET tenant_id = (SELECT id FROM tenants WHERE slug='app') WHERE tenant_id IS NULL;
+-- ... repeat for all other tenant-scoped tables ...
+
+UPDATE orders SET
+  tenant_id = (SELECT id FROM tenants WHERE slug='app'),
+  store_id  = (SELECT s.id FROM stores s JOIN tenants t ON s.tenant_id=t.id WHERE t.slug='app' AND s."isDefault")
+WHERE tenant_id IS NULL OR store_id IS NULL;
+-- ... repeat for other store-scoped tables: order_items, order_status_events, payments, cart_items, print_jobs, pos_outbox, order_pos_mappings ...
+
+-- 5. Enforce NOT NULL now that every row is tagged
+ALTER TABLE products ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE orders ALTER COLUMN tenant_id SET NOT NULL;
+ALTER TABLE orders ALTER COLUMN store_id SET NOT NULL;
+-- ... repeat for all other scoped columns ...
+
+-- 6. Add Foreign Key constraints and Indexes
+-- (Use the Prisma-generated ALTER TABLE ADD CONSTRAINT and CREATE INDEX DDL here)
+
+-- 7. Application role (non-superuser, no BYPASSRLS)
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
@@ -464,38 +514,43 @@ END $$;
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT USAGE, SELECT ON SEQUENCES TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_user;
 
--- 2. Enable RLS + tenant policy on each tenant-scoped table.
--- Repeat this block for: users, products, categories, product_variants,
--- product_images, variant_quantity_options, variant_price_breaks, reviews,
--- review_votes, store_credit_transactions, ui_settings, user_roles.
+-- 8. Enable RLS and add tenant policies with app.bypass_rls check
+-- Repeat for all tenant-scoped tables:
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON products
-  USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
-  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int);
+  USING (
+    (current_setting('app.bypass_rls', true) = 'true') OR
+    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
+  )
+  WITH CHECK (
+    (current_setting('app.bypass_rls', true) = 'true') OR
+    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
+  );
 
--- 3. Store-scoped tables: tenant policy as above PLUS store policy.
--- Repeat for: orders, order_items, order_status_events, payments, cart_items,
--- print_jobs, pos_outbox, order_pos_mappings.
--- (announcements, contact_messages use tenant policy only — store_id nullable.)
+-- Repeat for all store-scoped tables (constraining both tenant_id and store_id):
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON orders
-  USING (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int)
-  WITH CHECK (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int);
+  USING (
+    (current_setting('app.bypass_rls', true) = 'true') OR
+    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int AND
+     store_id = NULLIF(current_setting('app.current_store', true), '')::int)
+  )
+  WITH CHECK (
+    (current_setting('app.bypass_rls', true) = 'true') OR
+    (tenant_id = NULLIF(current_setting('app.current_tenant', true), '')::int AND
+     store_id = NULLIF(current_setting('app.current_store', true), '')::int)
+  );
 ```
-
-> `FORCE ROW LEVEL SECURITY` makes RLS apply even to the table owner (defense in depth). The `USING`/`WITH CHECK` expression yields NULL when the session var is empty, and `tenant_id = NULL` is false, so empty-context tenant requests see no rows — fail-closed. The explicit unscoped path (Task 6) connects without setting the var only for super-admin/migration flows.
 
 - [ ] **Step 3: Apply the migration**
 
 Run: `cd backend && npx prisma migrate dev`
-Expected: migration applies; `npx prisma generate` runs; no errors.
+Expected: Migration applies atomically; DDL compiles; RLS policies compile; no errors.
 
 - [ ] **Step 4: Verify RLS is on (manual check)**
 
@@ -512,7 +567,7 @@ Expected: `products` and `orders` → `rowsecurity = t`; `roles` → `f`.
 
 ```bash
 git add backend/prisma/migrations backend/generated/prisma
-git commit -m "feat(tenancy): core migration with RLS policies and app_user role"
+git commit -m "feat(tenancy): core migration with default tenant backfill and RLS policies"
 ```
 
 ---
@@ -595,24 +650,58 @@ let tenantClient: ReturnType<typeof buildTenantClient> | undefined;
 function buildTenantClient() {
   return prisma.$extends({
     query: {
-      async $allOperations({ model, args, query }) {
-        const table = model ? modelToTable(model) : undefined;
-        // Unscoped models: pass straight through, no context required.
-        if (!table || isUnscoped(table)) {
+      $allModels: {
+        async create({ model, args, query }) {
+          const ctx = getTenantContext();
+          if (ctx && !isUnscoped(modelToTable(model))) {
+            args.data = args.data || {};
+            args.data.tenantId = ctx.tenantId;
+            if (ctx.storeId != null && isStoreScoped(modelToTable(model))) {
+              args.data.storeId = ctx.storeId;
+            }
+          }
           return query(args);
-        }
-        const ctx = getTenantContext();
-        if (!ctx) throw new MissingTenantContextError();
-        // Wrap in a transaction so set_config(local) and the query share a connection.
-        return prisma.$transaction(async (tx) => {
-          await tx.$executeRawUnsafe(
-            `SELECT set_config('app.current_tenant', $1, true)`, String(ctx.tenantId));
-          await tx.$executeRawUnsafe(
-            `SELECT set_config('app.current_store', $1, true)`,
-            ctx.storeId == null ? '' : String(ctx.storeId));
-          // Re-run the original op on the transaction client.
-          return (tx as any)[model!][ (args as any).__op ?? 'findMany' ];
-        });
+        },
+        async createMany({ model, args, query }) {
+          const ctx = getTenantContext();
+          if (ctx && !isUnscoped(modelToTable(model))) {
+            if (args.data) {
+              const dataList = Array.isArray(args.data) ? args.data : [args.data];
+              for (const item of dataList) {
+                item.tenantId = ctx.tenantId;
+                if (ctx.storeId != null && isStoreScoped(modelToTable(model))) {
+                  item.storeId = ctx.storeId;
+                }
+              }
+            }
+          }
+          return query(args);
+        },
+        async $allOperations({ model, args, query }) {
+          const table = model ? modelToTable(model) : undefined;
+          // Unscoped models: pass straight through, no context required.
+          if (!table || isUnscoped(table)) {
+            return query(args);
+          }
+          const ctx = getTenantContext();
+          if (!ctx) throw new MissingTenantContextError();
+          // Wrap in a transaction so set_config(local) and the query share a connection.
+          return prisma.$transaction(async (tx) => {
+            if (ctx.scope === 'super-admin') {
+              await tx.$executeRawUnsafe(`SELECT set_config('app.bypass_rls', 'true', true)`);
+            } else {
+              await tx.$executeRawUnsafe(`SELECT set_config('app.bypass_rls', 'false', true)`);
+              await tx.$executeRawUnsafe(
+                `SELECT set_config('app.current_tenant', $1, true)`, String(ctx.tenantId));
+              await tx.$executeRawUnsafe(
+                `SELECT set_config('app.current_store', $1, true)`,
+                ctx.storeId == null ? '' : String(ctx.storeId));
+            }
+            // Re-run the original op on the transaction client.
+            const operation = (args as any).__op ?? 'findMany';
+            return (tx as any)[model!][operation](args);
+          });
+        },
       },
     },
   });
@@ -951,7 +1040,11 @@ After `const decoded = verifyToken(token);` and before `req.user = decoded;`:
 ```ts
 // Tenant binding: a token minted for tenant A must never authenticate on tenant B.
 // Super-admin tokens (tenantId === null) are exempt and only valid on the admin context.
-if (decoded.tenantId !== null && decoded.tenantId !== req.tenantId) {
+// Grace path: legacy tokens (missing tenantId) map strictly to the Default Tenant (ID = 1).
+// If a legacy token is presented on a non-default subdomain, it is rejected.
+const tokenTenantId = decoded.tenantId === undefined ? 1 : decoded.tenantId;
+
+if (tokenTenantId !== null && tokenTenantId !== req.tenantId) {
   logger.warn('Authentication failed: tenant mismatch', {
     requestId: req.requestId || 'unknown',
     tokenTenant: decoded.tenantId,
@@ -1028,75 +1121,46 @@ git commit -m "feat(tenancy): tenant cross-check + store-aware role authorizatio
 
 ---
 
-## Task 9: Backfill migration — wrap existing data in a default tenant
+## Task 9: Verify migration and add composite unique indexes
 
 **Files:**
-- Create: `backend/prisma/migrations/<ts>_backfill_default_tenant/migration.sql`
+- Modify: `backend/prisma/schema.prisma`
 
 **Interfaces:**
-- Produces: a default tenant + default store; all existing rows tagged; scoped columns set NOT NULL; existing admin → tenant ADMIN.
+- Produces: Composite unique constraints on scoped tables (e.g. `Product`, `Category`, `User`) leading with `tenantId` to prevent cross-tenant key collisions.
 
-- [ ] **Step 1: Create the migration file**
+> Note: Because we are implementing multi-tenancy on shared tables, we must convert global unique constraints like `email` or `slug` into composite unique constraints scoped by tenant (`@@unique([tenantId, slug])`). This ensures Tenant A can create a product with the same slug as Tenant B without errors.
 
-Run: `cd backend && npx prisma migrate dev --name backfill_default_tenant --create-only`
+- [ ] **Step 1: Update unique fields in `schema.prisma` to composite unique keys**
 
-- [ ] **Step 2: Replace `migration.sql` with the backfill (idempotent)**
+In `backend/prisma/schema.prisma`, update the unique constraints for all scoped tables:
+- On `Product`: replace `@unique` on `slug` with `@@unique([tenantId, slug])`.
+- On `Category`: replace `@unique` on `slug` with `@@unique([tenantId, slug])`.
+- On `User`: replace `@unique` on `username` and `email` with `@@unique([tenantId, username])` and `@@unique([tenantId, email])`.
+- (Repeat for other scoped models with unique keys, ensuring they are prefixed with `tenantId`).
 
-```sql
--- Default tenant + store (slug from env at deploy; placeholder 'app' here).
-INSERT INTO tenants (slug, name, status, "createdAt", "updatedAt")
-VALUES ('app', 'Default Store', 'ACTIVE', now(), now())
-ON CONFLICT (slug) DO NOTHING;
+- [ ] **Step 2: Generate unique index migration**
 
-INSERT INTO stores (tenant_id, name, slug, "isDefault", status, "createdAt", "updatedAt")
-SELECT t.id, 'Main', 'main', true, 'ACTIVE', now(), now()
-FROM tenants t WHERE t.slug = 'app'
-ON CONFLICT (tenant_id, slug) DO NOTHING;
+Run: `cd backend && npx prisma migrate dev --name scoped_unique_constraints`
+Expected: Migration generates the SQL to drop original single-column unique indexes and add composite unique constraints.
 
--- Backfill tenant_id on every tenant-scoped table (repeat for each table).
-UPDATE products       SET tenant_id = (SELECT id FROM tenants WHERE slug='app') WHERE tenant_id IS NULL;
-UPDATE categories     SET tenant_id = (SELECT id FROM tenants WHERE slug='app') WHERE tenant_id IS NULL;
-UPDATE users          SET tenant_id = (SELECT id FROM tenants WHERE slug='app') WHERE tenant_id IS NULL;
--- ... product_variants, product_images, variant_quantity_options, variant_price_breaks,
---     reviews, review_votes, store_credit_transactions, ui_settings, user_roles ...
+- [ ] **Step 3: Verify data integrity and index coverage**
 
--- Backfill store-scoped tables with both tenant_id and store_id.
-UPDATE orders SET
-  tenant_id = (SELECT id FROM tenants WHERE slug='app'),
-  store_id  = (SELECT s.id FROM stores s JOIN tenants t ON s.tenant_id=t.id WHERE t.slug='app' AND s."isDefault")
-WHERE tenant_id IS NULL OR store_id IS NULL;
--- ... order_items, order_status_events, payments, cart_items, print_jobs,
---     pos_outbox, order_pos_mappings (same pattern) ...
--- announcements, contact_messages: set tenant_id only (store_id stays nullable).
-
--- Existing admin keeps ADMIN as a tenant-wide role (store_id NULL) — already null.
-
--- Enforce NOT NULL now that every row is tagged (repeat per scoped column).
-ALTER TABLE products   ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE orders     ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE orders     ALTER COLUMN store_id  SET NOT NULL;
--- ... remaining scoped columns ...
-```
-
-- [ ] **Step 3: Apply and verify no NULLs remain**
-
-Run: `cd backend && npx prisma migrate dev`
-Then:
+Run:
 ```bash
 npx prisma db execute --stdin <<'SQL'
 SELECT count(*) AS orphan_products FROM products WHERE tenant_id IS NULL;
-SELECT count(*) AS orphan_orders   FROM orders   WHERE tenant_id IS NULL OR store_id IS NULL;
+SELECT count(*) AS orphan_orders FROM orders WHERE tenant_id IS NULL OR store_id IS NULL;
 SQL
 ```
-Expected: both counts `0`.
+Expected: both counts `0` (asserts the Task 4 backfill ran successfully).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add backend/prisma/migrations
-git commit -m "feat(tenancy): backfill existing data into default tenant + NOT NULL"
+git add backend/prisma/schema.prisma backend/prisma/migrations
+git commit -m "feat(tenancy): add tenant-scoped composite unique indexes and verify migration"
 ```
-
 ---
 
 ## Task 10: Startup non-superuser assertion
@@ -1500,11 +1564,11 @@ git commit -m "chore(tenancy): align callers with scoped-roles JWT shape; suite 
 ## Self-Review Notes (coverage vs spec)
 
 - New entities (Tenant/Store) → Tasks 3, 4.
-- Scope columns on all tables → Tasks 3, 4; backfill + NOT NULL → Task 9.
+- Scope columns on all tables → Tasks 3, 4; backfill + NOT NULL → Task 4; unique constraints → Task 9.
 - RLS isolation (non-superuser role, policies, defaults, ALS hook) → Tasks 1, 2, 4, 5, 10.
 - Subdomain resolution → Task 6.
 - Tenant-aware JWT + scoped roles → Task 7; cross-check + store-aware auth → Task 8.
 - Background-worker context → Task 11.
 - Demo seed → Task 14.
-- CI guardrails #1/#2/#3 (required) → Tasks 12, 13; #4 → Task 12. (#5 dbgenerated, #6 pooling-reset, #7 unscoped-allowlist are recommended fast-follows, not blocking Phase 1.)
+- CI guardrails #1/#2/#3 (required) → Tasks 12, 13; #4 → Task 12. (#5 Prisma client extension query hook, #6 pooling-reset, #7 unscoped-allowlist are recommended fast-follows, not blocking Phase 1.)
 - Frontend impact is minimal/no-code (server-side resolution) per spec; DNS/TLS is an infra task tracked outside this code plan.
