@@ -794,6 +794,7 @@ Expected: FAIL — module not found.
 import { Request, Response, NextFunction } from 'express';
 import { getUnscopedPrisma } from '../config/database';
 import { runWithTenant } from '../config/tenantContext';
+import jwt from 'jsonwebtoken';
 
 const ROOT_DOMAIN_LABELS = 2;
 
@@ -803,32 +804,72 @@ function subdomainOf(hostname: string): string {
   return labels[0];
 }
 
+interface JwtPayload {
+  tenantId?: number | null;
+}
+
 export async function resolveTenant(req: Request, res: Response, next: NextFunction): Promise<void> {
   const host = req.hostname;
   const sub = subdomainOf(host);
   const prisma = getUnscopedPrisma();
 
-  // 1. Super-admin Console Check
-  if (sub === 'admin') {
-    req.tenantId = null;
-    req.tenant = null;
-    req.store = null;
-    runWithTenant({ tenantId: 0, storeId: null, scope: 'super-admin' }, () => next());
-    return;
+  let resolvedTenantId: number | null = null;
+  let resolvedSlug: string | null = null;
+
+  // 1. Priority A: Explicit Request Headers (ideal for single-domain SPAs and API testing)
+  const headerTenantId = req.headers['x-tenant-id'];
+  const headerTenantSlug = req.headers['x-tenant-slug'];
+
+  if (headerTenantId) {
+    resolvedTenantId = Number(headerTenantId);
+  } else if (headerTenantSlug) {
+    resolvedSlug = String(headerTenantSlug);
   }
 
-  // 2. Resolve by custom domain OR subdomain (slug). Fallback to 'app' on apex/www.
-  const lookupSlug = (sub && sub !== 'www') ? sub : 'app';
-  let tenant = await prisma.tenant.findFirst({
-    where: {
-      OR: [
-        { customDomain: host },
-        { slug: lookupSlug }
-      ]
+  // 2. Priority B: JWT Token Context (if user is authenticated, use token tenant)
+  if (!resolvedTenantId && !resolvedSlug) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : req.cookies?.accessToken;
+    if (token) {
+      try {
+        const decoded = jwt.decode(token) as JwtPayload | null;
+        if (decoded && decoded.tenantId !== undefined) {
+          resolvedTenantId = decoded.tenantId;
+        }
+      } catch (err) {
+        // Suppress decode errors here; regular auth middleware handles verification
+      }
     }
-  });
+  }
 
-  // 3. Fallback to default 'app' tenant if not found (helps with localhost dev testing)
+  // 3. Priority C: Custom Domain / Subdomain resolution
+  if (!resolvedTenantId && !resolvedSlug) {
+    if (sub === 'admin') {
+      req.tenantId = null;
+      req.tenant = null;
+      req.store = null;
+      runWithTenant({ tenantId: 0, storeId: null, scope: 'super-admin' }, () => next());
+      return;
+    }
+    resolvedSlug = (sub && sub !== 'www') ? sub : 'app';
+  }
+
+  // 4. Database Lookup based on resolved identifiers
+  let tenant: any = null;
+  if (resolvedTenantId !== null) {
+    tenant = await prisma.tenant.findUnique({ where: { id: resolvedTenantId } });
+  } else if (resolvedSlug !== null) {
+    tenant = await prisma.tenant.findFirst({
+      where: {
+        OR: [
+          { customDomain: host },
+          { slug: resolvedSlug }
+        ]
+      }
+    });
+  }
+
+  // 5. Fallback to default 'app' tenant if resolved tenant doesn't exist
   if (!tenant) {
     tenant = await prisma.tenant.findUnique({ where: { slug: 'app' } });
   }
