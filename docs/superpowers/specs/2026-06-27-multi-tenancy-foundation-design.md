@@ -286,6 +286,28 @@ prove undesirable.
   WeakMap). When a pooler (PgBouncer) is later added it must run in **transaction mode**.
 - **Raw queries / nested writes** are now covered by RLS (the previous gap is closed).
 - **Subdomain/DNS/TLS** infra is a prerequisite for the demo to be reachable in prod.
+- **Prisma vs. the DB auto-tag default (decide in implementation).** The
+  `DEFAULT NULLIF(current_setting('app.current_tenant', true), '')::int` auto-tag only
+  fires if Prisma *omits* `tenantId` from the `INSERT`. A required model field would make
+  Prisma send `NULL`, the default would never fire, and the RLS `WITH CHECK` would reject
+  the row. Therefore the scope columns must be modeled as
+  `@default(dbgenerated("..."))` (so Prisma leaves them out of inserts), and the raw
+  `current_setting` default must be applied via a hand-written migration (it is not
+  expressible in plain Prisma schema). Do **not** model `tenantId`/`storeId` as ordinary
+  required fields.
+- **Transaction-local config constrains query execution (decide in implementation).**
+  `set_config('app.current_tenant', …, true)` is transaction-local, so it only persists
+  for queries inside an explicit transaction. Two viable paths: (a) run each request's DB
+  work inside one interactive `$transaction`, or (b) use session-level config (`false`) +
+  reset-on-connection-release guarded by a per-connection WeakMap (the approach used by
+  the Medusa/Rigby implementation). Path (a) is cleaner but forces a one-transaction-per-
+  request shape; path (b) avoids that but must guarantee reset on release. Pick one early
+  — it shapes the connection hook and pooling story.
+- **JWT payload shape change needs a grace path.** Tokens move from `roles: RoleName[]`
+  to `tenantId` + scoped `roles: { name, storeId }[]`. Access tokens issued before deploy
+  won't carry the new fields; since access tokens are short-lived (15m) and refresh
+  rotates them, a brief tolerance window (treat missing `tenantId` as the default tenant,
+  or force re-auth) avoids a logout storm at deploy.
 
 ## Phasing (recap)
 
