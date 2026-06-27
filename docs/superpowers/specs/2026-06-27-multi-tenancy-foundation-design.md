@@ -80,6 +80,9 @@ In scope:
    authorization middleware.
 8. Seed the **Demo tenant** (fake catalog + orders across all stages, a Management demo
    user, a customer demo user).
+9. **CI guardrails** for tenant isolation (see CI Guardrails section): required checks
+   #1 (RLS-on-every-scoped-table), #2 (cross-tenant leak test, incl. raw SQL), #3
+   (non-superuser app role).
 
 Out of scope (later phases):
 
@@ -276,6 +279,42 @@ prove undesirable.
 - **Migration:** run against a snapshot of single-tenant data; all rows acquire the
   default tenant/store; app behaves identically; `app_user` has no BYPASSRLS.
 - Existing service/controller suites run under a tenant context.
+
+## CI Guardrails
+
+Tenant-isolation failures are *silent* (a leak, not an error), so they will not surface
+in manual testing. These automated checks make a regression turn the build red. They are
+designed to **fail safe**: a newly added table is unprotected until explicitly
+classified, so the build breaks rather than the data leaking. Tests that read Postgres's
+own catalogs (`pg_tables`, `pg_policies`, `pg_user`) verify the *database's* actual
+enforcement state, where a leak would originate.
+
+**Required in Phase 1 (the catastrophic cases):**
+
+1. **Every scoped table has RLS enabled.** Query `pg_tables` for `rowsecurity = false`
+   minus an explicit UNSCOPED allowlist (`roles`, `address_geocode_cache`, `tenants`,
+   `stores`, `refresh_tokens`). A new table is RLS-off by default → fails until
+   classified.
+2. **Cross-tenant leak integration test.** Seed two tenants; under tenant A's context
+   assert reads return only A's rows and a write targeting B's id affects zero rows —
+   **including via `$queryRaw`** (proves RLS, not just app filtering).
+3. **App connects as a non-superuser.** Assert `usesuper = false` and no `BYPASSRLS`
+   (superuser silently disables RLS). Mirrored as a runtime startup assertion.
+
+**Strongly recommended (add in Phase 1 if cheap, else fast-follow):**
+
+4. **Every scoped table has all four policies** (SELECT/INSERT/UPDATE/DELETE) via
+   `pg_policies` — RLS enabled with no policy is a misconfiguration.
+5. **Scope columns are `@default(dbgenerated(...))`, not required** (DMMF/schema check) —
+   so Prisma omits them and the DB default fires (see open item below).
+6. **Pooled-connection context-reset test** — two sequential requests for different
+   tenants forced onto the same connection; request 2 must not see request 1's context.
+7. **Unscoped-access allowlist** — `getUnscopedPrisma()` may only be imported in approved
+   files (migrations, super-admin, worker bootstrap); a new call site fails until
+   reviewed.
+
+**Nice-to-have hardening:** background-worker context test (worker with no context
+throws, not leaks); JWT cross-tenant rejection test (token for A on B's subdomain → 401).
 
 ## Risks & Open Items
 
