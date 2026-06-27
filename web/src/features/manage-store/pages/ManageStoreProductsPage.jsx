@@ -11,6 +11,8 @@ import ManageProductListItem from '../components/ManageProductListItem';
 import ProductFormModal from '../../products/ProductFormModal';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import EmptyState from '../../../components/common/EmptyState';
+import LoadingState from '../../../components/common/LoadingState';
+import { Package } from 'lucide-react';
 import { getCategoryLabel, getProductCategoryLabel } from '../../products/productsHelpers';
 import { IMAGE_INPUT_ACCEPT, MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile } from '../../../utils/mediaUpload';
 import * as uploadApi from '../../../services/uploadApi';
@@ -256,12 +258,12 @@ function ManageStoreProductsPage() {
       )}
 
       {isLoading ? (
-        <EmptyState message="Loading products..." />
+        <LoadingState message="Loading products..." />
       ) : orderedProducts.length === 0 ? (
-        <EmptyState message="No products yet. Add your first product to get started!" />
+        <EmptyState icon={<Package size={48} />} message="No products yet. Add your first product to get started!" />
       ) : filteredProducts ? (
         filteredProducts.length === 0
-          ? <EmptyState message="No products match your search." />
+          ? <EmptyState icon={<Package size={48} />} message="No products match your search." />
           : renderProductsCollection(null, filteredProducts, false)
       ) : (
         <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>

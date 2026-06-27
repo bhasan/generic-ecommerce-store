@@ -1,5 +1,7 @@
 import React from 'react';
 import { Megaphone, Clock, Power, PowerOff, Edit, Trash2 } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 
 function AnnouncementsSection({
   isLoading,
@@ -27,15 +29,9 @@ function AnnouncementsSection({
       </div>
 
       {isLoading ? (
-        <div className="empty-state">
-          <Clock size={64} className="empty-icon" />
-          <p>Loading announcements...</p>
-        </div>
+        <LoadingState message="Loading announcements..." />
       ) : announcements.length === 0 ? (
-        <div className="empty-state">
-          <Megaphone size={64} className="empty-icon" />
-          <p>No announcements created yet. Create one to display to users!</p>
-        </div>
+        <EmptyState icon={<Megaphone size={64} />} message="No announcements created yet. Create one to display to users!" />
       ) : (
         <div className="announcements-list">
           {announcements.map(announcement => (

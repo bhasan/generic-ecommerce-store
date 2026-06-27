@@ -4,6 +4,8 @@ import * as usersApi from '../../../services/usersApi';
 import CreditModal from './CreditModal';
 import './CreditsSection.css';
 import { formatPrice } from '../../../utils/currencyUtils';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 
 function CreditsSection({ showNotification }) {
   const [users, setUsers] = useState([]);
@@ -46,10 +48,7 @@ function CreditsSection({ showNotification }) {
   if (isLoading) {
     return (
       <div className="dashboard-content-section surface-card">
-        <div className="empty-state">
-          <div className="loading-spinner" />
-          <p>Loading users...</p>
-        </div>
+        <LoadingState message="Loading credits..." />
       </div>
     );
   }
@@ -86,10 +85,10 @@ function CreditsSection({ showNotification }) {
 
         {/* Table */}
         {filtered.length === 0 ? (
-          <div className="empty-state">
-            <Users size={48} className="empty-icon" />
-            <p>{search ? 'No users match your search.' : 'No approved users found.'}</p>
-          </div>
+          <EmptyState
+            icon={<Users size={48} />}
+            message={search ? 'No users match your search.' : 'No approved users found.'}
+          />
         ) : (
           <div className="credits-table-container">
             <table className="credits-table">

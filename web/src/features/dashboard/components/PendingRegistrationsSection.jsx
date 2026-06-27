@@ -3,6 +3,8 @@ import { UserPlus, Phone, DollarSign, Clock, X, MapPin, Check } from 'lucide-rea
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import RejectUserModal from '../../../components/common/RejectUserModal';
 import useModalState from '../../../hooks/useModalState';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 
 const formatDeliveryZoneLabel = (status) => {
   switch (status) {
@@ -87,15 +89,9 @@ function PendingRegistrationsSection({
       </div>
 
       {isLoading ? (
-        <div className="empty-state">
-          <Clock size={64} className="empty-icon" />
-          <p>Loading pending registrations...</p>
-        </div>
+        <LoadingState message="Loading pending registrations..." />
       ) : pendingRegistrations.length === 0 ? (
-        <div className="empty-state">
-          <Check size={64} className="empty-icon" />
-          <p>No pending registrations. All users are approved!</p>
-        </div>
+        <EmptyState icon={<Check size={64} />} message="No pending registrations. All users are approved!" />
       ) : (
         <div className="pending-registrations-list">
           {pendingRegistrations.map(user => (

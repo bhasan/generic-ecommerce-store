@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  MessageSquare, 
-  Clock, 
-  Mail, 
-  Phone, 
-  Package, 
+import {
+  MessageSquare,
+  Clock,
+  Mail,
+  Phone,
+  Package,
   User,
   Check,
   CheckCheck,
@@ -16,6 +16,8 @@ import {
   Send,
   Reply
 } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Messages' },
@@ -118,19 +120,12 @@ function MessagesSection({
       </div>
 
       {isLoading ? (
-        <div className="empty-state">
-          <Clock size={64} className="empty-icon" />
-          <p>Loading messages...</p>
-        </div>
+        <LoadingState message="Loading messages..." />
       ) : messages.length === 0 ? (
-        <div className="empty-state">
-          <MessageSquare size={64} className="empty-icon" />
-          <p>
-            {statusFilter 
-              ? `No ${statusFilter.toLowerCase()} messages found.` 
-              : 'No contact messages yet.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={<MessageSquare size={64} />}
+          message={statusFilter ? `No ${statusFilter.toLowerCase()} messages found.` : 'No contact messages yet.'}
+        />
       ) : (
         <div className="messages-list">
           {messages.map(message => {
