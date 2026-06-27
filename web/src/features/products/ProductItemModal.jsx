@@ -274,7 +274,6 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
             )}
           </div>
         </div>
-      </div>
 
     </BaseModal>
 
