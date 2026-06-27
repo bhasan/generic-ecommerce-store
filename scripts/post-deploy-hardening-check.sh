@@ -93,12 +93,12 @@ run_local_check() {
 
   echo ""
   echo "==> /api/health response headers"
-  curl -sS -D - -o /dev/null "$health_url" | sed 's/\r$//'
+  curl -sS -L -k -D - -o /dev/null "$health_url" | sed 's/\r$//'
 
   echo ""
   echo "==> Proxy-header probe status (simulated CF/XFF headers)"
   local probe_status
-  probe_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+  probe_status="$(curl -sS -L -k -o /dev/null -w '%{http_code}' \
     -H 'CF-Connecting-IP: 203.0.113.44' \
     -H 'X-Forwarded-For: 203.0.113.44' \
     -H 'User-Agent: post-deploy-hardening-check/1.0' \
