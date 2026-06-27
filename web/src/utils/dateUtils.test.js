@@ -62,9 +62,7 @@ describe('dateUtils', () => {
     });
 
     it('handles invalid date gracefully', () => {
-      const result = formatDateTime('invalid');
-      expect(result).toBeTruthy();
-      expect(typeof result).toBe('string');
+      expect(formatDateTime('invalid')).toBe('invalid');
     });
   });
 });

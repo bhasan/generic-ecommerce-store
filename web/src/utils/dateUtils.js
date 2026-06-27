@@ -24,10 +24,9 @@ export const formatDateShort = (dateString) => {
 export const formatDateTime = (dateString) => {
   if (!dateString) return 'N/A';
   try {
-    return new Date(dateString).toLocaleString(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   } catch {
     return dateString;
   }
