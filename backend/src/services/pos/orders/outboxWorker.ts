@@ -3,7 +3,8 @@ import { Prisma } from '../../../../generated/prisma';
 import { logger } from '../../../utils/logger';
 import { StoreSettingsService } from '../../storeSettings.service';
 import { getOrderSync } from '../registry';
-import { processOutboxRow, countPending, DeferralError } from './posOrderService';
+import { processOutboxRow as runProcessOutboxRow, countPending, DeferralError } from './posOrderService';
+import { runWithTenant } from '../../../config/tenantContext';
 
 const MAX_ATTEMPTS = 5;
 const POLL_MS = Number(process.env.POS_OUTBOX_POLL_MS ?? 30000);
@@ -13,7 +14,17 @@ const BACKLOG_THRESHOLD = Number(process.env.POS_OUTBOX_BACKLOG_THRESHOLD ?? 50)
 // reclaimed after this lease expires so they can never get orphaned.
 const LEASE_MS = Number(process.env.POS_OUTBOX_LEASE_MS ?? 5 * 60 * 1000);
 
-interface OutboxRow { id: number; orderId: number; provider: string; type: string; attempts: number; }
+interface OutboxRow { id: number; orderId: number; provider: string; type: string; attempts: number; tenantId: number; storeId: number | null; }
+
+export async function processOutboxRow(
+  row: { id: number; tenantId: number; storeId: number | null },
+  handler: () => Promise<void>,
+): Promise<void> {
+  await runWithTenant(
+    { tenantId: row.tenantId, storeId: row.storeId, scope: 'tenant' },
+    handler,
+  );
+}
 
 export async function runOutboxOnce(): Promise<void> {
   const settings = await new StoreSettingsService().getStoreSettings();
@@ -27,7 +38,7 @@ export async function runOutboxOnce(): Promise<void> {
   const leaseCutoff = new Date(Date.now() - LEASE_MS);
   const rows = await prisma.$transaction(async (tx) => {
     const claimed = await tx.$queryRaw<OutboxRow[]>(Prisma.sql`
-      SELECT id, "orderId", provider, type, attempts
+      SELECT id, "orderId", provider, type, attempts, "tenantId", "storeId"
       FROM pos_outbox
       WHERE status = 'PENDING'
          OR (status = 'PROCESSING' AND "updatedAt" < ${leaseCutoff})
@@ -49,8 +60,10 @@ export async function runOutboxOnce(): Promise<void> {
   // Phase 2 — process claimed rows; no DB locks held during HTTP calls.
   for (const row of rows) {
     try {
-      await processOutboxRow(row, provider);
-      await prisma.posOutbox.update({ where: { id: row.id }, data: { status: 'DONE' } });
+      await processOutboxRow(row, async () => {
+        await runProcessOutboxRow(row, provider);
+        await prisma.posOutbox.update({ where: { id: row.id }, data: { status: 'DONE' } });
+      });
     } catch (err) {
       if (err instanceof DeferralError) {
         // ORDER_CREATED not yet complete — reset to PENDING so the next tick retries.
