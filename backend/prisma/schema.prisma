@@ -42,6 +42,8 @@ model User {
   refreshTokens             RefreshToken[]
 
   @@map("users")
+  tenantId Int?
+  @@index([tenantId])
 }
 
 model RefreshToken {
@@ -78,6 +80,10 @@ model UserRole {
 
   @@unique([userId, roleId])
   @@map("user_roles")
+  tenantId Int
+  storeId  Int?
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model Order {
@@ -118,6 +124,10 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@map("orders")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model OrderStatusEvent {
@@ -133,6 +143,10 @@ model OrderStatusEvent {
 
   @@index([orderId, createdAt])
   @@map("order_status_events")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model Payment {
@@ -151,6 +165,10 @@ model Payment {
   @@index([orderId])
   @@index([status])
   @@map("payments")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model AddressGeocodeCache {
@@ -185,6 +203,8 @@ model StoreCreditTransaction {
   @@index([userId, createdAt])
   @@index([orderId])
   @@map("store_credit_transactions")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model OrderItem {
@@ -204,6 +224,10 @@ model OrderItem {
   @@index([orderId])
   @@index([variantId])
   @@map("order_items")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model Category {
@@ -221,6 +245,8 @@ model Category {
 
   @@unique([name, parentId])
   @@map("categories")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model Product {
@@ -241,6 +267,8 @@ model Product {
 
   @@index([categoryId])
   @@map("products")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model ProductImage {
@@ -253,6 +281,8 @@ model ProductImage {
 
   @@index([productId])
   @@map("product_images")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model ProductVariant {
@@ -277,6 +307,8 @@ model ProductVariant {
 
   @@index([productId])
   @@map("product_variants")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model VariantQuantityOption {
@@ -288,6 +320,8 @@ model VariantQuantityOption {
 
   @@unique([variantId, quantity])
   @@map("variant_quantity_options")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model VariantPriceBreak {
@@ -299,6 +333,8 @@ model VariantPriceBreak {
 
   @@unique([variantId, minQuantity])
   @@map("variant_price_breaks")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model UiSetting {
@@ -309,6 +345,8 @@ model UiSetting {
   updatedAt DateTime @updatedAt
 
   @@map("ui_settings")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model Review {
@@ -328,6 +366,8 @@ model Review {
   @@unique([userId, productId])
   @@index([productId])
   @@map("reviews")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model ReviewVote {
@@ -341,6 +381,8 @@ model ReviewVote {
 
   @@unique([reviewId, userId])
   @@map("review_votes")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model CartItem {
@@ -355,6 +397,10 @@ model CartItem {
 
   @@unique([userId, variantId])
   @@map("cart_items")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model Announcement {
@@ -367,6 +413,10 @@ model Announcement {
   updatedAt   DateTime         @updatedAt
 
   @@map("announcements")
+  tenantId Int
+  storeId  Int?
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model ContactMessage {
@@ -393,6 +443,10 @@ model ContactMessage {
   @@index([status])
   @@index([orderId])
   @@map("contact_messages")
+  tenantId Int
+  storeId  Int?
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model Notification {
@@ -416,6 +470,8 @@ model Notification {
   @@index([recipientUserId, createdAt])
   @@index([recipientUserId, readAt])
   @@map("notifications")
+  tenantId Int
+  @@index([tenantId])
 }
 
 model PrintJob {
@@ -438,6 +494,10 @@ model PrintJob {
   @@index([status, createdAt])
   @@index([claimedByAgentId])
   @@map("print_jobs")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model PosOutbox {
@@ -454,6 +514,10 @@ model PosOutbox {
 
   @@index([status, id])
   @@map("pos_outbox")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 model OrderPosMapping {
@@ -466,6 +530,10 @@ model OrderPosMapping {
 
   @@unique([orderId, provider])
   @@map("order_pos_mappings")
+  tenantId Int
+  storeId  Int
+  @@index([tenantId])
+  @@index([storeId])
 }
 
 enum CardSize {
@@ -599,4 +667,41 @@ enum PaymentStatus {
   FAILED
   REFUNDED
   VOIDED
+}
+
+model Tenant {
+  id           Int          @id @default(autoincrement())
+  slug         String       @unique
+  name         String
+  customDomain String?      @unique
+  status       TenantStatus @default(ACTIVE)
+  plan         String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  stores       Store[]
+  @@map("tenants")
+}
+
+model Store {
+  id        Int         @id @default(autoincrement())
+  tenantId  Int
+  name      String
+  slug      String
+  isDefault Boolean     @default(false)
+  status    StoreStatus @default(ACTIVE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@unique([tenantId, slug])
+  @@map("stores")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum StoreStatus {
+  ACTIVE
+  SUSPENDED
 }
