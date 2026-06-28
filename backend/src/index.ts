@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import prisma from './config/database';
 import { logger } from './utils/logger';
+import { resolveTenant } from './middleware/tenant.middleware';
 
 // Import subscribers to register event listeners
 import './subscribers/order.subscriber';
@@ -109,6 +110,15 @@ app.use((req, res, next) => {
 // ========================================
 // LOGGING MIDDLEWARE
 // ========================================
+
+app.use('/api', resolveTenant);
+
+app.use('/api', (req, _res, next) => {
+  if ((req as any).logger) {
+    (req as any).logger = (req as any).logger.child({ tenantId: req.tenantId ?? 'super-admin' });
+  }
+  next();
+});
 
 // Prometheus metrics collection (before requestLogger so every request is counted)
 app.use(metricsMiddleware);
