@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('./api', () => ({
   get: vi.fn(() => Promise.resolve('GET')),
-  post: vi.fn(() => Promise.resolve({ widget: { id: 1 } })),
-  put: vi.fn(() => Promise.resolve({ widget: { id: 2 } })),
-  patch: vi.fn(() => Promise.resolve({ widget: { id: 3 } })),
+  post: vi.fn(() => Promise.resolve({ id: 1 })),
+  put: vi.fn(() => Promise.resolve({ id: 2 })),
+  patch: vi.fn(() => Promise.resolve({ id: 3 })),
   del: vi.fn(() => Promise.resolve('DELETED')),
 }));
 
@@ -24,19 +24,19 @@ describe('createResourceApi', () => {
     expect(get).toHaveBeenCalledWith('/widgets/7');
   });
 
-  it('create() posts and unwraps the resourceKey', async () => {
+  it('create() posts and returns the api.js-unwrapped response', async () => {
     const result = await createResourceApi('/widgets', 'widget').create({ name: 'x' });
     expect(post).toHaveBeenCalledWith('/widgets', { name: 'x' });
     expect(result).toEqual({ id: 1 });
   });
 
-  it('update() puts and unwraps the resourceKey', async () => {
+  it('update() puts and returns the api.js-unwrapped response', async () => {
     const result = await createResourceApi('/widgets', 'widget').update(2, { name: 'y' });
     expect(put).toHaveBeenCalledWith('/widgets/2', { name: 'y' });
     expect(result).toEqual({ id: 2 });
   });
 
-  it('patch() patches and unwraps the resourceKey', async () => {
+  it('patch() patches and returns the api.js-unwrapped response', async () => {
     const result = await createResourceApi('/widgets', 'widget').patch(3, { name: 'z' });
     expect(patch).toHaveBeenCalledWith('/widgets/3', { name: 'z' });
     expect(result).toEqual({ id: 3 });
@@ -46,11 +46,5 @@ describe('createResourceApi', () => {
     const result = await createResourceApi('/widgets', 'widget').remove(9);
     expect(del).toHaveBeenCalledWith('/widgets/9');
     expect(result).toBe('DELETED');
-  });
-
-  it('falls back to the raw response when the resourceKey is absent', async () => {
-    post.mockResolvedValueOnce({ id: 99, name: 'no-wrapper' });
-    const result = await createResourceApi('/widgets', 'widget').create({ name: 'x' });
-    expect(result).toEqual({ id: 99, name: 'no-wrapper' });
   });
 });

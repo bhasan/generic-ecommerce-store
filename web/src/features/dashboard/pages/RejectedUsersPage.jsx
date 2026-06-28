@@ -4,12 +4,13 @@ import * as usersApi from '../../../services/usersApi';
 import { formatDate } from '../../../utils/dateUtils';
 import RejectedUsersSection from '../components/RejectedUsersSection';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
+import useModalState from '../../../hooks/useModalState';
 
 function RejectedUsersPage() {
   const { showNotification } = useApp();
   const [rejectedUsers, setRejectedUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [unRejectModal, setUnRejectModal] = useState({ open: false, user: null });
+  const unRejectModal = useModalState();
 
   const load = useCallback(async () => {
     try {
@@ -25,15 +26,15 @@ function RejectedUsersPage() {
   useEffect(() => { load(); }, [load]);
 
   const handleUnRejectConfirm = async () => {
-    if (!unRejectModal.user) return;
+    if (!unRejectModal.data) return;
     try {
-      await usersApi.unRejectUser(unRejectModal.user.id);
+      await usersApi.unRejectUser(unRejectModal.data.id);
       showNotification('User moved back to pending registrations', 'success');
-      setUnRejectModal({ open: false, user: null });
+      unRejectModal.closeModal();
       load();
     } catch (error) {
       showNotification(error.message || 'Failed to move user back to pending', 'error');
-      setUnRejectModal({ open: false, user: null });
+      unRejectModal.closeModal();
     }
   };
 
@@ -43,17 +44,17 @@ function RejectedUsersPage() {
         isLoading={isLoading}
         rejectedUsers={rejectedUsers}
         formatDate={formatDate}
-        onMoveToPending={(id, name) => setUnRejectModal({ open: true, user: { id, name } })}
+        onMoveToPending={(id, name) => unRejectModal.openModal({ id, name })}
       />
 
       <ConfirmationModal
-        isOpen={unRejectModal.open}
-        onClose={() => setUnRejectModal({ open: false, user: null })}
+        isOpen={unRejectModal.isOpen}
+        onClose={() => unRejectModal.closeModal()}
         onConfirm={handleUnRejectConfirm}
         title="Move User to Pending"
         message={
           <>
-            Move <strong>{unRejectModal.user?.name || ''}</strong> back to pending registrations?
+            Move <strong>{unRejectModal.data?.name || ''}</strong> back to pending registrations?
             <br /><br />This will allow them to be approved again.
           </>
         }

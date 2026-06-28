@@ -13,3 +13,35 @@ export async function getUserRolesWithNames(
     include: { role: true },
   });
 }
+
+/**
+ * Fetch roles for multiple users in a single query.
+ * Returns a Map from userId → Array<{ role: { name: string } }>.
+ */
+export async function getUserRolesMapForUsers(
+  userIds: number[],
+): Promise<Map<number, Array<{ role: { name: string } }>>> {
+  if (userIds.length === 0) return new Map();
+
+  const rows = await prisma.userRole.findMany({
+    where: { userId: { in: userIds } },
+    include: { role: true },
+  });
+
+  const map = new Map<number, Array<{ role: { name: string } }>>();
+  for (const row of rows) {
+    if (!map.has(row.userId)) map.set(row.userId, []);
+    map.get(row.userId)!.push({ role: { name: row.role.name } });
+  }
+  return map;
+}
+
+/**
+ * Attach roles from a batch map to a user object, in the shape formatUser() expects.
+ */
+export function formatUserWithRoles<T extends { id: number }>(
+  user: T,
+  rolesMap: Map<number, Array<{ role: { name: string } }>>,
+): T & { roles: Array<{ role: { name: string } }> } {
+  return { ...user, roles: rolesMap.get(user.id) ?? [] };
+}

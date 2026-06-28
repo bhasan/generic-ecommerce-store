@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import './CheckoutPage.css';
 import { useApp } from '../../context/AppContext';
 import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
-import { ArrowLeft, Package, MapPin, FileText, DollarSign, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Package, FileText, AlertTriangle, RefreshCw } from 'lucide-react';
 import SendPaymentModal from '../../components/common/SendPaymentModal';
 import AuthorizeNetPaymentModal from './AuthorizeNetPaymentModal';
 import * as ordersApi from '../../services/ordersApi';
@@ -19,19 +19,18 @@ import {
 } from '../../utils/address';
 import { getFulfillmentEntry } from './checkout/fulfillmentRegistry';
 import { getPaymentEntry } from './checkout/paymentRegistry';
-import ErrorMessage from './checkout/ErrorMessage';
-import PaymentSelector from './checkout/PaymentSelector';
-import PaymentDetails from './checkout/PaymentDetails';
-import FulfillmentSelector from './checkout/FulfillmentSelector';
+import { formatPrice } from '../../utils/currencyUtils';
 
-// Creates the empty delivery-check state used before validation starts or after it is reset.
+import CheckoutSummary from './CheckoutSummary';
+import CheckoutPayment from './CheckoutPayment';
+import CheckoutFulfillment from './CheckoutFulfillment';
+
 const createInitialEligibilityState = () => ({
   status: 'idle',
   result: null,
   error: '',
 });
 
-// Drives checkout UI for pickup and delivery, including delivery prechecks and external-payment recovery.
 function CheckoutPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -75,8 +74,6 @@ function CheckoutPage() {
   const isSubmitting = flow.state === CheckoutFlowState.SUBMITTING;
   const showSendPaymentModal = flow.state === CheckoutFlowState.AWAITING_PAYMENT;
   const pendingOrderState = flow.state === CheckoutFlowState.AWAITING_PAYMENT ? flow.orderState : null;
-  const orderCancelled = flow.state === CheckoutFlowState.CANCELLED;
-  const orderCompleted = flow.state === CheckoutFlowState.SUCCESS;
   const ccPaymentModal = flow.state === CheckoutFlowState.CC_PAYMENT ? flow.ccModal : null;
   const paymentRetryOrder = flow.state === CheckoutFlowState.RETRY ? flow.retryOrder : null;
 
@@ -127,7 +124,7 @@ function CheckoutPage() {
   const deliveryBlocked = deliveryDisabled || deliveryMinimumBlocked;
   const deliveryBlockedReason = deliveryDisabled
     ? (deliveryDisabledMessage || 'Delivery is currently unavailable.')
-    : `Delivery requires a $${minimumDeliveryOrder.toFixed(2)} minimum ($${(minimumDeliveryOrder - subtotal).toFixed(2)} more needed)`;
+    : `Delivery requires a ${formatPrice(minimumDeliveryOrder)} minimum (${formatPrice(minimumDeliveryOrder - subtotal)} more needed)`;
   const deliverySubmitBlocked = isDelivery && (
     deliveryBlocked
     || !deliveryAddressComplete
@@ -226,7 +223,6 @@ function CheckoutPage() {
     return null;
   }
 
-  // Clears one address-field error and any derived delivery-eligibility error after user edits that field.
   const clearAddressError = (fieldName) => {
     setErrors((prev) => ({
       ...prev,
@@ -235,7 +231,6 @@ function CheckoutPage() {
     }));
   };
 
-  // Validates all form fields through the fulfillment and payment registries.
   const validateForm = () => {
     const fulfillmentCtx = {
       normalizedAddress,
@@ -261,7 +256,6 @@ function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Places the order, preserves a restorable cart snapshot, and branches correctly for external-payment flows.
   const handlePlaceOrder = async () => {
     if (!validateForm()) return;
 
@@ -331,12 +325,10 @@ function CheckoutPage() {
         dispatchFlow({ type: 'ORDER_CREATED_IMMEDIATE', orderState });
       }
     } catch {
-      // Error is already handled in AppContext.
       dispatchFlow({ type: 'SUBMIT_ERROR' });
     }
   };
 
-  // Finalizes the external-payment handoff after the user confirms they sent payment.
   const handleSendPaymentDone = () => {
     dispatchFlow({ type: 'EXTERNAL_PAYMENT_CONFIRMED' });
     if (pendingOrderState) {
@@ -344,7 +336,6 @@ function CheckoutPage() {
     }
   };
 
-  // Cancels the pending external-payment order and restores the cart even if deleteOrder fails.
   const handleSendPaymentCancel = async () => {
     const snapshot = pendingOrderState;
     dispatchFlow({ type: 'CANCEL' });
@@ -353,7 +344,7 @@ function CheckoutPage() {
         await deleteOrder(snapshot.order.id, { silent: true });
       }
     } catch {
-      // Cancellation should still restore the cart even if cleanup fails.
+      // ignore
     } finally {
       if (snapshot?.items?.length) {
         restoreCart(snapshot.items);
@@ -446,71 +437,49 @@ function CheckoutPage() {
                     <div className="checkout-item-details">
                       <h4>{item.name}</h4>
                       <p className="checkout-item-category">{getProductCategoryLabel(item)}</p>
-                      <p className="checkout-item-price">${unitPrice.toFixed(2)} x {item.quantity}</p>
+                      <p className="checkout-item-price">{formatPrice(unitPrice)} x {item.quantity}</p>
                     </div>
-                    <div className="checkout-item-total">${(unitPrice * item.quantity).toFixed(2)}</div>
+                    <div className="checkout-item-total">{formatPrice(unitPrice * item.quantity)}</div>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div className="checkout-section surface-card">
-            <div className="section-header">
-              <DollarSign size={20} />
-              <h3>Payment Information</h3>
-            </div>
-            <div className="payment-info-box">
-              {showPaymentSelector && (
-                <PaymentSelector
-                  ctx={{ paymentSettings, creditBalance, isPickup }}
-                  selected={selectedPaymentMethod}
-                  onChange={(method) => {
-                    setSelectedPaymentMethod(method);
-                    setErrors((prev) => ({ ...prev, credit: '', cashAppUsername: '' }));
-                  }}
-                  errors={errors}
-                />
-              )}
-              <PaymentDetails
-                paymentMethod={selectedPaymentMethod}
-                paymentSettings={paymentSettings}
-                cashAppUsername={cashAppUsername}
-                onCashAppChange={(value) => {
-                  setCashAppUsername(value);
-                  setErrors((prev) => ({ ...prev, cashAppUsername: '' }));
-                }}
-                creditBalance={creditBalance}
-                total={total}
-                errors={errors}
-              />
-              <ErrorMessage message={errors.payment} />
-            </div>
-          </div>
+          <CheckoutPayment
+            showPaymentSelector={showPaymentSelector}
+            paymentSettings={paymentSettings}
+            creditBalance={creditBalance}
+            isPickup={isPickup}
+            selectedPaymentMethod={selectedPaymentMethod}
+            setSelectedPaymentMethod={setSelectedPaymentMethod}
+            setErrors={setErrors}
+            errors={errors}
+            cashAppUsername={cashAppUsername}
+            onCashAppChange={(value) => {
+              setCashAppUsername(value);
+              setErrors((prev) => ({ ...prev, cashAppUsername: '' }));
+            }}
+            total={total}
+          />
 
-          <div className="checkout-section surface-card">
-            <div className="section-header">
-              <MapPin size={20} />
-              <h3>Delivery Method</h3>
-            </div>
-            <FulfillmentSelector
-              deliveryMethod={deliveryMethod}
-              onDeliveryMethodChange={setDeliveryMethod}
-              address={address}
-              onAddressChange={setAddress}
-              vehicleDetails={vehicleDetails}
-              onVehicleDetailsChange={setVehicleDetails}
-              errors={errors}
-              onClearAddressError={clearAddressError}
-              onClearVehicleError={clearVehicleError}
-              deliveryBlocked={deliveryBlocked}
-              deliveryBlockedReason={deliveryBlockedReason}
-              deliveryRadiusMiles={deliveryRadiusMiles}
-              deliveryAddressComplete={deliveryAddressComplete}
-              deliveryEligibility={deliveryEligibility}
-              pickupLocation={pickupLocation}
-            />
-          </div>
+          <CheckoutFulfillment
+            deliveryMethod={deliveryMethod}
+            setDeliveryMethod={setDeliveryMethod}
+            address={address}
+            setAddress={setAddress}
+            vehicleDetails={vehicleDetails}
+            setVehicleDetails={setVehicleDetails}
+            errors={errors}
+            clearAddressError={clearAddressError}
+            clearVehicleError={clearVehicleError}
+            deliveryBlocked={deliveryBlocked}
+            deliveryBlockedReason={deliveryBlockedReason}
+            deliveryRadiusMiles={deliveryRadiusMiles}
+            deliveryAddressComplete={deliveryAddressComplete}
+            deliveryEligibility={deliveryEligibility}
+            pickupLocation={pickupLocation}
+          />
 
           <div className="checkout-section surface-card">
             <div className="section-header">
@@ -531,45 +500,20 @@ function CheckoutPage() {
         </div>
 
         <div className="checkout-sidebar">
-          <div className="checkout-summary surface-card-accent">
-            <h3 className="summary-title">Order Summary</h3>
-
-            <div className="summary-details">
-              <div className="summary-row">
-                <span>Subtotal ({cart.length} {cart.length === 1 ? 'item' : 'items'})</span>
-                <span>${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="summary-row">
-                <span>Tax ({(taxRate * 100).toFixed(2).replace(/\.00$/, '')}%)</span>
-                <span>${tax.toFixed(2)}</span>
-              </div>
-              <div className="summary-divider"></div>
-              <div className="summary-row summary-total">
-                <span>Total</span>
-                <span>${total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handlePlaceOrder}
-              disabled={isSubmitting || deliverySubmitBlocked}
-              className="btn-place-order"
-            >
-              {isSubmitting
-                ? 'Processing...'
-                : deliveryEligibility.status === 'checking'
-                  ? 'Checking delivery...'
-                  : isCCPayment
-                    ? 'Place Order & Pay →'
-                    : 'Place Order'}
-            </button>
-
-            <p className="checkout-note">{
-              isStoreCreditPayment ? 'Store credit will be deducted from your balance when you place this order.'
-                : isInStorePayment ? 'Have your payment ready when you arrive to pick up your order.'
-                  : 'By placing this order, you agree to send payment via the method(s) shown above'
-            }</p>
-          </div>
+          <CheckoutSummary
+            cart={cart}
+            subtotal={subtotal}
+            taxRate={taxRate}
+            tax={tax}
+            total={total}
+            handlePlaceOrder={handlePlaceOrder}
+            isSubmitting={isSubmitting}
+            deliverySubmitBlocked={deliverySubmitBlocked}
+            deliveryEligibility={deliveryEligibility}
+            isCCPayment={isCCPayment}
+            isStoreCreditPayment={isStoreCreditPayment}
+            isInStorePayment={isInStorePayment}
+          />
         </div>
       </div>
 
@@ -581,7 +525,7 @@ function CheckoutPage() {
             <p>{paymentRetryOrder.reason || 'Your card could not be processed. Your order has been saved.'}</p>
             <div className="payment-retry-order-info">
               <span>Order #{paymentRetryOrder.orderId}</span>
-              <span>Total: ${paymentRetryOrder.amount?.toFixed(2)}</span>
+              <span>Total: {formatPrice(paymentRetryOrder.amount)}</span>
             </div>
             <div className="payment-retry-actions">
               <button
@@ -613,7 +557,7 @@ function CheckoutPage() {
                   try {
                     await deleteOrder(paymentRetryOrder.orderId, { silent: true });
                   } catch {
-                    // Restore the cart even if cleanup fails — matches handleSendPaymentCancel.
+                    // ignore
                   } finally {
                     if (paymentRetryOrder.items?.length) {
                       restoreCart(paymentRetryOrder.items);

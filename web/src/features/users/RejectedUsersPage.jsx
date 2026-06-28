@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import { UserX, Mail, Phone, DollarSign, MapPin, Clock, Calendar, FileText } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
+import { formatDate } from '../../utils/dateUtils';
 
 function RejectedUsersPage() {
   const { showNotification } = useApp();
@@ -25,21 +26,6 @@ function RejectedUsersPage() {
   useEffect(() => {
     loadRejectedUsers();
   }, [loadRejectedUsers]);
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (e) {
-      return dateString;
-    }
-  };
 
   return (
     <div className="rejected-users-page-container">

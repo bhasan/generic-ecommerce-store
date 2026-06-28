@@ -7,6 +7,7 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 import { OrderStatus } from '../../generated/prisma';
 import { asyncHandler } from '../utils/asyncHandler.util';
 import { deliveryAddressValidators, conditionalDeliveryAddressValidators } from '../validators/deliveryAddress';
+import { requireIntParam } from '../middleware/parseParam.middleware';
 
 const router = Router();
 
@@ -18,11 +19,12 @@ router.get('/', authenticate, asyncHandler(orderController.getAllOrders));
 router.get('/ready-for-delivery', authenticate, authorize('ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER'), asyncHandler(orderController.getReadyForDeliveryOrders));
 router.get('/out-for-delivery', authenticate, authorize('ADMIN', 'MANAGEMENT', 'DELIVERY_DRIVER'), asyncHandler(orderController.getOutForDeliveryOrders));
 router.get('/delivered', authenticate, authorizeAdmin, asyncHandler(orderController.getDeliveredOrders));
-router.get('/:id', authenticate, asyncHandler(orderController.getOrderById));
+router.get('/:id', authenticate, requireIntParam('id', 'order'), asyncHandler(orderController.getOrderById));
 
 router.post(
   '/:id/arrive',
   authenticate,
+  requireIntParam('id', 'order'),
   [
     body('parkingSpot').isString().withMessage('Parking spot details are required').trim().notEmpty().withMessage('Parking spot details are required'),
   ],
@@ -48,10 +50,11 @@ router.post(
   asyncHandler(orderController.createOrder)
 );
 
-router.post('/:id/payment/token', authenticate, asyncHandler(orderController.getPaymentToken));
+router.post('/:id/payment/token', authenticate, requireIntParam('id', 'order'), asyncHandler(orderController.getPaymentToken));
 router.post(
   '/:id/payment/verify',
   authenticate,
+  requireIntParam('id', 'order'),
   [body('transId').isString().notEmpty().withMessage('transId is required')],
   asyncHandler(orderController.verifyPayment)
 );
@@ -59,6 +62,7 @@ router.post(
 router.patch(
   '/:id/status',
   authenticate,
+  requireIntParam('id', 'order'),
   [
     body('status').isIn(Object.values(OrderStatus)).withMessage('Invalid order status'),
     body('note').optional().isString().isLength({ max: 500 }).withMessage('Note must be a string under 500 characters'),
@@ -71,6 +75,7 @@ router.post(
   '/:id/items',
   authenticate,
   authorizeEmployee,
+  requireIntParam('id', 'order'),
   [
     body('variantId').isInt().withMessage('Valid variant ID is required'),
     body('quantity').isFloat({ min: 0.01 }).withMessage('Quantity must be greater than 0'),
@@ -78,10 +83,10 @@ router.post(
   asyncHandler(orderController.addItemToOrder)
 );
 
-router.patch('/:id/items/:itemId/void', authenticate, authorizeEmployee, asyncHandler(orderController.voidOrderItem));
-router.delete('/:id/items/:itemId', authenticate, authorizeEmployee, asyncHandler(orderController.deleteOrderItem));
-router.post('/:id/print', authenticate, authorizeEmployee, asyncHandler(orderController.printOrderReceipt));
+router.patch('/:id/items/:itemId/void', authenticate, authorizeEmployee, requireIntParam('id', 'order'), requireIntParam('itemId', 'item'), asyncHandler(orderController.voidOrderItem));
+router.delete('/:id/items/:itemId', authenticate, authorizeEmployee, requireIntParam('id', 'order'), requireIntParam('itemId', 'item'), asyncHandler(orderController.deleteOrderItem));
+router.post('/:id/print', authenticate, authorizeEmployee, requireIntParam('id', 'order'), asyncHandler(orderController.printOrderReceipt));
 // Only admins can hard-delete orders.
-router.delete('/:id', authenticate, authorizeAdmin, asyncHandler(orderController.deleteOrder));
+router.delete('/:id', authenticate, authorizeAdmin, requireIntParam('id', 'order'), asyncHandler(orderController.deleteOrder));
 
 export default router;

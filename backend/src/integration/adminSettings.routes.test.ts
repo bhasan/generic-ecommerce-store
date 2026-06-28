@@ -142,8 +142,11 @@ describe('admin settings routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
-      minimumDeliveryOrder: 45,
-      minimumDeliveryOrderEnabled: true,
+      success: true,
+      data: {
+        minimumDeliveryOrder: 45,
+        minimumDeliveryOrderEnabled: true,
+      },
     });
     expect(logger.info).toHaveBeenCalledWith('Authentication succeeded', expect.objectContaining({
       requestId: 'req-integration',
@@ -172,8 +175,9 @@ describe('admin settings routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
+      success: true,
       message: 'Payment settings updated successfully',
-      settings: payload,
+      data: { settings: payload },
     });
     expect(paymentSettingsService.updatePaymentSettings).toHaveBeenCalledWith(payload);
   });
@@ -231,7 +235,7 @@ describe('admin settings routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ featuredProductIds: [5, 3, 9] });
+    expect(body).toEqual({ success: true, data: { featuredProductIds: [5, 3, 9] } });
   });
 
   it('updates landing page settings for a management user and returns the success shape', async () => {
@@ -250,8 +254,9 @@ describe('admin settings routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
+      success: true,
       message: 'Landing page settings updated successfully',
-      settings: payload,
+      data: { settings: payload },
     });
     expect(landingPageSettingsService.updateLandingPageSettings).toHaveBeenCalledWith(payload);
   });

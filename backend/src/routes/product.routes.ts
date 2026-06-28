@@ -4,6 +4,7 @@ import productController from '../controllers/product.controller';
 import { authenticate, optionalAuthenticate } from '../middleware/auth.middleware';
 import { authorizeManagement, authorizeAdmin } from '../middleware/role.middleware';
 import { asyncHandler } from '../utils/asyncHandler.util';
+import { requireIntParam } from '../middleware/parseParam.middleware';
 
 const router = Router();
 
@@ -38,7 +39,7 @@ const updateVariantValidators = [
 router.get('/', optionalAuthenticate, asyncHandler(productController.getAllProducts));
 router.get('/export-zip', authenticate, authorizeManagement, asyncHandler(productController.exportZip));
 router.get('/search', optionalAuthenticate, asyncHandler(productController.searchProducts));
-router.get('/:id', optionalAuthenticate, asyncHandler(productController.getProductById));
+router.get('/:id', optionalAuthenticate, requireIntParam('id', 'product'), asyncHandler(productController.getProductById));
 
 router.post(
   '/',
@@ -63,6 +64,7 @@ router.put(
   '/:id',
   authenticate,
   authorizeManagement,
+  requireIntParam('id', 'product'),
   [
     body('name').optional().notEmpty().withMessage('Product name cannot be empty'),
     body('categoryId').optional().isInt({ min: 1 }).withMessage('Category cannot be empty').toInt(),
@@ -78,6 +80,6 @@ router.put(
   asyncHandler(productController.updateProduct)
 );
 
-router.delete('/:id', authenticate, authorizeAdmin, asyncHandler(productController.deleteProduct));
+router.delete('/:id', authenticate, authorizeAdmin, requireIntParam('id', 'product'), asyncHandler(productController.deleteProduct));
 
 export default router;

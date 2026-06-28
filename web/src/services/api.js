@@ -95,9 +95,10 @@ const refreshAccessToken = () => {
     })
       .then(async (res) => {
         if (!res.ok) throw new Error('Refresh failed');
-        const data = await res.json();
-        setAuthToken(data.token);
-        return data.token;
+        const json = await res.json();
+        const token = json?.data?.token ?? json?.token;
+        setAuthToken(token);
+        return token;
       })
       .finally(() => {
         // Clears the single-flight lock whether the refresh succeeded or failed
@@ -317,55 +318,32 @@ const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
 /**
  * GET request
  */
-export const get = (url, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'GET',
-  });
-};
+export const get = (url, options = {}) =>
+  apiClient(url, { ...options, method: 'GET' }).then(res => res?.data ?? res);
 
 /**
  * POST request
  */
-export const post = (url, data, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-};
+export const post = (url, data, options = {}) =>
+  apiClient(url, { ...options, method: 'POST', body: JSON.stringify(data) }).then(res => res?.data ?? res);
 
 /**
  * PUT request
  */
-export const put = (url, data, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-};
+export const put = (url, data, options = {}) =>
+  apiClient(url, { ...options, method: 'PUT', body: JSON.stringify(data) }).then(res => res?.data ?? res);
 
 /**
  * PATCH request
  */
-export const patch = (url, data, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
-};
+export const patch = (url, data, options = {}) =>
+  apiClient(url, { ...options, method: 'PATCH', body: JSON.stringify(data) }).then(res => res?.data ?? res);
 
 /**
  * DELETE request
  */
-export const del = (url, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'DELETE',
-  });
-};
+export const del = (url, options = {}) =>
+  apiClient(url, { ...options, method: 'DELETE' }).then(res => res?.data ?? res);
 
 // Export token management functions
 export { getAuthToken, setAuthToken, clearAuthToken, refreshAccessToken };

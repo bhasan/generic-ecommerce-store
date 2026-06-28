@@ -15,7 +15,8 @@ test.describe('Curbside arrival flow', () => {
     const customerPage = await customerCtx.newPage();
 
     const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const products = await productsRes.json();
+    const body = await productsRes.json();
+    const products = Array.isArray(body) ? body : body.data;
     const smartWatch = products.find((p: any) => p.name === 'Smart Watch');
     expect(smartWatch).toBeTruthy();
 

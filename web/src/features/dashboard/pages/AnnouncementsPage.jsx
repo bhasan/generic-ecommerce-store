@@ -5,14 +5,14 @@ import { formatDate } from '../../../utils/dateUtils';
 import AnnouncementsSection from '../components/AnnouncementsSection';
 import AnnouncementModal from '../../../components/common/AnnouncementModal';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
+import useModalState from '../../../hooks/useModalState';
 
 function AnnouncementsPage() {
   const { showNotification } = useApp();
   const [announcements, setAnnouncements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [deleteModal, setDeleteModal] = useState({ open: false, item: null });
+  const announcementModal = useModalState();
+  const deleteModal = useModalState();
 
   const load = useCallback(async () => {
     try {
@@ -29,15 +29,14 @@ function AnnouncementsPage() {
 
   const handleSave = async (data) => {
     try {
-      if (editing) {
-        await announcementsApi.updateAnnouncement(editing.id, data);
+      if (announcementModal.data) {
+        await announcementsApi.updateAnnouncement(announcementModal.data.id, data);
         showNotification('Announcement updated successfully', 'success');
       } else {
         await announcementsApi.createAnnouncement(data);
         showNotification('Announcement created successfully', 'success');
       }
-      setModalOpen(false);
-      setEditing(null);
+      announcementModal.closeModal();
       load();
     } catch (error) {
       showNotification(error.message || 'Failed to save announcement', 'error');
@@ -58,15 +57,15 @@ function AnnouncementsPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!deleteModal.item) return;
+    if (!deleteModal.data) return;
     try {
-      await announcementsApi.deleteAnnouncement(deleteModal.item.id);
+      await announcementsApi.deleteAnnouncement(deleteModal.data.id);
       showNotification('Announcement deleted successfully', 'success');
-      setDeleteModal({ open: false, item: null });
+      deleteModal.closeModal();
       load();
     } catch (error) {
       showNotification(error.message || 'Failed to delete announcement', 'error');
-      setDeleteModal({ open: false, item: null });
+      deleteModal.closeModal();
     }
   };
 
@@ -76,28 +75,28 @@ function AnnouncementsPage() {
         isLoading={isLoading}
         announcements={announcements}
         formatDate={formatDate}
-        onCreate={() => { setEditing(null); setModalOpen(true); }}
+        onCreate={() => announcementModal.openModal(null)}
         onToggle={handleToggle}
-        onEdit={(a) => { setEditing(a); setModalOpen(true); }}
-        onDelete={(id, message) => setDeleteModal({ open: true, item: { id, message } })}
+        onEdit={(a) => announcementModal.openModal(a)}
+        onDelete={(id, message) => deleteModal.openModal({ id, message })}
       />
 
       <AnnouncementModal
-        isOpen={modalOpen}
-        onClose={() => { setModalOpen(false); setEditing(null); }}
+        isOpen={announcementModal.isOpen}
+        onClose={() => announcementModal.closeModal()}
         onSave={handleSave}
-        announcement={editing}
+        announcement={announcementModal.data}
       />
 
       <ConfirmationModal
-        isOpen={deleteModal.open}
-        onClose={() => setDeleteModal({ open: false, item: null })}
+        isOpen={deleteModal.isOpen}
+        onClose={() => deleteModal.closeModal()}
         onConfirm={handleDeleteConfirm}
         title="Delete Announcement"
         message={
           <>
             Are you sure you want to delete this announcement?
-            {deleteModal.item?.message && <><br /><br /><strong>"{deleteModal.item.message}"</strong></>}
+            {deleteModal.data?.message && <><br /><br /><strong>"{deleteModal.data.message}"</strong></>}
             <br /><br />This action cannot be undone.
           </>
         }

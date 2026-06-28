@@ -57,6 +57,6 @@ describe('category controller logging', () => {
       actorUserId: 5,
       targetCategoryId: 8,
     }));
-    expect(res.json).toHaveBeenCalledWith({ message: 'Category deleted successfully' });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { message: 'Category deleted successfully' } });
   });
 });

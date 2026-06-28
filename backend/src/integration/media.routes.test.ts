@@ -129,7 +129,7 @@ describe('media routes integration', () => {
     const { response, body } = await requestJson(server, '/api/products');
 
     expect(response.status).toBe(200);
-    expect(body).toEqual([{ id: 1, name: 'Visible Product' }]);
+    expect(body).toEqual({ success: true, data: [{ id: 1, name: 'Visible Product' }] });
     expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, 500, 0);
   });
 
@@ -154,7 +154,7 @@ describe('media routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ id: 44, name: 'Public Product' });
+    expect(body).toEqual({ success: true, data: { id: 44, name: 'Public Product' } });
     expect(logger.warn).toHaveBeenCalledWith('Optional authentication ignored invalid token', expect.objectContaining({
       requestId: 'req-media',
       path: '/44',
@@ -267,8 +267,9 @@ describe('media routes integration', () => {
 
     expect(response.status).toBe(201);
     expect(body).toEqual({
+      success: true,
       message: 'Product created successfully',
-      product: { id: 88, name: 'Media Product' },
+      data: { product: { id: 88, name: 'Media Product' } },
     });
     expect(productService.createProduct).toHaveBeenCalledWith(payload);
   });
@@ -295,8 +296,9 @@ describe('media routes integration', () => {
 
     expect(response.status).toBe(201);
     expect(body).toEqual({
+      success: true,
       message: 'Product created successfully',
-      product: { id: 89, name: 'Thumbnail Only Product' },
+      data: { product: { id: 89, name: 'Thumbnail Only Product' } },
     });
     expect(productService.createProduct).toHaveBeenCalledWith(payload);
   });

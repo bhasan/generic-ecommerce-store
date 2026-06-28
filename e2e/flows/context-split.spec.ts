@@ -16,7 +16,8 @@ async function getCartFromLocalStorage(page: Page): Promise<unknown[]> {
 
 async function getInStockProduct(page: Page): Promise<{ id: number; name: string }> {
   const res = await page.request.get('http://localhost:3000/api/products');
-  const products = await res.json() as Array<{ id: number; name: string; variants?: Array<{ stock: number; active: boolean }> }>;
+  const body = await res.json();
+  const products = (Array.isArray(body) ? body : body.data) as Array<{ id: number; name: string; variants?: Array<{ stock: number; active: boolean }> }>;
   const product = products.find(p => p.variants?.some(v => v.stock > 0 && v.active));
   if (!product) throw new Error('No in-stock product found in seed data');
   return { id: product.id, name: product.name };
@@ -177,7 +178,8 @@ test.describe('cart cleared after checkout', () => {
 
   test('cart is empty in localStorage and UI after a successful order', async ({ page }) => {
     const productsRes = await page.request.get('http://localhost:3000/api/products');
-    const products = await productsRes.json() as Array<{ id: number; name: string; variants?: Array<{ stock: number; active: boolean }> }>;
+    const body = await productsRes.json();
+    const products = (Array.isArray(body) ? body : body.data) as any[];
     const product = products.find(p => p.name === 'Wireless Headphones') ?? products.find(p => p.variants?.some(v => v.stock > 0 && v.active));
     expect(product).toBeTruthy();
 

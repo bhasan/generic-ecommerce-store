@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { isGuest } from '../../utils/roles';
 import { ArrowLeft, ShoppingCart, AlertCircle, Tag, ChevronLeft, ChevronRight, PlayCircle } from 'lucide-react';
-import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDefaultVariant } from './productsHelpers';
+import usePriceCalculation from '../../hooks/usePriceCalculation';
 import ProductMediaModal from './ProductMediaModal';
 import './ProductsShared.css';
 import './ProductItemPage.css';
 import { hasRole } from '../../utils/roles';
+import { formatPrice } from '../../utils/currencyUtils';
 
 const isVideo = (url) => {
   if (!url) return false;
@@ -29,7 +31,7 @@ function PriceBreaksTable({ variant }) {
         {sorted.map((pb, i) => (
           <div key={i} className="discount-tier">
             <span className="discount-qty">{Number(pb.minQuantity)}+:</span>
-            <span className="discount-value">${Number(pb.unitPrice).toFixed(2)} each</span>
+            <span className="discount-value">{formatPrice(Number(pb.unitPrice))} each</span>
           </div>
         ))}
       </div>
@@ -38,11 +40,7 @@ function PriceBreaksTable({ variant }) {
 }
 
 function DynamicPriceDisplay({ variant, quantity }) {
-  const basePrice = Number(variant?.basePrice ?? 0);
-  const unitPrice = getDiscountedUnitPrice(variant, quantity);
-  const totalPrice = unitPrice * quantity;
-  const hasDiscount = unitPrice < basePrice;
-  const originalTotal = basePrice * quantity;
+  const { totalPrice, hasDiscount, originalTotal } = usePriceCalculation(variant, quantity);
 
   return (
     <div className="dynamic-price-display">
@@ -50,18 +48,18 @@ function DynamicPriceDisplay({ variant, quantity }) {
         <>
           <div className="price-row price-total-row">
             <span className="price-label">Total ({quantity} items):</span>
-            <span className="price-original">${originalTotal.toFixed(2)}</span>
+            <span className="price-original">{formatPrice(originalTotal)}</span>
             <span className="price-arrow">→</span>
-            <span className="price-total">${totalPrice.toFixed(2)}</span>
+            <span className="price-total">{formatPrice(totalPrice)}</span>
           </div>
           <div className="price-row">
-            <span className="price-savings">Save ${(originalTotal - totalPrice).toFixed(2)}</span>
+            <span className="price-savings">Save {formatPrice(originalTotal - totalPrice)}</span>
           </div>
         </>
       ) : (
         <div className="price-row price-total-row">
           <span className="price-label">Total ({quantity} items):</span>
-          <span className="price-total">${totalPrice.toFixed(2)}</span>
+          <span className="price-total">{formatPrice(totalPrice)}</span>
         </div>
       )}
     </div>
@@ -243,7 +241,7 @@ function ProductItemPage() {
           <h1 className="product-title">{product.name}</h1>
 
           <div className="product-price-display">
-            ${basePrice.toFixed(2)}
+            {formatPrice(basePrice)}
             {(selectedVariant?.priceBreaks?.length ?? 0) > 0 && (
               <span className="price-per-unit">/ each</span>
             )}

@@ -1,24 +1,5 @@
-.icm-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  z-index: 2100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-md);
-}
-
 .icm-container {
   background: var(--bg-secondary);
-  border-radius: var(--radius-xl);
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 720px;
   max-height: 90vh;
   overflow: hidden;
 }
@@ -108,11 +89,6 @@
 }
 
 @media (max-width: 640px) {
-  .icm-overlay {
-    padding: var(--spacing-sm);
-    align-items: flex-end;
-  }
-
   .icm-container {
     max-width: 100%;
     max-height: 92vh;

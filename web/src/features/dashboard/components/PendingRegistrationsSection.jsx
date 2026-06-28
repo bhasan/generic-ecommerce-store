@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { UserPlus, Phone, DollarSign, Clock, X, MapPin, Check } from 'lucide-react';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import RejectUserModal from '../../../components/common/RejectUserModal';
+import useModalState from '../../../hooks/useModalState';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 
 const formatDeliveryZoneLabel = (status) => {
   switch (status) {
@@ -29,61 +32,51 @@ function PendingRegistrationsSection({
   onApprove,
   onReject
 }) {
-  const [approveModalOpen, setApproveModalOpen] = useState(false);
-  const [userToApprove, setUserToApprove] = useState(null);
+  const approveModal = useModalState();
   const [isApprovingUser, setIsApprovingUser] = useState(false);
-  const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [userToReject, setUserToReject] = useState(null);
+  const rejectModal = useModalState();
   const [isRejectingUser, setIsRejectingUser] = useState(false);
 
   const handleApproveClick = (userId, userName) => {
-    setUserToApprove({ id: userId, name: userName });
-    setApproveModalOpen(true);
+    approveModal.openModal({ id: userId, name: userName });
   };
 
   const handleApproveConfirm = async () => {
-    if (!userToApprove) return;
+    if (!approveModal.data) return;
     setIsApprovingUser(true);
     try {
-      await onApprove(userToApprove.id);
-      setApproveModalOpen(false);
-      setUserToApprove(null);
+      await onApprove(approveModal.data.id);
+      approveModal.closeModal();
     } catch {
-      setApproveModalOpen(false);
-      setUserToApprove(null);
+      approveModal.closeModal();
     } finally {
       setIsApprovingUser(false);
     }
   };
 
   const handleApproveCancel = () => {
-    setApproveModalOpen(false);
-    setUserToApprove(null);
+    approveModal.closeModal();
   };
 
   const handleRejectClick = (userId, userName) => {
-    setUserToReject({ id: userId, name: userName });
-    setRejectModalOpen(true);
+    rejectModal.openModal({ id: userId, name: userName });
   };
 
   const handleRejectConfirm = async (rejectionNote) => {
-    if (!userToReject) return;
+    if (!rejectModal.data) return;
     setIsRejectingUser(true);
     try {
-      await onReject(userToReject.id, rejectionNote);
-      setRejectModalOpen(false);
-      setUserToReject(null);
+      await onReject(rejectModal.data.id, rejectionNote);
+      rejectModal.closeModal();
     } catch {
-      setRejectModalOpen(false);
-      setUserToReject(null);
+      rejectModal.closeModal();
     } finally {
       setIsRejectingUser(false);
     }
   };
 
   const handleRejectCancel = () => {
-    setRejectModalOpen(false);
-    setUserToReject(null);
+    rejectModal.closeModal();
   };
 
   return (
@@ -96,15 +89,9 @@ function PendingRegistrationsSection({
       </div>
 
       {isLoading ? (
-        <div className="empty-state">
-          <Clock size={64} className="empty-icon" />
-          <p>Loading pending registrations...</p>
-        </div>
+        <LoadingState message="Loading pending registrations..." />
       ) : pendingRegistrations.length === 0 ? (
-        <div className="empty-state">
-          <Check size={64} className="empty-icon" />
-          <p>No pending registrations. All users are approved!</p>
-        </div>
+        <EmptyState icon={<Check size={64} />} message="No pending registrations. All users are approved!" />
       ) : (
         <div className="pending-registrations-list">
           {pendingRegistrations.map(user => (
@@ -200,13 +187,13 @@ function PendingRegistrationsSection({
       )}
 
       <ConfirmationModal
-        isOpen={approveModalOpen}
+        isOpen={approveModal.isOpen}
         onClose={handleApproveCancel}
         onConfirm={handleApproveConfirm}
         title="Approve User Registration"
         message={
           <>
-            Are you sure you want to approve registration for <strong>{userToApprove?.name || ''}</strong>?
+            Are you sure you want to approve registration for <strong>{approveModal.data?.name || ''}</strong>?
             <br />
             <br />
             This will grant them access to the system.
@@ -219,10 +206,10 @@ function PendingRegistrationsSection({
       />
 
       <RejectUserModal
-        isOpen={rejectModalOpen}
+        isOpen={rejectModal.isOpen}
         onClose={handleRejectCancel}
         onConfirm={handleRejectConfirm}
-        userName={userToReject?.username || ''}
+        userName={rejectModal.data?.name || ''}
         isSubmitting={isRejectingUser}
       />
     </div>

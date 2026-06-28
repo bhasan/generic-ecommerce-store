@@ -57,6 +57,6 @@ describe('product controller logging', () => {
       actorUserId: 3,
       targetProductId: 4,
     }));
-    expect(res.json).toHaveBeenCalledWith({ message: 'Product deleted successfully' });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { message: 'Product deleted successfully' } });
   });
 });
