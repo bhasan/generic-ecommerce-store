@@ -76,4 +76,24 @@ describe('role middleware', () => {
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
   });
+
+  it('accepts a tenant-wide role for any store and rejects a wrong-store role', () => {
+    const middleware = authorize('MANAGEMENT');
+
+    // tenant-wide ADMIN passes
+    const reqAdmin: any = { user: { roles: [{ name: 'ADMIN', storeId: null }] }, store: { id: 5 }, path: '/', method: 'GET' };
+    const mwAdmin = authorize('ADMIN');
+    const res1 = createResponse();
+    const next1 = vi.fn();
+    mwAdmin(reqAdmin, res1, next1);
+    expect(next1).toHaveBeenCalled();
+
+    // MANAGEMENT scoped to store 9 fails on store 5
+    const reqMgr: any = { user: { roles: [{ name: 'MANAGEMENT', storeId: 9 }] }, store: { id: 5 }, path: '/', method: 'GET' };
+    const res2 = createResponse();
+    const next2 = vi.fn();
+    middleware(reqMgr, res2, next2);
+    expect(next2).not.toHaveBeenCalled();
+    expect(res2.status).toHaveBeenCalledWith(403);
+  });
 });

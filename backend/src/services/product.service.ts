@@ -90,7 +90,7 @@ export class ProductService {
     let n = 1;
     // Loop until no other product owns the candidate slug.
     while (true) {
-      const existing = await prisma.product.findUnique({ where: { slug: candidate }, select: { id: true } });
+      const existing = await prisma.product.findFirst({ where: { slug: candidate }, select: { id: true } });
       if (!existing || existing.id === ignoreId) return candidate;
       candidate = `${root}-${n++}`;
     }

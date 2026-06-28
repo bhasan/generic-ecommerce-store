@@ -14,6 +14,7 @@ import { logger } from '../utils/logger';
 import { notificationEventsService } from './notificationEvents.service';
 import { DeliveryEligibilityService } from './deliveryEligibility.service';
 import { getUserRolesWithNames } from './userRoles.helper';
+import { getTenantContext } from '../config/tenantContext';
 
 interface RegisterData {
   username: string;
@@ -57,8 +58,12 @@ export class AuthService {
     const requestedRoles: RoleName[] = ['CUSTOMER'];
 
     // Check if user already exists
+    const ctx = getTenantContext();
+    const tenantId = ctx?.tenantId ?? 1;
     const existingUser = await prisma.user.findUnique({
-      where: { username }
+      where: {
+        tenantId_username: { tenantId, username }
+      }
     });
 
     if (existingUser) {
@@ -152,8 +157,12 @@ export class AuthService {
     // bad credentials, approval gating, and successful token issuance.
     logger.info('Login attempt received', { username });
 
+    const ctx = getTenantContext();
+    const tenantId = ctx?.tenantId ?? 1;
     const user = await prisma.user.findUnique({
-      where: { username }
+      where: {
+        tenantId_username: { tenantId, username }
+      }
     });
 
     if (!user) {

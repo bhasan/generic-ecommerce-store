@@ -53,7 +53,7 @@ describe('auth middleware', () => {
       email: 'user@test.com',
       roles: ['ADMIN'],
     });
-    const req: any = { headers: {}, path: '/protected', method: 'GET', requestId: 'req-2' };
+    const req: any = { headers: {}, path: '/protected', method: 'GET', requestId: 'req-2', tenantId: 1 };
     const res = createResponse();
     const next = vi.fn();
 
@@ -93,7 +93,7 @@ describe('auth middleware', () => {
       email: 'user@test.com',
       roles: ['CUSTOMER'],
     });
-    const req: any = { headers: {}, path: '/public', method: 'GET', requestId: 'req-4' };
+    const req: any = { headers: {}, path: '/public', method: 'GET', requestId: 'req-4', tenantId: 1 };
     const next = vi.fn();
 
     await optionalAuthenticate(req, {} as any, next);
@@ -119,5 +119,18 @@ describe('auth middleware', () => {
     }));
     expect(req.user).toBeUndefined();
     expect(next).toHaveBeenCalled();
+  });
+
+  it('rejects a token minted for another tenant', async () => {
+    (extractTokenFromHeader as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
+    (verifyToken as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      userId: 1, username: 'u', tenantId: 99, roles: [],
+    });
+    const req: any = { headers: { authorization: 'Bearer x' }, tenantId: 1, path: '/', method: 'GET' };
+    const res = createResponse();
+    const next = vi.fn();
+    await authenticate(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
   });
 });

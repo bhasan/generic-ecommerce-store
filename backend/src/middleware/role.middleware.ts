@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { RoleName, hasAnyRole } from '../constants/roles';
+import { RoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 
 /**
@@ -21,7 +21,20 @@ export const authorize = (...allowedRoles: RoleName[]) => {
       return;
     }
 
-    if (!hasAnyRole(req.user.roles, allowedRoles)) {
+    const roles = req.user.roles ?? [];
+    const actingStore = req.store?.id ?? null;
+
+    const hasMatch = roles.some((r: any) => {
+      const roleName = typeof r === 'string' ? r : r.name;
+      const storeId = typeof r === 'string' ? null : r.storeId;
+
+      const isAllowed = allowedRoles.includes(roleName as RoleName) || roleName === 'SUPER_ADMIN';
+      const isStoreMatched = storeId === null || storeId === actingStore || roleName === 'SUPER_ADMIN';
+
+      return isAllowed && isStoreMatched;
+    });
+
+    if (!hasMatch) {
       // Required/current role snapshots are intentionally included here because
       // frontend redirects can otherwise hide why access was denied.
       logger.warn('Authorization failed: insufficient permissions', {

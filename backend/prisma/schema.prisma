@@ -11,7 +11,7 @@ datasource db {
 
 model User {
   id                    Int                        @id @default(autoincrement())
-  username              String                     @unique
+  username              String
   password              String
   createdAt             DateTime                   @default(now())
   updatedAt             DateTime                   @updatedAt
@@ -44,6 +44,7 @@ model User {
   @@map("users")
   tenantId Int?
   @@index([tenantId])
+  @@unique([tenantId, username])
 }
 
 model RefreshToken {
@@ -244,6 +245,7 @@ model Category {
   products    Product[]
 
   @@unique([name, parentId])
+  @@unique([tenantId, slug])
   @@map("categories")
   tenantId Int?
   @@index([tenantId])
@@ -252,7 +254,7 @@ model Category {
 model Product {
   id          Int              @id @default(autoincrement())
   name        String
-  slug        String           @unique
+  slug        String
   description String?
   categoryId  Int
   vipOnly     Boolean          @default(false)
@@ -269,6 +271,7 @@ model Product {
   @@map("products")
   tenantId Int?
   @@index([tenantId])
+  @@unique([tenantId, slug])
 }
 
 model ProductImage {
