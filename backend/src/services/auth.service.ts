@@ -185,7 +185,8 @@ export class AuthService {
     const token = generateToken({
       userId: user.id,
       username: user.username,
-      roles: roleNames
+      tenantId: user.tenantId ?? null,
+      roles: this.toScopedRoles(rolesWithNames),
     });
 
     // Start a fresh rotation family for this login session.
@@ -289,12 +290,12 @@ export class AuthService {
     }
 
     const rolesWithNames = await getUserRolesWithNames(user.id);
-    const roleNames = this.toRoleNames(rolesWithNames);
 
     const token = generateToken({
       userId: user.id,
       username: user.username,
-      roles: roleNames,
+      tenantId: user.tenantId ?? null,
+      roles: this.toScopedRoles(rolesWithNames),
     });
 
     // Rotate: revoke the presented/head token and mint a new one in the family.
@@ -419,6 +420,14 @@ export class AuthService {
     return userRoles
       .map(({ role }) => role?.name)
       .filter((name): name is RoleName => isRoleName(name));
+  }
+
+  private toScopedRoles(
+    rows: Array<{ role: { name: string } | null; storeId?: number | null }>,
+  ): Array<{ name: RoleName; storeId: number | null }> {
+    return rows
+      .filter((r) => r.role && isRoleName(r.role.name))
+      .map((r) => ({ name: r.role!.name as RoleName, storeId: r.storeId ?? null }));
   }
 
   private formatUser<T extends {

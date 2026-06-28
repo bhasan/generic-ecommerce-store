@@ -80,7 +80,7 @@ model UserRole {
 
   @@unique([userId, roleId])
   @@map("user_roles")
-  tenantId Int
+  tenantId Int?
   storeId  Int?
   @@index([tenantId])
   @@index([storeId])
@@ -124,8 +124,8 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@map("orders")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -143,8 +143,8 @@ model OrderStatusEvent {
 
   @@index([orderId, createdAt])
   @@map("order_status_events")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -165,8 +165,8 @@ model Payment {
   @@index([orderId])
   @@index([status])
   @@map("payments")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -203,7 +203,7 @@ model StoreCreditTransaction {
   @@index([userId, createdAt])
   @@index([orderId])
   @@map("store_credit_transactions")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -224,8 +224,8 @@ model OrderItem {
   @@index([orderId])
   @@index([variantId])
   @@map("order_items")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -245,7 +245,7 @@ model Category {
 
   @@unique([name, parentId])
   @@map("categories")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -267,7 +267,7 @@ model Product {
 
   @@index([categoryId])
   @@map("products")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -281,7 +281,7 @@ model ProductImage {
 
   @@index([productId])
   @@map("product_images")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -307,7 +307,7 @@ model ProductVariant {
 
   @@index([productId])
   @@map("product_variants")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -320,7 +320,7 @@ model VariantQuantityOption {
 
   @@unique([variantId, quantity])
   @@map("variant_quantity_options")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -333,7 +333,7 @@ model VariantPriceBreak {
 
   @@unique([variantId, minQuantity])
   @@map("variant_price_breaks")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -345,7 +345,7 @@ model UiSetting {
   updatedAt DateTime @updatedAt
 
   @@map("ui_settings")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -366,7 +366,7 @@ model Review {
   @@unique([userId, productId])
   @@index([productId])
   @@map("reviews")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -381,7 +381,7 @@ model ReviewVote {
 
   @@unique([reviewId, userId])
   @@map("review_votes")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -397,8 +397,8 @@ model CartItem {
 
   @@unique([userId, variantId])
   @@map("cart_items")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -413,7 +413,7 @@ model Announcement {
   updatedAt   DateTime         @updatedAt
 
   @@map("announcements")
-  tenantId Int
+  tenantId Int?
   storeId  Int?
   @@index([tenantId])
   @@index([storeId])
@@ -443,7 +443,7 @@ model ContactMessage {
   @@index([status])
   @@index([orderId])
   @@map("contact_messages")
-  tenantId Int
+  tenantId Int?
   storeId  Int?
   @@index([tenantId])
   @@index([storeId])
@@ -470,7 +470,7 @@ model Notification {
   @@index([recipientUserId, createdAt])
   @@index([recipientUserId, readAt])
   @@map("notifications")
-  tenantId Int
+  tenantId Int?
   @@index([tenantId])
 }
 
@@ -494,8 +494,8 @@ model PrintJob {
   @@index([status, createdAt])
   @@index([claimedByAgentId])
   @@map("print_jobs")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -514,8 +514,8 @@ model PosOutbox {
 
   @@index([status, id])
   @@map("pos_outbox")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -530,8 +530,8 @@ model OrderPosMapping {
 
   @@unique([orderId, provider])
   @@map("order_pos_mappings")
-  tenantId Int
-  storeId  Int
+  tenantId Int?
+  storeId Int?
   @@index([tenantId])
   @@index([storeId])
 }
@@ -684,14 +684,14 @@ model Tenant {
 
 model Store {
   id        Int         @id @default(autoincrement())
-  tenantId  Int
+  tenantId Int?
   name      String
   slug      String
   isDefault Boolean     @default(false)
   status    StoreStatus @default(ACTIVE)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
-  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   @@unique([tenantId, slug])
   @@map("stores")
 }
