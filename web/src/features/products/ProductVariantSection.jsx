@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, X } from 'lucide-react';
-import { formatPrice } from '../../utils/currencyUtils';
 
 function VariantRow({ variant, index, isOnly, onChange, onRemove, onToggleDefault }) {
   const [expanded, setExpanded] = useState(false);
