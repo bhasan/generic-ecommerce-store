@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import prisma from './config/database';
 import { logger } from './utils/logger';
 import { resolveTenant } from './middleware/tenant.middleware';
+import { verifyDefaultTenant } from './config/verifyDefaultTenant';
+import { getUnscopedPrisma } from './config/database';
 
 // Import subscribers to register event listeners
 import './subscribers/order.subscriber';
@@ -255,19 +257,30 @@ function validateProductionEnv() {
   }
 }
 
-validateProductionEnv();
+async function startServer() {
+  validateProductionEnv();
 
-// Starts the Express app with the configured port, which defaults to 3000 when PORT is unset.
-app.listen(PORT, () => {
-  logger.info('Proxy trust configured', {
-    trustProxyHops: app.get('trust proxy'),
+  if (process.env.NODE_ENV !== 'test') {
+    await verifyDefaultTenant(getUnscopedPrisma());
+  }
+
+  // Starts the Express app with the configured port, which defaults to 3000 when PORT is unset.
+  app.listen(PORT, () => {
+    logger.info('Proxy trust configured', {
+      trustProxyHops: app.get('trust proxy'),
+    });
+    startOutboxWorker();
+    console.log('========================================');
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
+    console.log('========================================');
   });
-  startOutboxWorker();
-  console.log('========================================');
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
-  console.log('========================================');
+}
+
+startServer().catch((err) => {
+  logger.error('FATAL: Failed to start server', err);
+  process.exit(1);
 });
 
 // Handle unhandled promise rejections
