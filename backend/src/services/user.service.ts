@@ -5,6 +5,7 @@ import { hashPassword, comparePassword } from '../utils/password.util';
 import { RoleName, isRoleName, ROLES, hasAnyRole } from '../constants/roles';
 import { logger } from '../utils/logger';
 import { notificationEventsService } from './notificationEvents.service';
+import { getUserRolesWithNames, getUserRolesMapForUsers, formatUserWithRoles } from './userRoles.helper';
 
 interface UpdateUserData {
   username?: string;
@@ -34,32 +35,8 @@ export class UserService {
 
     // Fetch user roles
     const userIds = users.map(u => u.id);
-    const userRoles = await prisma.userRole.findMany({
-      where: { userId: { in: userIds } }
-    });
-
-    const roleIds = [...new Set(userRoles.map(ur => ur.roleId))];
-    const roles = await prisma.role.findMany({
-      where: { id: { in: roleIds } }
-    });
-    const roleMap = new Map(roles.map(r => [r.id, r]));
-
-    // Group roles by user
-    const rolesByUser = new Map<number, Array<{ role: { name: string } | null }>>();
-    for (const userRole of userRoles) {
-      if (!rolesByUser.has(userRole.userId)) {
-        rolesByUser.set(userRole.userId, []);
-      }
-      const role = roleMap.get(userRole.roleId);
-      rolesByUser.get(userRole.userId)!.push({
-        role: role ? { name: role.name } : null
-      });
-    }
-
-    const formattedUsers = users.map(user => this.formatUser({
-      ...user,
-      roles: rolesByUser.get(user.id) || []
-    }));
+    const rolesMap = await getUserRolesMapForUsers(userIds);
+    const formattedUsers = users.map(user => this.formatUser(formatUserWithRoles(user, rolesMap)));
 
     // Count-only list logs are deliberate: enough signal for dashboard/debugging
     // without dumping full user payloads into logs.
@@ -92,20 +69,7 @@ export class UserService {
     }
 
     // Fetch user roles
-    const userRoles = await prisma.userRole.findMany({
-      where: { userId }
-    });
-
-    const roleIds = userRoles.map(ur => ur.roleId);
-    const roles = await prisma.role.findMany({
-      where: { id: { in: roleIds } }
-    });
-    const roleMap = new Map(roles.map(r => [r.id, r]));
-
-    const rolesWithNames = userRoles.map(ur => ({
-      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
-    }));
-
+    const rolesWithNames = await getUserRolesWithNames(userId);
     return this.formatUser({
       ...user,
       roles: rolesWithNames
@@ -243,20 +207,7 @@ export class UserService {
     });
 
     // Fetch updated roles
-    const userRoles = await prisma.userRole.findMany({
-      where: { userId }
-    });
-
-    const roleIds = userRoles.map(ur => ur.roleId);
-    const roles = await prisma.role.findMany({
-      where: { id: { in: roleIds } }
-    });
-    const roleMap = new Map(roles.map(r => [r.id, r]));
-
-    const rolesWithNames = userRoles.map(ur => ({
-      role: roleMap.get(ur.roleId) ? { name: roleMap.get(ur.roleId)!.name } : null
-    }));
-
+    const rolesWithNames = await getUserRolesWithNames(userId);
     const formattedUser = this.formatUser({
       ...updatedUser,
       roles: rolesWithNames
