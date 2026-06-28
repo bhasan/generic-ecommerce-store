@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight, PlayCircle, ZoomIn, ZoomOut } from 'lucide-react';
 import { PRODUCT_FALLBACK_IMAGE } from './productsHelpers';
 import './ProductMediaModal.css';
+import BaseModal from '../../components/common/BaseModal';
 
 const isVideo = (url) => {
   if (!url) return false;
@@ -182,8 +183,7 @@ function ProductMediaModal({ product, initialIndex = 0, onClose }) {
   const currentIsVideo = isVideo(images[currentIndex]);
 
   return (
-    <div className="pmm-overlay" onClick={onClose}>
-      <div className="pmm-container" onClick={(e) => e.stopPropagation()}>
+    <BaseModal isOpen={true} onClose={onClose} className="pmm-container" maxWidth="95vw">
         {/* Header */}
         <div className="pmm-header">
           <span className="pmm-title">{product.name}</span>
@@ -290,8 +290,7 @@ function ProductMediaModal({ product, initialIndex = 0, onClose }) {
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </BaseModal>
   );
 }
 

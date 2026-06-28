@@ -1,7 +1,7 @@
 import { OrderStatus, PaymentMethodEnum } from '../../../generated/prisma';
 import { OrderContext } from './PaymentStrategy';
 import { BasePaymentStrategy } from './BasePaymentStrategy';
-import authorizeNetService from '../authorizenet.service';
+import { authorizeNetService } from '../authorizenet.service';
 import { PaymentSettingsService } from '../paymentSettings.service';
 
 const paymentSettingsService = new PaymentSettingsService();
@@ -57,7 +57,7 @@ export class CcPaymentStrategy extends BasePaymentStrategy {
     return { token, paymentFormUrl };
   }
 
-  async confirmPayment(orderId: number, userId: number, transId: string, total: number) {
+  async confirmPayment(orderId: number, _userId: number, transId: string, total: number) {
     const settings = await paymentSettingsService.getPaymentSettings();
     await authorizeNetService.verifyTransaction(transId, total, orderId, settings.cc_payment);
 

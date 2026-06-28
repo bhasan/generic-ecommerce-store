@@ -11,10 +11,13 @@ import ManageProductListItem from '../components/ManageProductListItem';
 import ProductFormModal from '../../products/ProductFormModal';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import EmptyState from '../../../components/common/EmptyState';
+import LoadingState from '../../../components/common/LoadingState';
+import { Package } from 'lucide-react';
 import { getCategoryLabel, getProductCategoryLabel } from '../../products/productsHelpers';
 import { IMAGE_INPUT_ACCEPT, MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile } from '../../../utils/mediaUpload';
 import * as uploadApi from '../../../services/uploadApi';
 import ImageCropModal from '../../../components/common/ImageCropModal';
+import useModalState from '../../../hooks/useModalState';
 import './ManageStoreProductsPage.css';
 
 const emptyVariant = () => ({
@@ -53,7 +56,7 @@ function ManageStoreProductsPage() {
   const [formErrors, setFormErrors] = useState({ name: '', categoryId: '', variants: '' });
   const [categoryQuery, setCategoryQuery] = useState('');
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
-  const [deleteModal, setDeleteModal] = useState({ open: false, product: null });
+  const deleteModal = useModalState();
   const [uploadingImageIndex, setUploadingImageIndex] = useState(null);
   const [cropState, setCropState] = useState(null);
   const [viewMode, setViewMode] = useState(() => {
@@ -191,7 +194,7 @@ function ManageStoreProductsPage() {
       product, dragEnabled: drag, canManage, canDelete,
       onToggleHidden: (id, hidden) => updateProduct(id, { hidden: !hidden }),
       onEdit: handleEdit,
-      onDeleteClick: (id, name) => setDeleteModal({ open: true, product: { id, name } }),
+      onDeleteClick: (id, name) => deleteModal.openModal({ id, name }),
       getProductLabel: getProductCategoryLabel,
       editingDisabled: editingId !== null || showAddForm,
     };
@@ -234,7 +237,7 @@ function ManageStoreProductsPage() {
           title={editingId ? 'Edit Product' : 'Add New Product'}
           formData={formData}
           setFormData={(next) => {
-            setFormData(typeof next === 'function' ? next(formData) : next);
+            setFormData(prev => (typeof next === 'function' ? next(prev) : next));
             setFormErrors({ name: '', categoryId: '', variants: '' });
           }}
           categoryQuery={categoryQuery}
@@ -255,12 +258,12 @@ function ManageStoreProductsPage() {
       )}
 
       {isLoading ? (
-        <EmptyState message="Loading products..." />
+        <LoadingState message="Loading products..." />
       ) : orderedProducts.length === 0 ? (
-        <EmptyState message="No products yet. Add your first product to get started!" />
+        <EmptyState icon={<Package size={48} />} message="No products yet. Add your first product to get started!" />
       ) : filteredProducts ? (
         filteredProducts.length === 0
-          ? <EmptyState message="No products match your search." />
+          ? <EmptyState icon={<Package size={48} />} message="No products match your search." />
           : renderProductsCollection(null, filteredProducts, false)
       ) : (
         <DndContext collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
@@ -298,14 +301,14 @@ function ManageStoreProductsPage() {
       )}
 
       <ConfirmationModal
-        isOpen={deleteModal.open}
-        onClose={() => setDeleteModal({ open: false, product: null })}
+        isOpen={deleteModal.isOpen}
+        onClose={() => deleteModal.closeModal()}
         onConfirm={() => {
-          if (deleteModal.product) deleteProduct(deleteModal.product.id);
-          setDeleteModal({ open: false, product: null });
+          if (deleteModal.data) deleteProduct(deleteModal.data.id);
+          deleteModal.closeModal();
         }}
         title="Delete Product"
-        message={<>Are you sure you want to delete <strong>"{deleteModal.product?.name || ''}"</strong>?<br /><br />This action cannot be undone.</>}
+        message={<>Are you sure you want to delete <strong>"{deleteModal.data?.name || ''}"</strong>?<br /><br />This action cannot be undone.</>}
         confirmText="Delete"
         cancelText="Cancel"
         type="danger"

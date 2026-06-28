@@ -1,18 +1,19 @@
 import { Request, Response } from 'express';
 import { createHash } from 'crypto';
 import { BrandingService } from '../services/branding.service';
+import { successResponse } from '../utils/responseEnvelope';
 
 const brandingService = new BrandingService();
 
 export class BrandingController {
   async getBranding(_req: Request, res: Response) : Promise<void> {
     const branding = await brandingService.getBranding();
-    res.status(200).json(branding);
+    res.status(200).json(successResponse(branding));
   }
 
   async updateBranding(req: Request, res: Response) : Promise<void> {
     const branding = await brandingService.updateBranding(req.body);
-    res.status(200).json({ message: 'Branding updated successfully', branding });
+    res.status(200).json(successResponse({ branding }, 'Branding updated successfully'));
   }
 
   async getCss(req: Request, res: Response) : Promise<void> {

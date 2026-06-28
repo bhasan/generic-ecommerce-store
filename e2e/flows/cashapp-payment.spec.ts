@@ -44,7 +44,8 @@ test.describe('CashApp payment flow', () => {
 
     // Grab the first in-stock product.
     const productsRes = await request.get(`${API}/products`);
-    const products = await productsRes.json() as any[];
+    const body = await productsRes.json();
+    const products = (Array.isArray(body) ? body : body.data) as any[];
     const available = products.find(
       (p) => p.variants?.some((v: any) => v.stock > 0 || !v.stockEnabled),
     );

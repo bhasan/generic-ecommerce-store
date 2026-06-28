@@ -20,3 +20,14 @@ export const formatDateShort = (dateString) => {
     return dateString;
   }
 };
+
+export const formatDateTime = (dateString) => {
+  if (!dateString) return 'N/A';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    return date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  } catch {
+    return dateString;
+  }
+};

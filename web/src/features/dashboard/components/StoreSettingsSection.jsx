@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Store, Save } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
 import './StoreSettingsSection.css';
 
 const DEFAULT_SETTINGS = {
@@ -61,10 +62,7 @@ function StoreSettingsSection({ isLoading, storeSettings, onSave }) {
   if (isLoading) {
     return (
       <div className="dashboard-content-section surface-card">
-        <div className="empty-state">
-          <div className="loading-spinner" />
-          <p>Loading store settings...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }

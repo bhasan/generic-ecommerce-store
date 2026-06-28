@@ -10,6 +10,7 @@ import { useTheme, THEME_CYCLE } from '../../hooks/useTheme';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
+import { formatPrice } from '../../utils/currencyUtils';
 
 function Navbar() {
   const {
@@ -223,7 +224,7 @@ function Navbar() {
                       <p className="profile-menu-email">{currentUser.email}</p>
                       <div className="profile-menu-credit">
                         <Wallet size={13} />
-                        <span>${creditBalance.toFixed(2)} store credit</span>
+                        <span>{formatPrice(creditBalance)} store credit</span>
                         <span className="profile-menu-credit-tooltip" data-tooltip="Come into the store to fill your credit!">?</span>
                       </div>
                     </div>

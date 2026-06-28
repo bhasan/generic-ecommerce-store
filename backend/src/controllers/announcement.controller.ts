@@ -1,44 +1,33 @@
 import { Request, Response } from 'express';
 import { AnnouncementService } from '../services/announcement.service';
-import { logger } from '../utils/logger';
-import { parseIntParam } from '../utils/request.util';
+import { logAuditEvent } from '../utils/auditLog.util';
+import { validateRequest } from '../utils/request.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 const announcementService = new AnnouncementService();
 
 export class AnnouncementController {
   async getActiveAnnouncements(_req: Request, res: Response) : Promise<void> {
     const announcements = await announcementService.getActiveAnnouncements();
-    res.status(200).json(announcements);
+    res.status(200).json(successResponse(announcements));
   }
 
   async getAllAnnouncements(_req: Request, res: Response) : Promise<void> {
     const announcements = await announcementService.getAllAnnouncements();
-    res.status(200).json(announcements);
+    res.status(200).json(successResponse(announcements));
   }
 
   async getAnnouncementById(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'announcement');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     const announcement = await announcementService.getAnnouncementById(id);
-    res.status(200).json(announcement);
+    res.status(200).json(successResponse(announcement));
   }
 
   async createAnnouncement(req: Request, res: Response) : Promise<void> {
+    if (!validateRequest(req, res)) return;
     const { message, type, dismissible, enabled } = req.body;
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0) {
-      res.status(400).json({ error: 'Message is required' });
-      return;
-    }
-
-    if (type && !['INFO', 'WARNING', 'SUCCESS'].includes(type)) {
-      res.status(400).json({ error: 'Invalid type. Must be INFO, WARNING, or SUCCESS' });
-      return;
-    }
-
-    logger.info('Announcement create requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Announcement create requested', {
       type: type || 'INFO',
       enabled: enabled !== undefined ? enabled : true,
     });
@@ -48,44 +37,29 @@ export class AnnouncementController {
       dismissible: dismissible !== undefined ? dismissible : true,
       enabled: enabled !== undefined ? enabled : true,
     });
-    res.status(201).json({ message: 'Announcement created successfully', announcement });
+    res.status(201).json(successResponse({ announcement }, 'Announcement created successfully'));
   }
 
   async updateAnnouncement(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'announcement');
-    if (id === null) return;
+    if (!validateRequest(req, res)) return;
+    const id = parseInt(req.params.id, 10);
 
     const { message, type, dismissible, enabled } = req.body;
 
-    if (message !== undefined && (typeof message !== 'string' || message.trim().length === 0)) {
-      res.status(400).json({ error: 'Message cannot be empty' });
-      return;
-    }
-
-    if (type && !['INFO', 'WARNING', 'SUCCESS'].includes(type)) {
-      res.status(400).json({ error: 'Invalid type. Must be INFO, WARNING, or SUCCESS' });
-      return;
-    }
-
-    logger.info('Announcement update requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Announcement update requested', {
       targetAnnouncementId: id,
       fields: Object.keys(req.body || {}),
     });
     const announcement = await announcementService.updateAnnouncement(id, { message, type, dismissible, enabled });
-    res.status(200).json({ message: 'Announcement updated successfully', announcement });
+    res.status(200).json(successResponse({ announcement }, 'Announcement updated successfully'));
   }
 
   async deleteAnnouncement(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'announcement');
-    if (id === null) return;
-    logger.info('Announcement delete requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    const id = parseInt(req.params.id, 10);
+    logAuditEvent(req, 'Announcement delete requested', {
       targetAnnouncementId: id,
     });
     await announcementService.deleteAnnouncement(id);
-    res.status(200).json({ message: 'Announcement deleted successfully' });
+    res.status(200).json(successResponse(null, 'Announcement deleted successfully'));
   }
 }

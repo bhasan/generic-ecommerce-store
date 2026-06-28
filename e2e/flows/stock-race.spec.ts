@@ -13,9 +13,10 @@ async function setupRaceProduct(): Promise<{ variantId: number; adminToken: stri
     })
   ).json();
 
-  const cats = await (
+  const bodyCats = await (
     await ctx.get(`${API}/api/categories`, { headers: { Authorization: `Bearer ${adminToken}` } })
   ).json();
+  const cats = Array.isArray(bodyCats) ? bodyCats : bodyCats.data;
   const catId = (cats as Array<{ id: number }>)[0].id;
 
   const { product } = await (

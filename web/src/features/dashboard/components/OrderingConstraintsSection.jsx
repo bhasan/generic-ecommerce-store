@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ShoppingCart, Save, MapPin } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
 import './OrderingConstraintsSection.css';
 
 const DEFAULT_CONSTRAINTS = {
@@ -52,10 +53,7 @@ function OrderingConstraintsSection({ isLoading, orderingConstraints, onSave }) 
   if (isLoading) {
     return (
       <div className="dashboard-content-section surface-card">
-        <div className="empty-state">
-          <div className="loading-spinner" />
-          <p>Loading ordering constraints...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }

@@ -175,8 +175,8 @@ describe('contact controller logging', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       success: true,
-      emailDelivered: true,
       message: 'Reply sent successfully',
+      data: expect.objectContaining({ emailDelivered: true }),
     }));
   });
 
@@ -226,8 +226,8 @@ describe('contact controller logging', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       success: true,
-      emailDelivered: false,
       message: 'Reply recorded, but email delivery failed.',
+      data: expect.objectContaining({ emailDelivered: false }),
     }));
     expect(logger.warn).toHaveBeenCalledWith('Reply recorded but email delivery failed', expect.objectContaining({
       messageId: 8,

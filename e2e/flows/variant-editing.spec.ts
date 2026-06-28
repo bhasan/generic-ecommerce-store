@@ -17,7 +17,8 @@ import { establishSession } from '../helpers/auth';
 
 async function getProductId(page: Page, name: string): Promise<number> {
   const res = await page.request.get('http://localhost:3000/api/products');
-  const products = await res.json();
+  const body = await res.json();
+  const products = Array.isArray(body) ? body : body.data;
   const p = products.find((x: any) => x.name === name);
   if (!p) throw new Error(`Product "${name}" not found in seed data`);
   return p.id;

@@ -6,6 +6,7 @@ import { AppError } from '../middleware/error.middleware';
 import { logger } from '../utils/logger';
 import { notificationEventsService } from '../services/notificationEvents.service';
 import { validateRequest } from '../utils/request.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 export class ContactController {
   async submitContactForm(req: Request, res: Response) : Promise<void> {
@@ -50,11 +51,10 @@ export class ContactController {
         messageId: savedMessage.id,
       }));
 
-    res.status(200).json({
-      success: true,
-      message: 'Your message has been sent successfully. We will get back to you soon.',
-      messageId: savedMessage.id,
-    });
+    res.status(200).json(successResponse(
+      { messageId: savedMessage.id },
+      'Your message has been sent successfully. We will get back to you soon.',
+    ));
   }
 
   async getAllMessages(req: Request, res: Response) : Promise<void> {
@@ -70,18 +70,18 @@ export class ContactController {
       filters,
       count: messages.length,
     });
-    res.status(200).json(messages);
+    res.status(200).json(successResponse(messages));
   }
 
   async getNewMessageCount(_req: Request, res: Response) : Promise<void> {
     const count = await contactMessageService.getNewMessageCount();
-    res.status(200).json({ count });
+    res.status(200).json(successResponse({ count }));
   }
 
   async getMessageById(req: Request, res: Response) : Promise<void> {
     const id = parseInt(req.params.id, 10);
     const message = await contactMessageService.getMessageById(id);
-    res.status(200).json(message);
+    res.status(200).json(successResponse(message));
   }
 
   async updateMessage(req: Request, res: Response) : Promise<void> {
@@ -96,25 +96,25 @@ export class ContactController {
       status: status ?? null,
       hasAdminNotes: adminNotes !== undefined,
     });
-    res.status(200).json(message);
+    res.status(200).json(successResponse(message));
   }
 
   async markAsRead(req: Request, res: Response) : Promise<void> {
     const id = parseInt(req.params.id, 10);
     const message = await contactMessageService.markAsRead(id);
-    res.status(200).json(message);
+    res.status(200).json(successResponse(message));
   }
 
   async markAsResolved(req: Request, res: Response) : Promise<void> {
     const id = parseInt(req.params.id, 10);
     const message = await contactMessageService.markAsResolved(id);
-    res.status(200).json(message);
+    res.status(200).json(successResponse(message));
   }
 
   async deleteMessage(req: Request, res: Response) : Promise<void> {
     const id = parseInt(req.params.id, 10);
     await contactMessageService.deleteMessage(id);
-    res.status(200).json({ success: true, message: 'Message deleted successfully' });
+    res.status(200).json(successResponse(null, 'Message deleted successfully'));
   }
 
   async replyToMessage(req: Request, res: Response) : Promise<void> {
@@ -217,7 +217,7 @@ export class ContactController {
       requestId: req.requestId,
     });
 
-    res.status(200).json({ success: true, emailDelivered, message: responseMessage, data: updatedMessage });
+    res.status(200).json(successResponse({ emailDelivered, updatedMessage }, responseMessage));
   }
 }
 

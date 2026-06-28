@@ -74,7 +74,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 2, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 2, skipped: 0 } });
     expect(writeSpy).toHaveBeenCalledTimes(2);
   });
 
@@ -96,7 +96,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 1, skipped: 1 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 1, skipped: 1 } });
     expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -116,7 +116,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 1, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 1, skipped: 0 } });
     expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -136,7 +136,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 1, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 1, skipped: 0 } });
     expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -147,7 +147,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 0, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 0, skipped: 0 } });
   });
 
   it('skips entries whose path resolves to only the images/ prefix (empty filename)', async () => {
@@ -164,7 +164,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 0, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 0, skipped: 0 } });
     expect(writeSpy).not.toHaveBeenCalled();
   });
 });
@@ -202,7 +202,7 @@ describe('uploadFavicon', () => {
     await controller.uploadFavicon(makeFileReq(), res, makeNext());
 
     expect(res.status).toHaveBeenCalledWith(201);
-    const { urls } = res.json.mock.calls[0][0];
+    const { urls } = res.json.mock.calls[0][0].data;
     expect(Object.keys(urls).sort()).toEqual(['16', '180', '32']);
     expect(urls['16']).toContain('favicon-16.png');
     expect(urls['32']).toContain('favicon-32.png');
@@ -215,7 +215,7 @@ describe('uploadFavicon', () => {
 
     await controller.uploadFavicon(makeFileReq(), res, makeNext());
 
-    const { urls } = res.json.mock.calls[0][0];
+    const { urls } = res.json.mock.calls[0][0].data;
     for (const url of Object.values(urls) as string[]) {
       expect(url).toMatch(/\?v=\d+$/);
     }

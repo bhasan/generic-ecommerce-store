@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, FileDown, CheckCircle, AlertCircle, AlertTriangle, X } from 'lucide-react';
 import * as productsApi from '../../services/productsApi';
 import { parseCsvFile, validateAndTransformRows, getCsvTemplate } from './csvHelpers';
+import BaseModal from '../../components/common/BaseModal';
 
 const STEPS = ['upload', 'preview', 'confirm', 'processing', 'results'];
 
@@ -58,8 +59,6 @@ export default function CsvImportModal({ isOpen, onClose, products, categories }
   const [rowErrors, setRowErrors] = useState([]);
   const [importSummary, setImportSummary] = useState({ created: 0, updated: 0, failed: 0 });
   const fileInputRef = useRef(null);
-
-  if (!isOpen) return null;
 
   const resetAndClose = () => {
     setStep('upload');
@@ -327,30 +326,25 @@ export default function CsvImportModal({ isOpen, onClose, products, categories }
   };
 
   return (
-    <div
-      className="csv-modal-overlay"
-      onClick={canDismiss ? resetAndClose : undefined}
-    >
-      <div className="csv-modal-content" onClick={e => e.stopPropagation()}>
-        <div className="csv-modal-header">
-          <h2 className="csv-modal-title">{titles[step]}</h2>
-          {canDismiss && (
-            <button type="button" className="csv-modal-close" onClick={resetAndClose} aria-label="Close">
-              <X size={20} />
-            </button>
-          )}
-        </div>
-
-        <StepIndicator step={step} />
-
-        {step === 'upload' && renderUpload()}
-        {step === 'preview' && renderPreview()}
-        {step === 'confirm' && renderConfirm()}
-        {step === 'processing' && renderProcessing()}
-        {step === 'results' && renderResults()}
-
-        {renderFooter()}
+    <BaseModal isOpen={isOpen} onClose={canDismiss ? resetAndClose : () => {}} className="csv-modal-content" maxWidth="680px" overlayClassName="csv-modal-overlay">
+      <div className="csv-modal-header">
+        <h2 className="csv-modal-title">{titles[step]}</h2>
+        {canDismiss && (
+          <button type="button" className="csv-modal-close" onClick={resetAndClose} aria-label="Close">
+            <X size={20} />
+          </button>
+        )}
       </div>
-    </div>
+
+      <StepIndicator step={step} />
+
+      {step === 'upload' && renderUpload()}
+      {step === 'preview' && renderPreview()}
+      {step === 'confirm' && renderConfirm()}
+      {step === 'processing' && renderProcessing()}
+      {step === 'results' && renderResults()}
+
+      {renderFooter()}
+    </BaseModal>
   );
 }

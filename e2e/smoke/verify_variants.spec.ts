@@ -27,7 +27,8 @@ test.beforeAll(async () => {
   const catsResp = await ctx.get(`${API}/api/categories`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const cats = await catsResp.json();
+  const body = await catsResp.json();
+  const cats = Array.isArray(body) ? body : body.data;
   const catId = cats[0].id;
 
   // Create multi-variant test product

@@ -77,7 +77,7 @@ describe('print job routes', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ job });
+    expect(body).toEqual({ success: true, data: { job } });
     expect(printJobService.claimNextJob).toHaveBeenCalledWith({ agentId: 'pos-01' });
   });
 
@@ -94,7 +94,7 @@ describe('print job routes', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ job: null });
+    expect(body).toEqual({ success: true, data: { job: null } });
   });
 
   it('marks a claimed print job as successful', async () => {
@@ -111,7 +111,7 @@ describe('print job routes', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ job });
+    expect(body).toEqual({ success: true, data: { job } });
     expect(printJobService.markSuccess).toHaveBeenCalledWith(1, {
       agentId: 'pos-01',
       nativeJobId: 'win-123',
@@ -142,7 +142,7 @@ describe('print job routes', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ job });
+    expect(body).toEqual({ success: true, data: { job } });
     expect(printJobService.markFailure).toHaveBeenCalledWith(1, {
       agentId: 'pos-01',
       errorCode: 'PRINTER_OFFLINE',

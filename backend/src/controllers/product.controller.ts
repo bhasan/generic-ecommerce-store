@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import productService from '../services/product.service';
 import { streamProductsExportZip } from '../services/productExport.service';
-import { logger } from '../utils/logger';
-import { validateRequest, parseIntParam, parsePaginationQuery } from '../utils/request.util';
+import { validateRequest, parsePaginationQuery } from '../utils/request.util';
+import { logAuditEvent } from '../utils/auditLog.util';
+import { successResponse } from '../utils/responseEnvelope';
 
 export class ProductController {
   async getAllProducts(req: Request, res: Response) : Promise<void> {
@@ -11,7 +12,7 @@ export class ProductController {
       { defaultLimit: 500, maxLimit: 1000 }, // catalog browse stays generous; pathological growth capped
     );
     const products = await productService.getAllProducts(req.user?.roles, limit, offset);
-    res.status(200).json(products);
+    res.status(200).json(successResponse(products));
   }
 
   async searchProducts(req: Request, res: Response): Promise<void> {
@@ -21,40 +22,34 @@ export class ProductController {
       { defaultLimit: 50, maxLimit: 200 },
     );
     const products = await productService.searchProducts(req.user?.roles, q, { limit, offset });
-    res.status(200).json(products);
+    res.status(200).json(successResponse(products));
   }
 
   async getProductById(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'product');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     const product = await productService.getProductById(id, req.user?.roles);
-    res.status(200).json(product);
+    res.status(200).json(successResponse(product));
   }
 
   async createProduct(req: Request, res: Response) : Promise<void> {
     if (!validateRequest(req, res)) return;
-    logger.info('Product create requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Product create requested', {
       name: req.body.name,
       categoryId: req.body.categoryId,
     });
     const product = await productService.createProduct(req.body);
-    res.status(201).json({ message: 'Product created successfully', product });
+    res.status(201).json(successResponse({ product }, 'Product created successfully'));
   }
 
   async updateProduct(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'product');
-    if (id === null) return;
+    const id = parseInt(req.params.id, 10);
     if (!validateRequest(req, res)) return;
-    logger.info('Product update requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    logAuditEvent(req, 'Product update requested', {
       targetProductId: id,
       fields: Object.keys(req.body || {}),
     });
     const product = await productService.updateProduct(id, req.body);
-    res.status(200).json({ message: 'Product updated successfully', product });
+    res.status(200).json(successResponse({ product }, 'Product updated successfully'));
   }
 
   async exportZip(_req: Request, res: Response) : Promise<void> {
@@ -62,15 +57,12 @@ export class ProductController {
   }
 
   async deleteProduct(req: Request, res: Response) : Promise<void> {
-    const id = parseIntParam(req.params.id, res, 'product');
-    if (id === null) return;
-    logger.info('Product delete requested', {
-      requestId: req.requestId || 'unknown',
-      actorUserId: req.user?.userId || 'anonymous',
+    const id = parseInt(req.params.id, 10);
+    logAuditEvent(req, 'Product delete requested', {
       targetProductId: id,
     });
     const result = await productService.deleteProduct(id);
-    res.status(200).json(result);
+    res.status(200).json(successResponse(result));
   }
 }
 

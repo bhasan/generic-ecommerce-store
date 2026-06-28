@@ -6,6 +6,7 @@ import { DeliveryMethod, PaymentMethod } from '../../constants/orderMethods';
 import { CheckCircle, Package, MapPin, DollarSign, ShoppingBag, Eye } from 'lucide-react';
 import { getProductImageSrc } from '../products/productsHelpers';
 import ProductImage from '../products/ProductImage';
+import { formatPrice } from '../../utils/currencyUtils';
 
 function OrderSuccessPage() {
   const location = useLocation();
@@ -84,7 +85,7 @@ function OrderSuccessPage() {
                     <p>Quantity: {item.quantity}</p>
                   </div>
                   <div className="success-item-price">
-                    ${(Number(item.unitPrice ?? item.price ?? item.basePrice ?? 0) * item.quantity).toFixed(2)}
+                    {formatPrice(Number(item.unitPrice ?? item.price ?? item.basePrice ?? 0) * item.quantity)}
                   </div>
                 </div>
                   );
@@ -95,16 +96,16 @@ function OrderSuccessPage() {
             <div className="order-total-summary">
               <div className="total-row">
                 <span>Subtotal</span>
-                <span>${orderData.subtotal.toFixed(2)}</span>
+                <span>{formatPrice(orderData.subtotal)}</span>
               </div>
               <div className="total-row">
                 <span>Tax</span>
-                <span>${orderData.tax.toFixed(2)}</span>
+                <span>{formatPrice(orderData.tax)}</span>
               </div>
               <div className="total-divider"></div>
               <div className="total-row total-final">
                 <span>Total</span>
-                <span>${orderData.total.toFixed(2)}</span>
+                <span>{formatPrice(orderData.total)}</span>
               </div>
             </div>
           </div>
@@ -144,7 +145,7 @@ function OrderSuccessPage() {
             </div>
             {orderData.paymentMethod === PaymentMethod.IN_STORE ? (
               <p className="detail-text">
-                Pay <strong>${orderData.total.toFixed(2)}</strong> when you arrive to pick up your order.
+                Pay <strong>{formatPrice(orderData.total)}</strong> when you arrive to pick up your order.
               </p>
             ) : orderData.paymentMethod === PaymentMethod.STORE_CREDIT ? (
               <p className="detail-text">
@@ -162,7 +163,7 @@ function OrderSuccessPage() {
                 <div className="payment-method-summary">
                   <strong>{orderData.paymentSnapshot?.methods?.map(m => m.label).join(' / ')}</strong>
                   {' — '}
-                  <strong>${orderData.total.toFixed(2)}</strong>
+                  <strong>{formatPrice(orderData.total)}</strong>
                 </div>
                 {orderData.paymentSnapshot?.senderHandle && (
                   <div className="payment-sender-row">
@@ -194,7 +195,7 @@ function OrderSuccessPage() {
                   <div className="step-content">
                     <h4>Come Pick Up Your Order</h4>
                     <p>
-                      Head to{orderData.pickupLocation ? <> <strong>{orderData.pickupLocation}</strong></> : ' the store'} and bring your payment of <strong>${orderData.total.toFixed(2)}</strong>.
+                      Head to{orderData.pickupLocation ? <> <strong>{orderData.pickupLocation}</strong></> : ' the store'} and bring your payment of <strong>{formatPrice(orderData.total)}</strong>.
                     </p>
                   </div>
                 </div>
@@ -215,7 +216,7 @@ function OrderSuccessPage() {
                     <div className="step-content">
                       <h4>Send Payment</h4>
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
-                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                        <p key={type}>Send <strong>{formatPrice(orderData.total)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
                       <p>Include <strong>{formattedOrderId}</strong> in the memo/note field.</p>
                     </div>
@@ -237,7 +238,7 @@ function OrderSuccessPage() {
                     <div className="step-content">
                       <h4>Send Payment</h4>
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
-                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                        <p key={type}>Send <strong>{formatPrice(orderData.total)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
                       <p>Include <strong>{formattedOrderId}</strong> in the memo/note field.</p>
                     </div>
@@ -268,7 +269,7 @@ function OrderSuccessPage() {
                     <div className="step-content">
                       <h4>Send Payment</h4>
                       {orderData.paymentSnapshot?.methods?.map(({ type, label, handle }) => (
-                        <p key={type}>Send <strong>${orderData.total.toFixed(2)}</strong> to <strong>{handle}</strong> via {label}.</p>
+                        <p key={type}>Send <strong>{formatPrice(orderData.total)}</strong> to <strong>{handle}</strong> via {label}.</p>
                       ))}
                       <p>Include <strong>{formattedOrderId}</strong> in the memo/note field.</p>
                     </div>

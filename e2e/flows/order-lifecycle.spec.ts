@@ -11,7 +11,8 @@ test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED'
     const customerPage = await customerCtx.newPage();
 
     const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const products = await productsRes.json();
+    const body = await productsRes.json();
+    const products = Array.isArray(body) ? body : body.data;
     const laptopBag = products.find((p: any) => p.name === 'Laptop Bag');
     expect(laptopBag).toBeTruthy();
 

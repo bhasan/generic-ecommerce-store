@@ -1,5 +1,7 @@
 import React from 'react';
 import { Users, Clock, Mail, Check, X, User, Calendar, Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 
 function SortIcon({ field, sortField, sortDirection }) {
   if (sortField !== field) {
@@ -39,15 +41,9 @@ function UsersSection({
       </div>
 
       {isLoading ? (
-        <div className="empty-state">
-          <Clock size={64} className="empty-icon" />
-          <p>Loading users...</p>
-        </div>
+        <LoadingState message="Loading users..." />
       ) : users.length === 0 ? (
-        <div className="empty-state">
-          <Users size={64} className="empty-icon" />
-          <p>No users found.</p>
-        </div>
+        <EmptyState icon={<Users size={64} />} message="No users found." />
       ) : (
         <div className="users-table-container">
           <table className="users-table">
