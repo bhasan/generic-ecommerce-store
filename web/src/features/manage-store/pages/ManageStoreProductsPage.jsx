@@ -237,7 +237,7 @@ function ManageStoreProductsPage() {
           title={editingId ? 'Edit Product' : 'Add New Product'}
           formData={formData}
           setFormData={(next) => {
-            setFormData(typeof next === 'function' ? next(formData) : next);
+            setFormData(prev => (typeof next === 'function' ? next(prev) : next));
             setFormErrors({ name: '', categoryId: '', variants: '' });
           }}
           categoryQuery={categoryQuery}

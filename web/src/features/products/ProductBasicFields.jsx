@@ -20,7 +20,7 @@ export default function ProductBasicFields({
         <input
           id="name" type="text" placeholder="e.g., Blue Dream"
           value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
           className={`form-input ${formErrors.name ? 'form-input-error' : ''}`}
           aria-invalid={!!formErrors.name}
         />
@@ -51,7 +51,7 @@ export default function ProductBasicFields({
                   .filter(cat => cat.label.toLowerCase().includes(categoryQuery.toLowerCase()))
                   .map(cat => (
                     <button key={cat.id} type="button" className="category-option"
-                      onClick={() => { setFormData({ ...formData, categoryId: cat.id }); setCategoryQuery(cat.label); setShowCategoryDropdown(false); }}>
+                      onClick={() => { setFormData(prev => ({ ...prev, categoryId: cat.id })); setCategoryQuery(cat.label); setShowCategoryDropdown(false); }}>
                       {cat.label}
                     </button>
                   ))
@@ -68,7 +68,7 @@ export default function ProductBasicFields({
         <textarea
           id="description" placeholder="Describe the product..."
           value={formData.description ?? ''}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
           className="form-textarea" rows={3}
         />
       </div>
@@ -76,11 +76,11 @@ export default function ProductBasicFields({
       {/* Hidden / VIP */}
       <div className="form-group form-group-full" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
         <label className="checkbox-label checkbox-label-large">
-          <input type="checkbox" checked={formData.hidden ?? false} onChange={(e) => setFormData({ ...formData, hidden: e.target.checked })} />
+          <input type="checkbox" checked={formData.hidden ?? false} onChange={(e) => setFormData(prev => ({ ...prev, hidden: e.target.checked }))} />
           <span>Hide from customers</span>
         </label>
         <label className="checkbox-label checkbox-label-large">
-          <input type="checkbox" checked={formData.vipOnly ?? false} onChange={(e) => setFormData({ ...formData, vipOnly: e.target.checked })} />
+          <input type="checkbox" checked={formData.vipOnly ?? false} onChange={(e) => setFormData(prev => ({ ...prev, vipOnly: e.target.checked }))} />
           <span>VIP-only</span>
         </label>
       </div>

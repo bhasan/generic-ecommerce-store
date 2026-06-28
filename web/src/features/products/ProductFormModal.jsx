@@ -32,67 +32,85 @@ function ProductFormModal({
 
   const handleImagesDragEnd = ({ active, over }) => {
     if (!over || active.id === over.id) return;
-    const imgs = [...(formData.images ?? [])];
-    const oldIdx = imgs.findIndex((_, i) => i === active.id);
-    const newIdx = imgs.findIndex((_, i) => i === over.id);
-    setFormData({ ...formData, images: arrayMove(imgs, oldIdx, newIdx).map((img, i) => ({ ...img, sortOrder: i })) });
+    setFormData(prev => {
+      const imgs = [...(prev.images ?? [])];
+      const oldIdx = imgs.findIndex((_, i) => i === active.id);
+      const newIdx = imgs.findIndex((_, i) => i === over.id);
+      return { ...prev, images: arrayMove(imgs, oldIdx, newIdx).map((img, i) => ({ ...img, sortOrder: i })) };
+    });
   };
 
   const addImageField = () => {
-    const imgs = formData.images ?? [];
-    setFormData({ ...formData, images: [...imgs, { url: '', role: 'GALLERY', sortOrder: imgs.length }] });
+    setFormData(prev => {
+      const imgs = prev.images ?? [];
+      return { ...prev, images: [...imgs, { url: '', role: 'GALLERY', sortOrder: imgs.length }] };
+    });
   };
 
   const removeImageField = (index) => {
-    const imgs = (formData.images ?? []).filter((_, i) => i !== index).map((img, i) => ({ ...img, sortOrder: i }));
-    setFormData({ ...formData, images: imgs });
+    setFormData(prev => {
+      const imgs = (prev.images ?? []).filter((_, i) => i !== index).map((img, i) => ({ ...img, sortOrder: i }));
+      return { ...prev, images: imgs };
+    });
   };
 
   const updateImageRole = (index, role) => {
-    const imgs = [...(formData.images ?? [])];
-    imgs[index] = { ...imgs[index], role };
-    setFormData({ ...formData, images: imgs });
+    setFormData(prev => {
+      const imgs = [...(prev.images ?? [])];
+      imgs[index] = { ...imgs[index], role };
+      return { ...prev, images: imgs };
+    });
   };
 
   const handleMediaSelect = (urls) => {
     if (!urls?.length) return;
     const urlArray = Array.isArray(urls) ? urls : [urls];
     if (activeMediaLibraryIndex !== null) {
-      const imgs = [...(formData.images ?? [])];
-      imgs[activeMediaLibraryIndex] = { ...imgs[activeMediaLibraryIndex], url: urlArray[0] };
-      if (urlArray.length > 1) {
-        urlArray.slice(1).forEach((u, offset) => {
-          imgs.push({ url: u, role: 'GALLERY', sortOrder: imgs.length + offset });
-        });
-      }
-      setFormData({ ...formData, images: imgs });
+      setFormData(prev => {
+        const imgs = [...(prev.images ?? [])];
+        imgs[activeMediaLibraryIndex] = { ...imgs[activeMediaLibraryIndex], url: urlArray[0] };
+        if (urlArray.length > 1) {
+          urlArray.slice(1).forEach((u, offset) => {
+            imgs.push({ url: u, role: 'GALLERY', sortOrder: imgs.length + offset });
+          });
+        }
+        return { ...prev, images: imgs };
+      });
     }
     setActiveMediaLibraryIndex(null);
   };
 
   const updateVariant = (index, updated) => {
-    const variants = [...(formData.variants ?? [])];
-    variants[index] = updated;
-    setFormData({ ...formData, variants });
+    setFormData(prev => {
+      const variants = [...(prev.variants ?? [])];
+      variants[index] = updated;
+      return { ...prev, variants };
+    });
   };
 
   const addVariant = () => {
-    const variants = formData.variants ?? [];
-    setFormData({
-      ...formData,
-      variants: [...variants, { label: '', sku: '', pricingMode: 'UNIT', basePrice: '', stock: '', stockEnabled: false, isDefault: false, active: true, quantityOptions: [], priceBreaks: [] }]
+    setFormData(prev => {
+      const variants = prev.variants ?? [];
+      return {
+        ...prev,
+        variants: [...variants, { label: '', sku: '', pricingMode: 'UNIT', basePrice: '', stock: '', stockEnabled: false, isDefault: false, active: true, quantityOptions: [], priceBreaks: [] }]
+      };
     });
   };
 
   const removeVariant = (index) => {
-    const variants = (formData.variants ?? []).filter((_, i) => i !== index);
-    if (!variants.some(v => v.isDefault) && variants.length > 0) variants[0].isDefault = true;
-    setFormData({ ...formData, variants });
+    setFormData(prev => {
+      const variants = (prev.variants ?? []).filter((_, i) => i !== index);
+      if (!variants.some(v => v.isDefault) && variants.length > 0) variants[0] = { ...variants[0], isDefault: true };
+      return { ...prev, variants };
+    });
   };
 
   const toggleDefault = (index) => {
-    const variants = (formData.variants ?? []).map((v, i) => ({ ...v, isDefault: i === index }));
-    setFormData({ ...formData, variants });
+    setFormData(prev => {
+      const variants = (prev.variants ?? []).map((v, i) => ({ ...v, isDefault: i === index }));
+      return { ...prev, variants };
+    });
   };
 
   const images = formData.images ?? [];
