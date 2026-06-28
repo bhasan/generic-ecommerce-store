@@ -23,9 +23,10 @@ async function apiCreateProduct(name: string, variants: any[]) {
   const { token } = await (await ctx.post(`${API}/api/auth/login`, {
     data: { username: 'admin', password: 'admin123' },
   })).json();
-  const cats = await (await ctx.get(`${API}/api/categories`, {
+  const bodyCats = await (await ctx.get(`${API}/api/categories`, {
     headers: { Authorization: `Bearer ${token}` },
   })).json();
+  const cats = Array.isArray(bodyCats) ? bodyCats : bodyCats.data;
   const catId = cats[0].id;
   const body = await (await ctx.post(`${API}/api/products`, {
     headers: { Authorization: `Bearer ${token}` },
