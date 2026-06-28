@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within, cleanup } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import OrdersPage from './OrdersPage';
@@ -36,6 +36,12 @@ const renderOrdersPage = () =>
     </MemoryRouter>
   );
 
+const clickAndFlush = async (element) => {
+  await act(async () => {
+    fireEvent.click(element);
+  });
+};
+
 describe('Orders Workflow Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -67,7 +73,7 @@ describe('Orders Workflow Integration', () => {
       expect(within(card).getByText('Delivery')).toBeInTheDocument();
       
       const approveBtn = within(card).getByText('Approve (Payment Verified)');
-      fireEvent.click(approveBtn);
+      await clickAndFlush(approveBtn);
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(1001, OrderStatus.APPROVED);
 
       // 2. Simulate Approved (Prep Order) state
@@ -78,7 +84,7 @@ describe('Orders Workflow Integration', () => {
       const prepCard = screen.getByText('#1001').closest('.kanban-card');
       expect(within(prepCard).getByText('Paid')).toBeInTheDocument();
       const readyBtn = within(prepCard).getByText('Ready for Delivery');
-      fireEvent.click(readyBtn);
+      await clickAndFlush(readyBtn);
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(1001, OrderStatus.READY_FOR_DELIVERY);
 
       // 3. Simulate Ready for Delivery state
@@ -88,7 +94,7 @@ describe('Orders Workflow Integration', () => {
       
       const readyCard = screen.getByText('#1001').closest('.kanban-card');
       const deliverBtn = within(readyCard).getByText('In Delivery');
-      fireEvent.click(deliverBtn);
+      await clickAndFlush(deliverBtn);
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(1001, OrderStatus.OUT_FOR_DELIVERY);
 
       // 4. Simulate Out for Delivery state
@@ -98,11 +104,11 @@ describe('Orders Workflow Integration', () => {
       
       const outCard = screen.getByText('#1001').closest('.kanban-card');
       const completeBtn = within(outCard).getByText('Delivered');
-      fireEvent.click(completeBtn);
+      await clickAndFlush(completeBtn);
       
       // Should show confirmation dialog
       expect(screen.getByText('Mark as Delivered')).toBeInTheDocument();
-      fireEvent.click(screen.getByText('Confirm'));
+      await clickAndFlush(screen.getByText('Confirm'));
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(1001, OrderStatus.DELIVERED);
     });
   });
@@ -133,7 +139,7 @@ describe('Orders Workflow Integration', () => {
       expect(within(card).getByText('Pickup')).toBeInTheDocument();
       
       const readyBtn = within(card).getByText('Ready for Pickup');
-      fireEvent.click(readyBtn);
+      await clickAndFlush(readyBtn);
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(2001, OrderStatus.READY_FOR_PICKUP);
 
       // 2. Simulate Ready for Pickup state
@@ -143,7 +149,7 @@ describe('Orders Workflow Integration', () => {
       
       const readyCard = screen.getByText('#2001').closest('.kanban-card');
       const pickedUpBtn = within(readyCard).getByText('Picked Up');
-      fireEvent.click(pickedUpBtn);
+      await clickAndFlush(pickedUpBtn);
 
       // 3. Verify Payment Reminder in confirmation dialog
       expect(screen.getByText('Take Payment in Store')).toBeInTheDocument();
@@ -152,7 +158,7 @@ describe('Orders Workflow Integration', () => {
       
       const paidBtn = screen.getByText('Paid');
       expect(paidBtn).toHaveClass('variant-success');
-      fireEvent.click(paidBtn);
+      await clickAndFlush(paidBtn);
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(2001, OrderStatus.PICKED_UP);
     });
 
@@ -182,7 +188,7 @@ describe('Orders Workflow Integration', () => {
       expect(within(card).getByText('Silver Toyota Camry')).toBeInTheDocument();
       
       const readyBtn = within(card).getByText('Ready for Pickup');
-      fireEvent.click(readyBtn);
+      await clickAndFlush(readyBtn);
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(2002, OrderStatus.READY_FOR_PICKUP);
 
       // 2. Simulate customer arrival (Transitions to ARRIVED and appends spot)
@@ -197,11 +203,11 @@ describe('Orders Workflow Integration', () => {
 
       // Verify next quick action to complete order is Picked Up
       const pickedUpBtn = within(arrivedCard).getByText('Picked Up');
-      fireEvent.click(pickedUpBtn);
+      await clickAndFlush(pickedUpBtn);
 
       // Confirm in dialog
       expect(screen.getByText('Take Payment in Store')).toBeInTheDocument();
-      fireEvent.click(screen.getByText('Paid'));
+      await clickAndFlush(screen.getByText('Paid'));
       expect(appState.updateOrderStatus).toHaveBeenCalledWith(2002, OrderStatus.PICKED_UP);
     });
   });

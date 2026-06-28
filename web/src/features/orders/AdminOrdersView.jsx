@@ -3,9 +3,6 @@ import { useApp } from '../../context/AppContext';
 import {
   Check,
   Package,
-  Clock,
-  Truck,
-  CheckCircle,
   RefreshCw,
   XCircle,
   PackageCheck,
@@ -23,39 +20,17 @@ import { hasRole, ROLES } from '../../utils/roles';
 import OrderDetailPanel from './OrderDetailPanel';
 import { OrderStatus } from '../../constants/orderStatuses';
 import { formatPrice } from '../../utils/currencyUtils';
-
-const FILTER_STATUSES = Object.values(OrderStatus);
-const DEFAULT_SELECTED_STATUSES = [
-  OrderStatus.PENDING,
-  OrderStatus.APPROVED,
-  OrderStatus.READY_FOR_DELIVERY,
-  OrderStatus.OUT_FOR_DELIVERY,
-  OrderStatus.READY_FOR_PICKUP,
-  OrderStatus.ARRIVED
-];
-const STATUS_LABELS = {
-  PENDING: 'Pending',
-  APPROVED: 'Prep Order',
-  NOT_FULFILLING: 'Reject Order (Invalid Payment)',
-  READY_FOR_DELIVERY: 'Ready for Delivery',
-  OUT_FOR_DELIVERY: 'In Delivery',
-  DELIVERED: 'Delivered',
-  READY_FOR_PICKUP: 'Ready for Pickup',
-  ARRIVED: 'Customer Arrived',
-  PICKED_UP: 'Picked Up'
-};
-
-const COLUMN_LABELS = {
-  PENDING: 'Pending',
-  APPROVED: 'Prep Orders',
-  NOT_FULFILLING: 'Rejected (Invalid Payment)',
-  READY_FOR_DELIVERY: 'Awaiting Delivery Pickup',
-  OUT_FOR_DELIVERY: 'Out for Delivery',
-  DELIVERED: 'Delivered',
-  READY_FOR_PICKUP: 'Ready for Pickup',
-  ARRIVED: 'Customer Arrived',
-  PICKED_UP: 'Picked Up'
-};
+import {
+  COLUMN_LABELS,
+  DEFAULT_SELECTED_STATUSES,
+  FILTER_STATUSES,
+  formatOrderDate,
+  getProductName,
+  getStatusClass,
+  getStatusIcon,
+  getStatusLabel,
+  STATUS_LABELS,
+} from './orderViewUtils';
 
 export default function AdminOrdersView() {
   const navigate = useNavigate();
@@ -258,44 +233,6 @@ export default function AdminOrdersView() {
 
     if (newIds.length > 0) setNewOrderIds((prev) => Array.from(new Set([...prev, ...newIds])));
   }, [orders, isLoadingOrders]);
-
-  const formatOrderDate = (dateString) => {
-    if (!dateString) return '—';
-    const date = new Date(dateString);
-    return Number.isNaN(date.getTime()) ? dateString : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-  };
-
-  const getProductName = (item) => item?.productName ?? 'Unknown Product';
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'PENDING': return <Clock size={18} />;
-      case 'APPROVED': return <Check size={18} />;
-      case 'NOT_FULFILLING': return <XCircle size={18} />;
-      case 'READY_FOR_DELIVERY': return <Package size={18} />;
-      case 'READY_FOR_PICKUP': return <Package size={18} />;
-      case 'ARRIVED': return <Package size={18} />;
-      case 'OUT_FOR_DELIVERY': return <Truck size={18} />;
-      case 'DELIVERED': return <CheckCircle size={18} />;
-      case 'PICKED_UP': return <CheckCircle size={18} />;
-      default: return <Clock size={18} />;
-    }
-  };
-
-  const getStatusClass = (status) => {
-    const map = {
-      PENDING: 'status-pending',
-      APPROVED: 'status-approved',
-      NOT_FULFILLING: 'status-not-fulfilling',
-      READY_FOR_DELIVERY: 'status-ready',
-      READY_FOR_PICKUP: 'status-ready',
-      ARRIVED: 'status-arrived',
-      OUT_FOR_DELIVERY: 'status-out-for-delivery',
-      DELIVERED: 'status-delivered',
-      PICKED_UP: 'status-picked-up'
-    };
-    return map[status] || 'status-pending';
-  };
 
   const performStatusUpdate = (orderId, newStatus) => {
     setUpdatingOrderId(orderId);
@@ -675,7 +612,7 @@ export default function AdminOrdersView() {
           getProductName={getProductName}
           getStatusIcon={getStatusIcon}
           getStatusClass={getStatusClass}
-          getStatusLabel={(s) => STATUS_LABELS[s] ?? s.replace(/_/g, ' ')}
+          getStatusLabel={getStatusLabel}
           formatOrderDate={formatOrderDate}
           getNextStatusActions={getNextStatusActions}
           navigate={navigate}

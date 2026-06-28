@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { act, render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 // Mock react-router-dom navigate
@@ -303,7 +303,9 @@ describe('CustomerOrderList', () => {
       const order = makeOrder({ id: 123, deliveryMethod: 'CURBSIDE', status: 'READY_FOR_PICKUP' });
       await renderList({ orders: [order] });
       
-      fireEvent.click(screen.getByRole('button', { name: /i'm here/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /i'm here/i }));
+      });
       
       expect(mockNotifyArrival).toHaveBeenCalledWith(123, 'Arrived');
     });

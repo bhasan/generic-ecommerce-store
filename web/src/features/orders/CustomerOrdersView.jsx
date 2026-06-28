@@ -3,65 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import CustomerOrderList from './CustomerOrderList';
 import OrderDetailPanel from './OrderDetailPanel';
-import { OrderStatus } from '../../constants/orderStatuses';
 import {
-  Clock,
-  Check,
-  XCircle,
-  Package,
-  Truck,
-  CheckCircle
-} from 'lucide-react';
-
-const STATUS_LABELS = {
-  PENDING: 'Pending',
-  APPROVED: 'Prep Order',
-  NOT_FULFILLING: 'Reject Order (Invalid Payment)',
-  READY_FOR_DELIVERY: 'Ready for Delivery',
-  OUT_FOR_DELIVERY: 'In Delivery',
-  DELIVERED: 'Delivered',
-  READY_FOR_PICKUP: 'Ready for Pickup',
-  ARRIVED: 'Customer Arrived',
-  PICKED_UP: 'Picked Up'
-};
-
-const formatOrderDate = (dateString) => {
-  if (!dateString) return '—';
-  const date = new Date(dateString);
-  return Number.isNaN(date.getTime()) ? dateString : date.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
-};
-
-const getProductName = (item) => item?.productName ?? 'Unknown Product';
-
-const getStatusIcon = (status) => {
-  switch (status) {
-    case 'PENDING': return <Clock size={18} />;
-    case 'APPROVED': return <Check size={18} />;
-    case 'NOT_FULFILLING': return <XCircle size={18} />;
-    case 'READY_FOR_DELIVERY': return <Package size={18} />;
-    case 'READY_FOR_PICKUP': return <Package size={18} />;
-    case 'ARRIVED': return <Package size={18} />;
-    case 'OUT_FOR_DELIVERY': return <Truck size={18} />;
-    case 'DELIVERED': return <CheckCircle size={18} />;
-    case 'PICKED_UP': return <CheckCircle size={18} />;
-    default: return <Clock size={18} />;
-  }
-};
-
-const getStatusClass = (status) => {
-  const map = {
-    PENDING: 'status-pending',
-    APPROVED: 'status-approved',
-    NOT_FULFILLING: 'status-not-fulfilling',
-    READY_FOR_DELIVERY: 'status-ready',
-    READY_FOR_PICKUP: 'status-ready',
-    ARRIVED: 'status-arrived',
-    OUT_FOR_DELIVERY: 'status-out-for-delivery',
-    DELIVERED: 'status-delivered',
-    PICKED_UP: 'status-picked-up'
-  };
-  return map[status] || 'status-pending';
-};
+  formatOrderDate,
+  getProductName,
+  getStatusClass,
+  getStatusIcon,
+  getStatusLabel,
+} from './orderViewUtils';
 
 export default function CustomerOrdersView() {
   const navigate = useNavigate();
@@ -127,7 +75,7 @@ export default function CustomerOrdersView() {
           getProductName={getProductName}
           getStatusIcon={getStatusIcon}
           getStatusClass={getStatusClass}
-          getStatusLabel={(s) => STATUS_LABELS[s] ?? s.replace(/_/g, ' ')}
+          getStatusLabel={getStatusLabel}
           formatOrderDate={formatOrderDate}
           getNextStatusActions={() => []}
           navigate={navigate}
