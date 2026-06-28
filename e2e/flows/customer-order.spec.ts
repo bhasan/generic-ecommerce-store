@@ -8,7 +8,8 @@ test.describe('Customer order flow — browse → cart → checkout → my-order
   test('PICKUP × IN_STORE order appears in my-orders by order id', async ({ page }) => {
     // Resolve a purchasable product ID via API (products endpoint is unauthenticated)
     const productsRes = await page.request.get('http://localhost:3000/api/products');
-    const products = await productsRes.json();
+    const body = await productsRes.json();
+    const products = Array.isArray(body) ? body : body.data;
     const headphones = products.find((p: any) => p.name === 'Wireless Headphones');
     expect(headphones, 'Wireless Headphones not found in seed data').toBeTruthy();
 

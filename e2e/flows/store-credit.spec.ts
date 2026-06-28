@@ -37,7 +37,8 @@ test.describe('Store credit flow', () => {
 
     // Get Wireless Headphones product via unauthenticated API
     const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const products = await productsRes.json();
+    const body = await productsRes.json();
+    const products = Array.isArray(body) ? body : body.data;
     const headphones = products.find((p: any) => p.name === 'Wireless Headphones');
     expect(headphones).toBeTruthy();
 
