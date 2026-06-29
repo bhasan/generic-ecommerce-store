@@ -7,11 +7,12 @@ const API = 'http://localhost:3000';
 async function setupRaceProduct(): Promise<{ variantId: number; adminToken: string }> {
   const ctx = await request.newContext();
 
-  const { token: adminToken } = await (
+  const body = await (
     await ctx.post(`${API}/api/auth/login`, {
       data: { username: ACCOUNTS.admin.username, password: ACCOUNTS.admin.password },
     })
   ).json();
+  const adminToken = body.data.token;
 
   const bodyCats = await (
     await ctx.get(`${API}/api/categories`, { headers: { Authorization: `Bearer ${adminToken}` } })
@@ -19,7 +20,7 @@ async function setupRaceProduct(): Promise<{ variantId: number; adminToken: stri
   const cats = Array.isArray(bodyCats) ? bodyCats : bodyCats.data;
   const catId = (cats as Array<{ id: number }>)[0].id;
 
-  const { product } = await (
+  const resBody = await (
     await ctx.post(`${API}/api/products`, {
       headers: { Authorization: `Bearer ${adminToken}` },
       data: {
@@ -42,6 +43,7 @@ async function setupRaceProduct(): Promise<{ variantId: number; adminToken: stri
       },
     })
   ).json();
+  const product = resBody.data.product;
 
   const variantId = (product as { variants: Array<{ id: number }> }).variants[0].id;
   await ctx.dispose();
@@ -50,11 +52,12 @@ async function setupRaceProduct(): Promise<{ variantId: number; adminToken: stri
 
 async function customerToken(): Promise<string> {
   const ctx = await request.newContext();
-  const { token } = await (
+  const body = await (
     await ctx.post(`${API}/api/auth/login`, {
       data: { username: ACCOUNTS.customer.username, password: ACCOUNTS.customer.password },
     })
   ).json();
+  const token = body.data.token;
   await ctx.dispose();
   return token as string;
 }
@@ -77,9 +80,10 @@ async function placeOrder(token: string, variantId: number): Promise<{ status: n
 async function getVariantStock(variantId: number, adminToken: string): Promise<number> {
   const ctx = await request.newContext();
   // Fetch all products and find this variant
-  const products = await (
+  const resBody = await (
     await ctx.get(`${API}/api/products`, { headers: { Authorization: `Bearer ${adminToken}` } })
-  ).json() as Array<{ variants: Array<{ id: number; stock: number }> }>;
+  ).json();
+  const products = Array.isArray(resBody) ? resBody : resBody.data;
   await ctx.dispose();
   for (const p of products) {
     const v = p.variants?.find(v => v.id === variantId);

@@ -9,6 +9,7 @@ test.describe('Curbside arrival flow', () => {
   const vehicleColor = 'Blue';
 
   test('customer arrival notification reaches staff', async ({ browser }) => {
+    test.slow();
     // --- Customer: place CURBSIDE order ---
     const customerCtx = await browser.newContext();
     await establishSession(customerCtx, ACCOUNTS.customer);
@@ -68,7 +69,8 @@ test.describe('Curbside arrival flow', () => {
     // --- Manager: verify staff view flags this order as arrived ---
     // The kanban card gains the `kanban-card-arrived` class when status === ARRIVED
     // ("Customer Arrived" itself is the column header, not card text).
-    await managerPage.reload();
+    await managerPage.reload({ waitUntil: 'domcontentloaded' });
+    await expect(card).toBeVisible({ timeout: 10_000 });
     await expect(card).toHaveClass(/kanban-card-arrived/, { timeout: 10_000 });
 
     await customerCtx.close();

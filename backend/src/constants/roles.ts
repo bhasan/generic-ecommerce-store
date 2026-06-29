@@ -18,11 +18,15 @@ export const isRoleName = (value: unknown): value is RoleName => {
   return ROLE_NAMES.includes(value as RoleName);
 };
 
-export const hasRole = (roles: RoleName[] | undefined, target: RoleName): boolean => {
-  return Boolean(roles?.includes(target));
+export const hasRole = (roles: Array<RoleName | { name: string }> | undefined, target: RoleName): boolean => {
+  if (!roles) return false;
+  return roles.some((r) => {
+    const name = typeof r === 'string' ? r : r.name;
+    return name === target;
+  });
 };
 
-export const hasAnyRole = (roles: RoleName[] | undefined, targets: RoleName[]): boolean => {
+export const hasAnyRole = (roles: Array<RoleName | { name: string }> | undefined, targets: RoleName[]): boolean => {
   return targets.some((role) => hasRole(roles, role));
 };
 

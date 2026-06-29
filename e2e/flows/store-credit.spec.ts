@@ -15,7 +15,7 @@ test.describe('Store credit flow', () => {
     const auth = { Authorization: `Bearer ${token}` };
 
     const usersRes = await request.get('http://localhost:3000/api/users', { headers: auth });
-    const users = await usersRes.json();
+    const users = (await usersRes.json()).data;
     const sarah = users.find((u: { username: string }) => u.username === TARGET_USERNAME);
     expect(sarah, `${TARGET_USERNAME} not found in seeded users`).toBeTruthy();
 

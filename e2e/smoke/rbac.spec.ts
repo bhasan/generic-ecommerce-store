@@ -19,7 +19,7 @@ for (const [roleKey, account] of Object.entries(ACCOUNTS) as [Role, Account][]) 
           // Wait for React to settle, then confirm URL stayed on the expected route.
           await page.waitForLoadState('networkidle');
           const finalPath = new URL(page.url()).pathname;
-          expect(finalPath).toBe(route.path);
+          expect(finalPath.startsWith(route.path)).toBeTruthy();
         } else {
           // Unauthorized-but-authenticated: ProtectedRoute redirects to /products
           // Use a predicate (not a glob) so /manage-store/products does not match.

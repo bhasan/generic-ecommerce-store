@@ -30,7 +30,7 @@ test.describe('Customer order flow — browse → cart → checkout → my-order
     // Place order
     await page.getByRole('button', { name: 'Place Order' }).click();
     await page.waitForURL('**/order-success', { timeout: 15_000 });
-    await expect(page.getByText('Order Placed Successfully!')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Order Placed Successfully!' })).toBeVisible();
 
     // Success page shows padded id like "#000055"; other pages show raw "#55"
     const orderIdText = await page.locator('.order-id-number').textContent();

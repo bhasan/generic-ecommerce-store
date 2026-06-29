@@ -62,3 +62,4 @@ tests/live/reports/*
 !backend/prisma/migrations/**/*.sql
 test-results/
 e2e/.auth/
+backend/scratch/

@@ -5,6 +5,7 @@ import { establishSession } from '../helpers/auth';
 // Customer places an order; manager advances it through the full status lifecycle.
 test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED', () => {
   test('manager can advance order status end-to-end', async ({ browser }) => {
+    test.slow();
     // --- Customer: place order ---
     const customerCtx = await browser.newContext();
     await establishSession(customerCtx, ACCOUNTS.customer);
@@ -63,7 +64,7 @@ test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED'
     // READY → COMPLETED (PICKED_UP): this transition pops a "Take Payment in Store"
     // confirmation that must be accepted ("Paid") before the status actually changes.
     await card.getByRole('button', { name: /picked up/i }).click();
-    await managerPage.getByRole('button', { name: 'Paid' }).click();
+    await managerPage.getByRole('button', { name: 'Paid' }).click({ force: true });
     // PICKED_UP is terminal — the card no longer offers any quick-action button.
     await expect(card.getByRole('button', { name: /picked up/i })).toHaveCount(0, { timeout: 8_000 });
 

@@ -3,7 +3,7 @@ import orderService from '../services/order.service';
 import { successResponse } from '../utils/responseEnvelope';
 import { DeliveryEligibilityService } from '../services/deliveryEligibility.service';
 import { logger } from '../utils/logger';
-import { ROLES, hasAnyRole } from '../constants/roles';
+import { ROLES, hasAnyRole, hasRole } from '../constants/roles';
 import { OrderStatus } from '../../generated/prisma';
 import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 
@@ -101,10 +101,10 @@ export class OrderController {
       return;
     }
     const userRoles = req.user.roles || [];
-    const isEmployee = userRoles.includes(ROLES.EMPLOYEE);
-    const isManagementOrAdmin = userRoles.includes(ROLES.MANAGEMENT) || userRoles.includes(ROLES.ADMIN);
+    const isEmployee = hasRole(userRoles, ROLES.EMPLOYEE);
+    const isManagementOrAdmin = hasRole(userRoles, ROLES.MANAGEMENT) || hasRole(userRoles, ROLES.ADMIN);
     const canManageOrders = isEmployee || isManagementOrAdmin;
-    const isDeliveryDriver = userRoles.includes(ROLES.DELIVERY_DRIVER) && !canManageOrders;
+    const isDeliveryDriver = hasRole(userRoles, ROLES.DELIVERY_DRIVER) && !canManageOrders;
 
     // Delivery drivers only complete the final handoff step; broader order edits stay with staff roles.
     if (isDeliveryDriver && req.body.status !== OrderStatus.DELIVERED) {

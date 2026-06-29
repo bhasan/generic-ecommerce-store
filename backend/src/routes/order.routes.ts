@@ -86,7 +86,7 @@ router.post(
 router.patch('/:id/items/:itemId/void', authenticate, authorizeEmployee, requireIntParam('id', 'order'), requireIntParam('itemId', 'item'), asyncHandler(orderController.voidOrderItem));
 router.delete('/:id/items/:itemId', authenticate, authorizeEmployee, requireIntParam('id', 'order'), requireIntParam('itemId', 'item'), asyncHandler(orderController.deleteOrderItem));
 router.post('/:id/print', authenticate, authorizeEmployee, requireIntParam('id', 'order'), asyncHandler(orderController.printOrderReceipt));
-// Only admins can hard-delete orders.
-router.delete('/:id', authenticate, authorizeAdmin, requireIntParam('id', 'order'), asyncHandler(orderController.deleteOrder));
+// Delete/cancel order. Service layer enforces customer vs admin capabilities.
+router.delete('/:id', authenticate, requireIntParam('id', 'order'), asyncHandler(orderController.deleteOrder));
 
 export default router;

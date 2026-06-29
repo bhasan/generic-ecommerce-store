@@ -20,7 +20,7 @@ function SendPaymentModal({ isOpen, onDone, onCancel, pendingOrderState, storeCa
   };
 
   return (
-    <BaseModal isOpen={isOpen} onClose={onCancel} className="send-payment-modal-container" maxWidth="580px">
+    <BaseModal isOpen={isOpen} onClose={onCancel} className="send-payment-modal-container" overlayClassName="send-payment-modal-overlay" maxWidth="580px">
       <div className="send-payment-modal-content">
         {onCancel && (
           <button className="send-payment-modal-close" onClick={onCancel} aria-label="Close">

@@ -1,5 +1,5 @@
 import { ZodType } from 'zod';
-import prisma from '../config/database';
+import { getTenantPrisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { TtlCache } from '../utils/ttlCache';
 
@@ -51,7 +51,7 @@ export class SettingsStore<T extends object> {
     const cached = settingsCache.get(key) as T | undefined;
     if (cached !== undefined) return structuredClone(cached);
 
-    const row = await prisma.uiSetting.findUnique({ where: { key } });
+    const row = await getTenantPrisma().uiSetting.findUnique({ where: { key } });
     const merged = row
       ? ({ ...this.resolveDefaults(), ...(row.value as unknown as Partial<T>) } as T)
       : this.resolveDefaults();
@@ -64,7 +64,7 @@ export class SettingsStore<T extends object> {
     const { key, schema, onWrite } = this.config;
     const validated = parseOrThrow(schema, data);
     const toStore = onWrite ? onWrite(validated) : validated;
-    await prisma.uiSetting.upsert({
+    await getTenantPrisma().uiSetting.upsert({
       where: { key },
       update: { value: toStore as object },
       create: { key, value: toStore as object },

@@ -243,10 +243,13 @@ const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
         authToken: token,
       });
       
-      // Handle empty responses
       const contentType = processedResponse.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        return await processedResponse.json();
+        const result = await processedResponse.json();
+        if (result && typeof result === 'object' && 'success' in result && 'data' in result) {
+          return result.data;
+        }
+        return result;
       }
       
       return processedResponse;
