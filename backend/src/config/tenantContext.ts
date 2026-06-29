@@ -16,7 +16,18 @@ export class MissingTenantContextError extends Error {
 const tenantStorage = new AsyncLocalStorage<TenantContext>();
 
 export function runWithTenant<T>(ctx: TenantContext, fn: () => T): T {
-  return tenantStorage.run(ctx, fn);
+  return tenantStorage.run(ctx, () => {
+    const result = fn();
+    if (result && typeof (result as any).then === 'function') {
+      return (result as any).then(
+        (resolved: any) => resolved,
+        (err: any) => {
+          throw err;
+        }
+      );
+    }
+    return result;
+  });
 }
 
 export function getTenantContext(): TenantContext | undefined {

@@ -23,14 +23,14 @@ afterAll(async () => {
 
 describe('cross-tenant isolation (CI guardrail #2)', () => {
   it('tenant A cannot read tenant B rows via the ORM', async () => {
-    const seen = await runWithTenant({ tenantId: tA, storeId: null, scope: 'tenant' }, async () =>
-      await getTenantPrisma().category.findMany());
+    const seen = await runWithTenant({ tenantId: tA, storeId: null, scope: 'tenant' }, () =>
+      getTenantPrisma().category.findMany());
     expect(seen.find((c) => c.id === catB)).toBeUndefined();
   });
 
   it('tenant A cannot UPDATE tenant B rows (affects zero rows)', async () => {
-    const affected = await runWithTenant({ tenantId: tA, storeId: null, scope: 'tenant' }, async () =>
-      await getTenantPrisma().category.updateMany({ where: { id: catB }, data: { name: 'hacked' } }));
+    const affected = await runWithTenant({ tenantId: tA, storeId: null, scope: 'tenant' }, () =>
+      getTenantPrisma().category.updateMany({ where: { id: catB }, data: { name: 'hacked' } }));
     expect(affected.count).toBe(0);
   });
 });
