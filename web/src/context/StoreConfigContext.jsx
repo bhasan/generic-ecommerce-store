@@ -1,6 +1,5 @@
 // web/src/context/StoreConfigContext.jsx
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { useLocation } from 'react-router-dom';
 import * as configApi from '../services/configApi';
 import * as landingPageSettingsApi from '../services/landingPageSettingsApi';
 import { applyBrandingTokens } from '../utils/colorUtils';
@@ -16,7 +15,6 @@ export const useStoreConfigContext = () => {
 
 export function StoreConfigProvider({ children }) {
   const { isAuthenticated, isLoading } = useAuthContext();
-  const location = useLocation();
 
   const [taxRate, setTaxRate] = useState(0);
   const [minimumDeliveryOrder, setMinimumDeliveryOrder] = useState(0);
@@ -90,11 +88,12 @@ export function StoreConfigProvider({ children }) {
   }, [isLoading, isAuthenticated, loadLandingPageData]);
 
   useEffect(() => {
-    const isRegisterPage = location.pathname === '/register';
     if (isLoading) return;
-    if (!isAuthenticated && !isRegisterPage) return;
+    // /api/config is public. Load it for EVERYONE (not just authenticated users):
+    // an anonymous visitor to a tenant's own site needs that tenant's branding,
+    // store info, and landing content (featured products + promotions) too.
     loadConfig();
-  }, [loadConfig, isAuthenticated, isLoading, location.pathname]);
+  }, [loadConfig, isLoading]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
