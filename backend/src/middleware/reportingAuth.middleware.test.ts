@@ -134,3 +134,16 @@ describe('requireReportingAuth — per-tenant token security', () => {
     expect((capturedCtx as any)?.tenantId).toBe(42);
   });
 });
+
+describe('reportingTenantRateKey (per-tenant rate-limit keying)', () => {
+  it('derives a distinct rate-limit key per tenant so tenants do not share a bucket', async () => {
+    const { reportingTenantRateKey } = await import('./reportingAuth.middleware');
+    expect(reportingTenantRateKey({ tenantId: 7 } as any)).toBe('reporting:tenant:7');
+    expect(reportingTenantRateKey({ tenantId: 9 } as any)).toBe('reporting:tenant:9');
+    // Different tenants → different keys → independent budgets.
+    expect(reportingTenantRateKey({ tenantId: 7 } as any))
+      .not.toBe(reportingTenantRateKey({ tenantId: 9 } as any));
+    // Falls back to a constant when somehow unset (post-auth this shouldn't happen).
+    expect(reportingTenantRateKey({} as any)).toBe('reporting:tenant:unknown');
+  });
+});

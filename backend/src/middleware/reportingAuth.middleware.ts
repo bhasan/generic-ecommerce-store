@@ -94,18 +94,43 @@ export const requireReportingAuth = async (req: Request, res: Response, next: Ne
   );
 };
 
-export const reportingRateLimiter = rateLimit({
+const rateLimitHandler = (req: Request, res: Response): void => {
+  logger.warn('Online store reporting API rate limit exceeded', {
+    requestId: req.requestId || 'unknown',
+    method: req.method,
+    path: req.originalUrl,
+    tenantId: (req as any).tenantId ?? null,
+    ip: req.ip || req.socket.remoteAddress,
+  });
+  res.status(429).json(buildReportingError(req, 'Rate limit exceeded', 'RATE_LIMITED'));
+};
+
+/**
+ * Per-tenant rate-limit key. The reporting token identifies the tenant, so each
+ * tenant gets its OWN request budget regardless of source IP — one tenant's
+ * consumer can't exhaust the reporting rate limit for other tenants. Exported
+ * for direct unit testing of the keying.
+ */
+export const reportingTenantRateKey = (req: Request): string =>
+  `reporting:tenant:${(req as any).tenantId ?? 'unknown'}`;
+
+// Pre-auth, IP-keyed: protects the per-tenant token lookup from unauthenticated
+// request floods. Runs BEFORE requireReportingAuth (no tenant resolved yet).
+export const reportingIpRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: () => getReportingConfig().rateLimitPerMinute,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (req, res) => {
-    logger.warn('Online store reporting API rate limit exceeded', {
-      requestId: req.requestId || 'unknown',
-      method: req.method,
-      path: req.originalUrl,
-      ip: req.ip || req.socket.remoteAddress,
-    });
-    res.status(429).json(buildReportingError(req, 'Rate limit exceeded', 'RATE_LIMITED'));
-  },
+  handler: rateLimitHandler,
+});
+
+// Post-auth, PER-TENANT: fair-share budget keyed by the authenticated tenant.
+// Runs AFTER requireReportingAuth (which sets req.tenantId from the token).
+export const reportingTenantRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: () => getReportingConfig().rateLimitPerMinute,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: reportingTenantRateKey,
+  handler: rateLimitHandler,
 });
