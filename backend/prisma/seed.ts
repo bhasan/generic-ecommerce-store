@@ -43,7 +43,7 @@ async function seed() {
   console.log('>>> SEED RESOLVED:', { tenantId, storeId });
 
   // ── Roles ──────────────────────────────────────────────────────────────
-  const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'VIP'] as const;
+  const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'VIP', 'SUPER_ADMIN'] as const;
   type RoleName = (typeof roleNames)[number];
 
   const roles = await Promise.all(
@@ -107,6 +107,9 @@ async function seed() {
     makeUser('driver',         'driver123',   ['DELIVERY_DRIVER'], {
       phoneNumber: '(512) 555-0400',
     }),
+    // Platform operator: SUPER_ADMIN gates the cross-tenant management screens
+    // (tenant provisioning). Also given ADMIN so they can use the normal admin UI.
+    makeUser('superadmin',     'superadmin123', ['SUPER_ADMIN', 'ADMIN']),
   ]);
 
   console.log('✅ Users created');

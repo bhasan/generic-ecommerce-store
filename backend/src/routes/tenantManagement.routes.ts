@@ -1,10 +1,11 @@
-// TEMPORARY: tenant management lives here and is gated to the PLATFORM admin
-// (super-admin, or the default 'app' tenant's admin). It will move to a dedicated
-// super-admin portal later. It must NEVER be gated by the per-tenant ADMIN role,
-// which would let any tenant's admin manage every tenant (cross-tenant escalation).
+// TEMPORARY: tenant management lives in website-management for now but is a PLATFORM
+// function — it manages every tenant on the instance — so it is gated to SUPER_ADMIN
+// only. It will move to a dedicated super-admin portal later. It must NEVER be gated
+// by the per-tenant ADMIN role, which would let any tenant's admin manage every
+// tenant (cross-tenant privilege escalation). Regular admins are per-tenant.
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
-import { requirePlatformAdmin } from '../middleware/role.middleware';
+import { requireSuperAdmin } from '../middleware/role.middleware';
 import { tenantManagementController } from '../controllers/tenantManagement.controller';
 import { asyncHandler } from '../utils/asyncHandler.util';
 
@@ -13,28 +14,28 @@ const router = Router();
 router.get(
   '/',
   authenticate,
-  requirePlatformAdmin,
+  requireSuperAdmin,
   asyncHandler(tenantManagementController.list.bind(tenantManagementController)),
 );
 
 router.post(
   '/',
   authenticate,
-  requirePlatformAdmin,
+  requireSuperAdmin,
   asyncHandler(tenantManagementController.create.bind(tenantManagementController)),
 );
 
 router.patch(
   '/:id/status',
   authenticate,
-  requirePlatformAdmin,
+  requireSuperAdmin,
   asyncHandler(tenantManagementController.setStatus.bind(tenantManagementController)),
 );
 
 router.post(
   '/:id/regenerate-tokens',
   authenticate,
-  requirePlatformAdmin,
+  requireSuperAdmin,
   asyncHandler(tenantManagementController.regenerateTokens.bind(tenantManagementController)),
 );
 

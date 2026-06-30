@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { authorize, requirePlatformAdmin } from './role.middleware';
+import { authorize, requireSuperAdmin } from './role.middleware';
 import { logger } from '../utils/logger';
 
 vi.mock('../utils/logger', () => ({
@@ -97,25 +97,26 @@ describe('role middleware', () => {
     expect(res2.status).toHaveBeenCalledWith(403);
   });
 
-  describe('requirePlatformAdmin (cross-tenant management gate)', () => {
-    it('allows a true SUPER_ADMIN on any tenant', () => {
+  describe('requireSuperAdmin (platform tenant-management gate)', () => {
+    it('allows a SUPER_ADMIN on any tenant', () => {
       const req: any = { user: { userId: 1, roles: [{ name: 'SUPER_ADMIN', storeId: null }] }, tenant: { slug: 'acme' }, path: '/', method: 'GET' };
       const res = createResponse(); const next = vi.fn();
-      requirePlatformAdmin(req, res, next);
+      requireSuperAdmin(req, res, next);
       expect(next).toHaveBeenCalled();
     });
 
-    it('allows the DEFAULT (app) tenant ADMIN as the interim platform operator', () => {
+    it('REJECTS the default (app) tenant ADMIN — regular admins are per-tenant, not platform', () => {
       const req: any = { user: { userId: 1, roles: [{ name: 'ADMIN', storeId: null }] }, tenant: { slug: 'app' }, path: '/', method: 'GET' };
       const res = createResponse(); const next = vi.fn();
-      requirePlatformAdmin(req, res, next);
-      expect(next).toHaveBeenCalled();
+      requireSuperAdmin(req, res, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
     });
 
     it('REJECTS a non-default tenant ADMIN (cross-tenant escalation blocked)', () => {
       const req: any = { user: { userId: 2, roles: [{ name: 'ADMIN', storeId: null }] }, tenant: { slug: 'acme' }, path: '/', method: 'GET' };
       const res = createResponse(); const next = vi.fn();
-      requirePlatformAdmin(req, res, next);
+      requireSuperAdmin(req, res, next);
       expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(403);
     });
@@ -123,7 +124,7 @@ describe('role middleware', () => {
     it('rejects an unauthenticated request with 401', () => {
       const req: any = { tenant: { slug: 'app' }, path: '/', method: 'GET' };
       const res = createResponse(); const next = vi.fn();
-      requirePlatformAdmin(req, res, next);
+      requireSuperAdmin(req, res, next);
       expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(401);
     });

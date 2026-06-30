@@ -73,28 +73,24 @@ export const authorizeManagement = authorize('MANAGEMENT', 'ADMIN');
 export const authorizeAdmin = authorize('ADMIN');
 
 /**
- * Platform (cross-tenant) administrator gate for tenant-management endpoints.
- *
- * Gating cross-tenant management behind the per-tenant ADMIN role would let ANY
- * tenant's admin manage EVERY tenant (cross-tenant privilege escalation). So this
- * allows only:
- *   - a true platform SUPER_ADMIN (tenantId = null), OR
- *   - TEMPORARY, until a dedicated super-admin portal is extracted: the DEFAULT
- *     ('app') tenant's ADMIN, who acts as the platform operator.
- * A regular tenant's ADMIN (req.tenant.slug !== 'app') is rejected with 403.
+ * SUPER_ADMIN gate for platform-wide (cross-tenant) management endpoints, e.g.
+ * tenant provisioning. Tenant management is a PLATFORM function — managing every
+ * business on the shared instance — so it must be restricted to the SUPER_ADMIN
+ * role. A regular per-tenant ADMIN (including the default 'app' tenant's admin) is
+ * NOT a super-admin and is rejected with 403. (This will move behind a dedicated
+ * super-admin portal later; for now the screen lives in website-management but is
+ * only visible/usable to a SUPER_ADMIN.)
  */
-export const requirePlatformAdmin = (req: Request, res: Response, next: NextFunction): void => {
+export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
   if (!req.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
   }
   const roles = (req.user.roles ?? []) as Array<string | { name: string }>;
   const roleNames = roles.map((r) => (typeof r === 'string' ? r : r.name));
-  const isSuperAdmin = roleNames.includes('SUPER_ADMIN');
-  const isDefaultTenantAdmin = req.tenant?.slug === 'app' && roleNames.includes('ADMIN');
 
-  if (!isSuperAdmin && !isDefaultTenantAdmin) {
-    logger.warn('Platform admin access denied', {
+  if (!roleNames.includes('SUPER_ADMIN')) {
+    logger.warn('Super-admin access denied', {
       requestId: req.requestId || 'unknown',
       path: req.path,
       method: req.method,
@@ -102,7 +98,7 @@ export const requirePlatformAdmin = (req: Request, res: Response, next: NextFunc
       tenantSlug: req.tenant?.slug ?? null,
       currentRoles: roleNames,
     });
-    res.status(403).json({ error: 'Platform administrator access required.' });
+    res.status(403).json({ error: 'Super administrator access required.' });
     return;
   }
   next();

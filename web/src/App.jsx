@@ -194,7 +194,12 @@ function AppContent() {
             <Route path="info" element={<StoreInfoPage />} />
             <Route path="payment" element={<PaymentPage />} />
             <Route path="delivery" element={<DeliveryPage />} />
-            <Route path="tenants" element={<TenantsPage />} />
+            {/* Tenant management is a PLATFORM function — SUPER_ADMIN only, not per-tenant admins. */}
+            <Route path="tenants" element={
+              <ProtectedRoute roles={[ROLES.SUPER_ADMIN]}>
+                <TenantsPage />
+              </ProtectedRoute>
+            } />
           </Route>
 
           {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
