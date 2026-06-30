@@ -675,15 +675,17 @@ enum PaymentStatus {
 }
 
 model Tenant {
-  id           Int          @id @default(autoincrement())
-  slug         String       @unique
-  name         String
-  customDomain String?      @unique
-  status       TenantStatus @default(ACTIVE)
-  plan         String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  stores       Store[]
+  id                  Int          @id @default(autoincrement())
+  slug                String       @unique
+  name                String
+  customDomain        String?      @unique
+  status              TenantStatus @default(ACTIVE)
+  plan                String?
+  reportingTokenHash  String?
+  printAgentKeyHash   String?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  stores              Store[]
   @@map("tenants")
 }
 
