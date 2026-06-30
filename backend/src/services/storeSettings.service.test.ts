@@ -13,6 +13,8 @@ const deliveryEligibilityService = vi.hoisted(() => ({
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
+  getUnscopedPrisma: () => prismaMock,
 }));
 
 vi.mock('./deliveryEligibility.service', () => ({

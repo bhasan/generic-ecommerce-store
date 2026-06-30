@@ -9,6 +9,8 @@ const prismaMock = vi.hoisted(() => ({
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
+  getUnscopedPrisma: () => prismaMock,
 }));
 
 describe('branding service', () => {

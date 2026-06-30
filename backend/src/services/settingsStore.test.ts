@@ -5,7 +5,7 @@ import { AppError } from '../middleware/error.middleware';
 const prismaMock = vi.hoisted(() => ({
   uiSetting: { findUnique: vi.fn(), upsert: vi.fn() },
 }));
-vi.mock('../config/database', () => ({ default: prismaMock }));
+vi.mock('../config/database', () => ({ default: prismaMock, getTenantPrisma: () => prismaMock, getUnscopedPrisma: () => prismaMock }));
 
 const schema = z.object({ a: z.string(), n: z.number() });
 const defaults = { a: 'def', n: 0 };
