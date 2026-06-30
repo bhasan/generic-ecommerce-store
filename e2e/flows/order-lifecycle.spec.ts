@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // Customer places an order; manager advances it through the full status lifecycle.
 test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED', () => {
@@ -11,9 +12,7 @@ test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED'
     await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
-    const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = Array.isArray(body) ? body : body.data;
+    const products = await fetchProducts(customerPage.request);
     const laptopBag = products.find((p: any) => p.name === 'Laptop Bag');
     expect(laptopBag).toBeTruthy();
 

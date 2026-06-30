@@ -1,15 +1,14 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 test.describe('Customer order flow — browse → cart → checkout → my-orders', () => {
   test.beforeEach(async ({ context }) => { await establishSession(context, ACCOUNTS.customer); });
 
   test('PICKUP × IN_STORE order appears in my-orders by order id', async ({ page }) => {
-    // Resolve a purchasable product ID via API (products endpoint is unauthenticated)
-    const productsRes = await page.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = Array.isArray(body) ? body : body.data;
+    // Resolve a purchasable product ID via authenticated API
+    const products = await fetchProducts(page.request);
     const headphones = products.find((p: any) => p.name === 'Wireless Headphones');
     expect(headphones, 'Wireless Headphones not found in seed data').toBeTruthy();
 

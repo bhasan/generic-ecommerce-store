@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession, mintBearerToken } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // End-to-end verification of the CashApp (EXTERNAL) payment flow.
 //
@@ -44,9 +45,7 @@ test.describe('CashApp payment flow', () => {
     expect(psRes.ok(), `Failed to configure payment settings: ${psRes.status()}`).toBeTruthy();
 
     // Grab the first in-stock product.
-    const productsRes = await request.get(`${API}/products`);
-    const body = await productsRes.json();
-    const products = (Array.isArray(body) ? body : body.data) as any[];
+    const products = await fetchProducts(request) as any[];
     const available = products.find(
       (p) => p.variants?.some((v: any) => v.stock > 0 || !v.stockEnabled),
     );

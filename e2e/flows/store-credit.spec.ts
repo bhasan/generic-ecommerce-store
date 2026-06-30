@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { mintBearerToken } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // Manager grants store credit to sarahjohnson via direct authenticated API calls
 // (access token minted by an in-test API login, since the token is no longer in
@@ -35,10 +36,8 @@ test.describe('Store credit flow', () => {
     await customerPage.getByRole('button', { name: 'Sign In' }).click();
     await customerPage.waitForURL(url => !url.pathname.endsWith('/login'), { timeout: 15_000 });
 
-    // Get Wireless Headphones product via unauthenticated API
-    const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = Array.isArray(body) ? body : body.data;
+    // Get Wireless Headphones product via authenticated API
+    const products = await fetchProducts(customerPage.request);
     const headphones = products.find((p: any) => p.name === 'Wireless Headphones');
     expect(headphones).toBeTruthy();
 

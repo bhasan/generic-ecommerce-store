@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // Customer places a CURBSIDE order → manager advances to READY_FOR_PICKUP → customer clicks "I'm Here"
 // → staff orders page shows "Customer Arrived".
@@ -15,9 +16,7 @@ test.describe('Curbside arrival flow', () => {
     await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
-    const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = Array.isArray(body) ? body : body.data;
+    const products = await fetchProducts(customerPage.request);
     const smartWatch = products.find((p: any) => p.name === 'Smart Watch');
     expect(smartWatch).toBeTruthy();
 

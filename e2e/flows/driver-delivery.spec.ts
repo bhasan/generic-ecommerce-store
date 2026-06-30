@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession, mintBearerToken } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // Full DELIVERY journey across three roles:
 //   admin configures the delivery zone (ZIP allowlist) →
@@ -59,9 +60,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
-    const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = Array.isArray(body) ? body : body.data;
+    const products = await fetchProducts(customerPage.request);
     const laptopBag = products.find((p: any) => p.name === 'Laptop Bag');
     expect(laptopBag).toBeTruthy();
 
