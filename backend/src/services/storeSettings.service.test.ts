@@ -48,6 +48,8 @@ describe('store settings service', () => {
       address: '',
       phoneNumber: '',
       tagline: '',
+      timezone: '',
+      currency: '',
       notificationEmails: {
         adminEmail: '',
         managementEmail: '',
@@ -79,6 +81,8 @@ describe('store settings service', () => {
     };
     const settingsWithPosDefaults = {
       ...settings,
+      timezone: '',
+      currency: '',
       posConfig: {
         baseUrl: undefined,
         username: undefined,

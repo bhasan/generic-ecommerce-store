@@ -18,7 +18,7 @@ router.use(requireReportingAuth);        // sets req.tenantId from the per-tenan
 router.use(reportingTenantRateLimiter);  // post-auth, per-tenant: fair-share across tenants
 
 router.get('/health', reportingController.health);
-router.get('/metadata', reportingController.metadata);
+router.get('/metadata', asyncHandler(reportingController.metadata));
 router.get('/products', asyncHandler(reportingController.products));
 router.get('/categories', asyncHandler(reportingController.categories));
 router.get('/inventory-snapshots', asyncHandler(reportingController.inventorySnapshots));

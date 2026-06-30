@@ -26,6 +26,11 @@ export interface StoreSettings {
   address: string;
   phoneNumber: string;
   tagline: string;
+  // Per-tenant reporting locale. Empty = fall back to the platform reporting
+  // defaults (see reportingConfig). timezone is an IANA name (e.g. America/New_York);
+  // currency is an ISO-4217 code (e.g. USD).
+  timezone: string;
+  currency: string;
   notificationEmails: NotificationEmailRouting;
   posProvider: string | null;
   posConfig: PosConfig;
@@ -56,6 +61,8 @@ const getDefaultStoreSettings = (): StoreSettings => ({
   address: '',
   phoneNumber: '',
   tagline: '',
+  timezone: '',
+  currency: '',
   notificationEmails: getDefaultNotificationEmailRouting(),
   posProvider: null,
   posConfig: {},
@@ -87,6 +94,8 @@ function normalize(
     address: typeof data?.address === 'string' ? data.address : defaults.address,
     phoneNumber: typeof data?.phoneNumber === 'string' ? data.phoneNumber : defaults.phoneNumber,
     tagline: typeof data?.tagline === 'string' ? data.tagline : defaults.tagline,
+    timezone: typeof data?.timezone === 'string' ? data.timezone : defaults.timezone,
+    currency: typeof data?.currency === 'string' ? data.currency : defaults.currency,
     notificationEmails: {
       adminEmail: normalizeEmailField(
         data?.notificationEmails?.adminEmail,
@@ -135,6 +144,14 @@ const StoreSettingsSchema = z.object({
     .string('Invalid store settings: phoneNumber must be a string')
     .max(32, 'Invalid store settings: phoneNumber must be 32 characters or fewer'),
   tagline: z.string(),
+  timezone: z
+    .string('Invalid store settings: timezone must be a string')
+    .max(64, 'Invalid store settings: timezone must be 64 characters or fewer')
+    .default(''),
+  currency: z
+    .string('Invalid store settings: currency must be a string')
+    .max(8, 'Invalid store settings: currency must be 8 characters or fewer')
+    .default(''),
   notificationEmails: z.object(
     {
       adminEmail: emailField('adminEmail'),

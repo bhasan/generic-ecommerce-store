@@ -7,6 +7,8 @@ const DEFAULT_SETTINGS = {
   name: '',
   address: '',
   phoneNumber: '',
+  timezone: '',
+  currency: '',
   notificationEmails: {
     adminEmail: '',
     managementEmail: '',
@@ -19,9 +21,14 @@ function StoreSettingsSection({ isLoading, storeSettings, onSave }) {
   const [isSaving, setIsSaving] = useState(false);
 
   const normalizeSettings = (settings = DEFAULT_SETTINGS) => ({
+    // Preserve fields this form does not edit (tagline, posProvider/posConfig) so a
+    // save doesn't wipe them — store settings are written as a whole object.
+    ...settings,
     name: settings.name || '',
     address: settings.address || '',
     phoneNumber: settings.phoneNumber || '',
+    timezone: settings.timezone || '',
+    currency: settings.currency || '',
     notificationEmails: {
       adminEmail: settings.notificationEmails?.adminEmail || '',
       managementEmail: settings.notificationEmails?.managementEmail || '',
@@ -131,6 +138,38 @@ function StoreSettingsSection({ isLoading, storeSettings, onSave }) {
               placeholder="(555) 123-4567"
               maxLength={32}
             />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="store-timezone">
+              Timezone
+            </label>
+            <input
+              id="store-timezone"
+              type="text"
+              className="form-input"
+              value={draft.timezone}
+              onChange={(e) => handleChange('timezone', e.target.value)}
+              placeholder="America/Chicago"
+              maxLength={64}
+            />
+            <p className="form-hint">IANA timezone used for this store's reporting (e.g. America/New_York). Leave blank for the platform default.</p>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="store-currency">
+              Currency
+            </label>
+            <input
+              id="store-currency"
+              type="text"
+              className="form-input"
+              value={draft.currency}
+              onChange={(e) => handleChange('currency', e.target.value.toUpperCase())}
+              placeholder="USD"
+              maxLength={8}
+            />
+            <p className="form-hint">ISO-4217 currency code reported for this store's orders/payments (e.g. EUR). Leave blank for the platform default.</p>
           </div>
 
           <div className="store-settings-email-grid">

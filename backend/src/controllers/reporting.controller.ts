@@ -19,8 +19,8 @@ export class ReportingController {
     res.status(200).json(successResponse(reportingService.getHealth()));
   }
 
-  metadata(_req: Request, res: Response): void {
-    res.status(200).json(successResponse(reportingService.getMetadata()));
+  async metadata(_req: Request, res: Response): Promise<void> {
+    res.status(200).json(successResponse(await reportingService.getMetadata()));
   }
 
   async products(req: Request, res: Response): Promise<void> {
