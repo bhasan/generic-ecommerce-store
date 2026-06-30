@@ -1,0 +1,35 @@
+{
+  "name": "smoke-station-delivery-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "docs:render-mermaid": "node scripts/render-design-mermaid.js",
+    "preflight": "node scripts/validation/preflight.mjs",
+    "smoke:local": "node scripts/validation/local-smoke.mjs",
+    "verify:local": "node scripts/validation/verify-local.mjs",
+    "release:check": "node scripts/validation/release-check.mjs",
+    "test": "npm run test:backend && npm run test:web",
+    "test:backend": "npm --prefix backend run test",
+    "test:web": "npm --prefix web run test",
+    "test:hardening": "npm run test:backend && npm run test:web",
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:live:local": "playwright test -c tests/live/playwright.config.ts --project=local-desktop",
+    "test:live:local-mobile": "playwright test -c tests/live/playwright.config.ts --project=local-mobile",
+    "test:live:smoke": "playwright test -c tests/live/playwright.config.ts --project=live-smoke",
+    "test:live:full": "playwright test -c tests/live/playwright.config.ts",
+    "test:live:mobile": "playwright test -c tests/live/playwright.config.ts --project=live-mobile",
+    "test:live:security": "playwright test -c tests/live/playwright.config.ts --project=live-security",
+    "test:live:safe-writes": "playwright test -c tests/live/playwright.config.ts --project=live-safe-writes",
+    "test:provider:live": "playwright test -c tests/live/playwright.config.ts --project=live-provider",
+    "test:ai:live": "playwright test -c tests/live/playwright.config.ts --project=live-ai",
+    "test:perf:smoke": "playwright test -c tests/live/playwright.config.ts --project=live-performance"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0",
+    "@types/sharp": "^0.31.1"
+  }
+}
