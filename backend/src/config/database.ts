@@ -146,6 +146,7 @@ function buildTenantClient(prismaInstance: any) {
             }
 
             const newArgs = {
+              ...anyArgs, // preserve include / select / etc. — only the where is rewritten
               where: { ...flatWhere, tenantId: ctx.tenantId,
                 ...(ctx.storeId != null && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
             };
