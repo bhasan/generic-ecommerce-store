@@ -179,7 +179,7 @@ describe('uploadFavicon', () => {
   }
 
   function makeFileReq(filename = 'source.png') {
-    return { file: { filename } } as any;
+    return { file: { filename, destination: '/fake/uploads' } } as any;
   }
 
   beforeEach(() => {

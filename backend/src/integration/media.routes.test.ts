@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError, errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 const verifyToken = vi.hoisted(() => vi.fn());
 const extractTokenFromHeader = vi.hoisted(() => vi.fn((header?: string) => {
@@ -111,6 +112,7 @@ describe('media routes integration', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    setDefaultTenantId(1);
     server = await createServer();
   });
 

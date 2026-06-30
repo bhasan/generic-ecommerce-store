@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 // Proves the BACKEND enforces role boundaries — not just the frontend redirect that
 // the Playwright RBAC smoke layer exercises. Only the JWT decode is mocked, so the
@@ -190,6 +191,7 @@ describe('RBAC route enforcement (backend)', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    setDefaultTenantId(1);
     server = await createServer();
   });
 

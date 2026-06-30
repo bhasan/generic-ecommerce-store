@@ -21,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import unzipper from 'unzipper';
 import { errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/jwt.util', () => ({ verifyToken, extractTokenFromHeader }));
-vi.mock('../config/database', () => ({ default: prismaMock }));
+vi.mock('../config/database', () => ({ default: prismaMock, getTenantPrisma: () => prismaMock, getUnscopedPrisma: () => prismaMock }));
 vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
@@ -132,6 +133,7 @@ describe('export / import round-trip', () => {
   let zipBuf: Buffer;
 
   beforeAll(async () => {
+    setDefaultTenantId(1);
     // Two products — one with each test image as thumbnail
     prismaMock.product.findMany.mockResolvedValue([
       {
