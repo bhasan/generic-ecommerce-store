@@ -37,7 +37,6 @@ import { PaymentSettingsService } from './services/paymentSettings.service';
 import { StoreSettingsService } from './services/storeSettings.service';
 import { OrderingConstraintsService } from './services/orderingConstraints.service';
 import { BrandingService } from './services/branding.service';
-import { LandingPageSettingsService } from './services/landingPageSettings.service';
 import { brandingController } from './controllers/branding.controller';
 import { asyncHandler } from './utils/asyncHandler.util';
 import brandingRoutes from './routes/branding.routes';
@@ -177,16 +176,14 @@ const paymentSettingsService = new PaymentSettingsService();
 const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
 const brandingService = new BrandingService();
-const landingPageSettingsService = new LandingPageSettingsService();
 
 // Config check route
 app.get('/api/config', asyncHandler(async (_req, res) => {
-  const [paymentSettings, storeSettings, orderingConstraints, branding, landingPageSettings] = await Promise.all([
+  const [paymentSettings, storeSettings, orderingConstraints, branding] = await Promise.all([
     paymentSettingsService.getPaymentSettings(),
     storeSettingsService.getStoreSettings(),
     orderingConstraintsService.getOrderingConstraints(),
     brandingService.getBranding(),
-    landingPageSettingsService.getLandingPageSettings(),
   ]);
   res.setHeader('Cache-Control', 'public, max-age=30, must-revalidate');
   res.json({
@@ -197,8 +194,6 @@ app.get('/api/config', asyncHandler(async (_req, res) => {
       deliveryDisabledMessage: orderingConstraints.deliveryDisabledMessage,
       deliveryRadiusMiles: orderingConstraints.deliveryRadiusMiles,
       pickupLocation: storeSettings.address,
-    featuredProductIds: landingPageSettings.featuredProductIds,
-    promotions: landingPageSettings.promotions,
     storeCashappUsername: paymentSettings.cashapp?.handle || '',
     paymentSettings: {
       ...paymentSettings,
