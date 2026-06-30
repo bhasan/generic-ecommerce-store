@@ -4,13 +4,26 @@ import path from 'path';
 export const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 /**
- * Delete an uploaded file from disk given its URL path (e.g. /api/uploads/filename.jpg).
- * Silently ignores if the file doesn't exist.
+ * Absolute path to a tenant's upload directory, created on demand.
+ */
+export function tenantUploadsDir(tenantId: number): string {
+  const dir = path.join(UPLOADS_DIR, 'tenants', String(tenantId));
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+/**
+ * Delete an uploaded file from disk given its URL path. Handles both legacy
+ * flat URLs and tenant-scoped URLs. Silently ignores a missing file.
  */
 export async function deleteUploadedFile(url: string): Promise<void> {
   if (!url || !url.startsWith('/api/uploads/')) return;
-  const filename = path.basename(url);
-  const filePath = path.join(UPLOADS_DIR, filename);
+  const rel = url.slice('/api/uploads/'.length).split('?')[0];
+  const filePath = path.resolve(UPLOADS_DIR, rel);
+  // Refuse anything that escapes the uploads root.
+  if (filePath !== UPLOADS_DIR && !filePath.startsWith(UPLOADS_DIR + path.sep)) return;
   try {
     await fs.promises.unlink(filePath);
   } catch (err: any) {

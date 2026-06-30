@@ -8,12 +8,14 @@ const WEBP_QUALITY = 85;
 
 const isVideoMime = (mime: string) => mime.startsWith('video/');
 
-export async function processUploadedImage(file: { filename: string; mimetype: string }): Promise<string> {
+export async function processUploadedImage(
+  file: { filename: string; mimetype: string; destination: string },
+): Promise<string> {
   if (isVideoMime(file.mimetype)) return file.filename;
 
-  const inputPath = path.join(UPLOADS_DIR, file.filename);
+  const inputPath = path.join(file.destination, file.filename);
   const webpFilename = file.filename.replace(/\.[^.]+$/, '.webp');
-  const outputPath = path.join(UPLOADS_DIR, webpFilename);
+  const outputPath = path.join(file.destination, webpFilename);
 
   await sharp(inputPath)
     .resize(MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION, { fit: 'inside', withoutEnlargement: true })
