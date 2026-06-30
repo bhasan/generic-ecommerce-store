@@ -3,7 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import unzipper from 'unzipper';
 import { AppError } from '../middleware/error.middleware';
-import { UPLOADS_DIR } from '../utils/fileUtils';
+import { UPLOADS_DIR, tenantUploadsDir } from '../utils/fileUtils';
+import { getTenantContextOrThrow } from '../config/tenantContext';
 import { BrandingService } from '../services/branding.service';
 import { processUploadedImage, processFaviconUpload } from '../services/imageProcessing.service';
 import { successResponse } from '../utils/responseEnvelope';
@@ -14,36 +15,37 @@ interface MulterRequest extends Request {
 }
 
 export class UploadController {
-  async uploadImage(req: MulterRequest, res: Response) : Promise<void> {
+  async uploadImage(req: MulterRequest, res: Response): Promise<void> {
     if (!req.file) {
       throw new AppError('No file uploaded. Please select an image.', 400);
     }
-    const filename = await processUploadedImage(req.file);
-    res.status(201).json(successResponse({ url: `/api/uploads/${filename}` }));
+    const { tenantId } = getTenantContextOrThrow();
+    const filename = await processUploadedImage(req.file as any);
+    res.status(201).json(successResponse({ url: `/api/uploads/tenants/${tenantId}/${filename}` }));
   }
 
-  async uploadImages(req: MulterRequest, res: Response) : Promise<void> {
+  async uploadImages(req: MulterRequest, res: Response): Promise<void> {
     if (!req.files || req.files.length === 0) {
       throw new AppError('No files uploaded. Please select at least one image.', 400);
     }
+    const { tenantId } = getTenantContextOrThrow();
     const filenames = await Promise.all((req.files as any[]).map(processUploadedImage));
-    const urls = filenames.map((filename) => `/api/uploads/${filename}`);
+    const urls = filenames.map((filename) => `/api/uploads/tenants/${tenantId}/${filename}`);
     res.status(201).json(successResponse({ urls }));
   }
 
-  async getImages(_req: Request, res: Response) : Promise<void> {
-    if (!fs.existsSync(UPLOADS_DIR)) {
-      res.status(200).json(successResponse({ images: [] }));
-      return;
-    }
-
-    const files = await fs.promises.readdir(UPLOADS_DIR);
+  async getImages(_req: Request, res: Response): Promise<void> {
+    const { tenantId } = getTenantContextOrThrow();
+    const dir = tenantUploadsDir(tenantId); // created on demand; safe if empty
+    const files = await fs.promises.readdir(dir);
     const statResults = await Promise.all(
       files.map(async (file) => {
-        const filePath = path.join(UPLOADS_DIR, file);
+        const filePath = path.join(dir, file);
         const stats = await fs.promises.stat(filePath);
-        return stats.isFile() ? { url: `/api/uploads/${file}`, filename: file, size: stats.size, createdAt: stats.birthtime } : null;
-      })
+        return stats.isFile()
+          ? { url: `/api/uploads/tenants/${tenantId}/${file}`, filename: file, size: stats.size, createdAt: stats.birthtime }
+          : null;
+      }),
     );
     const images = statResults.filter((x): x is NonNullable<typeof x> => x !== null);
     images.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());

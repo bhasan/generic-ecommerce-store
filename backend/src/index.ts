@@ -7,6 +7,8 @@ import dotenv from 'dotenv';
 import prisma from './config/database';
 import { logger } from './utils/logger';
 import { resolveTenant } from './middleware/tenant.middleware';
+import { getTenantContext } from './config/tenantContext';
+import { resolveTenantUploadPath } from './utils/fileUtils';
 import { verifyDefaultTenant } from './config/verifyDefaultTenant';
 import { getUnscopedPrisma } from './config/database';
 
@@ -204,6 +206,23 @@ app.get('/api/config', asyncHandler(async (_req, res) => {
 }));
 
 app.get('/api/branding/css', generalLimiter, brandingController.getCss);
+
+// Tenant-scoped uploads: a tenant may only fetch files under its own id.
+// resolveTenant (mounted on /api above) has already set the ALS context.
+app.get('/api/uploads/tenants/:tenantId/:filename', (req, res) => {
+  const filePath = resolveTenantUploadPath(
+    Number(req.params.tenantId),
+    req.params.filename,
+    getTenantContext(),
+  );
+  if (!filePath) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  res.sendFile(filePath, { maxAge: '30d', immutable: true }, (err) => {
+    if (err && !res.headersSent) res.status(404).json({ error: 'Not found' });
+  });
+});
 
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
 app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
