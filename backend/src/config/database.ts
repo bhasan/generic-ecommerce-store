@@ -122,7 +122,7 @@ function buildTenantClient(prismaInstance: any) {
           }
 
           // 2. Inject read/update/delete filters
-          if (['findFirst', 'findMany', 'update', 'updateMany', 'delete', 'deleteMany', 'count', 'aggregate', 'groupBy'].includes(operation)) {
+          if (['findFirst', 'findFirstOrThrow', 'findMany', 'update', 'updateMany', 'delete', 'deleteMany', 'count', 'aggregate', 'groupBy'].includes(operation)) {
             anyArgs.where = anyArgs.where || {};
             anyArgs.where.tenantId = ctx.tenantId;
             if (ctx.storeId != null && isStoreScoped(table)) {
@@ -151,6 +151,24 @@ function buildTenantClient(prismaInstance: any) {
                 ...(ctx.storeId != null && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
             };
             return (ext[modelKey] as any).findFirst(newArgs);
+          } else if (operation === 'findUniqueOrThrow') {
+            // Same redirect pattern as findUnique but targeting findFirstOrThrow on the
+            // extended client, so "not found → throw" (Prisma NotFoundError) semantics
+            // are preserved while tenantId is still injected into the where clause.
+            const modelKey = (model.charAt(0).toLowerCase() + model.slice(1)) as keyof typeof ext;
+            const flatWhere = { ...anyArgs.where };
+            for (const key of Object.keys(flatWhere)) {
+              if (key.includes('_') && flatWhere[key] && typeof flatWhere[key] === 'object') {
+                Object.assign(flatWhere, flatWhere[key]);
+                delete flatWhere[key];
+              }
+            }
+            const newArgs = {
+              ...anyArgs,
+              where: { ...flatWhere, tenantId: ctx.tenantId,
+                ...(ctx.storeId != null && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
+            };
+            return (ext[modelKey] as any).findFirstOrThrow(newArgs);
           }
 
           return query(anyArgs);
@@ -180,6 +198,18 @@ function modelToTable(model: string): string {
   return map[model] ?? model.toLowerCase();
 }
 
+// KNOWN LIMITATION: nested `connect` / `connectOrCreate` inside write args are NOT
+// tenant-validated by this function. The connected row is matched by its global id
+// (which Prisma requires for `connect`), so a caller could theoretically connect a
+// row that belongs to a different tenant if they supply its id.
+//
+// Safe usage contract: callers MUST resolve foreign-key ids through the scoped client
+// (i.e. via getTenantPrisma() / runWithTenant) BEFORE using them in a `connect`.
+// The order, cart, and credit paths already follow this pattern.
+//
+// We deliberately do NOT auto-scope `connect` here because the correct behaviour is
+// not safely generalizable: some connect targets are intentionally cross-tenant (e.g.
+// Role, Tenant itself), so a blanket tenantId injection would break those paths.
 function injectNestedRelations(data: any, ctx: { tenantId: number; storeId: number | null }) {
   if (!data || typeof data !== 'object') return;
 

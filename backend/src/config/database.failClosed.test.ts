@@ -10,4 +10,16 @@ describe('tenant extension fails closed in test env', () => {
       MissingTenantContextError,
     );
   });
+
+  it('throws MissingTenantContextError for findFirstOrThrow with no context', async () => {
+    await expect(getTenantPrisma().category.findFirstOrThrow()).rejects.toBeInstanceOf(
+      MissingTenantContextError,
+    );
+  });
+
+  it('throws MissingTenantContextError for findUniqueOrThrow with no context', async () => {
+    await expect(
+      getTenantPrisma().category.findUniqueOrThrow({ where: { id: 1 } }),
+    ).rejects.toBeInstanceOf(MissingTenantContextError);
+  });
 });
