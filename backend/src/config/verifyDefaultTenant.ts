@@ -1,4 +1,6 @@
 // backend/src/config/verifyDefaultTenant.ts
+import { setDefaultTenantId } from './defaultTenant';
+
 export async function verifyDefaultTenant(prisma: {
   tenant: { findFirst: (args: any) => Promise<any> };
 }): Promise<void> {
@@ -10,4 +12,5 @@ export async function verifyDefaultTenant(prisma: {
       'FATAL: Default tenant (slug: app) is missing from the database. Ensure database migrations have run.',
     );
   }
+  setDefaultTenantId(tenant.id);
 }

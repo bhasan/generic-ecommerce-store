@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { authenticate, optionalAuthenticate } from './auth.middleware';
 import { logger } from '../utils/logger';
 import { extractTokenFromHeader, verifyToken } from '../utils/jwt.util';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 vi.mock('../utils/logger', () => ({
   logger: {
@@ -132,5 +133,28 @@ describe('auth middleware', () => {
     await authenticate(req, res, next);
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('maps a legacy token (no tenantId) to the RESOLVED default tenant, not literal 1', async () => {
+    setDefaultTenantId(42); // default tenant is id 42, not 1
+    (extractTokenFromHeader as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
+    (verifyToken as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      userId: 1, username: 'u', roles: [],
+    } as any); // no tenantId field => legacy token
+
+    // Request resolved to the default tenant (id 42) must SUCCEED.
+    const okReq: any = { headers: { authorization: 'Bearer x' }, tenantId: 42, path: '/', method: 'GET' };
+    const okRes: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const okNext = vi.fn();
+    await authenticate(okReq, okRes, okNext);
+    expect(okNext).toHaveBeenCalled();
+
+    // Same legacy token on a NON-default tenant (id 99) must be rejected.
+    const badReq: any = { headers: { authorization: 'Bearer x' }, tenantId: 99, path: '/', method: 'GET' };
+    const badRes: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const badNext = vi.fn();
+    await authenticate(badReq, badRes, badNext);
+    expect(badRes.status).toHaveBeenCalledWith(401);
+    expect(badNext).not.toHaveBeenCalled();
   });
 });

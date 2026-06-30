@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { extractTokenFromHeader, verifyToken } from '../utils/jwt.util';
 import { logger } from '../utils/logger';
+import { getDefaultTenantId } from '../config/defaultTenant';
 
 /**
  * Middleware to verify JWT token and attach user info to request
@@ -26,9 +27,9 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     // Tenant binding: a token minted for tenant A must never authenticate on tenant B.
     // Super-admin tokens (tenantId === null) are exempt and only valid on the admin context.
-    // Grace path: legacy tokens (missing tenantId) map strictly to the Default Tenant (ID = 1).
+    // Grace path: legacy tokens (missing tenantId) map strictly to the Default Tenant (resolved at boot).
     // If a legacy token is presented on a non-default subdomain, it is rejected.
-    const tokenTenantId = decoded.tenantId === undefined ? 1 : decoded.tenantId;
+    const tokenTenantId = decoded.tenantId === undefined ? getDefaultTenantId() : decoded.tenantId;
 
     if (req.tenantId !== undefined && tokenTenantId !== null && tokenTenantId !== req.tenantId) {
       logger.warn('Authentication failed: tenant mismatch', {
@@ -73,7 +74,7 @@ export const optionalAuthenticate = async (req: Request, _res: Response, next: N
 
     if (token) {
       const decoded = verifyToken(token);
-      const tokenTenantId = decoded.tenantId === undefined ? 1 : decoded.tenantId;
+      const tokenTenantId = decoded.tenantId === undefined ? getDefaultTenantId() : decoded.tenantId;
       if (req.tenantId === undefined || tokenTenantId === null || tokenTenantId === req.tenantId) {
         logger.debug('Optional authentication succeeded', {
           requestId: req.requestId || 'unknown',
