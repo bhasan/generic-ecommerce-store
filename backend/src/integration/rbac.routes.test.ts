@@ -163,11 +163,15 @@ const cases: Case[] = [
     forbidden: ['MANAGEMENT', 'CUSTOMER'],
   },
   {
-    label: 'DELETE /api/orders/:id (admin)',
+    // DELETE /:id is intentionally NOT role-guarded at the route: the controller +
+    // service enforce capabilities (staff delete any; a customer cancels only their
+    // own PENDING order). Assert a non-staff role reaches the handler so an
+    // over-restrictive guard (e.g. authorizeAdmin) can never be silently re-added.
+    label: 'DELETE /api/orders/:id (authenticated; capabilities enforced in service)',
     method: 'DELETE',
     path: '/api/orders/5',
-    authorized: 'ADMIN',
-    forbidden: ['MANAGEMENT', 'EMPLOYEE', 'CUSTOMER', 'DELIVERY_DRIVER'],
+    authorized: 'CUSTOMER',
+    forbidden: [],
   },
   {
     label: 'GET /api/orders/ready-for-delivery (staff + driver)',
