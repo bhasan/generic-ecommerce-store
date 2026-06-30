@@ -115,6 +115,46 @@ describe('rateLimit middleware', () => {
     }
   });
 
+  it('per-tenant namespacing: two tenants on the same IP each get their own bucket', async () => {
+    // With keyGenerator producing `${tenantId}:${ip}`, a request from tenantA and a
+    // request from tenantB on the same IP should NOT share the limit bucket.
+    // max=1 per bucket: tenantA gets 200, tenantB also gets 200 (separate bucket).
+    const { readWriteLimiter } = await loadRateLimiterModule();
+    const app = express();
+
+    // Inject tenantId via middleware before the limiter
+    let currentTenantId: number | undefined;
+    app.use((req, _res, next) => {
+      if (currentTenantId !== undefined) {
+        (req as any).tenantId = currentTenantId;
+      }
+      next();
+    });
+    app.get('/api/products', readWriteLimiter, (_req, res) => res.status(200).json({ ok: true }));
+
+    const server = app.listen(0);
+    try {
+      currentTenantId = 1; // tenant A
+      const tenantAFirst = await requestJson(server, '/api/products');
+      expect(tenantAFirst.response.status).toBe(200);
+
+      currentTenantId = 2; // tenant B — different bucket, should not be exhausted
+      const tenantBFirst = await requestJson(server, '/api/products');
+      expect(tenantBFirst.response.status).toBe(200);
+
+      currentTenantId = 1; // tenant A — bucket exhausted after first request
+      const tenantASecond = await requestJson(server, '/api/products');
+      expect(tenantASecond.response.status).toBe(429);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  });
+
   it('uses polling limiter for poll endpoints and logs limiterName=polling on 429', async () => {
     const { readWriteLimiter } = await loadRateLimiterModule();
     const app = express();

@@ -1,6 +1,8 @@
-import prisma from '../src/config/database';
+import { getUnscopedPrisma } from '../src/config/database';
 import { hashPassword } from '../src/utils/password.util';
 import { DeliveryMethodEnum, OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../generated/prisma';
+
+const prisma = getUnscopedPrisma();
 
 async function seed() {
   console.log('🌱 Starting database seed...');
@@ -21,8 +23,27 @@ async function seed() {
   await prisma.user.deleteMany();
   await prisma.role.deleteMany();
 
+  // ── Tenant & Store ──────────────────────────────────────────────────────
+  let tenant = await prisma.tenant.findFirst({ where: { slug: 'app' } });
+  if (!tenant) {
+    tenant = await prisma.tenant.create({
+      data: { slug: 'app', name: 'Default Tenant', status: 'ACTIVE' },
+    });
+  }
+  const tenantId = tenant.id;
+
+  let store = await prisma.store.findFirst({ where: { tenantId, slug: 'main' } });
+  if (!store) {
+    store = await prisma.store.create({
+      data: { tenantId, name: 'Default Store', slug: 'main', isDefault: true, status: 'ACTIVE' },
+    });
+  }
+  const storeId = store.id;
+
+  console.log('>>> SEED RESOLVED:', { tenantId, storeId });
+
   // ── Roles ──────────────────────────────────────────────────────────────
-  const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'VIP'] as const;
+  const roleNames = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DELIVERY_DRIVER', 'VIP', 'SUPER_ADMIN'] as const;
   type RoleName = (typeof roleNames)[number];
 
   const roles = await Promise.all(
@@ -33,17 +54,17 @@ async function seed() {
     roles.find(r => r.name === name)?.id ?? (() => { throw new Error(`Missing role ${name}`); })();
 
   const assignRoles = (userId: number, names: RoleName[]) =>
-    prisma.userRole.createMany({ data: names.map(name => ({ userId, roleId: roleId(name) })) });
+    prisma.userRole.createMany({ data: names.map(name => ({ userId, roleId: roleId(name), tenantId })) });
 
   // ── Users ──────────────────────────────────────────────────────────────
   const makeUser = async (
     username: string,
     password: string,
     roles: RoleName[],
-    extra: Partial<Parameters<typeof prisma.user.create>[0]['data']> = {},
+    extra: Record<string, any> = {},
   ) => {
     const user = await prisma.user.create({
-      data: { username, password: await hashPassword(password), approved: true, ...extra },
+      data: { username, password: await hashPassword(password), approved: true, tenantId, ...extra },
     });
     await assignRoles(user.id, roles);
     return user;
@@ -86,14 +107,17 @@ async function seed() {
     makeUser('driver',         'driver123',   ['DELIVERY_DRIVER'], {
       phoneNumber: '(512) 555-0400',
     }),
+    // Platform operator: SUPER_ADMIN gates the cross-tenant management screens
+    // (tenant provisioning). Also given ADMIN so they can use the normal admin UI.
+    makeUser('superadmin',     'superadmin123', ['SUPER_ADMIN', 'ADMIN']),
   ]);
 
   console.log('✅ Users created');
 
   // ── Categories ─────────────────────────────────────────────────────────
   const [electronics, accessories] = await Promise.all([
-    prisma.category.create({ data: { name: 'Electronics', description: 'Audio, wearables, and smart devices' } }),
-    prisma.category.create({ data: { name: 'Accessories', description: 'Bags, cables, and everyday add-ons' } }),
+    prisma.category.create({ data: { name: 'Electronics', description: 'Audio, wearables, and smart devices', tenantId } }),
+    prisma.category.create({ data: { name: 'Accessories', description: 'Bags, cables, and everyday add-ons', tenantId } }),
   ]);
 
   // ── Products ───────────────────────────────────────────────────────────
@@ -104,13 +128,13 @@ async function seed() {
     prisma.product.create({
       data: {
         name: opts.name, slug: opts.slug, categoryId: opts.categoryId,
-        description: opts.description, hidden: false,
-        images: { create: [{ url: opts.image, role: 'THUMBNAIL', sortOrder: 0 }] },
+        description: opts.description, hidden: false, tenantId,
+        images: { create: [{ url: opts.image, role: 'THUMBNAIL', sortOrder: 0, tenantId }] },
         variants: {
           create: [{
             label: 'Default', sku: `SKU-${opts.slug}`, pricingMode: 'UNIT',
             basePrice: opts.price, stock: opts.stock, stockEnabled: opts.stockEnabled,
-            isDefault: true, active: true, sortOrder: 0,
+            isDefault: true, active: true, sortOrder: 0, tenantId,
           }],
         },
       },
@@ -149,13 +173,13 @@ async function seed() {
     data: {
       name: 'Flow Test Hoodie', slug: 'flow-test-hoodie', categoryId: accessories.id,
       description: 'Comfortable hoodie in three sizes for testing variant selection.',
-      hidden: false,
-      images: { create: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400', role: 'THUMBNAIL', sortOrder: 0 }] },
+      hidden: false, tenantId,
+      images: { create: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400', role: 'THUMBNAIL', sortOrder: 0, tenantId }] },
       variants: {
         create: [
-          { label: 'Small',  sku: 'SKU-hoodie-S', pricingMode: 'UNIT', basePrice: 29.99, stock: 10, stockEnabled: true,  isDefault: true,  active: true, sortOrder: 0 },
-          { label: 'Medium', sku: 'SKU-hoodie-M', pricingMode: 'UNIT', basePrice: 34.99, stock: 5,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 1 },
-          { label: 'Large',  sku: 'SKU-hoodie-L', pricingMode: 'UNIT', basePrice: 34.99, stock: 0,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 2 },
+          { label: 'Small',  sku: 'SKU-hoodie-S', pricingMode: 'UNIT', basePrice: 29.99, stock: 10, stockEnabled: true,  isDefault: true,  active: true, sortOrder: 0, tenantId },
+          { label: 'Medium', sku: 'SKU-hoodie-M', pricingMode: 'UNIT', basePrice: 34.99, stock: 5,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 1, tenantId },
+          { label: 'Large',  sku: 'SKU-hoodie-L', pricingMode: 'UNIT', basePrice: 34.99, stock: 0,  stockEnabled: true,  isDefault: false, active: true, sortOrder: 2, tenantId },
         ],
       },
     },
@@ -167,9 +191,9 @@ async function seed() {
   // ── Reviews ────────────────────────────────────────────────────────────
   await prisma.review.createMany({
     data: [
-      { userId: customer.id, productId: products[0].id, rating: 5, comment: 'Amazing sound quality! Best headphones I have ever owned.', helpful: 12, notHelpful: 1, flagged: false },
-      { userId: sarah.id,    productId: products[0].id, rating: 4, comment: 'Very comfortable for long listening sessions.', helpful: 8,  notHelpful: 0, flagged: false },
-      { userId: mike.id,     productId: products[0].id, rating: 5, comment: 'Perfect for work from home!', helpful: 15, notHelpful: 2, flagged: false },
+      { userId: customer.id, productId: products[0].id, rating: 5, comment: 'Amazing sound quality! Best headphones I have ever owned.', helpful: 12, notHelpful: 1, flagged: false, tenantId },
+      { userId: sarah.id,    productId: products[0].id, rating: 4, comment: 'Very comfortable for long listening sessions.', helpful: 8,  notHelpful: 0, flagged: false, tenantId },
+      { userId: mike.id,     productId: products[0].id, rating: 5, comment: 'Perfect for work from home!', helpful: 15, notHelpful: 2, flagged: false, tenantId },
     ],
   });
   console.log('✅ Reviews created');
@@ -187,10 +211,14 @@ async function seed() {
       total: new Prisma.Decimal('108.24'),
       taxRate: new Prisma.Decimal('0.0825'),
       createdAt: new Date('2024-11-10'),
+      tenantId,
+      storeId,
       items: {
         create: [{
           variantId: v(0).id, productName: products[0].name,
           variantLabel: v(0).label, quantity: 1, unitPrice: v(0).basePrice,
+          tenantId,
+          storeId,
         }],
       },
       payments: {
@@ -199,6 +227,8 @@ async function seed() {
           status: PaymentStatus.PENDING,
           amount: new Prisma.Decimal('108.24'),
           paymentHandle: '$JohnCustomer',
+          tenantId,
+          storeId,
         }],
       },
     },
@@ -216,10 +246,12 @@ async function seed() {
       total: new Prisma.Decimal('232.72'),
       taxRate: new Prisma.Decimal('0.0825'),
       createdAt: new Date('2024-11-09'),
+      tenantId,
+      storeId,
       items: {
         create: [
-          { variantId: v(1).id, productName: products[1].name, variantLabel: v(1).label, quantity: 1, unitPrice: v(1).basePrice },
-          { variantId: v(3).id, productName: products[3].name, variantLabel: v(3).label, quantity: 1, unitPrice: v(3).basePrice },
+          { variantId: v(1).id, productName: products[1].name, variantLabel: v(1).label, quantity: 1, unitPrice: v(1).basePrice, tenantId, storeId },
+          { variantId: v(3).id, productName: products[3].name, variantLabel: v(3).label, quantity: 1, unitPrice: v(3).basePrice, tenantId, storeId },
         ],
       },
       payments: {
@@ -228,6 +260,8 @@ async function seed() {
           status: PaymentStatus.SETTLED,
           amount: new Prisma.Decimal('232.72'),
           paymentHandle: '$JohnCustomer',
+          tenantId,
+          storeId,
         }],
       },
       statusEvents: {
@@ -236,6 +270,8 @@ async function seed() {
           toStatus: OrderStatus.APPROVED,
           changedBy: admin.id,
           note: 'Payment confirmed',
+          tenantId,
+          storeId,
         }],
       },
     },
@@ -246,10 +282,11 @@ async function seed() {
 
   // ── Landing Page Settings ───────────────────────────────────────────────
   await prisma.uiSetting.upsert({
-    where: { key: 'landing_page_settings' },
+    where: { tenantId_key: { tenantId, key: 'landing_page_settings' } },
     update: {},
     create: {
       key: 'landing_page_settings',
+      tenantId,
       value: {
         featuredProductIds: [],
         promotions: [

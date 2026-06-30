@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const prismaMock = {
   product: {
     findUnique: vi.fn(),
+    findFirst: vi.fn(),
     findMany: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -316,7 +317,7 @@ describe('product service logging', () => {
 
   it('logs createProduct start and completion', async () => {
     prismaMock.category.findUnique.mockResolvedValue({ id: 2 });
-    prismaMock.product.findUnique.mockResolvedValue(null); // slug uniqueness check
+    prismaMock.product.findFirst.mockResolvedValue(null); // slug uniqueness check
     prismaMock.product.create.mockResolvedValue({
       id: 10,
       categoryId: 2,

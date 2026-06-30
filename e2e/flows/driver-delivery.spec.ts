@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession, mintBearerToken } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // Full DELIVERY journey across three roles:
 //   admin configures the delivery zone (ZIP allowlist) →
@@ -17,6 +18,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
 
   test('staff dispatch, driver delivers, with driver RBAC enforced', async ({ browser, request }) => {
     const API = 'http://localhost:3000/api';
+    test.slow();
 
     // Mint admin and manager tokens in parallel — independent logins.
     const [adminToken, managerToken] = await Promise.all([
@@ -39,7 +41,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     // --- Manager: grant the customer enough credit to pay for the order ---
     const managerAuth = { Authorization: `Bearer ${managerToken}` };
     const usersRes = await request.get(`${API}/users`, { headers: managerAuth });
-    const users = await usersRes.json();
+    const users = (await usersRes.json()).data;
     const customer = users.find((u: { username: string }) => u.username === ACCOUNTS.customer.username);
     expect(customer, 'Customer not found in seeded users').toBeTruthy();
     const creditRes = await request.post(`${API}/storecredit/${customer.id}/add`, {
@@ -58,9 +60,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
     await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
-    const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = Array.isArray(body) ? body : body.data;
+    const products = await fetchProducts(customerPage.request);
     const laptopBag = products.find((p: any) => p.name === 'Laptop Bag');
     expect(laptopBag).toBeTruthy();
 
@@ -90,7 +90,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
       ),
       placeOrder.click(),
     ]);
-    const rawId = String((await createRes.json()).order.id);
+    const rawId = String((await createRes.json()).data.order.id);
     await customerPage.waitForURL('**/order-success', { timeout: 15_000 });
     await customerCtx.close();
 
@@ -133,7 +133,7 @@ test.describe('Delivery dashboard flow — DELIVERY × CREDIT through to DELIVER
 
     // The dispatched order shows in the driver's "Out for Delivery" panel; the driver
     // completes the handoff via the "mark delivered" control (OUT_FOR_DELIVERY → DELIVERED).
-    await driverPage.goto('/delivery-dashboard');
+    await driverPage.goto('/delivery-dashboard', { waitUntil: 'domcontentloaded' });
     const routeCard = driverPage.locator('.delivery-order-item.route-order', { hasText: `Order: #${rawId}` });
     await expect(routeCard).toBeVisible({ timeout: 10_000 });
     await routeCard.locator('.btn-delivered-small').click();

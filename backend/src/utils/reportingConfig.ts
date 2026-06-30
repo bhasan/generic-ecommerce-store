@@ -19,7 +19,7 @@ export const getReportingConfig = () => {
 
   return {
     enabled: process.env.ONLINE_STORE_REPORTING_API_ENABLED === 'true',
-    token: process.env.ONLINE_STORE_REPORTING_API_TOKEN || '',
+    // Auth is per-tenant (token hash on the Tenant row); there is no global token.
     maxPageSize,
     defaultPageSize,
     rateLimitPerMinute: parsePositiveInt(process.env.ONLINE_STORE_REPORTING_API_RATE_LIMIT_PER_MINUTE, 120),

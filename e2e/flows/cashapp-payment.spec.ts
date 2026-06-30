@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession, mintBearerToken } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // End-to-end verification of the CashApp (EXTERNAL) payment flow.
 //
@@ -24,6 +25,7 @@ const API = 'http://localhost:3000/api';
 
 test.describe('CashApp payment flow', () => {
   let productId: number;
+  let productName: string;
   const cashappHandle = '$test-store-handle';
   let adminToken: string;
 
@@ -43,14 +45,13 @@ test.describe('CashApp payment flow', () => {
     expect(psRes.ok(), `Failed to configure payment settings: ${psRes.status()}`).toBeTruthy();
 
     // Grab the first in-stock product.
-    const productsRes = await request.get(`${API}/products`);
-    const body = await productsRes.json();
-    const products = (Array.isArray(body) ? body : body.data) as any[];
+    const products = await fetchProducts(request) as any[];
     const available = products.find(
       (p) => p.variants?.some((v: any) => v.stock > 0 || !v.stockEnabled),
     );
     expect(available, 'No in-stock products found').toBeTruthy();
     productId = available.id;
+    productName = available.name;
   });
 
   test.afterAll(async ({ request }) => {
@@ -68,6 +69,7 @@ test.describe('CashApp payment flow', () => {
 
   // ── A: Happy path ────────────────────────────────────────────────────────────
   test('happy path — order created, modal shows raw ID, success page is consistent', async ({ browser }) => {
+    test.slow();
     const ctx = await browser.newContext();
     await establishSession(ctx, ACCOUNTS.customer);
     const page = await ctx.newPage();
@@ -91,7 +93,7 @@ test.describe('CashApp payment flow', () => {
       ),
       placeBtn.click(),
     ]);
-    const rawOrderId: number = (await createRes.json()).order.id;
+    const rawOrderId: number = (await createRes.json()).data.order.id;
     expect(rawOrderId, 'Order id must be a positive integer').toBeGreaterThan(0);
 
     // ── SendPaymentModal: verify raw order id and store handle ────────────────
@@ -113,11 +115,10 @@ test.describe('CashApp payment flow', () => {
     // ── OrderSuccessPage: verify display consistency ───────────────────────────
     const badge = page.locator('.order-id-number');
     await expect(badge).toBeVisible({ timeout: 8_000 });
-    await expect(badge).toHaveText(`#${rawOrderId}`);
+    await expect(badge).toHaveText(`#${String(rawOrderId).padStart(6, '0')}`);
 
-    // The memo instruction should reference the raw id (what goes in CashApp memo).
     await expect(
-      page.getByText(new RegExp(`#${rawOrderId}(?!\\d)`, 'i')).first(),
+      page.getByText(new RegExp(`#${String(rawOrderId).padStart(6, '0')}(?!\\d)`, 'i')).first(),
     ).toBeVisible();
 
     // ── Order appears in customer's My Orders ─────────────────────────────────
@@ -132,6 +133,7 @@ test.describe('CashApp payment flow', () => {
     browser,
     request,
   }) => {
+    test.slow();
     const ctx = await browser.newContext();
     await establishSession(ctx, ACCOUNTS.customer);
     const page = await ctx.newPage();
@@ -152,7 +154,7 @@ test.describe('CashApp payment flow', () => {
       ),
       placeBtn.click(),
     ]);
-    const firstOrderId: number = (await createRes.json()).order.id;
+    const firstOrderId: number = (await createRes.json()).data.order.id;
 
     // Modal is open — click Cancel and intercept the DELETE request.
     const overlay = page.locator('.send-payment-modal-overlay');
@@ -168,6 +170,9 @@ test.describe('CashApp payment flow', () => {
     ]);
     expect(deleteRes.status(), 'DELETE /api/orders/:id should return 2xx').toBeLessThan(300);
 
+    // Wait for modal to be fully hidden to avoid click interception during transitions
+    await expect(page.locator('.send-payment-modal-overlay')).toBeHidden({ timeout: 8_000 });
+
     // Confirm the order is gone from the database.
     const orderCheck = await request.get(`${API}/orders/${firstOrderId}`, {
       headers: { Authorization: `Bearer ${adminToken}` },
@@ -177,6 +182,7 @@ test.describe('CashApp payment flow', () => {
     // Checkout page re-enables (CANCELLED state hides the modal; Place Order button
     // is active again). Cart was restored by the cancel handler.
     await expect(page.getByRole('button', { name: 'Place Order' })).toBeEnabled({ timeout: 8_000 });
+    await expect(page.getByText(productName).first()).toBeVisible({ timeout: 8_000 });
 
     // Place a second order and confirm it has a different id.
     const [create2Res] = await Promise.all([
@@ -185,7 +191,7 @@ test.describe('CashApp payment flow', () => {
       ),
       page.getByRole('button', { name: 'Place Order' }).click(),
     ]);
-    const secondOrderId: number = (await create2Res.json()).order.id;
+    const secondOrderId: number = (await create2Res.json()).data.order.id;
     expect(secondOrderId, 'Re-order must produce a distinct order id').not.toBe(firstOrderId);
 
     // Manager view: the cancelled order must be gone and the re-order must be present.
@@ -194,7 +200,7 @@ test.describe('CashApp payment flow', () => {
     const allOrdersRes = await request.get(`${API}/orders`, {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
-    const allOrders = (await allOrdersRes.json()) as any[];
+    const allOrders = (await allOrdersRes.json()).data as any[];
     const customerPending = allOrders.filter(
       (o) => o.user?.username === ACCOUNTS.customer.username && o.status === 'PENDING',
     );

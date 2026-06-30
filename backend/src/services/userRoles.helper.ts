@@ -7,7 +7,7 @@ import prisma from '../config/database';
  */
 export async function getUserRolesWithNames(
   userId: number,
-): Promise<Array<{ role: { name: string } }>> {
+): Promise<Array<{ role: { name: string }; storeId?: number | null }>> {
   return prisma.userRole.findMany({
     where: { userId },
     include: { role: true },
@@ -16,11 +16,11 @@ export async function getUserRolesWithNames(
 
 /**
  * Fetch roles for multiple users in a single query.
- * Returns a Map from userId → Array<{ role: { name: string } }>.
+ * Returns a Map from userId → Array<{ role: { name: string }; storeId?: number | null }>.
  */
 export async function getUserRolesMapForUsers(
   userIds: number[],
-): Promise<Map<number, Array<{ role: { name: string } }>>> {
+): Promise<Map<number, Array<{ role: { name: string }; storeId?: number | null }>>> {
   if (userIds.length === 0) return new Map();
 
   const rows = await prisma.userRole.findMany({
@@ -28,10 +28,10 @@ export async function getUserRolesMapForUsers(
     include: { role: true },
   });
 
-  const map = new Map<number, Array<{ role: { name: string } }>>();
+  const map = new Map<number, Array<{ role: { name: string }; storeId?: number | null }>>();
   for (const row of rows) {
     if (!map.has(row.userId)) map.set(row.userId, []);
-    map.get(row.userId)!.push({ role: { name: row.role.name } });
+    map.get(row.userId)!.push({ role: { name: row.role.name }, storeId: row.storeId });
   }
   return map;
 }
@@ -41,7 +41,7 @@ export async function getUserRolesMapForUsers(
  */
 export function formatUserWithRoles<T extends { id: number }>(
   user: T,
-  rolesMap: Map<number, Array<{ role: { name: string } }>>,
-): T & { roles: Array<{ role: { name: string } }> } {
+  rolesMap: Map<number, Array<{ role: { name: string }; storeId?: number | null }>>,
+): T & { roles: Array<{ role: { name: string }; storeId?: number | null }> } {
   return { ...user, roles: rolesMap.get(user.id) ?? [] };
 }

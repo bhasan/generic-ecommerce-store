@@ -1,6 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { loginViaUI, establishSession } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // Regression tests for the AppContext split (refactors_6-25).
 // These cover cross-context coordination scenarios that unit tests cannot reach:
@@ -15,9 +16,7 @@ async function getCartFromLocalStorage(page: Page): Promise<unknown[]> {
 }
 
 async function getInStockProduct(page: Page): Promise<{ id: number; name: string }> {
-  const res = await page.request.get('http://localhost:3000/api/products');
-  const body = await res.json();
-  const products = (Array.isArray(body) ? body : body.data) as Array<{ id: number; name: string; variants?: Array<{ stock: number; active: boolean }> }>;
+  const products = await fetchProducts(page.request) as Array<{ id: number; name: string; variants?: Array<{ stock: number; active: boolean }> }>;
   const product = products.find(p => p.variants?.some(v => v.stock > 0 && v.active));
   if (!product) throw new Error('No in-stock product found in seed data');
   return { id: product.id, name: product.name };
@@ -177,9 +176,7 @@ test.describe('cart cleared after checkout', () => {
   test.beforeEach(async ({ context }) => { await establishSession(context, ACCOUNTS.customer); });
 
   test('cart is empty in localStorage and UI after a successful order', async ({ page }) => {
-    const productsRes = await page.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = (Array.isArray(body) ? body : body.data) as any[];
+    const products = await fetchProducts(page.request) as any[];
     const product = products.find(p => p.name === 'Wireless Headphones') ?? products.find(p => p.variants?.some(v => v.stock > 0 && v.active));
     expect(product).toBeTruthy();
 

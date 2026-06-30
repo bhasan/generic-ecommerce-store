@@ -21,7 +21,8 @@ test.beforeAll(async () => {
   const loginResp = await ctx.post(`${API}/api/auth/login`, {
     data: { username: 'admin', password: 'admin123' },
   });
-  const { token } = await loginResp.json();
+  const loginBody = await loginResp.json();
+  const token = loginBody.data.token;
 
   // Get first category id
   const catsResp = await ctx.get(`${API}/api/categories`, {
@@ -45,8 +46,8 @@ test.beforeAll(async () => {
       images: [],
     },
   });
-  const body = await createResp.json();
-  productId = body.product.id;
+  const productBody = await createResp.json();
+  productId = productBody.data.product.id;
   productUrl = `${BASE}/products/${productId}`;
   await ctx.dispose();
 });

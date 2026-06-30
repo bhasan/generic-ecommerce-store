@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 // Proves the BACKEND enforces role boundaries — not just the frontend redirect that
 // the Playwright RBAC smoke layer exercises. Only the JWT decode is mocked, so the
@@ -162,11 +163,15 @@ const cases: Case[] = [
     forbidden: ['MANAGEMENT', 'CUSTOMER'],
   },
   {
-    label: 'DELETE /api/orders/:id (admin)',
+    // DELETE /:id is intentionally NOT role-guarded at the route: the controller +
+    // service enforce capabilities (staff delete any; a customer cancels only their
+    // own PENDING order). Assert a non-staff role reaches the handler so an
+    // over-restrictive guard (e.g. authorizeAdmin) can never be silently re-added.
+    label: 'DELETE /api/orders/:id (authenticated; capabilities enforced in service)',
     method: 'DELETE',
     path: '/api/orders/5',
-    authorized: 'ADMIN',
-    forbidden: ['MANAGEMENT', 'EMPLOYEE', 'CUSTOMER', 'DELIVERY_DRIVER'],
+    authorized: 'CUSTOMER',
+    forbidden: [],
   },
   {
     label: 'GET /api/orders/ready-for-delivery (staff + driver)',
@@ -190,6 +195,7 @@ describe('RBAC route enforcement (backend)', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    setDefaultTenantId(1);
     server = await createServer();
   });
 

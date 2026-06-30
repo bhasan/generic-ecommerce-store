@@ -20,9 +20,10 @@ async function ss(page: Page, name: string) {
 
 async function apiCreateProduct(name: string, variants: any[]) {
   const ctx = await request.newContext();
-  const { token } = await (await ctx.post(`${API}/api/auth/login`, {
+  const loginResp = await (await ctx.post(`${API}/api/auth/login`, {
     data: { username: 'admin', password: 'admin123' },
   })).json();
+  const token = loginResp.data.token;
   const bodyCats = await (await ctx.get(`${API}/api/categories`, {
     headers: { Authorization: `Bearer ${token}` },
   })).json();
@@ -33,7 +34,7 @@ async function apiCreateProduct(name: string, variants: any[]) {
     data: { name, categoryId: catId, variants, images: [] },
   })).json();
   await ctx.dispose();
-  return body.product.id as number;
+  return body.data.product.id as number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,7 +151,7 @@ test.describe('Flow 1: Customer browse → variant → cart → checkout', () =>
 
     await page.goto(`${BASE}/my-orders`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(`Order #${orderId}`, { exact: false })).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(`Order #${parseInt(orderId, 10)}`, { exact: false })).toBeVisible({ timeout: 8000 });
     await ss(page, '1f_my_orders');
   });
 });

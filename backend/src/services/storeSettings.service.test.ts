@@ -3,7 +3,7 @@ import { AppError } from '../middleware/error.middleware';
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
     upsert: vi.fn(),
   },
 }));
@@ -13,6 +13,8 @@ const deliveryEligibilityService = vi.hoisted(() => ({
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
+  getUnscopedPrisma: () => prismaMock,
 }));
 
 vi.mock('./deliveryEligibility.service', () => ({
@@ -36,7 +38,7 @@ describe('store settings service', () => {
   });
 
   it('returns defaults when no persisted settings exist', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { StoreSettingsService } = await import('./storeSettings.service');
 
     const result = await new StoreSettingsService().getStoreSettings();
@@ -46,6 +48,8 @@ describe('store settings service', () => {
       address: '',
       phoneNumber: '',
       tagline: '',
+      timezone: '',
+      currency: '',
       notificationEmails: {
         adminEmail: '',
         managementEmail: '',
@@ -77,6 +81,8 @@ describe('store settings service', () => {
     };
     const settingsWithPosDefaults = {
       ...settings,
+      timezone: '',
+      currency: '',
       posConfig: {
         baseUrl: undefined,
         username: undefined,
@@ -91,7 +97,7 @@ describe('store settings service', () => {
 
     expect(deliveryEligibilityService.verifyStoreAddress).toHaveBeenCalledWith('101 Example Ave');
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { key: 'store_settings' },
+      where: { tenantId_key: { tenantId: 0, key: 'store_settings' } },
       update: { value: settingsWithPosDefaults },
       create: { key: 'store_settings', value: settingsWithPosDefaults },
     });
@@ -109,7 +115,7 @@ describe('store settings service', () => {
   });
 
   it('skips store-address verification when the address did not change', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         name: 'Smoke Station',
         address: '101 Example Ave',
@@ -150,7 +156,7 @@ describe('store settings service', () => {
   });
 
   it('sanitizes invalid persisted notification routing emails and falls back safely', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         name: 'Smoke Station',
         address: '9400 S Texas 6 Suite C, Houston, TX 77083',

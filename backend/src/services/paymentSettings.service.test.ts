@@ -6,13 +6,15 @@ const TEST_KEY = 'a'.repeat(64);
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
     upsert: vi.fn(),
   },
 }));
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
+  getUnscopedPrisma: () => prismaMock,
 }));
 
 vi.mock('../utils/crypto.util', () => ({
@@ -27,7 +29,7 @@ describe('payment settings service', () => {
   });
 
   it('returns defaults when no persisted settings exist', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { PaymentSettingsService } = await import('./paymentSettings.service');
 
     const result = await new PaymentSettingsService(TEST_KEY).getPaymentSettings();
@@ -68,7 +70,7 @@ describe('payment settings service', () => {
   });
 
   it('returns cc_payment defaults when no persisted settings exist', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { PaymentSettingsService } = await import('./paymentSettings.service');
 
     const result = await new PaymentSettingsService(TEST_KEY).getPaymentSettings();
@@ -148,7 +150,7 @@ describe('payment settings service', () => {
     const { decrypt } = await import('../utils/crypto.util');
     const boom = () => { throw new Error('Invalid encrypted value format'); };
     vi.mocked(decrypt).mockImplementationOnce(boom).mockImplementationOnce(boom);
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         cashapp: { enabled: true, handle: '$x' },
         zelle: { enabled: false, handle: '' },
@@ -166,7 +168,7 @@ describe('payment settings service', () => {
 
   it('decrypts loginId and transactionKey when reading from DB', async () => {
     const { PaymentSettingsService } = await import('./paymentSettings.service');
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         cashapp: { enabled: true, handle: '$x' },
         zelle: { enabled: false, handle: '' },
@@ -183,7 +185,7 @@ describe('payment settings service', () => {
 
   it('skips decryption for empty credentials (e.g. when cc_payment is disabled)', async () => {
     const { PaymentSettingsService } = await import('./paymentSettings.service');
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         cashapp: { enabled: true, handle: '$x' },
         zelle: { enabled: false, handle: '' },

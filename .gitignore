@@ -42,6 +42,7 @@ nginx/ssl/
 # Backups
 *.sql
 !backend/prisma/migrations/**/*.sql
+!docs/deployment/**/*.sql
 backups/
 
 # Local Docker image exports
@@ -62,3 +63,4 @@ tests/live/reports/*
 !backend/prisma/migrations/**/*.sql
 test-results/
 e2e/.auth/
+backend/scratch/

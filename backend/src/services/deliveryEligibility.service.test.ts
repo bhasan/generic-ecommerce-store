@@ -16,7 +16,7 @@ vi.mock('../../generated/prisma', () => ({
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
   },
   addressGeocodeCache: {
     findUnique: vi.fn(),
@@ -45,7 +45,7 @@ describe('delivery eligibility service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.uiSetting.findUnique.mockImplementation(async ({ where }) => {
+    prismaMock.uiSetting.findFirst.mockImplementation(async ({ where }) => {
       if (where.key === 'ordering_constraints') {
         return {
           value: {
@@ -128,7 +128,7 @@ describe('delivery eligibility service', () => {
   });
 
   it('uses ZIP fallback when Google is unavailable and the ZIP is allowlisted', async () => {
-    prismaMock.uiSetting.findUnique.mockImplementation(async ({ where }) => {
+    prismaMock.uiSetting.findFirst.mockImplementation(async ({ where }) => {
       if (where.key === 'ordering_constraints') {
         return {
           value: {
@@ -172,7 +172,7 @@ describe('delivery eligibility service', () => {
 
   it('does not use ZIP fallback when Google returns zero results', async () => {
     process.env.GOOGLE_GEOCODING_API_KEY = 'google-key';
-    prismaMock.uiSetting.findUnique.mockImplementation(async ({ where }) => {
+    prismaMock.uiSetting.findFirst.mockImplementation(async ({ where }) => {
       if (where.key === 'ordering_constraints') {
         return {
           value: {
@@ -240,7 +240,7 @@ describe('invalidateStoreAddressCache', () => {
     const { invalidateStoreAddressCache } = await import('./deliveryEligibility.service');
     invalidateStoreAddressCache();
 
-    prismaMock.uiSetting.findUnique.mockImplementation(async ({ where }) => {
+    prismaMock.uiSetting.findFirst.mockImplementation(async ({ where }) => {
       if (where.key === 'store_settings') {
         return { value: { address: '9400 S Texas 6 Suite C, Houston, TX 77083' } };
       }
@@ -278,18 +278,18 @@ describe('invalidateStoreAddressCache', () => {
 
     // First call — populates the module-level store address cache
     await service.checkDeliveryEligibility(addr);
-    const callsAfterFirst = storeSettingsCallCount(prismaMock.uiSetting.findUnique.mock.calls);
+    const callsAfterFirst = storeSettingsCallCount(prismaMock.uiSetting.findFirst.mock.calls);
     expect(callsAfterFirst).toBeGreaterThan(0);
 
     // Second call — store address served from cache (no new store_settings DB read)
     await service.checkDeliveryEligibility(addr);
-    const callsAfterSecond = storeSettingsCallCount(prismaMock.uiSetting.findUnique.mock.calls);
+    const callsAfterSecond = storeSettingsCallCount(prismaMock.uiSetting.findFirst.mock.calls);
     expect(callsAfterSecond).toBe(callsAfterFirst);
 
     // Invalidate cache → next call must re-fetch from DB
     invalidateStoreAddressCache();
     await service.checkDeliveryEligibility(addr);
-    const callsAfterThird = storeSettingsCallCount(prismaMock.uiSetting.findUnique.mock.calls);
+    const callsAfterThird = storeSettingsCallCount(prismaMock.uiSetting.findFirst.mock.calls);
     expect(callsAfterThird).toBeGreaterThan(callsAfterSecond);
   });
 });

@@ -1,5 +1,6 @@
 import { DeliveryEligibilitySource, DeliveryZoneStatus } from '../../generated/prisma';
 import prisma from '../config/database';
+import { getTenantContext } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import {
   extractZipCodeFromFreeformAddress,
@@ -17,12 +18,12 @@ const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json'
 const DEFAULT_GEOCODING_TIMEOUT_MS = 5000;
 const STORE_ADDRESS_TTL_MS = 5 * 60 * 1000;
 
-// Module-level so all service instances share one cache (multiple singletons exist in the codebase).
-let _cachedStoreAddress: string | null = null;
-let _storeAddressCacheExpiresAt = 0;
+// Module-level cache shared across service instances, keyed by tenantId so one
+// tenant's store address is never served to another.
+const _storeAddressCache = new Map<number, { address: string; expiresAt: number }>();
 
 export function invalidateStoreAddressCache(): void {
-  _cachedStoreAddress = null;
+  _storeAddressCache.clear();
 }
 
 const orderingConstraintsService = new OrderingConstraintsService();
@@ -109,11 +110,14 @@ const haversineMiles = (
 
 export class DeliveryEligibilityService {
   private async getStoreAddress(): Promise<string> {
+    const tenantId = getTenantContext()?.tenantId ?? 0;
     const now = Date.now();
-    if (_cachedStoreAddress !== null && now < _storeAddressCacheExpiresAt) {
-      return _cachedStoreAddress;
+    const hit = _storeAddressCache.get(tenantId);
+    if (hit && now < hit.expiresAt) {
+      return hit.address;
     }
-    const row = await prisma.uiSetting.findUnique({ where: { key: 'store_settings' } });
+    // findFirst (not findUnique): `key` is unique only per tenant now.
+    const row = await prisma.uiSetting.findFirst({ where: { key: 'store_settings' } });
     const address = (
       row?.value &&
       typeof row.value === 'object' &&
@@ -122,8 +126,7 @@ export class DeliveryEligibilityService {
     )
       ? (row.value as { address: string }).address
       : '';
-    _cachedStoreAddress = address;
-    _storeAddressCacheExpiresAt = now + STORE_ADDRESS_TTL_MS;
+    _storeAddressCache.set(tenantId, { address, expiresAt: now + STORE_ADDRESS_TTL_MS });
     return address;
   }
 

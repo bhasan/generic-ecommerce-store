@@ -12,13 +12,12 @@
 import { test, expect, Page } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
 async function getProductId(page: Page, name: string): Promise<number> {
-  const res = await page.request.get('http://localhost:3000/api/products');
-  const body = await res.json();
-  const products = Array.isArray(body) ? body : body.data;
+  const products = await fetchProducts(page.request);
   const p = products.find((x: any) => x.name === name);
   if (!p) throw new Error(`Product "${name}" not found in seed data`);
   return p.id;

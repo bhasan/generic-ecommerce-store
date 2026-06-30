@@ -97,6 +97,12 @@ vi.mock('../utils/reportingTime', () => ({
   toUtcIso: (d: Date | null) => (d ? d.toISOString() : null),
 }));
 
+// Reporting resolves the tenant's timezone/currency from store settings.
+const getStoreSettingsMock = vi.hoisted(() => vi.fn());
+vi.mock('./storeSettings.service', () => ({
+  StoreSettingsService: vi.fn(() => ({ getStoreSettings: getStoreSettingsMock })),
+}));
+
 const { ReportingService } = await import('./reporting.service');
 
 // ─── tests ───────────────────────────────────────────────────────────────────
@@ -107,6 +113,22 @@ describe('ReportingService', () => {
   beforeEach(() => {
     service = new ReportingService();
     vi.clearAllMocks();
+    // Default: tenant has not set a locale → reporting falls back to config defaults.
+    getStoreSettingsMock.mockResolvedValue({ timezone: '', currency: '' });
+  });
+
+  describe('getMetadata', () => {
+    it('reports the tenant timezone + currency, falling back to defaults when unset', async () => {
+      getStoreSettingsMock.mockResolvedValue({ timezone: 'Europe/Paris', currency: 'EUR' });
+      const meta = await service.getMetadata();
+      expect(meta.store_timezone).toBe('Europe/Paris');
+      expect(meta.currency).toBe('EUR');
+
+      getStoreSettingsMock.mockResolvedValue({ timezone: '', currency: '' });
+      const fallback = await service.getMetadata();
+      expect(fallback.store_timezone).toBe('UTC'); // config defaults from the mocked reportingConfig
+      expect(fallback.currency).toBe('USD');
+    });
   });
 
   describe('listProducts', () => {
@@ -205,6 +227,23 @@ describe('ReportingService', () => {
       prismaMock.order.findMany.mockResolvedValue([makeOrder({ status: OrderStatus.READY_FOR_DELIVERY })]);
       const [order] = await service.listOrders({ skip: 0, take: 50 }, {});
       expect(order.payments[0].amount).toBe(25);
+    });
+
+    it('uses the tenant store-settings currency for order + payment payloads', async () => {
+      setupOrderMocks();
+      prismaMock.order.findMany.mockResolvedValue([makeOrder({ status: OrderStatus.READY_FOR_DELIVERY })]);
+      getStoreSettingsMock.mockResolvedValue({ timezone: 'Europe/Paris', currency: 'EUR' });
+      const [order] = await service.listOrders({ skip: 0, take: 50 }, {});
+      expect(order.currency).toBe('EUR');
+      expect(order.payments[0].currency).toBe('EUR');
+    });
+
+    it('falls back to the platform default currency when the tenant has not set one', async () => {
+      setupOrderMocks();
+      prismaMock.order.findMany.mockResolvedValue([makeOrder({ status: OrderStatus.READY_FOR_DELIVERY })]);
+      getStoreSettingsMock.mockResolvedValue({ timezone: '', currency: '' });
+      const [order] = await service.listOrders({ skip: 0, take: 50 }, {});
+      expect(order.currency).toBe('USD'); // the config default from the mocked reportingConfig
     });
 
     it('sets line item gross_sales to 0 when voided', async () => {

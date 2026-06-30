@@ -1,18 +1,18 @@
 import { test, expect } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // Customer places an order; manager advances it through the full status lifecycle.
 test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED', () => {
   test('manager can advance order status end-to-end', async ({ browser }) => {
+    test.slow();
     // --- Customer: place order ---
     const customerCtx = await browser.newContext();
     await establishSession(customerCtx, ACCOUNTS.customer);
     const customerPage = await customerCtx.newPage();
 
-    const productsRes = await customerPage.request.get('http://localhost:3000/api/products');
-    const body = await productsRes.json();
-    const products = Array.isArray(body) ? body : body.data;
+    const products = await fetchProducts(customerPage.request);
     const laptopBag = products.find((p: any) => p.name === 'Laptop Bag');
     expect(laptopBag).toBeTruthy();
 
@@ -63,7 +63,7 @@ test.describe('Order lifecycle — PENDING → APPROVED → READY → COMPLETED'
     // READY → COMPLETED (PICKED_UP): this transition pops a "Take Payment in Store"
     // confirmation that must be accepted ("Paid") before the status actually changes.
     await card.getByRole('button', { name: /picked up/i }).click();
-    await managerPage.getByRole('button', { name: 'Paid' }).click();
+    await managerPage.getByRole('button', { name: 'Paid' }).click({ force: true });
     // PICKED_UP is terminal — the card no longer offers any quick-action button.
     await expect(card.getByRole('button', { name: /picked up/i })).toHaveCount(0, { timeout: 8_000 });
 

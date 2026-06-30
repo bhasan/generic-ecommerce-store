@@ -8,6 +8,15 @@ const prismaMock = {
 };
 vi.mock('../../config/database', () => ({ default: prismaMock }));
 
+vi.mock('../../config/tenantContext', () => ({
+  getTenantContext: () => ({ tenantId: 1, storeId: 2, scope: 'tenant' }),
+  MissingTenantContextError: class extends Error {
+    constructor() {
+      super('Missing context');
+    }
+  },
+}));
+
 describe('PostgresSearchService', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -82,8 +91,10 @@ describe('PostgresSearchService', () => {
       // (templateStringsArray, a, b, ...). The conditional Prisma.sql fragments are
       // interpolated values (indices 2 and 3: term, hiddenFrag, vipOnlyFrag, term, limit, offset).
       const callArgs = prismaMock.$queryRaw.mock.calls[0];
-      const hiddenFrag = callArgs[2] as { strings: readonly string[] };
-      const vipOnlyFrag = callArgs[3] as { strings: readonly string[] };
+      const tenantIdVal = callArgs[2];
+      const hiddenFrag = callArgs[3] as { strings: readonly string[] };
+      const vipOnlyFrag = callArgs[4] as { strings: readonly string[] };
+      expect(tenantIdVal).toBe(1);
       expect(hiddenFrag.strings.join('')).toContain('"hidden"');
       expect(vipOnlyFrag.strings.join('')).toContain('"vipOnly"');
     });

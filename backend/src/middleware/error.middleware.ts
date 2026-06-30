@@ -82,7 +82,6 @@ export const errorHandler = (
         code: err.code,
         requestId,
       },
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     });
     return;
   }
@@ -104,10 +103,6 @@ export const errorHandler = (
       code: 'INTERNAL_ERROR',
       requestId,
     },
-    ...(process.env.NODE_ENV === 'development' && { 
-      message: err.message,
-      stack: err.stack 
-    })
   });
 };
 

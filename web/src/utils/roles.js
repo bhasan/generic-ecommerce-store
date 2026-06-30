@@ -6,6 +6,8 @@ export const ROLES = {
   ADMIN: 'ADMIN',
   DELIVERY_DRIVER: 'DELIVERY_DRIVER',
   VIP: 'VIP',
+  // Platform operator: gates cross-tenant management (tenant provisioning).
+  SUPER_ADMIN: 'SUPER_ADMIN',
 };
 
 export const GUEST_USER = { id: 999, email: 'guest@guest.com', roles: [ROLES.GUEST], name: 'Guest' };

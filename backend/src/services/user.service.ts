@@ -125,7 +125,7 @@ export class UserService {
 
     const newUsername = data.username ? data.username.trim().toLowerCase() : undefined;
     if (newUsername && newUsername !== existingUser.username) {
-      const usernameExists = await prisma.user.findUnique({
+      const usernameExists = await prisma.user.findFirst({
         where: { username: newUsername }
       });
 

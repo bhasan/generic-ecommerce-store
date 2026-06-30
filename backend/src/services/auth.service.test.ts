@@ -135,7 +135,8 @@ describe('auth service', () => {
     expect(generateToken).toHaveBeenCalledWith({
       userId: 7,
       username: 'user-test',
-      roles: ['ADMIN'],
+      tenantId: null,
+      roles: [{ name: 'ADMIN', storeId: null }],
     });
     expect(logger.info).toHaveBeenCalledWith('Login succeeded', expect.objectContaining({
       userId: 7,

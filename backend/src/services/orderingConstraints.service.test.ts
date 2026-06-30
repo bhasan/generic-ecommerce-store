@@ -3,13 +3,15 @@ import { AppError } from '../middleware/error.middleware';
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
     upsert: vi.fn(),
   },
 }));
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
+  getUnscopedPrisma: () => prismaMock,
 }));
 
 describe('ordering constraints service', () => {
@@ -18,7 +20,7 @@ describe('ordering constraints service', () => {
   });
 
   it('returns defaults when no persisted settings exist', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { OrderingConstraintsService } = await import('./orderingConstraints.service');
 
     const result = await new OrderingConstraintsService().getOrderingConstraints();
@@ -58,7 +60,7 @@ describe('ordering constraints service', () => {
     });
 
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { key: 'ordering_constraints' },
+      where: { tenantId_key: { tenantId: 0, key: 'ordering_constraints' } },
       update: { value: savedSettings },
       create: { key: 'ordering_constraints', value: savedSettings },
     });
@@ -80,7 +82,7 @@ describe('ordering constraints service', () => {
   });
 
   it('merges persisted legacy rows with new defaults', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         minimumDeliveryOrder: 42,
         minimumDeliveryOrderEnabled: true,

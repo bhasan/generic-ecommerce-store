@@ -21,7 +21,8 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 export interface JwtPayload {
   userId: number;
   username: string;
-  roles: RoleName[];
+  tenantId: number | null;
+  roles: Array<{ name: RoleName; storeId: number | null }>;
 }
 
 /**

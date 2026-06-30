@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { authenticate, optionalAuthenticate } from './auth.middleware';
 import { logger } from '../utils/logger';
 import { extractTokenFromHeader, verifyToken } from '../utils/jwt.util';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 vi.mock('../utils/logger', () => ({
   logger: {
@@ -52,8 +53,9 @@ describe('auth middleware', () => {
       userId: 42,
       email: 'user@test.com',
       roles: ['ADMIN'],
+      tenantId: 1,
     });
-    const req: any = { headers: {}, path: '/protected', method: 'GET', requestId: 'req-2' };
+    const req: any = { headers: {}, path: '/protected', method: 'GET', requestId: 'req-2', tenantId: 1 };
     const res = createResponse();
     const next = vi.fn();
 
@@ -92,8 +94,9 @@ describe('auth middleware', () => {
       userId: 5,
       email: 'user@test.com',
       roles: ['CUSTOMER'],
+      tenantId: 1,
     });
-    const req: any = { headers: {}, path: '/public', method: 'GET', requestId: 'req-4' };
+    const req: any = { headers: {}, path: '/public', method: 'GET', requestId: 'req-4', tenantId: 1 };
     const next = vi.fn();
 
     await optionalAuthenticate(req, {} as any, next);
@@ -119,5 +122,88 @@ describe('auth middleware', () => {
     }));
     expect(req.user).toBeUndefined();
     expect(next).toHaveBeenCalled();
+  });
+
+  it('rejects a token minted for another tenant', async () => {
+    (extractTokenFromHeader as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
+    (verifyToken as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      userId: 1, username: 'u', tenantId: 99, roles: [],
+    });
+    const req: any = { headers: { authorization: 'Bearer x' }, tenantId: 1, path: '/', method: 'GET' };
+    const res = createResponse();
+    const next = vi.fn();
+    await authenticate(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('maps a legacy token (no tenantId) to the RESOLVED default tenant, not literal 1', async () => {
+    setDefaultTenantId(42); // default tenant is id 42, not 1
+    (extractTokenFromHeader as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
+    (verifyToken as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      userId: 1, username: 'u', roles: [],
+    } as any); // no tenantId field => legacy token
+
+    // Request resolved to the default tenant (id 42) must SUCCEED.
+    const okReq: any = { headers: { authorization: 'Bearer x' }, tenantId: 42, path: '/', method: 'GET' };
+    const okRes: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const okNext = vi.fn();
+    await authenticate(okReq, okRes, okNext);
+    expect(okNext).toHaveBeenCalled();
+
+    // Same legacy token on a NON-default tenant (id 99) must be rejected.
+    const badReq: any = { headers: { authorization: 'Bearer x' }, tenantId: 99, path: '/', method: 'GET' };
+    const badRes: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const badNext = vi.fn();
+    await authenticate(badReq, badRes, badNext);
+    expect(badRes.status).toHaveBeenCalledWith(401);
+    expect(badNext).not.toHaveBeenCalled();
+  });
+
+  it('authenticate: legacy token + uninitialized cache → fails closed with 401', async () => {
+    setDefaultTenantId(null); // cache not initialized
+    (extractTokenFromHeader as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
+    (verifyToken as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      userId: 1, username: 'u', roles: [],
+    } as any); // no tenantId field => legacy token
+    const req: any = { headers: { authorization: 'Bearer x' }, tenantId: 5, path: '/', method: 'GET' };
+    const res = createResponse();
+    const next = vi.fn();
+
+    await authenticate(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('authenticate: super-admin token (tenantId: null) → exempt, calls next', async () => {
+    setDefaultTenantId(null); // even with uninitialized cache, super-admin still works
+    (extractTokenFromHeader as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
+    (verifyToken as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      userId: 999, username: 'admin', roles: ['SUPER_ADMIN'], tenantId: null,
+    });
+    const req: any = { headers: { authorization: 'Bearer x' }, tenantId: 5, path: '/', method: 'GET' };
+    const res = createResponse();
+    const next = vi.fn();
+
+    await authenticate(req, res, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('optionalAuthenticate: legacy token + uninitialized cache → calls next but leaves req.user undefined', async () => {
+    setDefaultTenantId(null); // cache not initialized
+    (extractTokenFromHeader as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
+    (verifyToken as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      userId: 1, username: 'u', roles: [],
+    } as any); // no tenantId field => legacy token
+    const req: any = { headers: { authorization: 'Bearer x' }, tenantId: 5, path: '/', method: 'GET' };
+    const next = vi.fn();
+
+    await optionalAuthenticate(req, {} as any, next);
+
+    expect(next).toHaveBeenCalled();
+    expect(req.user).toBeUndefined();
   });
 });

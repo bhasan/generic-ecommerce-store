@@ -13,8 +13,8 @@ export async function mintBearerToken(request: APIRequestContext, account: Accou
     data: { username: account.username, password: account.password },
   });
   if (!res.ok()) throw new Error(`API login failed for ${account.username}: HTTP ${res.status()}`);
-  const { token } = await res.json();
-  return token as string;
+  const body = await res.json();
+  return body.data.token as string;
 }
 
 export async function loginViaUI(page: Page, account: Account): Promise<void> {
@@ -43,7 +43,8 @@ export async function establishSession(context: BrowserContext, account: Account
   if (!res.ok()) {
     throw new Error(`API login failed for ${account.username}: HTTP ${res.status()}`);
   }
-  const { user } = await res.json();
+  const body = await res.json();
+  const user = body.data.user;
   await context.addInitScript((u) => {
     if (u) localStorage.setItem('userData', JSON.stringify(u));
   }, user);
