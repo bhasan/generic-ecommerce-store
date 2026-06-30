@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import prisma from './config/database';
 import { logger } from './utils/logger';
 import { resolveTenant } from './middleware/tenant.middleware';
+import { authenticate } from './middleware/auth.middleware';
 import { getTenantContext } from './config/tenantContext';
 import { resolveTenantUploadPath } from './utils/fileUtils';
 import { verifyDefaultTenant } from './config/verifyDefaultTenant';
@@ -177,8 +178,10 @@ const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
 const brandingService = new BrandingService();
 
-// Config check route
-app.get('/api/config', asyncHandler(async (_req, res) => {
+// Config check route — AUTHENTICATED: the store is login-gated, and this exposes
+// store address, payment handles, and settings. The login/register page uses the
+// public /api/branding/public + /api/branding/css for theming instead.
+app.get('/api/config', authenticate, asyncHandler(async (_req, res) => {
   const [paymentSettings, storeSettings, orderingConstraints, branding] = await Promise.all([
     paymentSettingsService.getPaymentSettings(),
     storeSettingsService.getStoreSettings(),
@@ -206,6 +209,9 @@ app.get('/api/config', asyncHandler(async (_req, res) => {
 }));
 
 app.get('/api/branding/css', generalLimiter, brandingController.getCss);
+// Public, unauthenticated: minimal brand identity (name/logo/favicon/colors) for
+// theming the login/register page. Full branding + store config stay behind auth.
+app.get('/api/branding/public', generalLimiter, brandingController.getPublicBranding);
 
 // Tenant-scoped uploads: a tenant may only fetch files under its own id.
 // resolveTenant (mounted on /api above) has already set the ALS context.
@@ -237,8 +243,11 @@ app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/upload', generalLimiter, uploadRoutes);
-app.use('/api/products', generalLimiter, productRoutes);
-app.use('/api/categories', generalLimiter, categoryRoutes);
+// Store is login-gated — the catalog requires authentication (the admin mutation
+// routes inside also enforce roles). This closes the public-catalog leak where a
+// direct API call bypassed the frontend login gate.
+app.use('/api/products', generalLimiter, authenticate, productRoutes);
+app.use('/api/categories', generalLimiter, authenticate, categoryRoutes);
 app.use('/api/orders', readWriteLimiter, orderRoutes);
 app.use('/api/users', generalLimiter, userRoutes);
 app.use('/api/announcements', generalLimiter, announcementRoutes);

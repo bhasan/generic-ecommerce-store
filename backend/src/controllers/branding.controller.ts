@@ -16,6 +16,21 @@ export class BrandingController {
     res.status(200).json(successResponse({ branding }, 'Branding updated successfully'));
   }
 
+  // Public, unauthenticated: ONLY the brand-identity fields the login/register
+  // page needs to theme itself (name, logo, favicon, colors). Deliberately a
+  // curated subset — store address, payment handles, catalog, etc. are NOT here
+  // and stay behind authentication.
+  async getPublicBranding(_req: Request, res: Response) : Promise<void> {
+    const b = await brandingService.getBranding();
+    res.status(200).json(successResponse({
+      storeName: b.storeName,
+      logoUrl: b.logoUrl,
+      faviconUrls: b.faviconUrls,
+      palette: b.palette,
+      customColors: b.customColors,
+    }));
+  }
+
   async getCss(req: Request, res: Response) : Promise<void> {
     const css = await brandingService.generateCssBlock();
     const etag = `"${createHash('sha1').update(css).digest('hex')}"`;
