@@ -57,6 +57,13 @@ const createLimiter = (
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => isRateLimitSkipped(),
+    // Namespace the rate-limit bucket by tenant so one tenant's traffic cannot
+    // exhaust another's allowance (noisy-neighbour prevention). resolveTenant
+    // middleware runs before any route limiter and sets req.tenantId; unauthenticated
+    // requests or requests without a resolved tenant fall back to the key 'none'.
+    // Note: per-tenant resource *quotas* (DB connections, compute time, etc.) are a
+    // separate, larger infrastructure effort and are NOT addressed by this key.
+    keyGenerator: (req) => `${(req as any).tenantId ?? 'none'}:${req.ip}`,
     handler: (req, res, _next, rateLimitOptions) => {
       const statusCode = rateLimitOptions.statusCode || 429;
       writeRateLimitExceededLog(limiterName, req, statusCode);
