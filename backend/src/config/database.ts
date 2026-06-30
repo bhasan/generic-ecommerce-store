@@ -39,12 +39,17 @@ export function getUnscopedPrisma() {
   return basePrisma;
 }
 
-// Build the tenant-scoped client
-const prisma = buildTenantClient(basePrisma);
+// Build the tenant-scoped client. The $extends interceptor is internally typed
+// `any` (Prisma's extension types can't express the tenant injection), but it
+// preserves every model delegate's signature, so we expose it to callers as the
+// base PrismaClient type. Without this annotation the export is `any`, which
+// silently disables type-checking for EVERY consumer of the scoped client
+// (e.g. `prisma.x.findMany().map(row => …)` → `row` becomes implicit-any).
+const prisma: PrismaClientSingleton = buildTenantClient(basePrisma);
 
 export default prisma;
 
-export function getTenantPrisma() {
+export function getTenantPrisma(): PrismaClientSingleton {
   return prisma;
 }
 
