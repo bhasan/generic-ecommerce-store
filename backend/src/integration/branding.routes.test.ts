@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 const verifyToken = vi.hoisted(() => vi.fn());
 const extractTokenFromHeader = vi.hoisted(() =>
@@ -70,6 +71,10 @@ describe('branding routes integration', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // Mimic boot: the default-tenant cache is populated at startup in prod, but
+    // verifyDefaultTenant doesn't run under NODE_ENV=test, so legacy-token auth
+    // would otherwise fail closed (401). Establish the invariant here.
+    setDefaultTenantId(1);
     brandingService.getBranding.mockResolvedValue(DEFAULT_BRANDING);
     brandingService.generateCssBlock.mockResolvedValue(':root {}');
     server = await createServer();
