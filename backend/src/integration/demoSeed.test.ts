@@ -29,9 +29,11 @@ describe('Demo tenant seed', () => {
   it('does not leak demo products into the default (app) tenant', async () => {
     const base = getUnscopedPrisma();
     const appTenant = await base.tenant.findFirst({ where: { slug: 'app' } });
-    if (!appTenant) return; // no default tenant in this DB → nothing to compare
+    // The app (default) tenant is a system invariant (verifyDefaultTenant enforces it
+    // at boot). Assert it exists so this isolation test can never pass vacuously.
+    expect(appTenant).not.toBeNull();
     const leaked = await runWithTenant(
-      { tenantId: appTenant.id, storeId: null, scope: 'tenant' },
+      { tenantId: appTenant!.id, storeId: null, scope: 'tenant' },
       () => getTenantPrisma().product.findMany({ where: { slug: 'demo-widget' } }),
     );
     expect(leaked.length).toBe(0);
@@ -39,6 +41,11 @@ describe('Demo tenant seed', () => {
 
   it('is idempotent — re-running keeps counts stable', async () => {
     const r = await seedDemo();
+    const products = await runWithTenant(
+      { tenantId: r.tenantId, storeId: r.storeId, scope: 'tenant' },
+      () => getTenantPrisma().product.findMany(),
+    );
+    expect(products.length).toBe(3);
     const orders = await runWithTenant(
       { tenantId: r.tenantId, storeId: r.storeId, scope: 'tenant' },
       () => getTenantPrisma().order.findMany(),
