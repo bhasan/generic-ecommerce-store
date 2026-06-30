@@ -279,7 +279,7 @@ async function seed() {
 
   // ── Landing Page Settings ───────────────────────────────────────────────
   await prisma.uiSetting.upsert({
-    where: { key: 'landing_page_settings' },
+    where: { tenantId_key: { tenantId, key: 'landing_page_settings' } },
     update: {},
     create: {
       key: 'landing_page_settings',

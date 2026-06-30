@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../middleware/error.middleware';
 
 const prismaMock = vi.hoisted(() => ({
-  uiSetting: { findUnique: vi.fn(), upsert: vi.fn() },
+  uiSetting: { findFirst: vi.fn(), upsert: vi.fn() },
 }));
 vi.mock('../config/database', () => ({ default: prismaMock, getTenantPrisma: () => prismaMock, getUnscopedPrisma: () => prismaMock }));
 
@@ -34,7 +34,7 @@ describe('SettingsStore', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('returns a deep clone of defaults when no row exists', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({ key: 'k-defaults', schema, defaults });
     const result = await store.read();
@@ -43,14 +43,14 @@ describe('SettingsStore', () => {
   });
 
   it('shallow-merges stored value over defaults', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'stored' } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { a: 'stored' } });
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({ key: 'k-merge', schema, defaults });
     expect(await store.read()).toEqual({ a: 'stored', n: 0 });
   });
 
   it('runs onRead transform', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { a: 'x', n: 1 } });
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({
       key: 'k-onread', schema, defaults,
@@ -66,7 +66,7 @@ describe('SettingsStore', () => {
     const data = { a: 'hi', n: 2 };
     const result = await store.write(data);
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { key: 'k-write' },
+      where: { tenantId_key: { tenantId: 0, key: 'k-write' } },
       update: { value: data },
       create: { key: 'k-write', value: data },
     });
@@ -87,7 +87,7 @@ describe('SettingsStore', () => {
   });
 
   it('resolves defaults from a factory on first read and caches the result', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { SettingsStore } = await import('./settingsStore');
     let counter = 0;
     const store = new SettingsStore({
@@ -105,16 +105,16 @@ describe('SettingsStore', () => {
   });
 
   it('reads from DB once then serves from cache for the same key', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { a: 'x', n: 1 } });
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({ key: 'perf-cache', schema, defaults });
     await store.read();
     await store.read();
-    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(1);
+    expect(prismaMock.uiSetting.findFirst).toHaveBeenCalledTimes(1);
   });
 
   it('returns a fresh clone on cache hit (mutating the result does not poison the cache)', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { a: 'x', n: 1 } });
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({ key: 'perf-clone', schema, defaults });
     const first = await store.read();
@@ -124,14 +124,14 @@ describe('SettingsStore', () => {
   });
 
   it('invalidates the cache on write', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'x', n: 1 } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { a: 'x', n: 1 } });
     prismaMock.uiSetting.upsert.mockResolvedValue({});
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({ key: 'perf-inv', schema, defaults });
     await store.read();
     await store.write({ a: 'y', n: 2 });
     await store.read();
-    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(2);
+    expect(prismaMock.uiSetting.findFirst).toHaveBeenCalledTimes(2);
   });
 
   it('caches per-tenant: tenant A cached value is never served to tenant B', async () => {
@@ -139,19 +139,19 @@ describe('SettingsStore', () => {
     const { SettingsStore } = await import('./settingsStore');
     const store = new SettingsStore({ key: 'tenant-iso', schema, defaults });
 
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'tenantA', n: 1 } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { a: 'tenantA', n: 1 } });
     const a = await runWithTenant({ tenantId: 1, storeId: null, scope: 'tenant' }, () => store.read());
     expect(a.a).toBe('tenantA');
 
     // Tenant B: DB returns B's own value. B must NOT receive A's cached value.
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'tenantB', n: 2 } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { a: 'tenantB', n: 2 } });
     const b = await runWithTenant({ tenantId: 2, storeId: null, scope: 'tenant' }, () => store.read());
     expect(b.a).toBe('tenantB');
-    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(2); // B did not hit A's cache
+    expect(prismaMock.uiSetting.findFirst).toHaveBeenCalledTimes(2); // B did not hit A's cache
 
     // Re-reading A still serves A's cached value (and does not re-query).
     const a2 = await runWithTenant({ tenantId: 1, storeId: null, scope: 'tenant' }, () => store.read());
     expect(a2.a).toBe('tenantA');
-    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(2);
+    expect(prismaMock.uiSetting.findFirst).toHaveBeenCalledTimes(2);
   });
 });

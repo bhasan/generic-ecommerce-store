@@ -244,7 +244,7 @@ model Category {
   children    Category[] @relation("CategoryParent")
   products    Product[]
 
-  @@unique([name, parentId])
+  @@unique([tenantId, name, parentId])
   @@unique([tenantId, slug])
   @@map("categories")
   tenantId Int?
@@ -292,7 +292,7 @@ model ProductVariant {
   id              Int                     @id @default(autoincrement())
   productId       Int
   label           String
-  sku             String                  @unique
+  sku             String
   pricingMode     PricingMode             @default(UNIT)
   basePrice       Decimal                 @db.Decimal(12, 2)
   stock           Decimal                 @default(0) @db.Decimal(12, 3)
@@ -312,6 +312,7 @@ model ProductVariant {
   @@map("product_variants")
   tenantId Int?
   @@index([tenantId])
+  @@unique([tenantId, sku])
 }
 
 model VariantQuantityOption {
@@ -342,7 +343,7 @@ model VariantPriceBreak {
 
 model UiSetting {
   id        Int      @id @default(autoincrement())
-  key       String   @unique
+  key       String
   value     Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -350,6 +351,7 @@ model UiSetting {
   @@map("ui_settings")
   tenantId Int?
   @@index([tenantId])
+  @@unique([tenantId, key])
 }
 
 model Review {

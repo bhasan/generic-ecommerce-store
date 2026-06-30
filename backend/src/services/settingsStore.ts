@@ -63,7 +63,9 @@ export class SettingsStore<T extends object> {
     const cached = settingsCache.get(cacheKey) as T | undefined;
     if (cached !== undefined) return structuredClone(cached);
 
-    const row = await getTenantPrisma().uiSetting.findUnique({ where: { key } });
+    // findFirst (not findUnique): `key` is no longer globally unique — it is unique
+    // only per tenant (@@unique([tenantId, key])). The extension injects tenantId.
+    const row = await getTenantPrisma().uiSetting.findFirst({ where: { key } });
     const merged = row
       ? ({ ...this.resolveDefaults(), ...(row.value as unknown as Partial<T>) } as T)
       : this.resolveDefaults();
@@ -74,10 +76,14 @@ export class SettingsStore<T extends object> {
 
   async write(data: T): Promise<T> {
     const { key, schema, onWrite } = this.config;
+    const tenantId = getTenantContext()?.tenantId ?? 0;
     const validated = parseOrThrow(schema, data);
     const toStore = onWrite ? onWrite(validated) : validated;
+    // Composite where: `key` alone is no longer a unique selector. This pins the
+    // upsert to THIS tenant's row so it can never match/overwrite another tenant's.
+    // (The extension also injects tenantId into `create`.)
     await getTenantPrisma().uiSetting.upsert({
-      where: { key },
+      where: { tenantId_key: { tenantId, key } },
       update: { value: toStore as object },
       create: { key, value: toStore as object },
     });

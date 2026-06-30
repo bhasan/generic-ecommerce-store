@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { clearSettingsCache } from './settingsStore';
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
     upsert: vi.fn(),
   },
 }));
@@ -20,7 +20,7 @@ describe('branding service', () => {
   });
 
   it('returns defaults when no persisted branding exists', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { BrandingService } = await import('./branding.service');
 
     const result = await new BrandingService().getBranding();
@@ -40,7 +40,7 @@ describe('branding service', () => {
     const result = await new BrandingService().updateBranding(data);
 
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { key: 'branding' },
+      where: { tenantId_key: { tenantId: 0, key: 'branding' } },
       update: { value: expect.any(Object) },
       create: { key: 'branding', value: expect.any(Object) },
     });
@@ -61,7 +61,7 @@ describe('branding service', () => {
   });
 
   it('generateCssBlock returns a :root block string', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         storeName: '', tagline: '', logoUrl: '', heroImageUrl: '',
         faviconUrls: { '16': '', '32': '', '180': '' },
@@ -83,7 +83,7 @@ describe('branding service', () => {
   });
 
   it('generateCssBlock strips customColors values that are not valid hex or RGB tokens', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findFirst.mockResolvedValue({
       value: {
         storeName: '', tagline: '', logoUrl: '', heroImageUrl: '',
         faviconUrls: { '16': '', '32': '', '180': '' },
