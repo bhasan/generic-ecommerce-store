@@ -36,6 +36,11 @@ jobs:
       - name: Generate Prisma client
         run: npm run prisma:generate
 
+      # Vitest runs through esbuild and does NOT type-check, so a broken build
+      # (e.g. a `tsc` error) would otherwise pass CI green. Gate on tsc here.
+      - name: Type-check (tsc)
+        run: npm run typecheck
+
       # Runs the suite with coverage so the configured thresholds gate the build.
       - name: Run tests with coverage
         run: npm run test:coverage
