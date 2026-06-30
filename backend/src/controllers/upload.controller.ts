@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import unzipper from 'unzipper';
 import { AppError } from '../middleware/error.middleware';
-import { UPLOADS_DIR, tenantUploadsDir } from '../utils/fileUtils';
+import { tenantUploadsDir } from '../utils/fileUtils';
 import { getTenantContextOrThrow } from '../config/tenantContext';
 import { BrandingService } from '../services/branding.service';
 import { processUploadedImage, processFaviconUpload } from '../services/imageProcessing.service';
@@ -57,6 +57,7 @@ export class UploadController {
       throw new AppError('No ZIP file provided', 400, 'VALIDATION_ERROR');
     }
 
+    const dir = tenantUploadsDir(getTenantContextOrThrow().tenantId);
     const directory = await unzipper.Open.buffer(req.file.buffer);
     let imported = 0;
     let skipped = 0;
@@ -69,7 +70,7 @@ export class UploadController {
 
       // Prevent directory traversal
       const safeFilename = path.basename(filename);
-      const dest = path.join(UPLOADS_DIR, safeFilename);
+      const dest = path.join(dir, safeFilename);
 
       try {
         await fs.promises.access(dest);

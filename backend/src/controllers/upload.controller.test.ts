@@ -11,6 +11,11 @@ vi.mock('unzipper', () => ({
 
 vi.mock('../utils/fileUtils', () => ({
   UPLOADS_DIR: '/fake/uploads',
+  tenantUploadsDir: vi.fn().mockReturnValue('/fake/uploads/tenants/1'),
+}));
+
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn().mockReturnValue({ tenantId: 1, storeId: null, scope: 'tenant' }),
 }));
 
 const sharpMock = vi.fn();
@@ -179,7 +184,7 @@ describe('uploadFavicon', () => {
   }
 
   function makeFileReq(filename = 'source.png') {
-    return { file: { filename, destination: '/fake/uploads' } } as any;
+    return { file: { filename, destination: '/fake/uploads/tenants/1' } } as any;
   }
 
   beforeEach(() => {
@@ -204,9 +209,9 @@ describe('uploadFavicon', () => {
     expect(res.status).toHaveBeenCalledWith(201);
     const { urls } = res.json.mock.calls[0][0].data;
     expect(Object.keys(urls).sort()).toEqual(['16', '180', '32']);
-    expect(urls['16']).toContain('favicon-16.png');
-    expect(urls['32']).toContain('favicon-32.png');
-    expect(urls['180']).toContain('favicon-180.png');
+    expect(urls['16']).toMatch(/\/api\/uploads\/tenants\/\d+\/favicon-16\.png/);
+    expect(urls['32']).toMatch(/\/api\/uploads\/tenants\/\d+\/favicon-32\.png/);
+    expect(urls['180']).toMatch(/\/api\/uploads\/tenants\/\d+\/favicon-180\.png/);
   });
 
   it('appends a ?v= cache-busting timestamp to every favicon URL', async () => {

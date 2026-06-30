@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import fs from 'fs';
 import path from 'path';
-import { tenantUploadsDir, UPLOADS_DIR, resolveTenantUploadPath } from './fileUtils';
+import { tenantUploadsDir, UPLOADS_DIR, resolveTenantUploadPath, deleteUploadedFile } from './fileUtils';
 
 describe('tenantUploadsDir', () => {
   it('returns a per-tenant subdirectory of the uploads root', () => {
@@ -37,5 +38,35 @@ describe('resolveTenantUploadPath', () => {
 
   it('denies when there is no tenant context (fail closed)', () => {
     expect(resolveTenantUploadPath(42, 'pic.webp', undefined)).toBeNull();
+  });
+});
+
+describe('deleteUploadedFile', () => {
+  it('calls unlink with the correct path for a legacy flat URL', async () => {
+    const unlinkSpy = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined as any);
+    await deleteUploadedFile('/api/uploads/foo.webp');
+    expect(unlinkSpy).toHaveBeenCalledWith(path.join(UPLOADS_DIR, 'foo.webp'));
+    unlinkSpy.mockRestore();
+  });
+
+  it('calls unlink with the correct path for a tenant-scoped URL', async () => {
+    const unlinkSpy = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined as any);
+    await deleteUploadedFile('/api/uploads/tenants/42/bar.webp');
+    expect(unlinkSpy).toHaveBeenCalledWith(path.join(UPLOADS_DIR, 'tenants', '42', 'bar.webp'));
+    unlinkSpy.mockRestore();
+  });
+
+  it('does NOT call unlink for a path-traversal URL that escapes UPLOADS_DIR', async () => {
+    const unlinkSpy = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined as any);
+    await deleteUploadedFile('/api/uploads/../../../etc/passwd');
+    expect(unlinkSpy).not.toHaveBeenCalled();
+    unlinkSpy.mockRestore();
+  });
+
+  it('does NOT call unlink for a URL outside /api/uploads/', async () => {
+    const unlinkSpy = vi.spyOn(fs.promises, 'unlink').mockResolvedValue(undefined as any);
+    await deleteUploadedFile('/api/products/image.webp');
+    expect(unlinkSpy).not.toHaveBeenCalled();
+    unlinkSpy.mockRestore();
   });
 });

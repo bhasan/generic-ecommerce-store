@@ -224,6 +224,10 @@ app.get('/api/uploads/tenants/:tenantId/:filename', (req, res) => {
   });
 });
 
+// Any /api/uploads/tenants/* shape not matched by the guarded route above must NOT
+// be served by the broad legacy static mount below. Deny it explicitly.
+app.use('/api/uploads/tenants', (_req, res) => { res.status(404).json({ error: 'Not found' }); });
+
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
 app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
   maxAge: '30d',
