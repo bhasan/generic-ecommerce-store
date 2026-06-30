@@ -29,7 +29,23 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Super-admin tokens (tenantId === null) are exempt and only valid on the admin context.
     // Grace path: legacy tokens (missing tenantId) map strictly to the Default Tenant (resolved at boot).
     // If a legacy token is presented on a non-default subdomain, it is rejected.
-    const tokenTenantId = decoded.tenantId === undefined ? getDefaultTenantId() : decoded.tenantId;
+    let tokenTenantId: number | null;
+    if (decoded.tenantId === undefined) {
+      // Legacy token (no tenantId claim) may ONLY map to the resolved default tenant.
+      // If the cache is not initialized, fail closed — never fall through to the
+      // super-admin (null) exemption below.
+      const defaultId = getDefaultTenantId();
+      if (defaultId === null) {
+        logger.error('Authentication failed: default tenant not initialized for legacy token', {
+          requestId: req.requestId || 'unknown',
+        });
+        res.status(401).json({ error: 'Invalid or expired token' });
+        return;
+      }
+      tokenTenantId = defaultId;
+    } else {
+      tokenTenantId = decoded.tenantId; // may legitimately be null for super-admin
+    }
 
     if (req.tenantId !== undefined && tokenTenantId !== null && tokenTenantId !== req.tenantId) {
       logger.warn('Authentication failed: tenant mismatch', {
@@ -74,7 +90,22 @@ export const optionalAuthenticate = async (req: Request, _res: Response, next: N
 
     if (token) {
       const decoded = verifyToken(token);
-      const tokenTenantId = decoded.tenantId === undefined ? getDefaultTenantId() : decoded.tenantId;
+      let tokenTenantId: number | null;
+      if (decoded.tenantId === undefined) {
+        // Legacy token: must map to the initialized default tenant.
+        // If cache is null, treat as unauthenticated (fail closed without returning 401).
+        const defaultId = getDefaultTenantId();
+        if (defaultId === null) {
+          logger.warn('Optional authentication ignored: default tenant not initialized for legacy token', {
+            requestId: req.requestId || 'unknown',
+          });
+          next();
+          return;
+        }
+        tokenTenantId = defaultId;
+      } else {
+        tokenTenantId = decoded.tenantId; // may legitimately be null for super-admin
+      }
       if (req.tenantId === undefined || tokenTenantId === null || tokenTenantId === req.tenantId) {
         logger.debug('Optional authentication succeeded', {
           requestId: req.requestId || 'unknown',

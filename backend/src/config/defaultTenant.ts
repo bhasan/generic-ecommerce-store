@@ -3,7 +3,7 @@
 // assuming id === 1.
 let defaultTenantId: number | null = null;
 
-export function setDefaultTenantId(id: number): void {
+export function setDefaultTenantId(id: number | null): void {
   defaultTenantId = id;
 }
 
