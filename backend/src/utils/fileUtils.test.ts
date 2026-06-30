@@ -34,4 +34,8 @@ describe('resolveTenantUploadPath', () => {
   it('denies a non-integer tenant id', () => {
     expect(resolveTenantUploadPath(Number('abc'), 'x.webp', tenantCtx(42))).toBeNull();
   });
+
+  it('denies when there is no tenant context (fail closed)', () => {
+    expect(resolveTenantUploadPath(42, 'pic.webp', undefined)).toBeNull();
+  });
 });

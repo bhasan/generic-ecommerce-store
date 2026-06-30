@@ -5,8 +5,8 @@ export const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
 
 /**
  * Resolve the on-disk path for a tenant-scoped upload request, or null to deny.
- * A 'tenant'-scoped context may only read its own tenant's files; 'super-admin'
- * (and an absent context, which cannot occur behind resolveTenant) is allowed.
+ * Fail closed: a missing context (request bypassed resolveTenant) is denied, never served.
+ * A 'tenant'-scoped context may only read its own tenant's files; 'super-admin' is allowed.
  * path.basename strips any traversal segments from the filename.
  */
 export function resolveTenantUploadPath(
@@ -15,7 +15,8 @@ export function resolveTenantUploadPath(
   ctx: { tenantId: number; scope: 'tenant' | 'super-admin' } | undefined,
 ): string | null {
   if (!Number.isInteger(requestedTenantId)) return null;
-  if (ctx && ctx.scope !== 'super-admin' && ctx.tenantId !== requestedTenantId) return null;
+  if (!ctx) return null; // fail closed: no tenant context means the request bypassed resolveTenant
+  if (ctx.scope !== 'super-admin' && ctx.tenantId !== requestedTenantId) return null;
   const safeName = path.basename(filename);
   return path.join(UPLOADS_DIR, 'tenants', String(requestedTenantId), safeName);
 }
