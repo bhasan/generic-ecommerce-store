@@ -133,4 +133,25 @@ describe('SettingsStore', () => {
     await store.read();
     expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(2);
   });
+
+  it('caches per-tenant: tenant A cached value is never served to tenant B', async () => {
+    const { runWithTenant } = await import('../config/tenantContext');
+    const { SettingsStore } = await import('./settingsStore');
+    const store = new SettingsStore({ key: 'tenant-iso', schema, defaults });
+
+    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'tenantA', n: 1 } });
+    const a = await runWithTenant({ tenantId: 1, storeId: null, scope: 'tenant' }, () => store.read());
+    expect(a.a).toBe('tenantA');
+
+    // Tenant B: DB returns B's own value. B must NOT receive A's cached value.
+    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { a: 'tenantB', n: 2 } });
+    const b = await runWithTenant({ tenantId: 2, storeId: null, scope: 'tenant' }, () => store.read());
+    expect(b.a).toBe('tenantB');
+    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(2); // B did not hit A's cache
+
+    // Re-reading A still serves A's cached value (and does not re-query).
+    const a2 = await runWithTenant({ tenantId: 1, storeId: null, scope: 'tenant' }, () => store.read());
+    expect(a2.a).toBe('tenantA');
+    expect(prismaMock.uiSetting.findUnique).toHaveBeenCalledTimes(2);
+  });
 });

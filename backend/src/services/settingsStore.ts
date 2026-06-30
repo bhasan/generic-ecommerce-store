@@ -1,9 +1,12 @@
 import { ZodType } from 'zod';
 import { getTenantPrisma } from '../config/database';
+import { getTenantContext } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import { TtlCache } from '../utils/ttlCache';
 
-// Module-level cache shared across all SettingsStore instances, keyed by `key`.
+// Module-level cache shared across all SettingsStore instances, keyed by
+// `${tenantId}:${key}` so one tenant's cached settings can never be served to
+// another (the cache is tenant-scoped, mirroring the tenant-scoped DB rows).
 // IMPORTANT caveats (do not remove without reading):
 //  - Single-process only. The backend runs as one instance today; if it is ever
 //    scaled horizontally, each process keeps its own copy and config can be up to
@@ -46,9 +49,18 @@ export class SettingsStore<T extends object> {
     return typeof defaults === 'function' ? (defaults as () => T)() : structuredClone(defaults);
   }
 
+  // Tenant-scoped cache key. The DB rows are tenant-scoped via the Prisma
+  // extension; the in-memory cache must match or one tenant's settings would be
+  // served to another. (Context is absent only in dev/scripts, where the scoped
+  // DB read itself falls through the dev pass-through; key 0 there is harmless.)
+  private cacheKeyFor(key: string): string {
+    return `${getTenantContext()?.tenantId ?? 0}:${key}`;
+  }
+
   async read(): Promise<T> {
     const { key, onRead } = this.config;
-    const cached = settingsCache.get(key) as T | undefined;
+    const cacheKey = this.cacheKeyFor(key);
+    const cached = settingsCache.get(cacheKey) as T | undefined;
     if (cached !== undefined) return structuredClone(cached);
 
     const row = await getTenantPrisma().uiSetting.findUnique({ where: { key } });
@@ -56,7 +68,7 @@ export class SettingsStore<T extends object> {
       ? ({ ...this.resolveDefaults(), ...(row.value as unknown as Partial<T>) } as T)
       : this.resolveDefaults();
     const result = onRead ? onRead(merged) : merged;
-    settingsCache.set(key, result as object);
+    settingsCache.set(cacheKey, result as object);
     return structuredClone(result);
   }
 
@@ -69,7 +81,7 @@ export class SettingsStore<T extends object> {
       update: { value: toStore as object },
       create: { key, value: toStore as object },
     });
-    settingsCache.delete(key);
+    settingsCache.delete(this.cacheKeyFor(key));
     return validated;
   }
 }
