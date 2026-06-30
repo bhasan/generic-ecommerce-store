@@ -29,7 +29,7 @@ export async function processUploadedImage(
 export type FaviconSizeKey = '16' | '32' | '180';
 
 export async function processFaviconUpload(
-  file: { filename: string },
+  file: { filename: string; destination: string },
   version: number,
 ): Promise<{ '16': string; '32': string; '180': string }> {
   const sizes: Array<{ key: FaviconSizeKey; size: number }> = [
@@ -37,7 +37,9 @@ export async function processFaviconUpload(
     { key: '32', size: 32 },
     { key: '180', size: 180 },
   ];
-  const inputPath = path.join(UPLOADS_DIR, file.filename);
+  // multer now writes the uploaded input into the tenant's dir (file.destination);
+  // read from there. Favicon OUTPUTS stay on the shared root (global branding).
+  const inputPath = path.join(file.destination, file.filename);
   const faviconUrls = { '16': '', '32': '', '180': '' } as { '16': string; '32': string; '180': string };
 
   await Promise.all(sizes.map(async ({ key, size }) => {

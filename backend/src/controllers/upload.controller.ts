@@ -106,7 +106,9 @@ export class UploadController {
 
     // Prevent directory traversal
     const safeFilename = path.basename(filename);
-    const filePath = path.join(UPLOADS_DIR, safeFilename);
+    // Images now live under the active tenant's dir (mirrors getImages/uploadImage).
+    const { tenantId } = getTenantContextOrThrow();
+    const filePath = path.join(tenantUploadsDir(tenantId), safeFilename);
 
     if (!fs.existsSync(filePath)) {
       throw new AppError('Image not found.', 404);
