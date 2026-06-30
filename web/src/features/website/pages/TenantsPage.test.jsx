@@ -84,4 +84,48 @@ describe('TenantsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /Suspend/i }));
     await waitFor(() => expect(tenantApi.setTenantStatus).toHaveBeenCalledWith('t1', 'SUSPENDED'));
   });
+
+  it('reflects SUSPENDED status badge in the table after re-fetch on suspend', async () => {
+    const suspendedList = [{ ...SAMPLE[0], status: 'SUSPENDED' }];
+    vi.mocked(tenantApi.setTenantStatus).mockResolvedValue({});
+    // First call (mount) → ACTIVE; second call (after suspend) → SUSPENDED
+    vi.mocked(tenantApi.listTenants)
+      .mockResolvedValueOnce(SAMPLE)
+      .mockResolvedValueOnce(suspendedList);
+
+    render(<TenantsPage />);
+    await screen.findByText('ACTIVE');
+
+    fireEvent.click(screen.getByRole('button', { name: /Suspend/i }));
+    await waitFor(() => expect(tenantApi.setTenantStatus).toHaveBeenCalledWith('t1', 'SUSPENDED'));
+    expect(await screen.findByText('SUSPENDED')).toBeInTheDocument();
+  });
+
+  it('shows Activate button for a SUSPENDED tenant and calls setTenantStatus with ACTIVE', async () => {
+    const suspendedList = [{ ...SAMPLE[0], status: 'SUSPENDED' }];
+    vi.mocked(tenantApi.listTenants).mockResolvedValue(suspendedList);
+    vi.mocked(tenantApi.setTenantStatus).mockResolvedValue({});
+
+    render(<TenantsPage />);
+    await screen.findByText('SUSPENDED');
+
+    fireEvent.click(screen.getByRole('button', { name: /Activate/i }));
+    await waitFor(() => expect(tenantApi.setTenantStatus).toHaveBeenCalledWith('t1', 'ACTIVE'));
+  });
+
+  it('shows regenerated tokens in the panel after clicking Regenerate tokens', async () => {
+    vi.mocked(tenantApi.regenerateTokens).mockResolvedValue({
+      reportingToken: 'RPT-REGEN-789',
+      printAgentKey: 'PRINT-REGEN-012',
+    });
+
+    render(<TenantsPage />);
+    await screen.findByText('acme');
+
+    fireEvent.click(screen.getByRole('button', { name: /Regenerate tokens/i }));
+    await waitFor(() => expect(tenantApi.regenerateTokens).toHaveBeenCalledWith('t1'));
+    expect(await screen.findByText('RPT-REGEN-789')).toBeInTheDocument();
+    expect(screen.getByText('PRINT-REGEN-012')).toBeInTheDocument();
+    expect(screen.getByText(/will not be shown again/i)).toBeInTheDocument();
+  });
 });
