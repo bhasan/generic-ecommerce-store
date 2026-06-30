@@ -1,6 +1,8 @@
-import prisma from '../src/config/database';
+import { getUnscopedPrisma } from '../src/config/database';
 import { hashPassword } from '../src/utils/password.util';
 import { DeliveryMethodEnum, OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../generated/prisma';
+
+const prisma = getUnscopedPrisma();
 
 async function seed() {
   console.log('🌱 Starting database seed...');

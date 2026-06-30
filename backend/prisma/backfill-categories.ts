@@ -1,4 +1,6 @@
-import prisma from '../src/config/database';
+import { getUnscopedPrisma } from '../src/config/database';
+
+const prisma = getUnscopedPrisma();
 
 async function backfillCategories() {
   console.log('🔧 Backfilling categories from legacy product.category...');

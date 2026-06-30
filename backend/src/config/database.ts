@@ -61,9 +61,23 @@ function buildTenantClient(prismaInstance: any) {
 
           const ctx = getTenantContext();
           if (!ctx) {
-            if (process.env.NODE_ENV === 'production') {
+            // Fail closed wherever isolation must be trustworthy: production AND
+            // CI/test (so a missing-context regression turns the build red).
+            // `process.env.VITEST` is set by the Vitest runner; this container
+            // runs with NODE_ENV=development permanently so we cannot rely on
+            // NODE_ENV=test — VITEST acts as the authoritative "running under test
+            // suite" signal. Both checks are kept so the guard also works in
+            // environments that correctly set NODE_ENV=test without Vitest.
+            // Dev/script execution (NODE_ENV unset or 'development', no VITEST)
+            // keeps a logged pass-through for ad-hoc scripts; the sanctioned
+            // context-free path everywhere is getUnscopedPrisma().
+            if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test' || !!process.env.VITEST) {
               throw new MissingTenantContextError();
             }
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[tenant] scoped op "${operation}" on "${table}" ran with no tenant context (dev pass-through)`,
+            );
             return query(args);
           }
 
