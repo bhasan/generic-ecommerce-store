@@ -1,6 +1,6 @@
 import { ZodType } from 'zod';
 import { getTenantPrisma } from '../config/database';
-import { getTenantContext } from '../config/tenantContext';
+import { getEffectiveStoreId, getTenantContext } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import { TtlCache } from '../utils/ttlCache';
 
@@ -84,8 +84,7 @@ export class SettingsStore<T extends object> {
     const ctx = getTenantContext();
     const tenantId = ctx?.tenantId ?? 0;
     if (this.config.storeScoped) {
-      const effectiveStoreId = ctx?.isDefaultStore ? 0 : (ctx?.storeId ?? 0);
-      return `${tenantId}:${effectiveStoreId}:${key}`;
+      return `${tenantId}:${getEffectiveStoreId(ctx)}:${key}`;
     }
     return `${tenantId}:${key}`;
   }
@@ -99,7 +98,7 @@ export class SettingsStore<T extends object> {
     let result: T;
     if (storeScoped) {
       const ctx = getTenantContext();
-      const effectiveStoreId = ctx?.isDefaultStore ? 0 : (ctx?.storeId ?? 0);
+      const effectiveStoreId = getEffectiveStoreId(ctx);
       // Fetch tenant-default (storeId 0) and active store's override in one query.
       // When effectiveStoreId is 0 the in-list dedupes to [0] (only the default row).
       const storeIds = effectiveStoreId === 0 ? [0] : [0, effectiveStoreId];
@@ -138,9 +137,7 @@ export class SettingsStore<T extends object> {
     // For store-scoped stores: write to the active store's row, unless this is the
     // default store (or storeId is null) in which case write to the tenant-default row
     // (storeId 0). Tenant-scoped stores always write to storeId 0.
-    const effectiveStoreId = storeScoped
-      ? (ctx?.isDefaultStore ? 0 : (ctx?.storeId ?? 0))
-      : 0;
+    const effectiveStoreId = storeScoped ? getEffectiveStoreId(ctx) : 0;
     // Composite where: pins the upsert to THIS tenant's row so it can never
     // match/overwrite another tenant's or another store's row.
     // (The extension also injects tenantId into `create`.)

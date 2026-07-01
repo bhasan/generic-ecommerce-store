@@ -63,3 +63,13 @@ export function getTenantContextOrThrow(): TenantContext {
   }
   return ctx;
 }
+
+/**
+ * Resolve the storeId used for store-scoped settings rows: the default store (or
+ * a missing/zero storeId) maps to the tenant-default sentinel 0; a real non-default
+ * store maps to its own id. Single source of truth for this mapping so per-store
+ * reads/writes and their caches stay consistent.
+ */
+export function getEffectiveStoreId(ctx: TenantContext | undefined): number {
+  return ctx?.isDefaultStore ? 0 : (ctx?.storeId ?? 0);
+}

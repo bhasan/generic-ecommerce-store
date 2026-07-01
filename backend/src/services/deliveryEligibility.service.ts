@@ -1,8 +1,9 @@
 import { DeliveryEligibilitySource, DeliveryZoneStatus } from '../../generated/prisma';
 import prisma from '../config/database';
-import { getTenantContext } from '../config/tenantContext';
+import { getEffectiveStoreId, getTenantContext } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import {
+  extractAddressFromSettingsValue,
   extractZipCodeFromFreeformAddress,
   formatStructuredDeliveryAddress,
   getStructuredDeliveryAddressCacheKey,
@@ -111,8 +112,7 @@ const haversineMiles = (
 export class DeliveryEligibilityService {
   private async getStoreAddress(): Promise<string> {
     const ctx = getTenantContext();
-    const storeId = ctx?.storeId ?? 0;
-    const effectiveStoreId = ctx?.isDefaultStore ? 0 : storeId;
+    const effectiveStoreId = getEffectiveStoreId(ctx);
     const cacheKey = `${ctx?.tenantId ?? 0}:${effectiveStoreId}`;
     const now = Date.now();
     const hit = _storeAddressCache.get(cacheKey);
@@ -124,20 +124,11 @@ export class DeliveryEligibilityService {
     const rows = await prisma.uiSetting.findMany({
       where: { key: 'store_settings', storeId: { in: [0, effectiveStoreId] } },
     });
-    const extractRowAddress = (row: (typeof rows)[number] | undefined): string => {
-      if (
-        row?.value &&
-        typeof row.value === 'object' &&
-        typeof (row.value as { address?: unknown }).address === 'string' &&
-        (row.value as { address: string }).address.trim()
-      ) {
-        return (row.value as { address: string }).address;
-      }
-      return '';
-    };
     const overrideRow = rows.find((r) => r.storeId === effectiveStoreId);
     const defaultRow = rows.find((r) => r.storeId === 0);
-    const address = extractRowAddress(overrideRow) || extractRowAddress(defaultRow);
+    const address =
+      extractAddressFromSettingsValue(overrideRow?.value) ||
+      extractAddressFromSettingsValue(defaultRow?.value);
     _storeAddressCache.set(cacheKey, { address, expiresAt: now + STORE_ADDRESS_TTL_MS });
     return address;
   }

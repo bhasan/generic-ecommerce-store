@@ -7,6 +7,8 @@ const tenantContextMock = vi.hoisted(() => ({
 
 vi.mock('../config/tenantContext', () => ({
   getTenantContext: tenantContextMock.getTenantContext,
+  getEffectiveStoreId: (ctx: { isDefaultStore?: boolean; storeId?: number | null } | undefined) =>
+    ctx?.isDefaultStore ? 0 : (ctx?.storeId ?? 0),
   getTenantContextOrThrow: vi.fn(),
   runWithTenant: vi.fn(),
   MissingTenantContextError: class extends Error {

@@ -1,8 +1,12 @@
 import { z } from 'zod';
 import prisma from '../config/database';
-import { getTenantContext } from '../config/tenantContext';
+import { getEffectiveStoreId, getTenantContext } from '../config/tenantContext';
 import { SettingsStore, parseOrThrow } from './settingsStore';
-import { normalizeZipCode, extractZipCodeFromFreeformAddress } from '../utils/address.util';
+import {
+  extractAddressFromSettingsValue,
+  extractZipCodeFromFreeformAddress,
+  normalizeZipCode,
+} from '../utils/address.util';
 
 const OrderingConstraintsSchema = z.object({
   minimumDeliveryOrder: z
@@ -71,7 +75,7 @@ export function invalidateOfflineZipsCache(): void {
 export class OrderingConstraintsService {
   private async getOfflineZips(): Promise<string[]> {
     const ctx = getTenantContext();
-    const effectiveStoreId = ctx?.isDefaultStore ? 0 : (ctx?.storeId ?? 0);
+    const effectiveStoreId = getEffectiveStoreId(ctx);
     const cacheKey = `${ctx?.tenantId ?? 0}:${effectiveStoreId}`;
     const now = Date.now();
     const hit = _offlineZipsCache.get(cacheKey);
@@ -83,20 +87,11 @@ export class OrderingConstraintsService {
     const rows = await prisma.uiSetting.findMany({
       where: { key: 'store_settings', storeId: { in: [0, effectiveStoreId] } },
     });
-    const extractAddress = (row: (typeof rows)[number] | undefined): string => {
-      if (
-        row?.value &&
-        typeof row.value === 'object' &&
-        typeof (row.value as { address?: unknown }).address === 'string' &&
-        (row.value as { address: string }).address.trim()
-      ) {
-        return (row.value as { address: string }).address;
-      }
-      return '';
-    };
     const overrideRow = rows.find((r) => r.storeId === effectiveStoreId);
     const defaultRow = rows.find((r) => r.storeId === 0);
-    const address = extractAddress(overrideRow) || extractAddress(defaultRow);
+    const address =
+      extractAddressFromSettingsValue(overrideRow?.value) ||
+      extractAddressFromSettingsValue(defaultRow?.value);
     const zip = extractZipCodeFromFreeformAddress(address);
     const zips = zip ? [zip] : [];
     _offlineZipsCache.set(cacheKey, { zips, expiresAt: now + OFFLINE_ZIPS_TTL_MS });
