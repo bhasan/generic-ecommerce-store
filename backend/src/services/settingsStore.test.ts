@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../middleware/error.middleware';
 
 const prismaMock = vi.hoisted(() => ({
-  uiSetting: { findFirst: vi.fn(), upsert: vi.fn() },
+  uiSetting: { findFirst: vi.fn(), findMany: vi.fn(), upsert: vi.fn() },
 }));
 vi.mock('../config/database', () => ({ default: prismaMock, getTenantPrisma: () => prismaMock, getUnscopedPrisma: () => prismaMock }));
 
@@ -153,5 +153,130 @@ describe('SettingsStore', () => {
     const a2 = await runWithTenant({ tenantId: 1, storeId: null, scope: 'tenant' }, () => store.read());
     expect(a2.a).toBe('tenantA');
     expect(prismaMock.uiSetting.findFirst).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('store-scoped settings', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { clearSettingsCache } = await import('./settingsStore');
+    clearSettingsCache();
+  });
+
+  it('merges tenant-default (storeId 0) with the active store override, override non-blank wins', async () => {
+    const { SettingsStore } = await import('./settingsStore');
+    const { runWithTenant } = await import('../config/tenantContext');
+
+    prismaMock.uiSetting.findMany.mockResolvedValue([
+      { storeId: 0, value: { a: 'default-a', b: 'default-b' } },
+      { storeId: 9, value: { a: 'store-a', b: '' } }, // b blank → inherit
+    ]);
+
+    const result = await runWithTenant(
+      { tenantId: 7, storeId: 9, isDefaultStore: false, scope: 'tenant' },
+      async () => await new SettingsStore<{ a: string; b: string }>({
+        key: 'k-sscope-merge', storeScoped: true,
+        schema: z.object({ a: z.string(), b: z.string() }),
+        defaults: { a: '', b: '' },
+      }).read(),
+    );
+    expect(result).toEqual({ a: 'store-a', b: 'default-b' });
+  });
+
+  it('inherits all fields from tenant-default when no store override row exists', async () => {
+    const { SettingsStore } = await import('./settingsStore');
+    const { runWithTenant } = await import('../config/tenantContext');
+
+    prismaMock.uiSetting.findMany.mockResolvedValue([
+      { storeId: 0, value: { a: 'default-a', b: 'default-b' } },
+    ]);
+
+    const result = await runWithTenant(
+      { tenantId: 7, storeId: 9, isDefaultStore: false, scope: 'tenant' },
+      async () => await new SettingsStore<{ a: string; b: string }>({
+        key: 'k-sscope-no-override', storeScoped: true,
+        schema: z.object({ a: z.string(), b: z.string() }),
+        defaults: { a: '', b: '' },
+      }).read(),
+    );
+    expect(result).toEqual({ a: 'default-a', b: 'default-b' });
+  });
+
+  it('writes the tenant-default row (storeId 0) when the active store is the default', async () => {
+    const { SettingsStore } = await import('./settingsStore');
+    const { runWithTenant } = await import('../config/tenantContext');
+
+    prismaMock.uiSetting.upsert.mockResolvedValue({});
+
+    await runWithTenant(
+      { tenantId: 7, storeId: 5, isDefaultStore: true, scope: 'tenant' },
+      async () => await new SettingsStore<{ a: string; b: string }>({
+        key: 'k', storeScoped: true,
+        schema: z.object({ a: z.string(), b: z.string() }),
+        defaults: { a: '', b: '' },
+      }).write({ a: 'x', b: 'y' }),
+    );
+    expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { tenantId_storeId_key: { tenantId: 7, storeId: 0, key: 'k' } },
+    }));
+  });
+
+  it('writes the store override row when the active store is non-default', async () => {
+    const { SettingsStore } = await import('./settingsStore');
+    const { runWithTenant } = await import('../config/tenantContext');
+
+    prismaMock.uiSetting.upsert.mockResolvedValue({});
+
+    await runWithTenant(
+      { tenantId: 7, storeId: 9, isDefaultStore: false, scope: 'tenant' },
+      async () => await new SettingsStore<{ a: string; b: string }>({
+        key: 'k', storeScoped: true,
+        schema: z.object({ a: z.string(), b: z.string() }),
+        defaults: { a: '', b: '' },
+      }).write({ a: 'x', b: 'y' }),
+    );
+    expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { tenantId_storeId_key: { tenantId: 7, storeId: 9, key: 'k' } },
+    }));
+  });
+
+  it('clears the whole cache on a store-scoped write so a subsequent non-default-store read re-fetches', async () => {
+    const { SettingsStore, clearSettingsCache } = await import('./settingsStore');
+    const { runWithTenant } = await import('../config/tenantContext');
+    clearSettingsCache();
+
+    const makeStoreWithKey = (key: string) => new SettingsStore<{ a: string; b: string }>({
+      key, storeScoped: true,
+      schema: z.object({ a: z.string(), b: z.string() }),
+      defaults: { a: '', b: '' },
+    });
+
+    // Non-default store reads first → cache populated
+    prismaMock.uiSetting.findMany.mockResolvedValue([
+      { storeId: 0, value: { a: 'v1', b: '' } },
+    ]);
+    await runWithTenant(
+      { tenantId: 7, storeId: 9, isDefaultStore: false, scope: 'tenant' },
+      async () => await makeStoreWithKey('k-cacheclr').read(),
+    );
+    expect(prismaMock.uiSetting.findMany).toHaveBeenCalledTimes(1);
+
+    // Default store writes → settingsCache.clear() called
+    prismaMock.uiSetting.upsert.mockResolvedValue({});
+    await runWithTenant(
+      { tenantId: 7, storeId: null, isDefaultStore: true, scope: 'tenant' },
+      async () => await makeStoreWithKey('k-cacheclr').write({ a: 'v2', b: '' }),
+    );
+
+    // Non-default store reads again → cache miss, re-fetches DB
+    prismaMock.uiSetting.findMany.mockResolvedValue([
+      { storeId: 0, value: { a: 'v2', b: '' } },
+    ]);
+    const result = await runWithTenant(
+      { tenantId: 7, storeId: 9, isDefaultStore: false, scope: 'tenant' },
+      async () => await makeStoreWithKey('k-cacheclr').read(),
+    );
+    expect(result.a).toBe('v2');
+    expect(prismaMock.uiSetting.findMany).toHaveBeenCalledTimes(2); // re-fetched after cache clear
   });
 });
