@@ -4,8 +4,8 @@
  * Phase-2e Task 7 — Admin multi-store operations
  *
  * Proves:
- *   1. Admin store management  — create a 2nd store, clone overrides from default,
- *                                 appear in /manage.
+ *   1. Admin store management  — create a 2nd store, clone-from-default seeds it from
+ *                                 the base catalog, appear in /manage.
  *   2. Admin switcher (API)    — X-Store-Id header filters orders to one store;
  *                                 X-Store-Id: 0 ("All stores") aggregates across stores.
  *   3. Staff-store constraint  — a staff member scoped to store A is denied (403) at
@@ -19,7 +19,6 @@ import { test, expect, request } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import {
   getDefaultTenantId,
-  createStoreVariantOverride,
   deleteTestStore,
 } from '../helpers/db';
 
@@ -155,11 +154,6 @@ test.describe('Admin multi-store operations', () => {
       prodBody.data.product as { variants: Array<{ id: number }> }
     ).variants[0].id;
 
-    // --- seed StoreVariantOverride on the DEFAULT store (for clone test) -------
-    // cloneFromDefault copies overrides from the default store's SVO rows.
-    // Seeding one here gives us a concrete row to verify after cloning.
-    createStoreVariantOverride(tenantId, defaultStoreId, variantId, 50);
-
     // --- find manager user id --------------------------------------------------
     const usersBody = await (
       await ctx.get(`${API}/api/users`, {
@@ -197,18 +191,10 @@ test.describe('Admin multi-store operations', () => {
       });
     }
 
-    // 2. Remove the StoreVariantOverride we seeded on the default store.
-    //    (Store B's copy was cascade-deleted with the store below.)
-    if (defaultStoreId && variantId && adminToken) {
-      await ctx.delete(
-        `${API}/api/store-overrides?storeId=${defaultStoreId}&variantId=${variantId}`,
-        { headers: { Authorization: `Bearer ${adminToken}` } },
-      );
-    }
-
     await ctx.dispose();
 
-    // 3. Delete store B. Its StoreVariantOverride rows cascade-delete via FK.
+    // 2. Delete store B. Its StoreVariantOverride rows (incl. the base-catalog seed
+    //    from clone-from-default) cascade-delete via FK.
     //    Orders at store B have no FK to stores (storeId is a plain Int? — no onDelete);
     //    those rows remain but are tenant-isolated and harmless.
     if (storeBId) {
@@ -235,8 +221,21 @@ test.describe('Admin multi-store operations', () => {
     expect(found, `store B (id=${storeBId}) must appear in /api/stores/manage`).toBeTruthy();
   });
 
-  test('1b — POST /api/stores/:B/clone-from-default copies default store overrides to store B', async () => {
+  test('1b — POST /api/stores/:B/clone-from-default seeds store B from the base catalog', async () => {
     const ctx = await request.newContext();
+
+    // Read the variant's BASE (tenant-wide) stock/price BEFORE cloning, via the
+    // admin-only base scope (Phase-2e Task 6 fix) — so the post-clone assertion
+    // checks against the real base value, not a magic number.
+    const baseProductsRes = await ctx.get(`${API}/api/products?scope=base`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const baseProductsBody = await baseProductsRes.json();
+    const baseProducts = Array.isArray(baseProductsBody) ? baseProductsBody : baseProductsBody.data;
+    const baseVariant = (baseProducts as Array<{ variants: Array<{ id: number; stock: number }> }>)
+      .flatMap((p) => p.variants)
+      .find((v) => v.id === variantId);
+    expect(baseVariant, 'base-scope read must include the test variant').toBeTruthy();
 
     // Trigger clone.
     const cloneRes = await ctx.post(`${API}/api/stores/${storeBId}/clone-from-default`, {
@@ -249,10 +248,11 @@ test.describe('Admin multi-store operations', () => {
     ).toBe(200);
     expect(
       (cloneBody.data as { overridesCopied: number }).overridesCopied,
-      'clone should report at least 1 override copied (the one seeded on the default store)',
+      'clone should seed an override for every tenant variant (at least the one under test)',
     ).toBeGreaterThanOrEqual(1);
 
-    // Verify store B now has the override we seeded on the default store.
+    // Verify store B now has a base-catalog-seeded override for the test variant:
+    // stock matches the BASE variant's stock, and price/active are left null (inherit).
     const overridesRes = await ctx.get(
       `${API}/api/store-overrides?storeId=${storeBId}`,
       { headers: { Authorization: `Bearer ${adminToken}` } },
@@ -260,14 +260,19 @@ test.describe('Admin multi-store operations', () => {
     const overridesBody = await overridesRes.json();
     expect(overridesRes.status()).toBe(200);
 
-    const overrides = (overridesBody.data as { overrides: Array<{ variantId: number; stock: number }> })
-      .overrides;
+    const overrides = (
+      overridesBody.data as {
+        overrides: Array<{ variantId: number; stock: number; priceOverride: number | null; activeOverride: boolean | null }>;
+      }
+    ).overrides;
     const cloned = overrides.find((ov) => ov.variantId === variantId);
     expect(
       cloned,
       `store B must have a StoreVariantOverride for variantId=${variantId} after clone-from-default`,
     ).toBeTruthy();
-    expect(cloned?.stock, 'cloned override must carry the seeded stock value (50)').toBe(50);
+    expect(cloned?.stock, 'cloned stock must match the base variant stock (seed-from-base)').toBe(baseVariant!.stock);
+    expect(cloned?.priceOverride, 'cloned priceOverride must be null (inherits base price + breaks)').toBeNull();
+    expect(cloned?.activeOverride, 'cloned activeOverride must be null (inherits base active)').toBeNull();
 
     await ctx.dispose();
   });
