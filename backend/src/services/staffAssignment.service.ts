@@ -20,6 +20,32 @@ export interface StoreRoleResult {
 }
 
 /**
+ * Collapse a role's resolved storeId set into the API-facing shape.
+ *
+ * A role reads back as 'all' ONLY when its ENTIRE storeId set is exactly
+ * [0] (the all-stores sentinel and nothing else) — matching the write
+ * path's own normalisation ('all' input → storeIds [0]) and its input
+ * validation, which rejects mixing sentinel 0 with real store ids within a
+ * single assignment.
+ *
+ * Any other set — specific store ids, or a mixed/anomalous set containing 0
+ * alongside real ids — is returned as the real, sorted array of ids. A
+ * mixed set shouldn't occur via the normal write path (it's rejected up
+ * front), but historical rows or a direct DB edit could still produce one;
+ * silently collapsing that to 'all' would mask the specific store ids from
+ * a caller reading it back, so this returns the real array instead.
+ *
+ * Shared by `setUserRoleAssignments` and `getUserRoleAssignments` so the
+ * write and read collapse rules can never diverge.
+ */
+function collapseStoreIds(storeIds: number[]): number[] | 'all' {
+  if (storeIds.length === 1 && storeIds[0] === 0) {
+    return 'all';
+  }
+  return [...storeIds].sort((a, b) => a - b);
+}
+
+/**
  * Replace the store assignments for the given roles on a single staff user.
  *
  * - Only roles explicitly listed in `assignments` are replaced; the user's
@@ -46,14 +72,22 @@ export async function setUserRoleAssignments(
   // ── 2. Validate + resolve each assignment ────────────────────────────────────
   const processed: Array<{ roleId: number; roleName: string; storeIds: number[] }> = [];
 
+  // Roles are a small, global (unscoped) table — batch-fetch every role
+  // referenced by this call in ONE query up front instead of one findFirst
+  // round-trip per assignment inside the loop below (avoids N+1).
+  const requestedRoleNames = [...new Set(assignments.map((a) => a.roleName))];
+  const foundRoles = await prisma.role.findMany({
+    where: { name: { in: requestedRoleNames } },
+  });
+  const roleByName = new Map(foundRoles.map((r) => [r.name, r]));
+
   for (const assignment of assignments) {
     // Validate roleName against the known enum
     if (!isRoleName(assignment.roleName)) {
       throw new AppError(`Unknown role name: ${assignment.roleName}`, 400);
     }
 
-    // Roles are a global (unscoped) table — look up without tenant filter
-    const role = await prisma.role.findFirst({ where: { name: assignment.roleName } });
+    const role = roleByName.get(assignment.roleName);
     if (!role) {
       throw new AppError(`Role not found in database: ${assignment.roleName}`, 400);
     }
@@ -151,10 +185,7 @@ export async function setUserRoleAssignments(
   const resultAssignments: StoreRoleResult[] = Object.entries(grouped).map(
     ([roleName, storeIds]) => ({
       roleName,
-      storeIds:
-        storeIds.length === 1 && storeIds[0] === 0
-          ? 'all'
-          : storeIds.sort((a, b) => a - b),
+      storeIds: collapseStoreIds(storeIds),
     }),
   );
 
@@ -164,9 +195,11 @@ export async function setUserRoleAssignments(
 /**
  * Read the current store assignments for a staff user, grouped by role.
  *
- * Returns the same `{ userId, assignments }` shape as `setUserRoleAssignments`.
- * A storeId=0 sentinel row is represented as 'all'; a role with a 0 row
- * supersedes any specific-store rows and is returned as storeIds:'all'.
+ * Returns the same `{ userId, assignments }` shape as `setUserRoleAssignments`,
+ * using the same `collapseStoreIds` rule: a role reads back as 'all' only
+ * when its entire storeId set is exactly [0]. Any other set (including a
+ * mixed/anomalous 0 + real-id set from historical data) is returned as the
+ * real array of ids.
  */
 export async function getUserRoleAssignments(
   userId: number,
@@ -197,11 +230,7 @@ export async function getUserRoleAssignments(
   const assignments: StoreRoleResult[] = Object.entries(grouped).map(
     ([roleName, storeIds]) => ({
       roleName,
-      // If any of the storeId values is 0 (all-stores sentinel), the role is 'all'
-      storeIds:
-        storeIds.includes(0)
-          ? 'all'
-          : storeIds.sort((a, b) => a - b),
+      storeIds: collapseStoreIds(storeIds),
     }),
   );
 

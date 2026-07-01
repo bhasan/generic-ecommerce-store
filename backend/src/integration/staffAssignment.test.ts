@@ -327,4 +327,76 @@ describe('getUserRoleAssignments', () => {
       }),
     ).rejects.toMatchObject({ statusCode: 404 });
   });
+
+  it('returns the real array [0, realId] (NOT "all") for a mixed storeId 0 + real-store set seeded directly in the DB', async () => {
+    await clearUserRoles();
+
+    // Bypass the normal write-path validation (which rejects mixing 0 with
+    // real ids in a single assignment) by writing rows directly, simulating
+    // historical/anomalous data.
+    await base.userRole.createMany({
+      data: [
+        { userId, roleId: employeeRoleId, tenantId, storeId: 0 },
+        { userId, roleId: employeeRoleId, tenantId, storeId: s1Id },
+      ],
+    });
+
+    const result = await runWithTenant(
+      { tenantId, storeId: null, scope: 'tenant' },
+      async () => await getUserRoleAssignments(userId),
+    );
+
+    const emp = result.assignments.find((a) => a.roleName === 'EMPLOYEE');
+    expect(emp).toBeDefined();
+    expect(emp!.storeIds).not.toBe('all');
+    expect(Array.isArray(emp!.storeIds)).toBe(true);
+    expect((emp!.storeIds as number[]).slice().sort((a, b) => a - b)).toEqual(
+      [0, s1Id].sort((a, b) => a - b),
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Batched role lookup (N+1 fix) — multiple assignments in a single call
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('setUserRoleAssignments — multiple assignments (batched role lookup)', () => {
+  it('resolves each of several different-role assignments correctly in a single call', async () => {
+    await clearUserRoles();
+
+    const result = await runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+      return await setUserRoleAssignments(userId, [
+        { roleName: 'EMPLOYEE', storeIds: [s1Id] },
+        { roleName: 'MANAGEMENT', storeIds: [s2Id] },
+      ]);
+    });
+
+    const emp = result.assignments.find((a) => a.roleName === 'EMPLOYEE');
+    const mgmt = result.assignments.find((a) => a.roleName === 'MANAGEMENT');
+    expect(emp?.storeIds).toEqual([s1Id]);
+    expect(mgmt?.storeIds).toEqual([s2Id]);
+
+    const empRows = await base.userRole.findMany({
+      where: { userId, roleId: employeeRoleId, tenantId },
+    });
+    expect(empRows).toHaveLength(1);
+    expect(empRows[0].storeId).toBe(s1Id);
+
+    const mgmtRows = await base.userRole.findMany({
+      where: { userId, roleId: managementRoleId, tenantId },
+    });
+    expect(mgmtRows).toHaveLength(1);
+    expect(mgmtRows[0].storeId).toBe(s2Id);
+  });
+
+  it('still rejects an unknown role name when mixed in with valid assignments, with 400', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+        await setUserRoleAssignments(userId, [
+          { roleName: 'EMPLOYEE', storeIds: [s1Id] },
+          { roleName: 'DOES_NOT_EXIST', storeIds: [s2Id] },
+        ]);
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
 });
