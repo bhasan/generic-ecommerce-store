@@ -94,16 +94,31 @@ export function createTestStore(tenantId: number, slug: string, name: string): n
  * Insert a StoreVariantOverride for the given store + variant.
  * stock_variant_overrides has @@unique([storeId, variantId]); using a fresh
  * storeId each test run keeps this safe across re-runs.
+ *
+ * Optional params (backward-compatible — existing callers omit them):
+ *   priceOverride  – decimal price override stored in "priceOverride" column.
+ *                    Omitted from SQL when undefined so the DB default (NULL) applies.
+ *   activeOverride – boolean stored in "activeOverride" column.
+ *                    Omitted from SQL when undefined.
  */
 export function createStoreVariantOverride(
   tenantId: number,
   storeId: number,
   variantId: number,
   stock: number,
+  priceOverride?: number,
+  activeOverride?: boolean,
 ): void {
+  const extraCols =
+    (priceOverride !== undefined ? ', "priceOverride"' : '') +
+    (activeOverride !== undefined ? ', "activeOverride"' : '');
+  const extraVals =
+    (priceOverride !== undefined ? `, ${priceOverride}` : '') +
+    (activeOverride !== undefined ? `, ${activeOverride}` : '');
+
   execPsql(
-    `INSERT INTO store_variant_overrides ("tenantId", "storeId", "variantId", stock, "createdAt", "updatedAt") ` +
-    `VALUES (${tenantId}, ${storeId}, ${variantId}, ${stock}, now(), now())`,
+    `INSERT INTO store_variant_overrides ("tenantId", "storeId", "variantId", stock${extraCols}, "createdAt", "updatedAt") ` +
+    `VALUES (${tenantId}, ${storeId}, ${variantId}, ${stock}${extraVals}, now(), now())`,
   );
 }
 
