@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import userService from '../services/user.service';
+import { setUserRoleAssignments } from '../services/staffAssignment.service';
 import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 import { successResponse } from '../utils/responseEnvelope';
@@ -85,6 +86,14 @@ export class UserController {
   async getAllRoles(_req: Request, res: Response) : Promise<void> {
     const roles = await userService.getAllRoles();
     res.status(200).json(successResponse(roles));
+  }
+
+  async setStoreRoles(req: Request, res: Response): Promise<void> {
+    const userId = parseInt(req.params.id, 10);
+    const { assignments } = req.body;
+    const result = await setUserRoleAssignments(userId, assignments);
+    logAuditEvent(req, 'Staff store-role assignments updated', { targetUserId: userId });
+    res.status(200).json(successResponse(result, 'Store role assignments updated successfully'));
   }
 }
 
