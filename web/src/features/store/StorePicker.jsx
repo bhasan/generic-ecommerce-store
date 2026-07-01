@@ -13,7 +13,7 @@ function StorePicker() {
   const { stores, activeStoreId, isMultiStore, selectStore } = useStoreSelection();
 
   // Invisible for single-store tenants or once a selection exists
-  if (!isMultiStore || activeStoreId !== null) return null;
+  if (!isMultiStore || activeStoreId != null) return null;
 
   return (
     <BaseModal
