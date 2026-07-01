@@ -60,9 +60,9 @@ const store = new SettingsStore<OrderingConstraints>({
 
 const OFFLINE_ZIPS_TTL_MS = 5 * 60 * 1000;
 
-// Module-level cache shared across service instances, keyed by tenantId so one
-// tenant's offline ZIPs are never served to another.
-const _offlineZipsCache = new Map<number, { zips: string[]; expiresAt: number }>();
+// Module-level cache shared across service instances, keyed by "${tenantId}:${effectiveStoreId}"
+// so one store's offline ZIPs are never served to another store of the same tenant.
+const _offlineZipsCache = new Map<string, { zips: string[]; expiresAt: number }>();
 
 export function invalidateOfflineZipsCache(): void {
   _offlineZipsCache.clear();
@@ -70,21 +70,36 @@ export function invalidateOfflineZipsCache(): void {
 
 export class OrderingConstraintsService {
   private async getOfflineZips(): Promise<string[]> {
-    const tenantId = getTenantContext()?.tenantId ?? 0;
+    const ctx = getTenantContext();
+    const effectiveStoreId = ctx?.isDefaultStore ? 0 : (ctx?.storeId ?? 0);
+    const cacheKey = `${ctx?.tenantId ?? 0}:${effectiveStoreId}`;
     const now = Date.now();
-    const hit = _offlineZipsCache.get(tenantId);
+    const hit = _offlineZipsCache.get(cacheKey);
     if (hit && now < hit.expiresAt) {
       return hit.zips;
     }
-    // findFirst (not findUnique): `key` is unique only per tenant now; the
-    // extension injects tenantId.
-    const row = await prisma.uiSetting.findFirst({ where: { key: 'store_settings' } });
-    const address = row && row.value && typeof (row.value as Record<string, unknown>).address === 'string'
-      ? (row.value as Record<string, unknown>).address as string
-      : null;
+    // findMany retrieves both the tenant default (storeId=0) and the per-store
+    // override in one query; the $extends interceptor injects tenantId automatically.
+    const rows = await prisma.uiSetting.findMany({
+      where: { key: 'store_settings', storeId: { in: [0, effectiveStoreId] } },
+    });
+    const extractAddress = (row: (typeof rows)[number] | undefined): string => {
+      if (
+        row?.value &&
+        typeof row.value === 'object' &&
+        typeof (row.value as { address?: unknown }).address === 'string' &&
+        (row.value as { address: string }).address.trim()
+      ) {
+        return (row.value as { address: string }).address;
+      }
+      return '';
+    };
+    const overrideRow = rows.find((r) => r.storeId === effectiveStoreId);
+    const defaultRow = rows.find((r) => r.storeId === 0);
+    const address = extractAddress(overrideRow) || extractAddress(defaultRow);
     const zip = extractZipCodeFromFreeformAddress(address);
     const zips = zip ? [zip] : [];
-    _offlineZipsCache.set(tenantId, { zips, expiresAt: now + OFFLINE_ZIPS_TTL_MS });
+    _offlineZipsCache.set(cacheKey, { zips, expiresAt: now + OFFLINE_ZIPS_TTL_MS });
     return zips;
   }
 
