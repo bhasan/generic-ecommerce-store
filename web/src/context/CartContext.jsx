@@ -66,16 +66,36 @@ export function CartProvider({ children }) {
 
   const [cart, setCart] = useState(() => loadCartFromStorage(activeStoreId));
 
-  // Re-initialize cart when the user switches between two concrete stores (non-null → non-null).
-  // We intentionally SKIP the null → storeId transition (initial auto-select for single-store
-  // or first load) so the cart already loaded by useState from the fallback key is preserved and
-  // saves correctly migrate to the new store key without wiping an in-progress cart.
+  // Re-initialize cart on store changes:
+  // - Real store-to-store switch (A → B, both non-null): always reload from new store's key.
+  // - null → N (initial async resolve for single-store or restored multi-store):
+  //     • Per-store key EXISTS in localStorage → load it (7-day TTL check applies inside
+  //       loadCartFromStorage). Respects a deliberately-emptied cart — an absent key means
+  //       the user cleared it and the save effect already removed it.
+  //     • Per-store key ABSENT → keep in-memory cart (one-time migration of legacy cartData_v2);
+  //       remove the legacy key and force a re-save so the cart lands under the per-store key.
   useEffect(() => {
     const prev = prevNonNullStoreIdRef.current;
     if (activeStoreId != null) {
       if (prev !== null && prev !== activeStoreId) {
         // Real store switch: reload cart from the new store's key
         setCart(loadCartFromStorage(activeStoreId));
+      } else if (prev === null) {
+        // null → N: key-existence decides, not item count
+        const perStoreKey = getStorageKey(activeStoreId);
+        if (localStorage.getItem(perStoreKey) !== null) {
+          // Key exists: load it; loadCartFromStorage handles the 7-day TTL and key removal
+          setCart(loadCartFromStorage(activeStoreId));
+        } else {
+          // Key absent: migration — keep in-memory cart, remove legacy key.
+          // Force a re-save only when items exist to migrate; skipping the setCart for
+          // empty carts avoids a spurious save-effect that could remove a concurrently
+          // written per-store key from a sibling CartProvider (e.g. nested providers).
+          localStorage.removeItem('cartData_v2');
+          if (cart.length > 0) {
+            setCart(c => [...c]);
+          }
+        }
       }
       prevNonNullStoreIdRef.current = activeStoreId;
     }

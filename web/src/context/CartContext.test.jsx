@@ -156,4 +156,45 @@ describe('CartContext', () => {
       expect(result.current.cart[0].variantId).toBe(42);
     });
   });
+
+  describe('null-to-store reload lifecycle (single-store persistence)', () => {
+    it('(reload) loads per-store cart when activeStoreId resolves from null to N', async () => {
+      const storeId = 5;
+      const key = `cartData_v2_store_${storeId}`;
+      // Simulate a page reload: per-store key already exists in localStorage
+      localStorage.setItem(key, JSON.stringify({ items: [{ variantId: 77, quantity: 2 }], savedAt: Date.now() }));
+
+      // Start with activeStoreId: null (async not yet resolved)
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: null });
+      const { result, rerender } = renderHook(() => useCartContext(), { wrapper });
+      // null phase: loads from cartData_v2 (absent) → empty
+      expect(result.current.cart).toHaveLength(0);
+
+      // Simulate async resolve: null → 5
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId });
+      rerender();
+      await waitFor(() => expect(result.current.cart).toHaveLength(1));
+      expect(result.current.cart[0].variantId).toBe(77);
+    });
+
+    it('(migration) preserves legacy cartData_v2 cart through null→N when no per-store key exists, and removes cartData_v2 afterward', async () => {
+      const storeId = 9;
+      // Seed legacy key only (no per-store key for store 9)
+      localStorage.setItem('cartData_v2', JSON.stringify([{ variantId: 42, quantity: 3 }]));
+
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: null });
+      const { result, rerender } = renderHook(() => useCartContext(), { wrapper });
+      // null phase: legacy cart loaded
+      expect(result.current.cart).toHaveLength(1);
+      expect(result.current.cart[0].variantId).toBe(42);
+
+      // Resolve to store N (no per-store key exists)
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId });
+      rerender();
+      // After migration: cartData_v2 removed AND cart items preserved
+      await waitFor(() => expect(localStorage.getItem('cartData_v2')).toBeNull());
+      expect(result.current.cart).toHaveLength(1);
+      expect(result.current.cart[0].variantId).toBe(42);
+    });
+  });
 });
