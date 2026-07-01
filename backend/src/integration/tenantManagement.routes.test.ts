@@ -29,6 +29,9 @@ const controllerStub = vi.hoisted(() => ({
   create: vi.fn((_req: any, res: any) => res.status(201).json({ data: {} })),
   setStatus: vi.fn((_req: any, res: any) => res.status(200).json({ data: {} })),
   regenerateTokens: vi.fn((_req: any, res: any) => res.status(200).json({ data: {} })),
+  update: vi.fn((_req: any, res: any) => res.status(200).json({ data: {} })),
+  remove: vi.fn((_req: any, res: any) => res.status(200).json({ data: {} })),
+  audit: vi.fn((_req: any, res: any) => res.status(200).json({ data: [] })),
 }));
 
 vi.mock('../utils/jwt.util', () => ({ verifyToken, extractTokenFromHeader }));
@@ -124,6 +127,24 @@ describe('tenant-management route gate (SUPER_ADMIN only)', () => {
       expect(res.status).toBe(401);
       expect(controllerStub.regenerateTokens).not.toHaveBeenCalled();
     });
+
+    it('PATCH /:id → 401', async () => {
+      const res = await call(server, 'PATCH', '/api/admin/tenants/1', { body: { name: 'X' } });
+      expect(res.status).toBe(401);
+      expect(controllerStub.update).not.toHaveBeenCalled();
+    });
+
+    it('DELETE /:id → 401', async () => {
+      const res = await call(server, 'DELETE', '/api/admin/tenants/1');
+      expect(res.status).toBe(401);
+      expect(controllerStub.remove).not.toHaveBeenCalled();
+    });
+
+    it('GET /audit → 401', async () => {
+      const res = await call(server, 'GET', '/api/admin/tenants/audit');
+      expect(res.status).toBe(401);
+      expect(controllerStub.audit).not.toHaveBeenCalled();
+    });
   });
 
   // ── Regular ADMIN → 403 (must never manage all tenants) ─────────────────────
@@ -162,6 +183,24 @@ describe('tenant-management route gate (SUPER_ADMIN only)', () => {
       expect(res.status).toBe(403);
       expect(controllerStub.regenerateTokens).not.toHaveBeenCalled();
     });
+
+    it('PATCH /:id → 403, controller NOT reached', async () => {
+      const res = await call(server, 'PATCH', '/api/admin/tenants/1', { roles: ['ADMIN'], body: { name: 'X' } });
+      expect(res.status).toBe(403);
+      expect(controllerStub.update).not.toHaveBeenCalled();
+    });
+
+    it('DELETE /:id → 403, controller NOT reached', async () => {
+      const res = await call(server, 'DELETE', '/api/admin/tenants/1', { roles: ['ADMIN'] });
+      expect(res.status).toBe(403);
+      expect(controllerStub.remove).not.toHaveBeenCalled();
+    });
+
+    it('GET /audit → 403, controller NOT reached', async () => {
+      const res = await call(server, 'GET', '/api/admin/tenants/audit', { roles: ['ADMIN'] });
+      expect(res.status).toBe(403);
+      expect(controllerStub.audit).not.toHaveBeenCalled();
+    });
   });
 
   // ── SUPER_ADMIN → reaches controller ─────────────────────────────────────────
@@ -197,6 +236,24 @@ describe('tenant-management route gate (SUPER_ADMIN only)', () => {
       });
       expect(res.status).toBe(200);
       expect(controllerStub.regenerateTokens).toHaveBeenCalledOnce();
+    });
+
+    it('PATCH /:id → 200, controller.update called', async () => {
+      const res = await call(server, 'PATCH', '/api/admin/tenants/1', { roles: ['SUPER_ADMIN'], body: { name: 'X' } });
+      expect(res.status).toBe(200);
+      expect(controllerStub.update).toHaveBeenCalledOnce();
+    });
+
+    it('DELETE /:id → 200, controller.remove called', async () => {
+      const res = await call(server, 'DELETE', '/api/admin/tenants/1', { roles: ['SUPER_ADMIN'] });
+      expect(res.status).toBe(200);
+      expect(controllerStub.remove).toHaveBeenCalledOnce();
+    });
+
+    it('GET /audit → 200, controller.audit called', async () => {
+      const res = await call(server, 'GET', '/api/admin/tenants/audit', { roles: ['SUPER_ADMIN'] });
+      expect(res.status).toBe(200);
+      expect(controllerStub.audit).toHaveBeenCalledOnce();
     });
   });
 });
