@@ -10,6 +10,9 @@ const storeController = new StoreController();
 // Authenticated: the store list is used by the in-app picker/switcher.
 router.get('/', authenticate, asyncHandler(storeController.list));
 
+// Admin-only: all stores (including SUSPENDED) for the tenant-admin management screen.
+router.get('/manage', authenticate, authorizeAdmin, asyncHandler(storeController.listAll));
+
 // Admin-only store management endpoints.
 router.post('/', authenticate, authorizeAdmin, asyncHandler(storeController.create));
 router.patch('/:id', authenticate, authorizeAdmin, asyncHandler(storeController.update));

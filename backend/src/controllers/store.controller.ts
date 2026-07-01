@@ -12,6 +12,12 @@ export class StoreController {
     res.status(200).json(successResponse(stores));
   }
 
+  // GET /manage  (admin: all stores including SUSPENDED)
+  async listAll(_req: Request, res: Response): Promise<void> {
+    const stores = await storeService.listAllStores();
+    res.status(200).json(successResponse(stores));
+  }
+
   // POST /
   async create(req: Request, res: Response): Promise<void> {
     const { name, slug } = req.body as { name?: unknown; slug?: unknown };

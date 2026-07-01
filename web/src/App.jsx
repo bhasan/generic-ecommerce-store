@@ -46,6 +46,7 @@ import DeliveryPage from './features/website/pages/DeliveryPage';
 // (inherits the parent /website-management ADMIN guard); it will move to a
 // dedicated super-admin portal later.
 import TenantsPage from './features/website/pages/TenantsPage';
+import StoresPage from './features/website/pages/StoresPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
 import ManageStorePage from './features/manage-store/ManageStorePage';
@@ -202,6 +203,8 @@ function AppContent() {
                 <TenantsPage />
               </ProtectedRoute>
             } />
+            {/* Store management — per-tenant-admin (ADMIN role, not SUPER_ADMIN). */}
+            <Route path="stores" element={<StoresPage />} />
           </Route>
 
           {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}

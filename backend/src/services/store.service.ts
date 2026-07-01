@@ -6,12 +6,22 @@ import { AppError } from '../middleware/error.middleware';
 // Never use getTenantPrisma() for store queries — it will not inject tenantId.
 
 export class StoreService {
-  // ── List ──────────────────────────────────────────────────────────────────
+  // ── List (customer-facing: ACTIVE only) ──────────────────────────────────
   async listStores() {
     const { tenantId } = getTenantContextOrThrow();
     return getUnscopedPrisma().store.findMany({
       where: { tenantId, status: 'ACTIVE' },
       select: { id: true, name: true, slug: true, isDefault: true },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    });
+  }
+
+  // ── List All (admin: includes SUSPENDED, exposes status) ──────────────────
+  async listAllStores() {
+    const { tenantId } = getTenantContextOrThrow();
+    return getUnscopedPrisma().store.findMany({
+      where: { tenantId },
+      select: { id: true, name: true, slug: true, isDefault: true, status: true },
       orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
     });
   }

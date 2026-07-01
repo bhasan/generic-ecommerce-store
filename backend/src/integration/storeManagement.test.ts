@@ -114,6 +114,56 @@ afterAll(async () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// listAllStores
+// ─────────────────────────────────────────────────────────────────────────────
+describe('listAllStores', () => {
+  let suspendedId: number;
+
+  beforeAll(async () => {
+    const s = await base.store.create({
+      data: { tenantId, name: 'Suspended Store', slug: 'suspended-store', isDefault: false, status: 'SUSPENDED' },
+    });
+    suspendedId = s.id;
+  });
+
+  afterAll(async () => {
+    if (suspendedId) await base.store.deleteMany({ where: { id: suspendedId } });
+  });
+
+  it('returns SUSPENDED stores (omitted by listStores) and includes status field, scoped to tenant', async () => {
+    const all = await runWithTenant(
+      { tenantId, storeId: null, scope: 'tenant' },
+      async () => svc.listAllStores(),
+    );
+    const active = await runWithTenant(
+      { tenantId, storeId: null, scope: 'tenant' },
+      async () => svc.listStores(),
+    );
+
+    // listAllStores includes the suspended store; listStores does not.
+    const allIds = all.map((s) => s.id);
+    const activeIds = active.map((s) => s.id);
+    expect(allIds).toContain(suspendedId);
+    expect(activeIds).not.toContain(suspendedId);
+
+    // Every row returned by listAllStores has a status field.
+    for (const s of all) {
+      expect(s).toHaveProperty('status');
+    }
+
+    // All rows are scoped to the correct tenant (no cross-tenant leakage).
+    const otherAll = await runWithTenant(
+      { tenantId: otherTenantId, storeId: null, scope: 'tenant' },
+      async () => svc.listAllStores(),
+    );
+    const otherIds = otherAll.map((s) => s.id);
+    for (const id of allIds) {
+      expect(otherIds).not.toContain(id);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // createStore
 // ─────────────────────────────────────────────────────────────────────────────
 describe('createStore', () => {
