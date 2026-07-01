@@ -68,12 +68,13 @@ describe('TenantManagementService', () => {
       const user = await base.user.findFirst({ where: { tenantId: tenantAId, username: 'admin-a' } });
       expect(user?.approved).toBe(true);
 
-      // Verify the admin user has the ADMIN role.
+      // Verify the admin user has the ADMIN role across ALL stores (storeId 0).
       const userRole = await base.userRole.findFirst({
         where: { userId: user!.id, tenantId: tenantAId },
         include: { role: true },
       });
       expect(userRole?.role.name).toBe('ADMIN');
+      expect(userRole?.storeId).toBe(0);
     });
 
     it('rejects a duplicate slug with 409', async () => {

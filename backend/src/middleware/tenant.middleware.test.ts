@@ -130,8 +130,10 @@ describe('resolveTenant', () => {
 
   describe('active store selection (X-Store-Id)', () => {
     const wireStores = (opts: { selected?: any; def?: any }) => {
-      // store.findFirst serves BOTH the selected lookup and the default lookup;
-      // disambiguate by the where clause.
+      // store.findFirst serves BOTH the selected-store lookup (where: { id, tenantId,
+      // status }) and the default-store lookup (where: { isDefault: true, ... });
+      // disambiguate on `isDefault`. `?? null` normalizes an unset opt to null (Prisma's
+      // "not found"); the no-header test never reaches the selected branch anyway.
       findStore.mockImplementation(async (args: any) => {
         if (args.where?.isDefault) return opts.def ?? null;
         return opts.selected ?? null;
