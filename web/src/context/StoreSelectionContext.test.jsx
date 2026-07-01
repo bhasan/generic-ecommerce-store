@@ -5,7 +5,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../services/storesApi', () => ({ getStores: vi.fn() }));
 
+// Default: authenticated user so existing tests exercise the fetch path.
+vi.mock('./AuthContext', () => ({
+  useAuthContext: vi.fn(() => ({ isLoading: false, isAuthenticated: true })),
+}));
+
 import * as storesApi from '../services/storesApi';
+import { useAuthContext } from './AuthContext';
 
 const wrapper = ({ children }) => (
   <StoreSelectionProvider>{children}</StoreSelectionProvider>
@@ -15,6 +21,8 @@ describe('StoreSelectionContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    // Reset to the authenticated default after each test.
+    useAuthContext.mockReturnValue({ isLoading: false, isAuthenticated: true });
   });
 
   it('(a) single store → auto-selected, isMultiStore=false', async () => {
@@ -76,6 +84,19 @@ describe('StoreSelectionContext', () => {
 
     expect(result.current.activeStoreId).toBeNull();
     expect(localStorage.getItem('selectedStoreId')).toBeNull();
+  });
+
+  it('(e) guest (isAuthenticated=false) → getStores not called, isMultiStore=false, activeStoreId=null, loading=false', async () => {
+    useAuthContext.mockReturnValue({ isLoading: false, isAuthenticated: false });
+
+    const { result } = renderHook(() => useStoreSelection(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(storesApi.getStores).not.toHaveBeenCalled();
+    expect(result.current.isMultiStore).toBe(false);
+    expect(result.current.activeStoreId).toBeNull();
+    expect(result.current.stores).toHaveLength(0);
   });
 
   it('throws when used outside StoreSelectionProvider', () => {

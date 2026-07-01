@@ -277,6 +277,8 @@ describe('AppContext', () => {
   });
 
   it('persists cart changes to localStorage after adding an item', async () => {
+    // No token → guest user. getStores is now auth-gated, so activeStoreId stays null
+    // and the cart is persisted under the legacy key 'cartData_v2' (no per-store suffix).
     renderWithProviders(
       <AppProvider>
         <ContextHarness />
@@ -289,7 +291,7 @@ describe('AppContext', () => {
 
     fireEvent.click(screen.getByText('Add To Cart'));
 
-    await waitFor(() => expect(localStorage.getItem('cartData_v2_store_1')).toContain('"productId":101'));
+    await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
     expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
   });
 
@@ -409,6 +411,8 @@ describe('AppContext', () => {
     // storeLoading must appear on useApp() and must be a boolean.
     // The bare `loading` key must NOT be present — its absence prevents the store-fetch flag
     // from silently shadowing any `loading` key added by auth, cart, catalog, or other contexts.
+    // getStores is now auth-gated — must supply a token so isAuthenticated=true triggers the fetch.
+    apiModule.getAuthToken.mockReturnValue('token-123');
     function StoreLoadingHarness() {
       const app = useApp();
       return (

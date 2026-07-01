@@ -1,6 +1,7 @@
 // web/src/context/StoreSelectionContext.jsx
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getStores } from '../services/storesApi';
+import { useAuthContext } from './AuthContext';
 
 const StoreSelectionContext = createContext(null);
 
@@ -11,11 +12,24 @@ export const useStoreSelection = () => {
 };
 
 export function StoreSelectionProvider({ children }) {
+  const { isLoading, isAuthenticated } = useAuthContext();
   const [stores, setStores] = useState([]);
   const [activeStoreId, setActiveStoreId] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait until auth resolution is complete before touching the auth-gated endpoint.
+    if (isLoading) return;
+
+    // Guest (unauthenticated): the store list endpoint requires auth.
+    // Set a safe empty state so loading never hangs forever for guests.
+    if (!isAuthenticated) {
+      setStores([]);
+      setActiveStoreId(null);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     const load = async () => {
@@ -55,7 +69,7 @@ export function StoreSelectionProvider({ children }) {
 
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [isLoading, isAuthenticated]);
 
   const selectStore = useCallback((id) => {
     setActiveStoreId(id);

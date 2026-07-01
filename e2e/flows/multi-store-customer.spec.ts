@@ -10,28 +10,9 @@
  *
  * Teardown (afterAll): deletes store B so later specs see a single-store tenant
  * (preserving the customer-order.spec.ts single-store guarantee).
- *
- * ── Product gap note ──────────────────────────────────────────────────────────
- * `StoreSelectionContext` (web/src/context/StoreSelectionContext.jsx) fetches
- * the stores list on mount with an empty dependency array — it does NOT wait for
- * the auth token to be available.  `AuthContext` refreshes the access token on
- * mount in a concurrent async effect (via /api/auth/refresh), creating a race:
- * the stores fetch fires before the Bearer token is set, returns 401, and the
- * context silently falls back to stores=[].  With stores=[], isMultiStore=false
- * and the StorePicker never renders.
- *
- * Workaround in this test: intercept every GET /api/stores request via
- * page.route and inject a fresh customer Bearer token into the Authorization
- * header.  This sends the real request to the real backend and returns real
- * data — we are only fixing the missing header, not faking any response.
- *
- * The fix in production is to gate the stores fetch on isAuthenticated (same
- * pattern CatalogContext already uses) — left for a separate SPA patch.
- * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import { test, expect, request } from '@playwright/test';
-import { Route } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
 import { establishSession } from '../helpers/auth';
 import {
@@ -152,29 +133,6 @@ test.describe('Multi-store customer: store picker → per-store prices → per-s
     async ({ page, context }) => {
       // Establish an authenticated customer session (fresh context — no persisted store).
       await establishSession(context, ACCOUNTS.customer);
-
-      // ── Workaround for auth-race in StoreSelectionContext ─────────────────
-      // Mint a customer bearer token to inject into every GET /api/stores
-      // request so the stores endpoint always sees a valid auth header.
-      // (See the product-gap note at the top of this file.)
-      const tokenCtx = await request.newContext();
-      const tokenResp = await tokenCtx.post(`${API}/api/auth/login`, {
-        data: { username: ACCOUNTS.customer.username, password: ACCOUNTS.customer.password },
-      });
-      const { data: { token: storesAuthToken } } = await tokenResp.json();
-      await tokenCtx.dispose();
-
-      // Intercept GET /api/stores; add Authorization header and proxy to real backend.
-      const storesRouteHandler = async (route: Route) => {
-        const response = await route.fetch({
-          headers: {
-            ...route.request().headers(),
-            Authorization: `Bearer ${storesAuthToken}`,
-          },
-        });
-        await route.fulfill({ response });
-      };
-      await page.route('**/api/stores', storesRouteHandler);
 
       // ── Step 2: StorePicker appears for multi-store tenant ─────────────────
       await page.goto('/products');
@@ -298,9 +256,6 @@ test.describe('Multi-store customer: store picker → per-store prices → per-s
       await page.goto('/cart');
       await expect(page.getByText('Your cart is empty')).not.toBeVisible({ timeout: 5_000 });
       await expect(page.locator('.cart-item-name').first()).toBeVisible();
-
-      // Clean up the route interceptor.
-      await page.unroute('**/api/stores', storesRouteHandler);
     },
   );
 });
