@@ -198,7 +198,8 @@ function modelToTable(model: string): string {
     PrintJob: 'print_jobs', PosOutbox: 'pos_outbox', OrderPosMapping: 'order_pos_mappings',
     Announcement: 'announcements', ContactMessage: 'contact_messages',
     Role: 'roles', RefreshToken: 'refresh_tokens', Tenant: 'tenants', Store: 'stores',
-    AddressGeocodeCache: 'address_geocode_cache', Notification: 'notifications'
+    AddressGeocodeCache: 'address_geocode_cache', Notification: 'notifications',
+    StoreVariantOverride: 'store_variant_overrides',
   };
   return map[model] ?? model.toLowerCase();
 }

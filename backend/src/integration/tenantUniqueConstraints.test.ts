@@ -117,3 +117,44 @@ describe('composite-unique constraints allow cross-tenant duplicates', () => {
     ).resolves.toBeDefined();
   });
 });
+
+describe('StoreVariantOverride constraints', () => {
+  it('two stores can override the same variant; duplicate (storeId, variantId) is rejected; stock < 0 is rejected', async () => {
+    const prisma = getUnscopedPrisma();
+    const t = await prisma.tenant.create({ data: { slug: `svo-${Date.now()}`, name: 'SVO Tenant' } });
+    const s1 = await prisma.store.create({ data: { tenantId: t.id, name: 'S1', slug: 's1', status: 'ACTIVE' } });
+    const s2 = await prisma.store.create({ data: { tenantId: t.id, name: 'S2', slug: 's2', status: 'ACTIVE' } });
+    const s3 = await prisma.store.create({ data: { tenantId: t.id, name: 'S3', slug: 's3', status: 'ACTIVE' } });
+    const cat = await prisma.category.create({ data: { name: 'SVO Cat', tenantId: t.id } });
+    const prod = await prisma.product.create({
+      data: { name: 'SVO Prod', slug: `svo-${Date.now()}`, categoryId: cat.id, tenantId: t.id },
+    });
+    const variant = await prisma.productVariant.create({
+      data: { label: 'Default', sku: `SVO-${Date.now()}`, basePrice: 5.0, productId: prod.id, tenantId: t.id },
+    });
+    try {
+      // Two different stores can each override the same variant
+      await expect(
+        prisma.storeVariantOverride.create({ data: { tenantId: t.id, storeId: s1.id, variantId: variant.id, stock: 10 } }),
+      ).resolves.toBeDefined();
+      await expect(
+        prisma.storeVariantOverride.create({ data: { tenantId: t.id, storeId: s2.id, variantId: variant.id, stock: 5 } }),
+      ).resolves.toBeDefined();
+      // Duplicate (storeId, variantId) must be rejected
+      await expect(
+        prisma.storeVariantOverride.create({ data: { tenantId: t.id, storeId: s1.id, variantId: variant.id, stock: 20 } }),
+      ).rejects.toThrow();
+      // stock < 0 must be rejected (CHECK constraint)
+      await expect(
+        prisma.storeVariantOverride.create({ data: { tenantId: t.id, storeId: s3.id, variantId: variant.id, stock: -1 } }),
+      ).rejects.toThrow();
+    } finally {
+      await prisma.$executeRawUnsafe(`DELETE FROM store_variant_overrides WHERE "tenantId" = $1`, t.id);
+      await prisma.productVariant.deleteMany({ where: { tenantId: t.id } });
+      await prisma.product.deleteMany({ where: { tenantId: t.id } });
+      await prisma.category.deleteMany({ where: { tenantId: t.id } });
+      await prisma.store.deleteMany({ where: { tenantId: t.id } });
+      await prisma.tenant.delete({ where: { id: t.id } });
+    }
+  });
+});
