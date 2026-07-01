@@ -198,5 +198,36 @@ describe('resolveTenant', () => {
       await resolveTenant(b.req, b.res, b.next);
       expect(ctx.isDefaultStore).toBe(true);
     });
+
+    it('X-Store-Id 0 resolves to all-stores context without any DB lookup', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      findStore.mockResolvedValue({ id: 5, isDefault: true }); // should never be called
+      let ctx: any;
+      (runWithTenant as any).mockImplementation((c: any, fn: any) => { ctx = c; return fn(); });
+
+      const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': '0' });
+      await resolveTenant(req, res, next);
+
+      expect(ctx.storeId).toBe(0);
+      expect(ctx.isDefaultStore).toBe(false);
+      expect(req.store).toBeNull();
+      expect(next).toHaveBeenCalled();
+      expect(findStore).not.toHaveBeenCalled();
+    });
+
+    it('only 0 is the all-stores sentinel — a foreign/inactive id still falls back to the default store', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ selected: null, def: { id: 5, isDefault: true } });
+      let ctx: any;
+      (runWithTenant as any).mockImplementation((c: any, fn: any) => { ctx = c; return fn(); });
+
+      const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': '999' });
+      await resolveTenant(req, res, next);
+
+      expect(req.store?.id).toBe(5);
+      expect(ctx.storeId).toBe(5);
+      expect(ctx.isDefaultStore).toBe(true);
+      expect(next).toHaveBeenCalled();
+    });
   });
 });

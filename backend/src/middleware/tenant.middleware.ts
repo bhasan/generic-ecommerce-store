@@ -32,6 +32,7 @@ async function resolveActiveStore(
   headerStoreId: string | undefined,
 ): Promise<{ id: number; isDefault: boolean } | null> {
   if (headerStoreId) {
+    if (headerStoreId === '0') return { id: 0, isDefault: false };
     const id = Number(headerStoreId);
     if (Number.isInteger(id) && id > 0) {
       const selected = await prisma.store.findFirst({
@@ -152,7 +153,7 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
 
   req.tenantId = tenant.id;
   req.tenant = { id: tenant.id, slug: tenant.slug, status: tenant.status };
-  req.store = store ? { id: store.id } : null;
+  req.store = store && store.id !== 0 ? { id: store.id } : null;
 
   runWithTenant(
     { tenantId: tenant.id, storeId: store?.id ?? null, isDefaultStore: store?.isDefault ?? false, scope: 'tenant' },
