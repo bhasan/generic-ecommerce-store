@@ -18,6 +18,15 @@ import { AppError } from '../middleware/error.middleware';
 import { Prisma } from '../../generated/prisma';
 
 export class StoreVariantOverrideService {
+  // Verify the store exists and belongs to the active tenant, or throw 404.
+  private async assertStoreInTenant(storeId: number): Promise<void> {
+    const { tenantId } = getTenantContextOrThrow();
+    const store = await getUnscopedPrisma().store.findFirst({
+      where: { id: storeId, tenantId },
+    });
+    if (!store) throw new AppError('Store not found', 404);
+  }
+
   // ── List overrides + base variants for a store ─────────────────────────────
   // Returns the override rows for storeId plus all tenant variants (with their
   // product name/id) so a per-store inventory editor can show effective-vs-base.
@@ -29,8 +38,7 @@ export class StoreVariantOverrideService {
     if (!storeId || storeId <= 0) {
       throw new AppError('storeId must be a positive integer', 400);
     }
-    const store = await db.store.findFirst({ where: { id: storeId, tenantId } });
-    if (!store) throw new AppError('Store not found', 404);
+    await this.assertStoreInTenant(storeId);
 
     // Fetch per-store override rows.
     const overrides = await db.storeVariantOverride.findMany({
@@ -86,8 +94,7 @@ export class StoreVariantOverrideService {
     }
 
     // Validate store belongs to the tenant.
-    const store = await db.store.findFirst({ where: { id: storeId, tenantId } });
-    if (!store) throw new AppError('Store not found', 404);
+    await this.assertStoreInTenant(storeId);
 
     // Validate variant belongs to the tenant.
     const variant = await db.productVariant.findFirst({ where: { id: variantId, tenantId } });
@@ -139,8 +146,7 @@ export class StoreVariantOverrideService {
     }
 
     // Validate store belongs to the tenant.
-    const store = await db.store.findFirst({ where: { id: storeId, tenantId } });
-    if (!store) throw new AppError('Store not found', 404);
+    await this.assertStoreInTenant(storeId);
 
     // deleteMany is idempotent — deletes 0 rows if the override does not exist.
     await db.storeVariantOverride.deleteMany({
