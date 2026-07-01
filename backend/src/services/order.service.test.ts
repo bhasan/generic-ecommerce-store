@@ -87,6 +87,31 @@ vi.mock('../config/database', () => ({
   default: prismaMock,
 }));
 
+// Provide a default-store tenant context so createOrder/addItemToOrder don't throw
+// MissingTenantContextError. isDefaultStore=true preserves the existing test assertions
+// (stock is decremented via productVariant.updateMany, not via storeVariantOverride).
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  getTenantContext: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  MissingTenantContextError: class MissingTenantContextError extends Error {
+    constructor() {
+      super('Execution context is missing active tenantScope. Wrap database operations inside runWithTenant(...) first.');
+      this.name = 'MissingTenantContextError';
+    }
+  },
+  runWithTenant: vi.fn((ctx: unknown, fn: () => unknown) => fn()),
+}));
+
 vi.mock('../utils/logger', () => ({
   logger,
 }));

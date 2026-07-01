@@ -2,6 +2,8 @@ import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 import { resolveUnitPrice, isQuantityAllowed } from './pricing';
+import { getTenantContextOrThrow } from '../config/tenantContext';
+import { resolveVariantEffective } from './storeVariant.effective';
 import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
@@ -18,13 +20,27 @@ export async function decrementStockGuarded(
   variantId: number,
   quantity: number,
   productName: string,
+  opts: { storeId: number; isDefaultStore: boolean },
 ): Promise<void> {
-  const result = await tx.productVariant.updateMany({
-    where: { id: variantId, stock: { gte: quantity } },
-    data: { stock: { decrement: quantity } },
-  });
-  if (result.count === 0) {
-    throw new AppError(`Insufficient stock for ${productName}`, 400);
+  if (opts.isDefaultStore) {
+    // Default store: decrement the canonical variant stock.
+    const result = await tx.productVariant.updateMany({
+      where: { id: variantId, stock: { gte: quantity } },
+      data: { stock: { decrement: quantity } },
+    });
+    if (result.count === 0) {
+      throw new AppError(`Insufficient stock for ${productName}`, 400);
+    }
+  } else {
+    // Non-default store: atomically decrement the per-store override stock.
+    // If no override row exists (or stock < quantity) → count === 0 → Insufficient stock.
+    const result = await (tx as any).storeVariantOverride.updateMany({
+      where: { storeId: opts.storeId, variantId, stock: { gte: quantity } },
+      data: { stock: { decrement: quantity } },
+    });
+    if (result.count === 0) {
+      throw new AppError(`Insufficient stock for ${productName}`, 400);
+    }
   }
 }
 
@@ -256,6 +272,12 @@ export class OrderCrudService {
       logger.debug('Updated user CashApp username for order', { userId });
     }
 
+    // Read tenant/store context for per-store stock + pricing logic.
+    const ctx = getTenantContextOrThrow();
+    const storeId = ctx.storeId;
+    const isDefaultStore = !!ctx.isDefaultStore;
+    const storeOpts = { storeId: storeId!, isDefaultStore };
+
     // Fetch variant details (with product + pricing) and calculate total
     const variantIds = items.map(item => item.variantId);
     logger.debug('Fetching variants for order creation', { variantIds });
@@ -276,7 +298,21 @@ export class OrderCrudService {
         throw new AppError('Some products not found', 404);
       }
 
-      // Calculate total and prepare order items (unit price resolved via pricing.ts)
+      // For non-default stores, fetch per-store price/stock overrides to apply
+      // effective pricing. (For the default store the variant base values apply.)
+      const overrideMap = new Map<number, { stock: Prisma.Decimal; priceOverride: Prisma.Decimal | null; activeOverride: boolean | null }>();
+      if (storeId !== null && !isDefaultStore) {
+        const overrides: Array<{ variantId: number; stock: Prisma.Decimal; priceOverride: Prisma.Decimal | null; activeOverride: boolean | null }> =
+          await (prisma as any).storeVariantOverride.findMany({
+            where: { variantId: { in: variantIds } },
+          });
+        for (const ov of overrides) {
+          overrideMap.set(ov.variantId, ov);
+        }
+      }
+
+      // Calculate total and prepare order items (unit price resolved via pricing.ts
+      // on top of the effective per-store base price from resolveVariantEffective).
       let subtotal = 0;
       const orderItems = items.map(item => {
         const variant = variantMap.get(item.variantId);
@@ -288,7 +324,10 @@ export class OrderCrudService {
           throw new AppError(`Invalid quantity for ${variant.product.name}`, 400);
         }
 
-        const unitPrice = resolveUnitPrice(variant, item.quantity);
+        const override = isDefaultStore ? undefined : overrideMap.get(item.variantId);
+        const effectiveBasePrice = resolveVariantEffective(variant, override, isDefaultStore).price;
+        // Apply price breaks (if any) on top of the effective base price.
+        const unitPrice = resolveUnitPrice({ ...variant, basePrice: effectiveBasePrice }, item.quantity);
         subtotal += unitPrice.toNumber() * item.quantity;
 
         return {
@@ -352,7 +391,7 @@ export class OrderCrudService {
         for (const item of items) {
           const variant = variantMap.get(item.variantId);
           if (variant && variant.stockEnabled) {
-            await decrementStockGuarded(tx, variant.id, item.quantity, variant.product.name);
+            await decrementStockGuarded(tx, variant.id, item.quantity, variant.product.name, storeOpts);
           }
         }
 
@@ -442,6 +481,12 @@ export class OrderCrudService {
       quantity: data.quantity,
     });
 
+    // Read tenant/store context for per-store stock + pricing logic.
+    const ctx = getTenantContextOrThrow();
+    const storeId = ctx.storeId;
+    const isDefaultStore = !!ctx.isDefaultStore;
+    const storeOpts = { storeId: storeId!, isDefaultStore };
+
     try {
       const order = await prisma.order.findUnique({ where: { id: orderId } });
 
@@ -464,7 +509,15 @@ export class OrderCrudService {
         throw new AppError(`Invalid quantity for ${variant.product.name}`, 400);
       }
 
-      const unitPrice = resolveUnitPrice(variant, data.quantity);
+      // Resolve effective per-store price for this variant.
+      let override: { stock: Prisma.Decimal; priceOverride: Prisma.Decimal | null; activeOverride: boolean | null } | undefined;
+      if (storeId !== null && !isDefaultStore) {
+        override = await (prisma as any).storeVariantOverride.findFirst({
+          where: { storeId, variantId: data.variantId },
+        }) ?? undefined;
+      }
+      const effectiveBasePrice = resolveVariantEffective(variant, override, isDefaultStore).price;
+      const unitPrice = resolveUnitPrice({ ...variant, basePrice: effectiveBasePrice }, data.quantity);
 
       // Recalculate order total
       const oldTotal = order.total;
@@ -486,7 +539,7 @@ export class OrderCrudService {
         await tx.order.update({ where: { id: orderId }, data: { total: newTotal } });
 
         if (variant.stockEnabled) {
-          await decrementStockGuarded(tx, variant.id, data.quantity, variant.product.name);
+          await decrementStockGuarded(tx, variant.id, data.quantity, variant.product.name, storeOpts);
         }
 
         return { orderItem, newTotal };
