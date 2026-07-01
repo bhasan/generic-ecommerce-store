@@ -1,5 +1,6 @@
 import { Prisma, CardSize, PricingMode, ImageRole } from '../../generated/prisma';
-import prisma from '../config/database';
+import prisma, { getTenantPrisma } from '../config/database';
+import { getTenantContext } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { logger } from '../utils/logger';
@@ -7,6 +8,7 @@ import { deleteUploadedFile } from '../utils/fileUtils';
 import type { SearchService, ProductVisibilityFilter } from './search/search.service';
 import { PostgresSearchService } from './search/postgres.search.service';
 import { productInclude, visibilityFilterToWhere } from './product.shared';
+import { resolveVariantEffective } from './storeVariant.effective';
 
 interface VariantQuantityOptionInput {
   quantity: number;
@@ -130,6 +132,56 @@ export class ProductService {
     return variants.map((v, i) => ({ ...v, isDefault: hasDefault ? !!v.isDefault : i === 0 }));
   }
 
+  /**
+   * Rewrite each variant's basePrice/stock/active with the effective values for
+   * the active store.  For the default store with no overrides the effective
+   * values equal the variant's own values, so single-store behaviour is unchanged.
+   * Returns the SAME array (mutates in place for efficiency; callers always await).
+   */
+  private async applyStoreOverrides<T extends {
+    variants: Array<{
+      id: number;
+      basePrice: Prisma.Decimal;
+      stock: Prisma.Decimal;
+      stockEnabled: boolean;
+      active: boolean;
+      available?: boolean;
+    }>;
+  }>(products: T[]): Promise<T[]> {
+    const ctx = getTenantContext();
+    if (!ctx) return products; // no ALS context (unit-test pass-through, etc.)
+
+    const storeId = ctx.storeId ?? 0;
+    const isDefaultStore = !!ctx.isDefaultStore;
+
+    const variantIds = products.flatMap((p) => p.variants.map((v) => v.id));
+    if (variantIds.length === 0) return products;
+
+    const overrides = await getTenantPrisma().storeVariantOverride.findMany({
+      where: { storeId, variantId: { in: variantIds } },
+    });
+
+    const overrideMap = new Map<number, (typeof overrides)[0]>(
+      overrides.map((o) => [o.variantId, o]),
+    );
+
+    for (const product of products) {
+      for (const variant of product.variants) {
+        const eff = resolveVariantEffective(
+          variant,
+          overrideMap.get(variant.id),
+          isDefaultStore,
+        );
+        (variant as any).basePrice = new Prisma.Decimal(eff.price);
+        (variant as any).stock = new Prisma.Decimal(eff.stock);
+        (variant as any).active = eff.active;
+        (variant as any).available = eff.available;
+      }
+    }
+
+    return products;
+  }
+
   private toVisibilityFilter(userRoles: RoleName[] | undefined): ProductVisibilityFilter {
     if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) return { includeHidden: true, includeVipOnly: true };
     if (hasAnyRole(userRoles, ['VIP'])) return { includeHidden: false, includeVipOnly: true };
@@ -156,7 +208,8 @@ export class ProductService {
     });
 
     // Reviews feature remains disabled at the list level; populated by getProductById.
-    return products.map((product) => ({ ...product, reviews: [] }));
+    const mapped = products.map((product) => ({ ...product, reviews: [] }));
+    return this.applyStoreOverrides(mapped);
   }
 
   async searchProducts(
@@ -166,7 +219,11 @@ export class ProductService {
   ) {
     const visibility = this.toVisibilityFilter(userRoles);
     const results = await this.searchService.searchProducts(visibility, q, pagination);
-    return results.map((p) => ({ ...p, reviews: [] }));
+    const mapped = results.map((p) => ({ ...p, reviews: [] }));
+    // SearchedProduct is loosely typed (Record<string, unknown>); runtime shape has
+    // variants — applyStoreOverrides mutates in place, so cast the arg and return mapped.
+    await this.applyStoreOverrides(mapped as any);
+    return mapped;
   }
 
   async getProductById(id: number, userRoles?: RoleName[]) {
@@ -193,10 +250,12 @@ export class ProductService {
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    return {
+    const result = {
       ...product,
       reviews: reviews.map((review) => ({ ...review, user: userMap.get(review.userId) || null })),
     };
+    const [withOverrides] = await this.applyStoreOverrides([result]);
+    return withOverrides!;
   }
 
   async createProduct(data: CreateProductData) {
