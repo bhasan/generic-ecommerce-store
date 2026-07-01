@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
+import { clearSettingsCache } from './settingsStore';
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
     findFirst: vi.fn(),
+    findMany: vi.fn(),
     upsert: vi.fn(),
   },
 }));
@@ -35,10 +37,11 @@ vi.mock('./thermalPrinter.service', () => ({
 describe('store settings service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearSettingsCache();
   });
 
   it('returns defaults when no persisted settings exist', async () => {
-    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
+    prismaMock.uiSetting.findMany.mockResolvedValue([]);
     const { StoreSettingsService } = await import('./storeSettings.service');
 
     const result = await new StoreSettingsService().getStoreSettings();
@@ -115,7 +118,8 @@ describe('store settings service', () => {
   });
 
   it('skips store-address verification when the address did not change', async () => {
-    prismaMock.uiSetting.findFirst.mockResolvedValue({
+    prismaMock.uiSetting.findMany.mockResolvedValue([{
+      storeId: 0,
       value: {
         name: 'Smoke Station',
         address: '101 Example Ave',
@@ -126,7 +130,7 @@ describe('store settings service', () => {
           employeeEmail: '',
         },
       },
-    });
+    }]);
     prismaMock.uiSetting.upsert.mockResolvedValue({
       value: {
         name: 'Smoke Station West',
@@ -156,7 +160,8 @@ describe('store settings service', () => {
   });
 
   it('sanitizes invalid persisted notification routing emails and falls back safely', async () => {
-    prismaMock.uiSetting.findFirst.mockResolvedValue({
+    prismaMock.uiSetting.findMany.mockResolvedValue([{
+      storeId: 0,
       value: {
         name: 'Smoke Station',
         address: '9400 S Texas 6 Suite C, Houston, TX 77083',
@@ -167,7 +172,7 @@ describe('store settings service', () => {
           employeeEmail: '   ',
         },
       },
-    });
+    }]);
     const { StoreSettingsService } = await import('./storeSettings.service');
 
     const result = await new StoreSettingsService().getStoreSettings();

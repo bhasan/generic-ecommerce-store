@@ -173,6 +173,7 @@ const StoreSettingsSchema = z.object({
 
 const store = new SettingsStore<StoreSettings>({
   key: 'store_settings',
+  storeScoped: true,
   schema: StoreSettingsSchema,
   defaults: getDefaultStoreSettings,
   onRead: (raw) => {
