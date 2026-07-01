@@ -16,8 +16,13 @@ vi.mock('../config/tenantContext', () => ({
   runWithTenant: vi.fn((ctx: any, fn: any) => fn()),
 }));
 
+vi.mock('../utils/jwt.util', () => ({
+  verifyToken: vi.fn(),
+}));
+
 import { resolveTenant } from './tenant.middleware';
 import { runWithTenant } from '../config/tenantContext';
+import { verifyToken } from '../utils/jwt.util';
 
 const ACTIVE = (id: number, slug: string) => ({ id, slug, status: 'ACTIVE' });
 
@@ -40,6 +45,10 @@ describe('resolveTenant', () => {
     findStore.mockResolvedValue({ id: 5 });
     (runWithTenant as any).mockReset();
     (runWithTenant as any).mockImplementation((ctx: any, fn: any) => fn());
+    (verifyToken as any).mockReset();
+    // Default: no/invalid token -> not an admin. Tests that need an admin caller
+    // override this to return roles including 'ADMIN'/'SUPER_ADMIN'.
+    (verifyToken as any).mockImplementation(() => { throw new Error('invalid token'); });
   });
 
   it('resolves an active tenant from a named subdomain and calls next inside context', async () => {
@@ -199,13 +208,17 @@ describe('resolveTenant', () => {
       expect(ctx.isDefaultStore).toBe(true);
     });
 
-    it('X-Store-Id 0 resolves to all-stores context without any DB lookup', async () => {
+    it('X-Store-Id 0 resolves to all-stores context for a verified ADMIN caller, without any DB lookup', async () => {
       tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
       findStore.mockResolvedValue({ id: 5, isDefault: true }); // should never be called
+      (verifyToken as any).mockReturnValue({ roles: [{ name: 'ADMIN', storeId: 0 }] });
       let ctx: any;
       (runWithTenant as any).mockImplementation((c: any, fn: any) => { ctx = c; return fn(); });
 
-      const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': '0' });
+      const { req, res, next } = mk('acme.yourapp.com', {
+        'x-store-id': '0',
+        authorization: 'Bearer admin-token',
+      });
       await resolveTenant(req, res, next);
 
       expect(ctx.storeId).toBe(0);
@@ -213,6 +226,48 @@ describe('resolveTenant', () => {
       expect(req.store).toBeNull();
       expect(next).toHaveBeenCalled();
       expect(findStore).not.toHaveBeenCalled();
+    });
+
+    it('X-Store-Id 0 from a NON-admin (customer) token is ignored — falls back to the default store', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ def: { id: 5 } });
+      (verifyToken as any).mockReturnValue({ roles: [{ name: 'CUSTOMER', storeId: null }] });
+
+      const { req, res, next } = mk('acme.yourapp.com', {
+        'x-store-id': '0',
+        authorization: 'Bearer customer-token',
+      });
+      await resolveTenant(req, res, next);
+
+      expect(req.store.id).toBe(5);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('X-Store-Id 0 with no/invalid token is ignored — falls back to the default store', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ def: { id: 5 } });
+      // beforeEach already makes verifyToken throw — no authorization header at all here.
+
+      const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': '0' });
+      await resolveTenant(req, res, next);
+
+      expect(req.store.id).toBe(5);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('regression: a real store id resolves normally for a non-admin caller', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ selected: { id: 9 }, def: { id: 5 } });
+      (verifyToken as any).mockReturnValue({ roles: [{ name: 'CUSTOMER', storeId: null }] });
+
+      const { req, res, next } = mk('acme.yourapp.com', {
+        'x-store-id': '9',
+        authorization: 'Bearer customer-token',
+      });
+      await resolveTenant(req, res, next);
+
+      expect(req.store.id).toBe(9);
+      expect(next).toHaveBeenCalled();
     });
 
     it('only 0 is the all-stores sentinel — a foreign/inactive id still falls back to the default store', async () => {

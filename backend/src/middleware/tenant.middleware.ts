@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getUnscopedPrisma } from '../config/database';
 import { runWithTenant } from '../config/tenantContext';
 import jwt from 'jsonwebtoken';
+import { verifyToken } from '../utils/jwt.util';
 
 // Number of labels in the platform's apex domain ("yourapp.com" = 2,
 // "yourapp.co.uk" = 3). Configurable so subdomain parsing is correct for any
@@ -21,25 +22,54 @@ interface JwtPayload {
 }
 
 /**
+ * Whether the caller holds a SIGNATURE-VERIFIED ADMIN/SUPER_ADMIN role. Gates the
+ * X-Store-Id: 0 "all stores" sentinel — an unauthenticated or non-admin caller
+ * must not be able to force store-scoped reads (announcements, contact_messages)
+ * to aggregate across every store of the tenant. Uses `verifyToken` (not the
+ * unsigned `jwt.decode` used for the tenantId fallback below), so a forged token
+ * cannot claim admin. Any missing/invalid/expired token resolves to false — this
+ * middleware never rejects the request itself; it only narrows the sentinel.
+ */
+function isAdminCaller(req: Request): boolean {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.substring(7)
+    : (req as any).cookies?.accessToken;
+  if (!token) return false;
+  try {
+    const decoded = verifyToken(token);
+    return decoded.roles?.some((r) => r.name === 'ADMIN' || r.name === 'SUPER_ADMIN') ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve the ACTIVE store: the X-Store-Id store when it belongs to `tenantId` and
  * is ACTIVE, otherwise the tenant's default store. Fail-safe: an invalid/foreign/
  * inactive id silently falls back to the default. `stores` is UNSCOPED, so tenantId
- * is filtered explicitly.
+ * is filtered explicitly. `X-Store-Id: 0` (all-stores) is honored only for a
+ * verified admin caller — a non-admin sending it is treated as if it were absent.
  */
 async function resolveActiveStore(
   prisma: ReturnType<typeof getUnscopedPrisma>,
   tenantId: number,
   headerStoreId: string | undefined,
+  isAdmin: boolean,
 ): Promise<{ id: number; isDefault: boolean } | null> {
   if (headerStoreId) {
-    if (headerStoreId === '0') return { id: 0, isDefault: false };
-    const id = Number(headerStoreId);
-    if (Number.isInteger(id) && id > 0) {
-      const selected = await prisma.store.findFirst({
-        where: { id, tenantId, status: 'ACTIVE' },
-        select: { id: true, isDefault: true },
-      });
-      if (selected) return { id: selected.id, isDefault: selected.isDefault };
+    if (headerStoreId === '0') {
+      if (isAdmin) return { id: 0, isDefault: false };
+      // Non-admin all-stores request: ignore the sentinel, fall through to default.
+    } else {
+      const id = Number(headerStoreId);
+      if (Number.isInteger(id) && id > 0) {
+        const selected = await prisma.store.findFirst({
+          where: { id, tenantId, status: 'ACTIVE' },
+          select: { id: true, isDefault: true },
+        });
+        if (selected) return { id: selected.id, isDefault: selected.isDefault };
+      }
     }
   }
   const def = await prisma.store.findFirst({ where: { tenantId, isDefault: true, status: 'ACTIVE' } });
@@ -149,6 +179,7 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
     prisma,
     tenant.id,
     typeof headerStoreId === 'string' ? headerStoreId : undefined,
+    isAdminCaller(req),
   );
 
   req.tenantId = tenant.id;
