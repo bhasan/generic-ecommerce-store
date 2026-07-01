@@ -24,10 +24,19 @@ const NON_ADMIN_USER = { id: 10, username: 'customer1', roles: ['CUSTOMER'] };
 const ADMIN_USER = { id: 99, username: 'adminuser', roles: ['ADMIN'] };
 
 describe('StoreSwitcher', () => {
+  let reload;
+
   beforeEach(() => {
     vi.clearAllMocks();
     // Default: non-admin user — existing customer cases remain unchanged
     useApp.mockReturnValue({ currentUser: NON_ADMIN_USER });
+    // Robustly stub window.location.reload for jsdom (not overridable by default)
+    reload = vi.fn();
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload },
+      writable: true,
+      configurable: true,
+    });
   });
 
   describe('single-store tenant', () => {
@@ -92,6 +101,22 @@ describe('StoreSwitcher', () => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     });
 
+    it('non-admin selecting a different store does NOT reload (smooth in-place swap)', () => {
+      const selectStore = vi.fn();
+      useStoreSelection.mockReturnValue({
+        stores: STORES,
+        activeStoreId: 1,
+        isMultiStore: true,
+        selectStore,
+        loading: false,
+      });
+      render(<StoreSwitcher />);
+      fireEvent.click(screen.getByRole('button', { name: /current store/i }));
+      fireEvent.click(screen.getByRole('option', { name: 'Uptown' }));
+      expect(selectStore).toHaveBeenCalledWith(2);
+      expect(reload).not.toHaveBeenCalled();
+    });
+
     it('non-admin does NOT see "All stores" option', () => {
       render(<StoreSwitcher />);
       fireEvent.click(screen.getByRole('button', { name: /current store/i }));
@@ -117,7 +142,7 @@ describe('StoreSwitcher', () => {
       expect(screen.getByRole('option', { name: 'All stores' })).toBeInTheDocument();
     });
 
-    it('clicking "All stores" calls selectStore(0) and closes dropdown', () => {
+    it('clicking "All stores" calls selectStore(0), reloads, and closes dropdown', () => {
       const selectStore = vi.fn();
       useStoreSelection.mockReturnValue({
         stores: STORES,
@@ -131,7 +156,42 @@ describe('StoreSwitcher', () => {
       fireEvent.click(screen.getByRole('option', { name: 'All stores' }));
       expect(selectStore).toHaveBeenCalledOnce();
       expect(selectStore).toHaveBeenCalledWith(0);
+      // 0 !== activeStoreId (1) → admin reload fires
+      expect(reload).toHaveBeenCalledOnce();
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    it('admin selecting a DIFFERENT store calls selectStore(newId) and reloads', () => {
+      const selectStore = vi.fn();
+      useStoreSelection.mockReturnValue({
+        stores: STORES,
+        activeStoreId: 1,
+        isMultiStore: true,
+        selectStore,
+        loading: false,
+      });
+      render(<StoreSwitcher />);
+      fireEvent.click(screen.getByRole('button', { name: /current store/i }));
+      fireEvent.click(screen.getByRole('option', { name: 'Uptown' }));
+      expect(selectStore).toHaveBeenCalledWith(2);
+      expect(reload).toHaveBeenCalledOnce();
+    });
+
+    it('admin selecting the ALREADY-ACTIVE store does NOT reload', () => {
+      const selectStore = vi.fn();
+      useStoreSelection.mockReturnValue({
+        stores: STORES,
+        activeStoreId: 1,
+        isMultiStore: true,
+        selectStore,
+        loading: false,
+      });
+      render(<StoreSwitcher />);
+      fireEvent.click(screen.getByRole('button', { name: /current store/i }));
+      // Click the currently-active store (Downtown = id 1)
+      fireEvent.click(screen.getByRole('option', { name: 'Downtown' }));
+      expect(selectStore).toHaveBeenCalledWith(1);
+      expect(reload).not.toHaveBeenCalled();
     });
   });
 

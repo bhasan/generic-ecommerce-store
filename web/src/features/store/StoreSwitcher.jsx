@@ -29,8 +29,15 @@ function StoreSwitcher() {
     activeStoreId === 0 ? 'All stores' : activeStore ? activeStore.name : 'Choose store';
 
   const handleSelect = (id) => {
+    const changed = id !== activeStoreId;
     selectStore(id);
     setOpen(false);
+    // Admins: force a full reload so mount-once dashboards (orders, reporting,
+    // POS, print) re-fetch with the new X-Store-Id. Runs only when the store
+    // actually changed. Non-admins keep the smooth in-place catalog/cart swap.
+    if (isAdmin && changed) {
+      window.location.reload();
+    }
   };
 
   return (
