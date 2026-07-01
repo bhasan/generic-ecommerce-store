@@ -86,13 +86,17 @@ function buildTenantClient(prismaInstance: any) {
             return query(args);
           }
 
+          // storeId === 0 is the "all stores" sentinel: filter/stamp by tenantId only.
+          // Real stores have SERIAL ids (>= 1); never inject storeId: 0 onto rows.
+          const hasRealStore = ctx.storeId != null && ctx.storeId !== 0;
+
           const anyArgs = args as any;
 
           // 1. Inject write scope
           if (operation === 'create') {
             anyArgs.data = anyArgs.data || {};
             anyArgs.data.tenantId = ctx.tenantId;
-            if (ctx.storeId != null && isStoreScoped(table)) {
+            if (hasRealStore && isStoreScoped(table)) {
               anyArgs.data.storeId = ctx.storeId;
             }
             injectNestedRelations(anyArgs.data, ctx);
@@ -103,12 +107,12 @@ function buildTenantClient(prismaInstance: any) {
           } else if (operation === 'upsert') {
             anyArgs.create = anyArgs.create || {};
             anyArgs.create.tenantId = ctx.tenantId;
-            if (ctx.storeId != null && isStoreScoped(table)) {
+            if (hasRealStore && isStoreScoped(table)) {
               anyArgs.create.storeId = ctx.storeId;
             }
             anyArgs.update = anyArgs.update || {};
             anyArgs.update.tenantId = ctx.tenantId;
-            if (ctx.storeId != null && isStoreScoped(table)) {
+            if (hasRealStore && isStoreScoped(table)) {
               anyArgs.update.storeId = ctx.storeId;
             }
             injectNestedRelations(anyArgs.create, ctx);
@@ -118,7 +122,7 @@ function buildTenantClient(prismaInstance: any) {
               const list = Array.isArray(anyArgs.data) ? anyArgs.data : [anyArgs.data];
               for (const item of list) {
                 item.tenantId = ctx.tenantId;
-                if (ctx.storeId != null && isStoreScoped(table)) {
+                if (hasRealStore && isStoreScoped(table)) {
                   item.storeId = ctx.storeId;
                 }
                 injectNestedRelations(item, ctx);
@@ -130,7 +134,7 @@ function buildTenantClient(prismaInstance: any) {
           if (['findFirst', 'findFirstOrThrow', 'findMany', 'update', 'updateMany', 'delete', 'deleteMany', 'count', 'aggregate', 'groupBy'].includes(operation)) {
             anyArgs.where = anyArgs.where || {};
             anyArgs.where.tenantId = ctx.tenantId;
-            if (ctx.storeId != null && isStoreScoped(table)) {
+            if (hasRealStore && isStoreScoped(table)) {
               anyArgs.where.storeId = ctx.storeId;
             }
           } else if (operation === 'findUnique') {
@@ -153,7 +157,7 @@ function buildTenantClient(prismaInstance: any) {
             const newArgs = {
               ...anyArgs, // preserve include / select / etc. — only the where is rewritten
               where: { ...flatWhere, tenantId: ctx.tenantId,
-                ...(ctx.storeId != null && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
+                ...(hasRealStore && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
             };
             return (ext[modelKey] as any).findFirst(newArgs);
           } else if (operation === 'findUniqueOrThrow') {
@@ -171,7 +175,7 @@ function buildTenantClient(prismaInstance: any) {
             const newArgs = {
               ...anyArgs,
               where: { ...flatWhere, tenantId: ctx.tenantId,
-                ...(ctx.storeId != null && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
+                ...(hasRealStore && isStoreScoped(table) ? { storeId: ctx.storeId } : {}) },
             };
             return (ext[modelKey] as any).findFirstOrThrow(newArgs);
           }
@@ -244,7 +248,7 @@ function applyInjectionToRelation(relationObj: any, tenantId: number, storeId: n
     for (const item of list) {
       if (item && typeof item === 'object') {
         item.tenantId = tenantId;
-        if (storeId != null) item.storeId = storeId;
+        if (storeId != null && storeId !== 0) item.storeId = storeId;
         injectNestedRelations(item, { tenantId, storeId });
       }
     }
@@ -255,7 +259,7 @@ function applyInjectionToRelation(relationObj: any, tenantId: number, storeId: n
     for (const item of list) {
       if (item && typeof item === 'object') {
         item.tenantId = tenantId;
-        if (storeId != null) item.storeId = storeId;
+        if (storeId != null && storeId !== 0) item.storeId = storeId;
       }
     }
   }
@@ -266,7 +270,7 @@ function applyInjectionToRelation(relationObj: any, tenantId: number, storeId: n
       const item = updateItem.data || updateItem;
       if (item && typeof item === 'object') {
         item.tenantId = tenantId;
-        if (storeId != null) item.storeId = storeId;
+        if (storeId != null && storeId !== 0) item.storeId = storeId;
         injectNestedRelations(item, { tenantId, storeId });
       }
     }
@@ -278,12 +282,12 @@ function applyInjectionToRelation(relationObj: any, tenantId: number, storeId: n
       if (item && typeof item === 'object') {
         if (item.create && typeof item.create === 'object') {
           item.create.tenantId = tenantId;
-          if (storeId != null) item.create.storeId = storeId;
+          if (storeId != null && storeId !== 0) item.create.storeId = storeId;
           injectNestedRelations(item.create, { tenantId, storeId });
         }
         if (item.update && typeof item.update === 'object') {
           item.update.tenantId = tenantId;
-          if (storeId != null) item.update.storeId = storeId;
+          if (storeId != null && storeId !== 0) item.update.storeId = storeId;
           injectNestedRelations(item.update, { tenantId, storeId });
         }
       }

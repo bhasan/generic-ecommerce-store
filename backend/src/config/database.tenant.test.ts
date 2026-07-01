@@ -3,6 +3,104 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getTenantPrisma, getUnscopedPrisma } from './database';
 import { runWithTenant } from './tenantContext';
 
+// ---------------------------------------------------------------------------
+// storeId: 0 sentinel — "all stores" context
+// ---------------------------------------------------------------------------
+// Announcements are store-scoped (in STORE_SCOPED_TABLES) and have an FK to
+// stores. We create real Store rows (stores is UNSCOPED — no tenant context
+// required) so the FK constraint is satisfied.
+describe('storeId 0 sentinel — all-stores context', () => {
+  const base = getUnscopedPrisma();
+  let tenantId: number;
+  let STORE_A: number;
+  let STORE_B: number;
+
+  beforeAll(async () => {
+    const ts = Date.now();
+    const tenant = await base.tenant.create({ data: { slug: `s0-${ts}`, name: 'S0 Test' } });
+    tenantId = tenant.id;
+    // Create real stores (stores is UNSCOPED — use base client with explicit tenantId)
+    const storeA = await base.store.create({ data: { name: 'Store A', slug: `s0-a-${ts}`, tenantId } });
+    const storeB = await base.store.create({ data: { name: 'Store B', slug: `s0-b-${ts}`, tenantId } });
+    STORE_A = storeA.id;
+    STORE_B = storeB.id;
+    // Insert two announcements belonging to different stores
+    await base.announcement.create({ data: { message: 'ann-storeA', storeId: STORE_A, tenantId } });
+    await base.announcement.create({ data: { message: 'ann-storeB', storeId: STORE_B, tenantId } });
+  });
+
+  afterAll(async () => {
+    await base.announcement.deleteMany({ where: { tenantId } });
+    await base.store.deleteMany({ where: { tenantId } });
+    await base.tenant.delete({ where: { id: tenantId } });
+  });
+
+  it('storeId 0: findMany on store-scoped table returns rows from ALL stores (no storeId filter)', async () => {
+    const rows = await runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+      return getTenantPrisma().announcement.findMany({ orderBy: { message: 'asc' } });
+    });
+    // Both announcements (from different stores) must be returned
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    const messages = rows.map((r) => r.message);
+    expect(messages).toContain('ann-storeA');
+    expect(messages).toContain('ann-storeB');
+    // Confirm storeId is NOT filtered (rows from multiple stores present)
+    const storeIds = new Set(rows.map((r) => r.storeId));
+    expect(storeIds.has(STORE_A)).toBe(true);
+    expect(storeIds.has(STORE_B)).toBe(true);
+  });
+
+  it('storeId N: findMany on store-scoped table filters to that store only', async () => {
+    const rows = await runWithTenant({ tenantId, storeId: STORE_A, scope: 'tenant' }, async () => {
+      return getTenantPrisma().announcement.findMany();
+    });
+    expect(rows.length).toBe(1);
+    expect(rows[0].message).toBe('ann-storeA');
+    expect(rows[0].storeId).toBe(STORE_A);
+  });
+
+  it('storeId 0: create on store-scoped table does NOT stamp storeId 0 onto the row', async () => {
+    const created = await runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+      return getTenantPrisma().announcement.create({ data: { message: 'ann-created-s0' } });
+    });
+    // Verify via unscoped client that storeId is null (not 0)
+    const raw = await base.announcement.findUnique({ where: { id: created.id } });
+    expect(raw).not.toBeNull();
+    expect(raw!.storeId).toBeNull();
+    expect(raw!.tenantId).toBe(tenantId); // tenantId IS always stamped
+    await base.announcement.delete({ where: { id: created.id } });
+  });
+
+  it('storeId N: create on store-scoped table stamps the real storeId', async () => {
+    const created = await runWithTenant({ tenantId, storeId: STORE_A, scope: 'tenant' }, async () => {
+      return getTenantPrisma().announcement.create({ data: { message: 'ann-created-sA' } });
+    });
+    const raw = await base.announcement.findUnique({ where: { id: created.id } });
+    expect(raw).not.toBeNull();
+    expect(raw!.storeId).toBe(STORE_A);
+    expect(raw!.tenantId).toBe(tenantId);
+    await base.announcement.delete({ where: { id: created.id } });
+  });
+
+  it('sanity: UNSCOPED table (tenants) is never filtered by storeId regardless of context', async () => {
+    // Tenant table is UNSCOPED — storeId context has no effect
+    const rows = await runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+      // Just verify no error is thrown and the call completes
+      return getTenantPrisma().tenant.findMany({ where: { id: tenantId } });
+    });
+    expect(Array.isArray(rows)).toBe(true);
+  });
+
+  it('sanity: tenant-only table (categories) is unaffected by storeId 0', async () => {
+    // categories is tenant-scoped (not store-scoped) — storeId context has no effect
+    const rows = await runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+      return getTenantPrisma().category.findMany({ where: { tenantId } });
+    });
+    // Just verifies no error and categories is filtered to the tenant (no storeId filter)
+    expect(Array.isArray(rows)).toBe(true);
+  });
+});
+
 // Integration test — requires a test Postgres with the migration applied.
 describe('getTenantPrisma', () => {
   const base = getUnscopedPrisma();
