@@ -12,7 +12,12 @@ vi.mock('../config/database', () => ({
   }),
 }));
 
+vi.mock('../config/tenantContext', () => ({
+  runWithTenant: vi.fn((ctx: any, fn: any) => fn()),
+}));
+
 import { resolveTenant } from './tenant.middleware';
+import { runWithTenant } from '../config/tenantContext';
 
 const ACTIVE = (id: number, slug: string) => ({ id, slug, status: 'ACTIVE' });
 
@@ -33,6 +38,8 @@ describe('resolveTenant', () => {
     tenantFindFirst.mockReset();
     findStore.mockReset();
     findStore.mockResolvedValue({ id: 5 });
+    (runWithTenant as any).mockReset();
+    (runWithTenant as any).mockImplementation((ctx: any, fn: any) => fn());
   });
 
   it('resolves an active tenant from a named subdomain and calls next inside context', async () => {
@@ -171,6 +178,25 @@ describe('resolveTenant', () => {
       const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': 'abc' });
       await resolveTenant(req, res, next);
       expect(req.store.id).toBe(5);
+    });
+
+    it('marks the context isDefaultStore=true for the default store and false for a selected non-default store', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      // selected store 9 is NOT default; default store 5 IS default.
+      findStore.mockImplementation(async (args: any) => {
+        if (args.where?.isDefault) return { id: 5, isDefault: true };
+        return { id: 9, isDefault: false };
+      });
+      let ctx: any;
+      (runWithTenant as any).mockImplementation((c: any, fn: any) => { ctx = c; return fn(); });
+
+      const a = mk('acme.yourapp.com', { 'x-store-id': '9' });
+      await resolveTenant(a.req, a.res, a.next);
+      expect(ctx.isDefaultStore).toBe(false);
+
+      const b = mk('acme.yourapp.com');
+      await resolveTenant(b.req, b.res, b.next);
+      expect(ctx.isDefaultStore).toBe(true);
     });
   });
 });

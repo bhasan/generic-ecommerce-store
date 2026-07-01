@@ -30,16 +30,19 @@ async function resolveActiveStore(
   prisma: ReturnType<typeof getUnscopedPrisma>,
   tenantId: number,
   headerStoreId: string | undefined,
-): Promise<{ id: number } | null> {
+): Promise<{ id: number; isDefault: boolean } | null> {
   if (headerStoreId) {
     const id = Number(headerStoreId);
     if (Number.isInteger(id) && id > 0) {
-      const selected = await prisma.store.findFirst({ where: { id, tenantId, status: 'ACTIVE' } });
-      if (selected) return { id: selected.id };
+      const selected = await prisma.store.findFirst({
+        where: { id, tenantId, status: 'ACTIVE' },
+        select: { id: true, isDefault: true },
+      });
+      if (selected) return { id: selected.id, isDefault: selected.isDefault };
     }
   }
   const def = await prisma.store.findFirst({ where: { tenantId, isDefault: true, status: 'ACTIVE' } });
-  return def ? { id: def.id } : null;
+  return def ? { id: def.id, isDefault: true } : null;
 }
 
 /**
@@ -149,10 +152,10 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
 
   req.tenantId = tenant.id;
   req.tenant = { id: tenant.id, slug: tenant.slug, status: tenant.status };
-  req.store = store;
+  req.store = store ? { id: store.id } : null;
 
   runWithTenant(
-    { tenantId: tenant.id, storeId: store?.id ?? null, scope: 'tenant' },
+    { tenantId: tenant.id, storeId: store?.id ?? null, isDefaultStore: store?.isDefault ?? false, scope: 'tenant' },
     () => next(),
   );
 }

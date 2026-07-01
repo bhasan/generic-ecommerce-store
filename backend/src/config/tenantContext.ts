@@ -4,6 +4,7 @@ export type TenantContext = {
   tenantId: number;
   storeId: number | null;
   scope: 'tenant' | 'super-admin';
+  isDefaultStore?: boolean;
 };
 
 export class MissingTenantContextError extends Error {
