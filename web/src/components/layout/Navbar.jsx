@@ -11,6 +11,7 @@ import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
 import { formatPrice } from '../../utils/currencyUtils';
+import StoreSwitcher from '../../features/store/StoreSwitcher';
 
 function Navbar() {
   const {
@@ -184,6 +185,8 @@ function Navbar() {
                 <span className="hamburger-line"></span>
               </button>
             )}
+
+            {!isGuest && <StoreSwitcher />}
 
             {!isGuest && (
               <NotificationDropdown

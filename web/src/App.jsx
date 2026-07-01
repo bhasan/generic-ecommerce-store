@@ -53,6 +53,7 @@ import ManageStoreProductsPage from './features/manage-store/pages/ManageStorePr
 import ManageStoreCategoriesPage from './features/manage-store/pages/ManageStoreCategoriesPage';
 import ManageStoreMediaPage from './features/manage-store/pages/ManageStoreMediaPage';
 import ManageStoreBulkPage from './features/manage-store/pages/ManageStoreBulkPage';
+import StorePicker from './features/store/StorePicker';
 
 function App() {
   return (
@@ -73,6 +74,7 @@ function AppContent() {
       <OrderPickupNotice />
       <CustomerArrivedNotice />
       <Navbar />
+      <StorePicker />
       <Notification />
       <main className={isOrdersPage ? 'full-width-layout main-content' : 'container main-content'}>
         <Routes>
