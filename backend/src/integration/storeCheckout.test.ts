@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Prisma } from '../../generated/prisma';
 import { getUnscopedPrisma } from '../config/database';
 import { runWithTenant } from '../config/tenantContext';
-import { OrderCrudService } from '../services/order.crud.service';
+import { OrderCrudService, decrementStockGuarded } from '../services/order.crud.service';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const base = getUnscopedPrisma();
@@ -190,6 +190,110 @@ describe('checkout — per-store stock decrement + effective pricing (Task 4)', 
     // Line item priced at the base price (10)
     const lineItem = order.items[0];
     expect(Number(lineItem.unitPrice)).toBe(10);
+  });
+});
+
+// Phase-2c Finding 1 + 2 — per-store active check and base-path for no-store context.
+// (a) variant with activeOverride=false at a non-default store MUST be rejected.
+// (b) same variant at the default store / no-store context MUST succeed using base values.
+describe('checkout — per-store active check + base-path for no-store context (Phase-2c)', () => {
+  let inactiveVariantId: number;
+
+  beforeAll(async () => {
+    // Re-uses tenantId, storeD, storeS, userId from the outer beforeAll.
+    const catRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO categories (name, "tenantId", "createdAt", "updatedAt")
+       VALUES ('ActiveCheckCat', $1, now(), now()) RETURNING id`,
+      tenantId,
+    );
+    const catId = catRows[0].id;
+
+    const prodSlug = `inactive-store-prod-${Date.now()}`;
+    const prodRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO products
+         (name, slug, "categoryId", "tenantId", hidden, "vipOnly", "cardSize", "sortOrder", "createdAt", "updatedAt")
+       VALUES ('InactiveStoreProduct', $1, $2, $3, false, false, 'STANDARD', 0, now(), now()) RETURNING id`,
+      prodSlug, catId, tenantId,
+    );
+    const productId = prodRows[0].id;
+
+    // Variant: basePrice=10, stock=5, stockEnabled=true, active=true (base level).
+    const varRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO product_variants
+         (label, sku, "pricingMode", "basePrice", stock, "stockEnabled", "isDefault", active, "sortOrder", "productId", "tenantId", "createdAt", "updatedAt")
+       VALUES ('Default', $1, 'UNIT', 10, 5, true, true, true, 0, $2, $3, now(), now()) RETURNING id`,
+      `inactive-store-v-${Date.now()}`, productId, tenantId,
+    );
+    inactiveVariantId = varRows[0].id;
+
+    // storeS override: stock=3 (>0), activeOverride=false (hidden at this store).
+    // This is the key fixture: base active=true, but hidden at storeS.
+    await (base as any).storeVariantOverride.create({
+      data: {
+        tenantId,
+        storeId: storeS,
+        variantId: inactiveVariantId,
+        stock: new Prisma.Decimal(3),
+        priceOverride: new Prisma.Decimal(7),
+        activeOverride: false,
+      },
+    });
+  });
+
+  // (a) FAILING before fix: createOrder does not check effective.active, so the
+  // order succeeds with the override price even though the variant is hidden at storeS.
+  it('(a) NON-default store: order for variant with activeOverride=false is rejected — not available at this store', async () => {
+    await expect(
+      runWithTenant(
+        { tenantId, storeId: storeS, isDefaultStore: false, scope: 'tenant' },
+        async () =>
+          orderSvc.createOrder({
+            userId,
+            items: [{ variantId: inactiveVariantId, quantity: 1 }],
+            deliveryMethod: DeliveryMethod.PICKUP,
+            paymentMethod: PaymentMethod.EXTERNAL,
+          }),
+      ),
+    ).rejects.toThrow('not available at this store');
+  });
+
+  it('(b) DEFAULT store: same variant (base active=true) succeeds and uses base price', async () => {
+    const order = await runWithTenant(
+      { tenantId, storeId: storeD, isDefaultStore: true, scope: 'tenant' },
+      async () =>
+        orderSvc.createOrder({
+          userId,
+          items: [{ variantId: inactiveVariantId, quantity: 1 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+        }),
+    );
+
+    expect(order).toBeDefined();
+    // Should use base price (10), not the storeS override price (7).
+    expect(Number(order.items[0].unitPrice)).toBe(10);
+  });
+
+  // (b-nostore) FAILING before fix: decrementStockGuarded takes the OVERRIDE path when
+  // isDefaultStore=false even if storeId=0 → updateMany matches no rows → "Insufficient stock".
+  // storeId=0 or null represent "no real store" (default store suspended/deleted).
+  // FK constraints prevent creating orders with storeId=0/null, so we call
+  // decrementStockGuarded directly to isolate Finding 2's fix.
+  it('(b) NO-STORE context (storeId=0, isDefaultStore=false): decrementStockGuarded uses base variant.stock path', async () => {
+    const before = await base.productVariant.findUnique({ where: { id: inactiveVariantId } });
+    const stockBefore = Number(before?.stock);
+
+    // Before fix: throws "Insufficient stock" (override path with storeId=0, no row).
+    // After fix: decrements variant.stock (base path).
+    await base.$transaction(async (tx) => {
+      await decrementStockGuarded(tx as any, inactiveVariantId, 1, 'InactiveStoreProduct', {
+        storeId: 0,
+        isDefaultStore: false,
+      });
+    });
+
+    const after = await base.productVariant.findUnique({ where: { id: inactiveVariantId } });
+    expect(Number(after?.stock)).toBe(stockBefore - 1);
   });
 });
 
