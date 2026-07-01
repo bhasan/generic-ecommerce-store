@@ -60,9 +60,9 @@ describe('ordering constraints service', () => {
     });
 
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { tenantId_key: { tenantId: 0, key: 'ordering_constraints' } },
+      where: { tenantId_storeId_key: { tenantId: 0, storeId: 0, key: 'ordering_constraints' } },
       update: { value: savedSettings },
-      create: { key: 'ordering_constraints', value: savedSettings },
+      create: { key: 'ordering_constraints', storeId: 0, value: savedSettings },
     });
     expect(result).toEqual(savedSettings);
   });

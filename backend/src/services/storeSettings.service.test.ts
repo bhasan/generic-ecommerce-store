@@ -97,9 +97,9 @@ describe('store settings service', () => {
 
     expect(deliveryEligibilityService.verifyStoreAddress).toHaveBeenCalledWith('101 Example Ave');
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { tenantId_key: { tenantId: 0, key: 'store_settings' } },
+      where: { tenantId_storeId_key: { tenantId: 0, storeId: 0, key: 'store_settings' } },
       update: { value: settingsWithPosDefaults },
-      create: { key: 'store_settings', value: settingsWithPosDefaults },
+      create: { key: 'store_settings', storeId: 0, value: settingsWithPosDefaults },
     });
     expect(result).toEqual(settingsWithPosDefaults);
   });

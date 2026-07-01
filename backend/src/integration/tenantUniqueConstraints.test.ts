@@ -39,18 +39,36 @@ afterAll(async () => {
 describe('composite-unique constraints allow cross-tenant duplicates', () => {
   it('two tenants can each hold a UiSetting with key "branding" without unique violation', async () => {
     await expect(
-      base.uiSetting.create({ data: { key: 'branding', value: {}, tenantId: tA } }),
+      base.uiSetting.create({ data: { key: 'branding', value: {}, tenantId: tA, storeId: 0 } }),
     ).resolves.toBeDefined();
     await expect(
-      base.uiSetting.create({ data: { key: 'branding', value: {}, tenantId: tB } }),
+      base.uiSetting.create({ data: { key: 'branding', value: {}, tenantId: tB, storeId: 0 } }),
     ).resolves.toBeDefined();
   });
 
-  it('a SECOND UiSetting with the same key within one tenant violates @@unique([tenantId, key])', async () => {
-    // tA already has key='branding' from the previous test; a second insert must fail.
+  it('a SECOND UiSetting with the same (tenantId, storeId, key) tuple violates @@unique([tenantId, storeId, key])', async () => {
+    // tA already has (storeId: 0, key: 'branding') from the previous test; a second insert must fail.
     await expect(
-      base.uiSetting.create({ data: { key: 'branding', value: {}, tenantId: tA } }),
+      base.uiSetting.create({ data: { key: 'branding', value: {}, tenantId: tA, storeId: 0 } }),
     ).rejects.toThrow();
+  });
+
+  it('allows a tenant-default (storeId 0) and a per-store override row for the same ui_settings key', async () => {
+    const prisma = getUnscopedPrisma();
+    const t = await prisma.tenant.create({ data: { slug: 'p2b-uisetting', name: 'P2B', status: 'ACTIVE' } });
+    const s = await prisma.store.create({ data: { tenantId: t.id, name: 'S', slug: 's', status: 'ACTIVE' } });
+    try {
+      await prisma.uiSetting.create({ data: { tenantId: t.id, storeId: 0, key: 'store_settings', value: { name: 'D' } } });
+      await prisma.uiSetting.create({ data: { tenantId: t.id, storeId: s.id, key: 'store_settings', value: { name: 'O' } } });
+      // Duplicate (tenant, storeId 0, key) must be rejected.
+      await expect(
+        prisma.uiSetting.create({ data: { tenantId: t.id, storeId: 0, key: 'store_settings', value: {} } }),
+      ).rejects.toThrow();
+    } finally {
+      await prisma.uiSetting.deleteMany({ where: { tenantId: t.id } });
+      await prisma.store.delete({ where: { id: s.id } });
+      await prisma.tenant.delete({ where: { id: t.id } });
+    }
   });
 
   it('two tenants can each create a Category with the same name + null parent without violation', async () => {

@@ -66,9 +66,9 @@ describe('SettingsStore', () => {
     const data = { a: 'hi', n: 2 };
     const result = await store.write(data);
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { tenantId_key: { tenantId: 0, key: 'k-write' } },
+      where: { tenantId_storeId_key: { tenantId: 0, storeId: 0, key: 'k-write' } },
       update: { value: data },
-      create: { key: 'k-write', value: data },
+      create: { key: 'k-write', storeId: 0, value: data },
     });
     expect(result).toEqual(data);
   });

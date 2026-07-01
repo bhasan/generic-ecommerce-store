@@ -345,13 +345,15 @@ model UiSetting {
   id        Int      @id @default(autoincrement())
   key       String
   value     Json
+  storeId   Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("ui_settings")
   tenantId Int?
   @@index([tenantId])
-  @@unique([tenantId, key])
+  @@index([storeId])
+  @@unique([tenantId, storeId, key])
 }
 
 model Review {

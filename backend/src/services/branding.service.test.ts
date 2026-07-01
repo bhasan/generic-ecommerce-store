@@ -40,9 +40,9 @@ describe('branding service', () => {
     const result = await new BrandingService().updateBranding(data);
 
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { tenantId_key: { tenantId: 0, key: 'branding' } },
+      where: { tenantId_storeId_key: { tenantId: 0, storeId: 0, key: 'branding' } },
       update: { value: expect.any(Object) },
-      create: { key: 'branding', value: expect.any(Object) },
+      create: { key: 'branding', storeId: 0, value: expect.any(Object) },
     });
     expect(result.storeName).toBe('Acme Shop');
   });
