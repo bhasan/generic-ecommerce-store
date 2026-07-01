@@ -1,5 +1,11 @@
 import { test, expect, request } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
+import {
+  getDefaultTenantId,
+  createTestStore,
+  createStoreVariantOverride,
+  deleteTestStore,
+} from '../helpers/db';
 
 const API = 'http://localhost:3000';
 
@@ -92,6 +98,92 @@ async function getVariantStock(variantId: number, adminToken: string): Promise<n
   throw new Error(`Variant ${variantId} not found`);
 }
 
+async function placeOrderAtStore(
+  token: string,
+  variantId: number,
+  storeId: number,
+): Promise<{ status: number; body: unknown }> {
+  const ctx = await request.newContext();
+  const res = await ctx.post(`${API}/api/orders`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'x-store-id': String(storeId),
+    },
+    data: {
+      items: [{ variantId, quantity: 1 }],
+      deliveryMethod: 'PICKUP',
+      paymentMethod: 'IN_STORE',
+    },
+  });
+  const body = await res.json();
+  await ctx.dispose();
+  return { status: res.status(), body };
+}
+
+/**
+ * Creates a product with base stock=5 (enough for default-store orders to succeed),
+ * then seeds a non-default store S under the same tenant and adds a
+ * StoreVariantOverride for that store with stock=1 — so exactly one concurrent
+ * order at store S can succeed before stock is exhausted.
+ */
+async function setupStoreOverrideProduct(): Promise<{
+  variantId: number;
+  adminToken: string;
+  storeS: number;
+}> {
+  // --- API: login + create product ----------------------------------------
+  const ctx = await request.newContext();
+
+  const loginBody = await (
+    await ctx.post(`${API}/api/auth/login`, {
+      data: { username: ACCOUNTS.admin.username, password: ACCOUNTS.admin.password },
+    })
+  ).json();
+  const adminToken = loginBody.data.token as string;
+
+  const catsBody = await (
+    await ctx.get(`${API}/api/categories`, { headers: { Authorization: `Bearer ${adminToken}` } })
+  ).json();
+  const cats = Array.isArray(catsBody) ? catsBody : catsBody.data;
+  const catId = (cats as Array<{ id: number }>)[0].id;
+
+  const prodBody = await (
+    await ctx.post(`${API}/api/products`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      data: {
+        name: `Per-Store Race Product ${Date.now()}`,
+        categoryId: catId,
+        images: [],
+        variants: [
+          {
+            label: 'Default',
+            basePrice: 9.99,
+            stock: 5, // base stock; default store draws from this
+            stockEnabled: true,
+            isDefault: true,
+            active: true,
+            pricingMode: 'UNIT',
+            quantityOptions: [{ quantity: 1, sortOrder: 0 }],
+            priceBreaks: [],
+          },
+        ],
+      },
+    })
+  ).json();
+  const product = prodBody.data.product as { variants: Array<{ id: number }> };
+  const variantId = product.variants[0].id;
+
+  await ctx.dispose();
+
+  // --- Direct DB: create non-default store S + override (stock=1) ----------
+  const tenantId = getDefaultTenantId();
+  const slug = `race-store-s-${Date.now()}`;
+  const storeS = createTestStore(tenantId, slug, 'Race Store S');
+  createStoreVariantOverride(tenantId, storeS, variantId, 1);
+
+  return { variantId, adminToken, storeS };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Stock race condition tests
 //
@@ -170,4 +262,67 @@ test.describe('Stock race condition — atomic decrement', () => {
     // The hard invariant: stock never goes negative
     expect(stockAfter).toBeGreaterThanOrEqual(0);
   });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Per-store oversell protection
+//
+// Phase-2c: each store gets its own stock budget via StoreVariantOverride.
+// Exhausting store S's override must not affect the default store's variant.stock
+// — the two inventories are independent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test.describe('Per-store oversell protection — StoreVariantOverride', () => {
+  let variantId: number;
+  let storeS: number;
+
+  test.beforeAll(async () => {
+    const setup = await setupStoreOverrideProduct();
+    variantId = setup.variantId;
+    storeS = setup.storeS;
+  });
+
+  test.afterAll(() => {
+    // Remove the test store; StoreVariantOverride rows cascade-delete via FK.
+    deleteTestStore(storeS);
+  });
+
+  test(
+    'concurrent orders at store S (StoreVariantOverride stock=1): exactly one succeeds, one fails with insufficient stock',
+    async () => {
+      const token = await customerToken();
+
+      // Two orders race for the single override unit at store S.
+      const [rS1, rS2] = await Promise.all([
+        placeOrderAtStore(token, variantId, storeS),
+        placeOrderAtStore(token, variantId, storeS),
+      ]);
+
+      const sSuccesses = [rS1, rS2].filter(r => r.status >= 200 && r.status < 300);
+      const sFailures = [rS1, rS2].filter(r => r.status >= 400);
+
+      expect(sSuccesses, 'exactly one store-S order must succeed').toHaveLength(1);
+      expect(sFailures, 'exactly one store-S order must fail').toHaveLength(1);
+      // 400 = app-layer "Insufficient stock"; 500 = DB CHECK caught it — either
+      // means no double-sell occurred.
+      expect(sFailures[0].status).toBeGreaterThanOrEqual(400);
+    },
+  );
+
+  test(
+    'concurrent order at DEFAULT store for same variant succeeds (independent inventory)',
+    async () => {
+      // Store S override is now exhausted (from the previous test); the default
+      // store still has variant.stock=5 and must be unaffected.
+      const token = await customerToken();
+      // No X-Store-Id header → resolves to the default store → uses variant.stock.
+      const rDef = await placeOrder(token, variantId);
+
+      expect(
+        rDef.status,
+        'default-store order must succeed regardless of store-S stock state',
+      ).toBeGreaterThanOrEqual(200);
+      expect(rDef.status).toBeLessThan(300);
+    },
+  );
 });
