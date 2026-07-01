@@ -97,6 +97,14 @@ describe('role middleware', () => {
     expect(res2.status).toHaveBeenCalledWith(403);
   });
 
+  it('treats a role storeId of 0 as all-stores (matches any acting store)', () => {
+    const mw = authorize('EMPLOYEE');
+    const req: any = { user: { userId: 1, roles: [{ name: 'EMPLOYEE', storeId: 0 }] }, store: { id: 5 }, path: '/', method: 'GET' };
+    const res = createResponse(); const next = vi.fn();
+    mw(req, res, next);
+    expect(next).toHaveBeenCalled();
+  });
+
   describe('requireSuperAdmin (platform tenant-management gate)', () => {
     it('allows a SUPER_ADMIN on any tenant', () => {
       const req: any = { user: { userId: 1, roles: [{ name: 'SUPER_ADMIN', storeId: null }] }, tenant: { slug: 'acme' }, path: '/', method: 'GET' };
