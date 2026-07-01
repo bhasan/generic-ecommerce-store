@@ -1,4 +1,5 @@
 // web/src/context/StoreSelectionContext.test.jsx
+import { useState } from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { StoreSelectionProvider, useStoreSelection } from './StoreSelectionContext';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -144,6 +145,31 @@ describe('StoreSelectionContext', () => {
     // clear it so multi-store shows the picker (and single-store auto-selects).
     expect(result.current.activeStoreId).toBeNull();
     expect(localStorage.getItem('selectedStoreId')).toBeNull();
+  });
+
+  it('(h) context value is referentially stable across an unrelated parent re-render', async () => {
+    storesApi.getStores.mockResolvedValue([{ id: 1, name: 'Store A', slug: 'store-a', isDefault: true }]);
+
+    let forceRerender;
+    function Harness({ children }) {
+      const [, setTick] = useState(0);
+      forceRerender = () => setTick((t) => t + 1);
+      return <StoreSelectionProvider>{children}</StoreSelectionProvider>;
+    }
+
+    const { result } = renderHook(() => useStoreSelection(), { wrapper: Harness });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const first = result.current;
+
+    // Trigger a re-render of the tree via unrelated state, with no change to
+    // stores/activeStoreId/isMultiStore/selectStore/loading.
+    act(() => {
+      forceRerender();
+    });
+
+    expect(result.current).toBe(first);
   });
 
   it('throws when used outside StoreSelectionProvider', () => {

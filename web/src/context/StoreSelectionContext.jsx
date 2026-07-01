@@ -1,5 +1,5 @@
 // web/src/context/StoreSelectionContext.jsx
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { getStores } from '../services/storesApi';
 import { useAuthContext } from './AuthContext';
 import { getUserRoles, ROLES } from '../utils/roles';
@@ -93,7 +93,10 @@ export function StoreSelectionProvider({ children }) {
 
   const isMultiStore = stores.length > 1;
 
-  const value = { stores, activeStoreId, isMultiStore, selectStore, loading };
+  const value = useMemo(
+    () => ({ stores, activeStoreId, isMultiStore, selectStore, loading }),
+    [stores, activeStoreId, isMultiStore, selectStore, loading]
+  );
 
   return (
     <StoreSelectionContext.Provider value={value}>
