@@ -30,8 +30,10 @@ async function seedProd() {
   }
   const adminRoleId = roleMap['ADMIN'].id;
 
-  // 2. Admin user: create or get existing
-  let adminUser = await prisma.user.findUnique({ where: { username } });
+  // 2. Admin user: create or get existing.
+  // `username` is not globally unique (schema uses @@unique([tenantId, username])),
+  // so findUnique({ where: { username } }) is a runtime Prisma validation error.
+  let adminUser = await prisma.user.findFirst({ where: { username } });
   if (!adminUser) {
     const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
     adminUser = await prisma.user.create({
