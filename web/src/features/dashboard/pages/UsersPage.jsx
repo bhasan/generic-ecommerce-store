@@ -6,6 +6,7 @@ import { getRoleBadgeClass, ROLES } from '../../../utils/roles';
 import UsersSection from '../components/UsersSection';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import useModalState from '../../../hooks/useModalState';
+import StoreRoleAssignmentModal from '../../users/StoreRoleAssignmentModal';
 
 function UsersPage() {
   const { showNotification, currentUser } = useApp();
@@ -17,6 +18,7 @@ function UsersPage() {
   const [sortField, setSortField] = useState('id');
   const [sortDirection, setSortDirection] = useState('asc');
   const deleteModal = useModalState();
+  const [assignStoresUser, setAssignStoresUser] = useState(null);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -110,8 +112,21 @@ function UsersPage() {
     );
   };
 
+  const handleAssignStores = (user) => {
+    setAssignStoresUser(user);
+  };
+
   return (
     <>
+      <StoreRoleAssignmentModal
+        isOpen={assignStoresUser !== null}
+        onClose={() => setAssignStoresUser(null)}
+        user={assignStoresUser}
+        onSaved={() => {
+          setAssignStoresUser(null);
+          loadUsers();
+        }}
+      />
       <UsersSection
         isLoading={isLoading}
         users={allUsers}
@@ -128,6 +143,7 @@ function UsersPage() {
         onCancelEdit={() => { setEditingUserId(null); setEditingRoles([]); }}
         onEditRoles={handleEditRoles}
         onDeleteUser={(id, name) => deleteModal.openModal({ id, name })}
+        onAssignStores={handleAssignStores}
         formatDateShort={formatDateShort}
         getRoleBadgeClass={getRoleBadgeClass}
       />

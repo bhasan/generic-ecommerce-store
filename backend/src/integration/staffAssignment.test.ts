@@ -9,7 +9,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getUnscopedPrisma } from '../config/database';
 import { runWithTenant } from '../config/tenantContext';
-import { setUserRoleAssignments } from '../services/staffAssignment.service';
+import { setUserRoleAssignments, getUserRoleAssignments } from '../services/staffAssignment.service';
 import { AppError } from '../middleware/error.middleware';
 
 const base = getUnscopedPrisma();
@@ -272,5 +272,59 @@ describe('setUserRoleAssignments — return value', () => {
 
     const emp = result.assignments.find((a) => a.roleName === 'EMPLOYEE');
     expect(emp?.storeIds).toBe('all');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getUserRoleAssignments
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('getUserRoleAssignments', () => {
+  it('returns { roleName: EMPLOYEE, storeIds: [S1, S2] } after assigning at [S1, S2]', async () => {
+    await clearUserRoles();
+
+    // Set up via service
+    await runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+      await setUserRoleAssignments(userId, [
+        { roleName: 'EMPLOYEE', storeIds: [s1Id, s2Id] },
+      ]);
+    });
+
+    const result = await runWithTenant(
+      { tenantId, storeId: null, scope: 'tenant' },
+      async () => await getUserRoleAssignments(userId),
+    );
+
+    expect(result.userId).toBe(userId);
+    const emp = result.assignments.find((a) => a.roleName === 'EMPLOYEE');
+    expect(emp).toBeDefined();
+    expect(Array.isArray(emp!.storeIds)).toBe(true);
+    expect((emp!.storeIds as number[]).sort()).toEqual([s1Id, s2Id].sort());
+  });
+
+  it('returns storeIds:"all" after reassigning to "all"', async () => {
+    await clearUserRoles();
+
+    await runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+      await setUserRoleAssignments(userId, [
+        { roleName: 'EMPLOYEE', storeIds: 'all' },
+      ]);
+    });
+
+    const result = await runWithTenant(
+      { tenantId, storeId: null, scope: 'tenant' },
+      async () => await getUserRoleAssignments(userId),
+    );
+
+    const emp = result.assignments.find((a) => a.roleName === 'EMPLOYEE');
+    expect(emp?.storeIds).toBe('all');
+  });
+
+  it('rejects a userId belonging to another tenant with 404', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+        await getUserRoleAssignments(otherUserId);
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 });
   });
 });

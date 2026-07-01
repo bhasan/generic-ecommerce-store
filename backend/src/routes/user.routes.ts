@@ -35,6 +35,7 @@ router.put(
 router.post('/:id/approve', authenticate, authorizeManagement, requireIntParam('id', 'user'), asyncHandler(userController.approveUser));
 router.post('/:id/reject', authenticate, authorizeManagement, requireIntParam('id', 'user'), asyncHandler(userController.rejectUser));
 router.post('/:id/unreject', authenticate, authorizeManagement, requireIntParam('id', 'user'), asyncHandler(userController.unRejectUser));
+router.get('/:id/store-roles', authenticate, authorizeAdmin, requireIntParam('id', 'user'), asyncHandler(userController.getStoreRoles));
 router.put('/:id/store-roles', authenticate, authorizeAdmin, requireIntParam('id', 'user'), asyncHandler(userController.setStoreRoles));
 router.delete('/:id', authenticate, authorizeAdmin, requireIntParam('id', 'user'), asyncHandler(userController.deleteUser));
 

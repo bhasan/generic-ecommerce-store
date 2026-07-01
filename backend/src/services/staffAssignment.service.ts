@@ -160,3 +160,50 @@ export async function setUserRoleAssignments(
 
   return { userId, assignments: resultAssignments };
 }
+
+/**
+ * Read the current store assignments for a staff user, grouped by role.
+ *
+ * Returns the same `{ userId, assignments }` shape as `setUserRoleAssignments`.
+ * A storeId=0 sentinel row is represented as 'all'; a role with a 0 row
+ * supersedes any specific-store rows and is returned as storeIds:'all'.
+ */
+export async function getUserRoleAssignments(
+  userId: number,
+): Promise<{ userId: number; assignments: StoreRoleResult[] }> {
+  const prisma = getUnscopedPrisma();
+  const { tenantId } = getTenantContextOrThrow();
+
+  // Validate the user belongs to this tenant
+  const user = await prisma.user.findFirst({ where: { id: userId, tenantId } });
+  if (!user) {
+    throw new AppError(`User ${userId} not found in this tenant`, 404);
+  }
+
+  // Read all UserRole rows for this user+tenant, joining role name
+  const rows = await prisma.userRole.findMany({
+    where: { userId, tenantId },
+    include: { role: { select: { name: true } } },
+  });
+
+  // Group by roleName → storeIds[]
+  const grouped: Record<string, number[]> = {};
+  for (const row of rows) {
+    const name = row.role.name;
+    if (!grouped[name]) grouped[name] = [];
+    grouped[name].push(row.storeId ?? 0);
+  }
+
+  const assignments: StoreRoleResult[] = Object.entries(grouped).map(
+    ([roleName, storeIds]) => ({
+      roleName,
+      // If any of the storeId values is 0 (all-stores sentinel), the role is 'all'
+      storeIds:
+        storeIds.includes(0)
+          ? 'all'
+          : storeIds.sort((a, b) => a - b),
+    }),
+  );
+
+  return { userId, assignments };
+}
