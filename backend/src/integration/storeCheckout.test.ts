@@ -192,3 +192,65 @@ describe('checkout — per-store stock decrement + effective pricing (Task 4)', 
     expect(Number(lineItem.unitPrice)).toBe(10);
   });
 });
+
+// Regression test: createOrder must scope the override lookup by storeId.
+// Old code: findMany({ where: { variantId: { in: variantIds } } }) — no storeId filter.
+// With two stores sharing the same variantId, both overrides are returned; last-write-wins
+// in the map. If S2 (price=6) is inserted after S1 (price=8), S2 overwrites S1 in the map
+// and S1's order gets priced at 6 instead of 8.
+describe('cross-store override isolation — createOrder scopes override lookup by storeId (Task 4 regression)', () => {
+  let storeS1: number;
+  let storeS2: number;
+
+  beforeAll(async () => {
+    const s1 = await base.store.create({
+      data: { tenantId, name: 'Store S1', slug: `store-s1-${Date.now()}`, isDefault: false },
+    });
+    const s2 = await base.store.create({
+      data: { tenantId, name: 'Store S2', slug: `store-s2-${Date.now()}`, isDefault: false },
+    });
+    storeS1 = s1.id;
+    storeS2 = s2.id;
+
+    // S1 override created FIRST (lower DB id → returned first by Prisma) so that
+    // without the storeId filter, S2's row (inserted second) overwrites S1's in the
+    // map → unitPrice would be 6 instead of 8 → test fails on old code.
+    await (base as any).storeVariantOverride.create({
+      data: { tenantId, storeId: storeS1, variantId, stock: new Prisma.Decimal(5), priceOverride: new Prisma.Decimal(8) },
+    });
+    await (base as any).storeVariantOverride.create({
+      data: { tenantId, storeId: storeS2, variantId, stock: new Prisma.Decimal(5), priceOverride: new Prisma.Decimal(6) },
+    });
+  });
+
+  it('S1 order applies S1 price (8) not S2 price (6); S1 stock → 4, S2 stock unchanged at 5', async () => {
+    const order = await runWithTenant(
+      { tenantId, storeId: storeS1, isDefaultStore: false, scope: 'tenant' },
+      async () =>
+        orderSvc.createOrder({
+          userId,
+          items: [{ variantId, quantity: 1 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+        }),
+    );
+
+    expect(order).toBeDefined();
+
+    // Unit price must be S1's override price (8), not S2's (6) or base (10).
+    const lineItem = order.items[0];
+    expect(Number(lineItem.unitPrice)).toBe(8);
+
+    // S1's override stock decremented: 5 → 4.
+    const overrideS1 = await (base as any).storeVariantOverride.findFirst({
+      where: { storeId: storeS1, variantId },
+    });
+    expect(Number(overrideS1?.stock)).toBe(4);
+
+    // S2's override stock must be UNCHANGED at 5 — order was for S1, not S2.
+    const overrideS2 = await (base as any).storeVariantOverride.findFirst({
+      where: { storeId: storeS2, variantId },
+    });
+    expect(Number(overrideS2?.stock)).toBe(5);
+  });
+});

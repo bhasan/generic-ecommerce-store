@@ -304,7 +304,7 @@ export class OrderCrudService {
       if (storeId !== null && !isDefaultStore) {
         const overrides: Array<{ variantId: number; stock: Prisma.Decimal; priceOverride: Prisma.Decimal | null; activeOverride: boolean | null }> =
           await (prisma as any).storeVariantOverride.findMany({
-            where: { variantId: { in: variantIds } },
+            where: { storeId, variantId: { in: variantIds } },
           });
         for (const ov of overrides) {
           overrideMap.set(ov.variantId, ov);
