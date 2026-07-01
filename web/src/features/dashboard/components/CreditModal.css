@@ -1,15 +1,8 @@
 .credit-modal-container {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  width: 100%;
-  max-width: 560px;
   max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  animation: slideDown var(--transition-slow) ease-out;
-  box-shadow: var(--shadow-2xl);
+  overflow: hidden;
 }
 
 .credit-modal-header {

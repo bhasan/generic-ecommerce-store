@@ -32,7 +32,7 @@ function AdminDropdown({ isAdmin, variant = 'desktop' }) {
     }
   }, [showMenu, variant]);
 
-  const isActive = ACTIVE_PATHS.includes(location.pathname);
+  const isActive = ACTIVE_PATHS.some(path => location.pathname.startsWith(path));
 
   const go = (path) => { navigate(path); setShowMenu(false); };
 
@@ -42,7 +42,7 @@ function AdminDropdown({ isAdmin, variant = 'desktop' }) {
       className="admin-menu"
       style={variant === 'desktop' ? { position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 'var(--z-fixed)' } : undefined}
     >
-      <button type="button" onClick={() => go('/dashboard')} className={`admin-menu-item ${location.pathname === '/dashboard' ? 'admin-menu-item-active' : ''}`}>
+      <button type="button" onClick={() => go('/dashboard')} className={`admin-menu-item ${location.pathname.startsWith('/dashboard') ? 'admin-menu-item-active' : ''}`}>
         <LayoutDashboard size={16} /><span>Dashboard</span>
       </button>
       <button type="button" onClick={() => go('/store-credit')} className={`admin-menu-item ${location.pathname === '/store-credit' ? 'admin-menu-item-active' : ''}`}>
@@ -52,7 +52,7 @@ function AdminDropdown({ isAdmin, variant = 'desktop' }) {
         <CheckCircle size={16} /><span>Orders History</span>
       </button>
       {isAdmin && (
-        <button type="button" onClick={() => go('/website-management')} className={`admin-menu-item ${location.pathname === '/website-management' ? 'admin-menu-item-active' : ''}`}>
+        <button type="button" onClick={() => go('/website-management')} className={`admin-menu-item ${location.pathname.startsWith('/website-management') ? 'admin-menu-item-active' : ''}`}>
           <Globe size={16} /><span>Website Management</span>
         </button>
       )}

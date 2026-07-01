@@ -12,6 +12,7 @@ vi.mock('../../services/contactMessagesApi', () => ({
 
 vi.mock('../cart/CartPreview', () => ({ default: () => <div>CartPreview</div> }));
 vi.mock('./NotificationDropdown', () => ({ default: () => <div>NotificationDropdown</div> }));
+vi.mock('../../features/store/StoreSwitcher', () => ({ default: () => null }));
 
 const makeAppState = (currentUser, extra = {}) => ({
   currentUser,

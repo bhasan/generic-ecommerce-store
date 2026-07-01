@@ -1,7 +1,8 @@
 import fs from 'fs';
 import multer from 'multer';
 import { Request } from 'express';
-import { UPLOADS_DIR } from '../utils/fileUtils';
+import { UPLOADS_DIR, tenantUploadsDir } from '../utils/fileUtils';
+import { getTenantContextOrThrow } from './tenantContext';
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB for videos
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'];
 
@@ -27,7 +28,12 @@ const fileFilter = (
 
 const storage = multer.diskStorage({
   destination: (_req: any, _file: any, cb: any) => {
-    cb(null, UPLOADS_DIR);
+    try {
+      const { tenantId } = getTenantContextOrThrow();
+      cb(null, tenantUploadsDir(tenantId));
+    } catch (err) {
+      cb(err as Error, '');
+    }
   },
   filename: (_req: any, file: any, cb: any) => {
     let ext = file.mimetype.split('/')[1];

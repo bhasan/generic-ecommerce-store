@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react';
+import { Globe } from 'lucide-react';
+import { Outlet } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { getBranding } from '../../services/brandingApi';
-import StoreIdentitySection from './components/StoreIdentitySection';
-import BrandColorsSection from './components/BrandColorsSection';
-import HeroImageSection from './components/HeroImageSection';
-import FaviconSection from './components/FaviconSection';
-import WebsiteStoreInfoSection from './components/WebsiteStoreInfoSection';
-import WebsitePaymentSection from './components/WebsitePaymentSection';
-import WebsiteDeliverySection from './components/WebsiteDeliverySection';
+import PageHeader from '../../components/common/PageHeader';
+import WebsiteManagementSidebar from './components/WebsiteManagementSidebar';
 import './WebsiteManagementPage.css';
 
 export default function WebsiteManagementPage() {
@@ -30,15 +27,18 @@ export default function WebsiteManagementPage() {
   };
 
   return (
-    <div className="website-mgmt-page">
-      <h1>Website Management</h1>
-      <StoreIdentitySection branding={branding} onSave={handleBrandingUpdate} />
-      <BrandColorsSection branding={branding} onSave={handleBrandingUpdate} />
-      <HeroImageSection branding={branding} onSave={handleBrandingUpdate} />
-      <FaviconSection branding={branding} onSave={handleBrandingUpdate} />
-      <WebsiteStoreInfoSection />
-      <WebsitePaymentSection />
-      <WebsiteDeliverySection />
+    <div className="dashboard-grid-container">
+      <PageHeader
+        title="Website Management"
+        subtitle="Branding, appearance, and website settings"
+        icon={Globe}
+      />
+      <div className="dashboard-grid-layout">
+        <WebsiteManagementSidebar />
+        <main className="dashboard-grid-content">
+          <Outlet context={{ branding, onSave: handleBrandingUpdate }} />
+        </main>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError, errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 const verifyToken = vi.hoisted(() => vi.fn());
 const extractTokenFromHeader = vi.hoisted(() => vi.fn((header?: string) => {
@@ -89,6 +90,7 @@ describe('admin settings routes integration', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    setDefaultTenantId(1);
     server = await createServer();
   });
 
@@ -142,8 +144,11 @@ describe('admin settings routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
-      minimumDeliveryOrder: 45,
-      minimumDeliveryOrderEnabled: true,
+      success: true,
+      data: {
+        minimumDeliveryOrder: 45,
+        minimumDeliveryOrderEnabled: true,
+      },
     });
     expect(logger.info).toHaveBeenCalledWith('Authentication succeeded', expect.objectContaining({
       requestId: 'req-integration',
@@ -172,8 +177,9 @@ describe('admin settings routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
+      success: true,
       message: 'Payment settings updated successfully',
-      settings: payload,
+      data: { settings: payload },
     });
     expect(paymentSettingsService.updatePaymentSettings).toHaveBeenCalledWith(payload);
   });
@@ -208,16 +214,18 @@ describe('admin settings routes integration', () => {
     expect(body).toEqual({ error: 'No token provided. Authentication required.' });
   });
 
-  it('rejects non-management users from landing page settings', async () => {
+  it('rejects non-management users from updating landing page settings', async () => {
     verifyToken.mockReturnValue({ userId: 2, username: 'customer-one', roles: ['CUSTOMER'] });
 
     const { response, body } = await requestJson(server, '/api/landing-page-settings', {
-      headers: { Authorization: 'Bearer customer-token' },
+      method: 'PUT',
+      headers: { Authorization: 'Bearer customer-token', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featuredProductIds: [], promotions: [] }),
     });
 
     expect(response.status).toBe(403);
     expect(body).toMatchObject({ error: 'Access denied. Insufficient permissions.' });
-    expect(landingPageSettingsService.getLandingPageSettings).not.toHaveBeenCalled();
+    expect(landingPageSettingsService.updateLandingPageSettings).not.toHaveBeenCalled();
   });
 
   it('returns landing page settings for a management user', async () => {
@@ -229,7 +237,7 @@ describe('admin settings routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ featuredProductIds: [5, 3, 9] });
+    expect(body).toEqual({ success: true, data: { featuredProductIds: [5, 3, 9] } });
   });
 
   it('updates landing page settings for a management user and returns the success shape', async () => {
@@ -248,8 +256,9 @@ describe('admin settings routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
+      success: true,
       message: 'Landing page settings updated successfully',
-      settings: payload,
+      data: { settings: payload },
     });
     expect(landingPageSettingsService.updateLandingPageSettings).toHaveBeenCalledWith(payload);
   });

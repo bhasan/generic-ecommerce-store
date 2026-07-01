@@ -1,0 +1,146 @@
+# ============================================================================
+# Multi-tenant HTTPS nginx template
+# ----------------------------------------------------------------------------
+# Smoke Station resolves the active tenant from the HTTP Host header (subdomain
+# or custom domain — see backend/src/middleware/tenant.middleware.ts). nginx's
+# only multi-tenant job is therefore:
+#   1. terminate TLS for every hostname that should reach the app, and
+#   2. pass the original Host through unchanged (proxy_set_header Host $host).
+#
+# There are two classes of hostname, handled differently:
+#   A. Platform subdomains  acme.yourapp.com, beta.yourapp.com, ...
+#      -> ONE wildcard certificate for *.yourapp.com (issued via DNS-01;
+#         see infra/tls/issue-wildcard-cert.sh). One server block covers all.
+#   B. Tenant custom domains  shop.acmevapes.com (a BYO domain)
+#      -> SNI for an arbitrary hostname the wildcard cert does NOT cover. nginx
+#         has no native on-demand TLS, so each custom domain needs its own cert
+#         + server block (see the per-custom-domain block at the bottom, which a
+#         provisioning hook can render from this template), OR use the Caddy
+#         alternative in infra/tls/Caddyfile.template, which issues custom-domain
+#         certs automatically. For a handful of custom domains, nginx is fine;
+#         past a few dozen, Caddy on-demand TLS is far less operational toil.
+#
+# Replace yourapp.com with your apex domain before use. Fill ${...} via envsubst
+# or your config-management tool.
+# ============================================================================
+
+log_format json_combined escape=json
+  '{'
+    '"time":"$time_iso8601",'
+    '"host":"$host",'                 # tenant hostname — handy for per-tenant log queries
+    '"method":"$request_method",'
+    '"uri":"$request_uri",'
+    '"status":$status,'
+    '"request_time":$request_time,'
+    '"upstream_response_time":"$upstream_response_time",'
+    '"remote_addr":"$remote_addr",'
+    '"request_id":"$request_id"'
+  '}';
+
+# Docker embedded DNS so `backend` resolves at request time (see nginx.prod.conf
+# for why we avoid a static upstream{} block).
+# resolver 127.0.0.11 valid=10s ipv6=off;   # uncomment inside Docker
+
+# Shared proxy + SPA config, included by every server block below so the apex,
+# wildcard, and custom-domain servers stay identical.
+# --- snippet: /etc/nginx/snippets/app.conf -------------------------------------
+#   (extract the location blocks here into a snippet and `include` it if you
+#    prefer; inlined below for a single-file template.)
+
+# ----------------------------------------------------------------------------
+# 0. HTTP :80 — ACME HTTP-01 challenges + permanent redirect to HTTPS.
+#    Covers apex, wildcard subdomains, and any custom domain (default_server).
+# ----------------------------------------------------------------------------
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    # Let certbot answer HTTP-01 challenges (custom-domain issuance) without a redirect.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type "text/plain";
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ----------------------------------------------------------------------------
+# A. HTTPS :443 — apex + ALL platform subdomains, served by the wildcard cert.
+#    *.yourapp.com matches one label (acme.yourapp.com); the bare apex is listed
+#    explicitly because a wildcard does NOT match the zero-label apex.
+# ----------------------------------------------------------------------------
+server {
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    http2 on;
+    server_name yourapp.com www.yourapp.com *.yourapp.com;
+
+    ssl_certificate     /etc/letsencrypt/live/yourapp.com/fullchain.pem;   # wildcard + apex SAN
+    ssl_certificate_key /etc/letsencrypt/live/yourapp.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    include /etc/nginx/snippets/app-locations.conf;   # see "shared locations" below
+}
+
+# ----------------------------------------------------------------------------
+# B. HTTPS :443 — ONE block per tenant custom domain (own certificate).
+#    A provisioning hook can render this block from the template whenever a
+#    tenant maps a custom domain, then issue the cert (infra/tls/issue-custom-
+#    domain-cert.sh) and `nginx -s reload`. Repeat per custom domain.
+# ----------------------------------------------------------------------------
+# server {
+#     listen 443 ssl;
+#     listen [::]:443 ssl;
+#     http2 on;
+#     server_name shop.acmevapes.com;                 # ${CUSTOM_DOMAIN}
+#
+#     ssl_certificate     /etc/letsencrypt/live/shop.acmevapes.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/shop.acmevapes.com/privkey.pem;
+#     ssl_protocols TLSv1.2 TLSv1.3;
+#     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+#
+#     include /etc/nginx/snippets/app-locations.conf;
+# }
+
+# ============================================================================
+# Shared locations — put this in /etc/nginx/snippets/app-locations.conf and
+# `include` it from each server block above. Identical to nginx.prod.conf's
+# body; the ONLY thing that matters for tenancy is `proxy_set_header Host $host`.
+# ============================================================================
+#
+# # Block external access to backend metrics.
+# location = /metrics { deny all; }
+#
+# client_max_body_size 10M;
+# location /api {
+#     set $backend_upstream backend:3000;
+#     proxy_pass http://$backend_upstream;
+#     proxy_http_version 1.1;
+#     proxy_set_header Host $host;                    # <-- tenant identity. DO NOT hardcode.
+#     proxy_set_header X-Real-IP $remote_addr;
+#     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#     proxy_set_header X-Forwarded-Proto $scheme;
+#     proxy_set_header X-Request-Id $request_id;
+#     proxy_connect_timeout 60s;
+#     proxy_send_timeout 60s;
+#     proxy_read_timeout 60s;
+# }
+#
+# location / {
+#     root /usr/share/nginx/html;
+#     index index.html;
+#     try_files $uri $uri/ /index.html;              # SPA fallback (per-tenant theming is client-side)
+#     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+#         expires 1y;
+#         add_header Cache-Control "public, immutable";
+#     }
+# }
+#
+# access_log /var/log/nginx/access.log json_combined;
+# location /health { access_log off; return 200 "healthy\n"; add_header Content-Type text/plain; }

@@ -1,7 +1,9 @@
 import { DeliveryEligibilitySource, DeliveryZoneStatus } from '../../generated/prisma';
 import prisma from '../config/database';
+import { getEffectiveStoreId, getTenantContext } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import {
+  extractAddressFromSettingsValue,
   extractZipCodeFromFreeformAddress,
   formatStructuredDeliveryAddress,
   getStructuredDeliveryAddressCacheKey,
@@ -17,12 +19,12 @@ const GOOGLE_GEOCODING_URL = 'https://maps.googleapis.com/maps/api/geocode/json'
 const DEFAULT_GEOCODING_TIMEOUT_MS = 5000;
 const STORE_ADDRESS_TTL_MS = 5 * 60 * 1000;
 
-// Module-level so all service instances share one cache (multiple singletons exist in the codebase).
-let _cachedStoreAddress: string | null = null;
-let _storeAddressCacheExpiresAt = 0;
+// Module-level cache shared across service instances, keyed by "${tenantId}:${storeId}"
+// so one store's address is never served to another store of the same tenant.
+const _storeAddressCache = new Map<string, { address: string; expiresAt: number }>();
 
 export function invalidateStoreAddressCache(): void {
-  _cachedStoreAddress = null;
+  _storeAddressCache.clear();
 }
 
 const orderingConstraintsService = new OrderingConstraintsService();
@@ -109,21 +111,25 @@ const haversineMiles = (
 
 export class DeliveryEligibilityService {
   private async getStoreAddress(): Promise<string> {
+    const ctx = getTenantContext();
+    const effectiveStoreId = getEffectiveStoreId(ctx);
+    const cacheKey = `${ctx?.tenantId ?? 0}:${effectiveStoreId}`;
     const now = Date.now();
-    if (_cachedStoreAddress !== null && now < _storeAddressCacheExpiresAt) {
-      return _cachedStoreAddress;
+    const hit = _storeAddressCache.get(cacheKey);
+    if (hit && now < hit.expiresAt) {
+      return hit.address;
     }
-    const row = await prisma.uiSetting.findUnique({ where: { key: 'store_settings' } });
-    const address = (
-      row?.value &&
-      typeof row.value === 'object' &&
-      typeof (row.value as { address?: unknown }).address === 'string' &&
-      (row.value as { address: string }).address.trim()
-    )
-      ? (row.value as { address: string }).address
-      : '';
-    _cachedStoreAddress = address;
-    _storeAddressCacheExpiresAt = now + STORE_ADDRESS_TTL_MS;
+    // findMany retrieves both the tenant default (storeId=0) and the per-store
+    // override in one query; the $extends interceptor injects tenantId automatically.
+    const rows = await prisma.uiSetting.findMany({
+      where: { key: 'store_settings', storeId: { in: [0, effectiveStoreId] } },
+    });
+    const overrideRow = rows.find((r) => r.storeId === effectiveStoreId);
+    const defaultRow = rows.find((r) => r.storeId === 0);
+    const address =
+      extractAddressFromSettingsValue(overrideRow?.value) ||
+      extractAddressFromSettingsValue(defaultRow?.value);
+    _storeAddressCache.set(cacheKey, { address, expiresAt: now + STORE_ADDRESS_TTL_MS });
     return address;
   }
 

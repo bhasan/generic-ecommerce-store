@@ -5,6 +5,7 @@ import { authenticate } from '../middleware/auth.middleware';
 import { authorizeManagement, authorizeAdmin } from '../middleware/role.middleware';
 import { ROLE_NAMES } from '../constants/roles';
 import { asyncHandler } from '../utils/asyncHandler.util';
+import { requireIntParam } from '../middleware/parseParam.middleware';
 
 const router = Router();
 
@@ -12,11 +13,12 @@ router.get('/', authenticate, authorizeManagement, asyncHandler(userController.g
 router.get('/roles', authenticate, authorizeManagement, asyncHandler(userController.getAllRoles));
 router.get('/pending', authenticate, authorizeManagement, asyncHandler(userController.getPendingRegistrations));
 router.get('/rejected', authenticate, authorizeAdmin, asyncHandler(userController.getRejectedUsers));
-router.get('/:id', authenticate, asyncHandler(userController.getUserById));
+router.get('/:id', authenticate, requireIntParam('id', 'user'), asyncHandler(userController.getUserById));
 
 router.put(
   '/:id',
   authenticate,
+  requireIntParam('id', 'user'),
   [
     body('username').optional().isString().withMessage('Username must be a string'),
     body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
@@ -30,9 +32,11 @@ router.put(
   asyncHandler(userController.updateUser)
 );
 
-router.post('/:id/approve', authenticate, authorizeManagement, asyncHandler(userController.approveUser));
-router.post('/:id/reject', authenticate, authorizeManagement, asyncHandler(userController.rejectUser));
-router.post('/:id/unreject', authenticate, authorizeManagement, asyncHandler(userController.unRejectUser));
-router.delete('/:id', authenticate, authorizeAdmin, asyncHandler(userController.deleteUser));
+router.post('/:id/approve', authenticate, authorizeManagement, requireIntParam('id', 'user'), asyncHandler(userController.approveUser));
+router.post('/:id/reject', authenticate, authorizeManagement, requireIntParam('id', 'user'), asyncHandler(userController.rejectUser));
+router.post('/:id/unreject', authenticate, authorizeManagement, requireIntParam('id', 'user'), asyncHandler(userController.unRejectUser));
+router.get('/:id/store-roles', authenticate, authorizeAdmin, requireIntParam('id', 'user'), asyncHandler(userController.getStoreRoles));
+router.put('/:id/store-roles', authenticate, authorizeAdmin, requireIntParam('id', 'user'), asyncHandler(userController.setStoreRoles));
+router.delete('/:id', authenticate, authorizeAdmin, requireIntParam('id', 'user'), asyncHandler(userController.deleteUser));
 
 export default router;

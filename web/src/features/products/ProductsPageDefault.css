@@ -31,6 +31,31 @@
   font-weight: 600;
 }
 
+/* ── Catalog search ───────────────────────── */
+.products-search-input {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  padding: 0.75rem var(--spacing-md);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  margin-bottom: var(--spacing-lg);
+  box-sizing: border-box;
+}
+
+.products-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-bg);
+}
+
+.products-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 .category-filter {
   margin-bottom: 2rem;
   display: flex;

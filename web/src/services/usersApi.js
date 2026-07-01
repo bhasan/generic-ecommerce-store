@@ -23,8 +23,8 @@ export const getUserById = usersResource.getById;
  * @returns {Promise<object>} Updated user object
  */
 export const updateUser = async (id, data) => {
-  const response = await put(`/users/${id}`, data, { skipAutoLogout: true });
-  return response.user || response;
+  const result = await put(`/users/${id}`, data, { skipAutoLogout: true });
+  return result?.user ?? result;
 };
 
 /**
@@ -49,8 +49,8 @@ export const getRejectedUsers = async () => {
  * @returns {Promise<object>} Approved user object
  */
 export const approveUser = async (id) => {
-  const response = await post(`/users/${id}/approve`);
-  return response.user || response;
+  const result = await post(`/users/${id}/approve`);
+  return result?.user ?? result;
 };
 
 /**
@@ -86,3 +86,18 @@ export const deleteUser = usersResource.remove;
 export const getAllRoles = async () => {
   return get('/users/roles');
 };
+
+/**
+ * Get the current store-role assignments for a staff user.
+ * @param {number} id - User ID
+ * @returns {Promise<{ userId: number, assignments: Array<{ roleName: string, storeIds: number[]|'all' }> }>}
+ */
+export const getUserStoreRoles = (id) => get(`/users/${id}/store-roles`);
+
+/**
+ * Replace store-role assignments for a staff user.
+ * @param {number} id - User ID
+ * @param {Array<{ roleName: string, storeIds: number[]|'all' }>} assignments
+ * @returns {Promise<{ userId: number, assignments: Array }>}
+ */
+export const setUserStoreRoles = (id, assignments) => put(`/users/${id}/store-roles`, { assignments });

@@ -1,27 +1,7 @@
-.pmm-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.85);
-  z-index: var(--z-modal);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--spacing-md);
-  padding-top: 80px;
-}
-
 .pmm-container {
-  display: flex;
-  flex-direction: column;
   background: var(--bg-secondary);
-  border-radius: var(--radius-xl);
   overflow: hidden;
-  width: 100%;
   height: 80vh;
-  max-width: 85vw;
 }
 
 /* Header */
@@ -220,12 +200,6 @@
 
 /* Mobile */
 @media (max-width: 640px) {
-  .pmm-overlay {
-    padding: 0;
-    padding-top: 60px;
-    align-items: flex-start;
-  }
-
   .pmm-container {
     max-width: 100vw;
     height: calc(100vh - 60px);

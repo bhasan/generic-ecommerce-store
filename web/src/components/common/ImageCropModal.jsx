@@ -3,6 +3,7 @@ import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { X, CropIcon, Upload } from 'lucide-react';
 import './ImageCropModal.css';
+import BaseModal from './BaseModal';
 
 function centerFreeformCrop(mediaWidth, mediaHeight) {
   // Default to a reasonable centered selection (80% of dimensions)
@@ -103,61 +104,59 @@ function ImageCropModal({ file, onConfirm, onSkip, onCancel }) {
   };
 
   return (
-    <div className="icm-overlay">
-      <div className="icm-container" onClick={(e) => e.stopPropagation()}>
-        <div className="icm-header">
-          <CropIcon size={18} />
-          <span className="icm-title">Crop Image</span>
-          <button className="icm-close" onClick={onCancel} aria-label="Cancel">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="icm-hint">
-          Drag to adjust the crop area, or skip to upload the original.
-          <br />
-          <span className="icm-hint-sub">Product thumbnails display at approximately 16:10 landscape ratio.</span>
-        </div>
-
-        <div className="icm-presets">
-          <button className="btn btn-secondary btn-sm" onClick={() => applyAspectCrop(16 / 10)}>
-            16:10
-          </button>
-        </div>
-
-        <div className="icm-crop-area">
-          {objectUrl && (
-            <ReactCrop
-              crop={crop}
-              onChange={(c) => setCrop(c)}
-              onComplete={(c) => setCompletedCrop(c)}
-            >
-              <img
-                ref={imgRef}
-                src={objectUrl}
-                alt="Crop preview"
-                className="icm-image"
-                onLoad={onImageLoad}
-              />
-            </ReactCrop>
-          )}
-        </div>
-
-        <div className="icm-actions">
-          <button className="btn btn-ghost" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="btn btn-secondary" onClick={() => onSkip(file)}>
-            <Upload size={16} />
-            Skip &amp; Upload Original
-          </button>
-          <button className="btn btn-primary" onClick={handleCropConfirm}>
-            <CropIcon size={16} />
-            Crop &amp; Upload
-          </button>
-        </div>
+    <BaseModal isOpen={true} onClose={onCancel} className="icm-container" maxWidth="720px">
+      <div className="icm-header">
+        <CropIcon size={18} />
+        <span className="icm-title">Crop Image</span>
+        <button className="icm-close" onClick={onCancel} aria-label="Cancel">
+          <X size={20} />
+        </button>
       </div>
-    </div>
+
+      <div className="icm-hint">
+        Drag to adjust the crop area, or skip to upload the original.
+        <br />
+        <span className="icm-hint-sub">Product thumbnails display at approximately 16:10 landscape ratio.</span>
+      </div>
+
+      <div className="icm-presets">
+        <button className="btn btn-secondary btn-sm" onClick={() => applyAspectCrop(16 / 10)}>
+          16:10
+        </button>
+      </div>
+
+      <div className="icm-crop-area">
+        {objectUrl && (
+          <ReactCrop
+            crop={crop}
+            onChange={(c) => setCrop(c)}
+            onComplete={(c) => setCompletedCrop(c)}
+          >
+            <img
+              ref={imgRef}
+              src={objectUrl}
+              alt="Crop preview"
+              className="icm-image"
+              onLoad={onImageLoad}
+            />
+          </ReactCrop>
+        )}
+      </div>
+
+      <div className="icm-actions">
+        <button className="btn btn-ghost" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn btn-secondary" onClick={() => onSkip(file)}>
+          <Upload size={16} />
+          Skip &amp; Upload Original
+        </button>
+        <button className="btn btn-primary" onClick={handleCropConfirm}>
+          <CropIcon size={16} />
+          Crop &amp; Upload
+        </button>
+      </div>
+    </BaseModal>
   );
 }
 

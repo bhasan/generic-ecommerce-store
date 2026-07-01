@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, Save, ChevronUp, ChevronDown, X, Search, ImagePlus } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import MediaLibraryModal from '../../../components/common/MediaLibraryModal';
+import LoadingState from '../../../components/common/LoadingState';
 import './LandingPageSection.css';
 
 const MAX_FEATURED = 12;
@@ -112,10 +113,7 @@ function LandingPageSection({ isLoading, landingPageSettings, onSave }) {
   if (isLoading) {
     return (
       <div className="dashboard-content-section surface-card">
-        <div className="empty-state">
-          <div className="loading-spinner" />
-          <p>Loading landing page settings...</p>
-        </div>
+        <LoadingState message="Loading landing page settings..." />
       </div>
     );
   }

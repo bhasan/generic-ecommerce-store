@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppError, errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 const verifyToken = vi.hoisted(() => vi.fn());
 const extractTokenFromHeader = vi.hoisted(() => vi.fn((header?: string) => {
@@ -111,6 +112,7 @@ describe('media routes integration', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    setDefaultTenantId(1);
     server = await createServer();
   });
 
@@ -129,8 +131,8 @@ describe('media routes integration', () => {
     const { response, body } = await requestJson(server, '/api/products');
 
     expect(response.status).toBe(200);
-    expect(body).toEqual([{ id: 1, name: 'Visible Product' }]);
-    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, undefined, undefined);
+    expect(body).toEqual({ success: true, data: [{ id: 1, name: 'Visible Product' }] });
+    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, 500, 0, { base: false });
   });
 
   it('forwards limit and offset query params to the product service', async () => {
@@ -139,7 +141,7 @@ describe('media routes integration', () => {
     const { response } = await requestJson(server, '/api/products?limit=10&offset=20');
 
     expect(response.status).toBe(200);
-    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, 10, 20);
+    expect(productService.getAllProducts).toHaveBeenCalledWith(undefined, 10, 20, { base: false });
   });
 
   it('ignores invalid optional auth tokens on product routes and still serves public data', async () => {
@@ -154,7 +156,7 @@ describe('media routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ id: 44, name: 'Public Product' });
+    expect(body).toEqual({ success: true, data: { id: 44, name: 'Public Product' } });
     expect(logger.warn).toHaveBeenCalledWith('Optional authentication ignored invalid token', expect.objectContaining({
       requestId: 'req-media',
       path: '/44',
@@ -267,8 +269,9 @@ describe('media routes integration', () => {
 
     expect(response.status).toBe(201);
     expect(body).toEqual({
+      success: true,
       message: 'Product created successfully',
-      product: { id: 88, name: 'Media Product' },
+      data: { product: { id: 88, name: 'Media Product' } },
     });
     expect(productService.createProduct).toHaveBeenCalledWith(payload);
   });
@@ -295,8 +298,9 @@ describe('media routes integration', () => {
 
     expect(response.status).toBe(201);
     expect(body).toEqual({
+      success: true,
       message: 'Product created successfully',
-      product: { id: 89, name: 'Thumbnail Only Product' },
+      data: { product: { id: 89, name: 'Thumbnail Only Product' } },
     });
     expect(productService.createProduct).toHaveBeenCalledWith(payload);
   });

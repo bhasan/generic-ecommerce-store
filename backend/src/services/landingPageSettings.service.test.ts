@@ -1,24 +1,28 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
+import { clearSettingsCache } from './settingsStore';
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
     upsert: vi.fn(),
   },
 }));
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
+  getUnscopedPrisma: () => prismaMock,
 }));
 
 describe('landing page settings service', () => {
   beforeEach(() => {
+    clearSettingsCache();
     vi.clearAllMocks();
   });
 
   it('returns empty defaults when no persisted settings exist', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findFirst.mockResolvedValue(null);
     const { LandingPageSettingsService } = await import('./landingPageSettings.service');
 
     const result = await new LandingPageSettingsService().getLandingPageSettings();
@@ -27,7 +31,7 @@ describe('landing page settings service', () => {
   });
 
   it('fills in missing promotions field for rows saved before the field was added', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({ value: { featuredProductIds: [1, 2] } });
+    prismaMock.uiSetting.findFirst.mockResolvedValue({ value: { featuredProductIds: [1, 2] } });
     const { LandingPageSettingsService } = await import('./landingPageSettings.service');
 
     const result = await new LandingPageSettingsService().getLandingPageSettings();
@@ -43,9 +47,9 @@ describe('landing page settings service', () => {
     const result = await new LandingPageSettingsService().updateLandingPageSettings(settings);
 
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { key: 'landing_page_settings' },
+      where: { tenantId_storeId_key: { tenantId: 0, storeId: 0, key: 'landing_page_settings' } },
       update: { value: settings },
-      create: { key: 'landing_page_settings', value: settings },
+      create: { key: 'landing_page_settings', storeId: 0, value: settings },
     });
     expect(result).toEqual(settings);
   });

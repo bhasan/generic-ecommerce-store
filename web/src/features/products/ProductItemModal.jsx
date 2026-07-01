@@ -3,9 +3,12 @@ import { useApp } from '../../context/AppContext';
 import { isGuest, ROLES } from '../../utils/roles';
 import { X, ExternalLink, Link, ShoppingCart, ChevronLeft, ChevronRight, PlayCircle, AlertCircle, Tag } from 'lucide-react';
 import ProductMediaModal from './ProductMediaModal';
-import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDiscountedUnitPrice, getDefaultVariant } from './productsHelpers';
+import { PRODUCT_FALLBACK_IMAGE, getProductCategoryLabel, getProductAllImages, getAllowedQuantities, getDefaultVariant } from './productsHelpers';
 import './ProductsShared.css';
 import './ProductItemModal.css';
+import { formatPrice } from '../../utils/currencyUtils';
+import BaseModal from '../../components/common/BaseModal';
+import usePriceCalculation from '../../hooks/usePriceCalculation';
 
 const isVideo = (url) => {
   if (!url) return false;
@@ -25,6 +28,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const activeVariants = (product?.variants ?? []).filter(v => v.active);
   const selectedVariant = activeVariants.find(v => v.id === selectedVariantId) ?? getDefaultVariant(product);
   const allowedQuantities = selectedVariant ? getAllowedQuantities(selectedVariant) : [];
+  const { basePrice, unitPrice, totalPrice, originalTotal, hasDiscount } = usePriceCalculation(selectedVariant, selectedQuantity);
 
   useEffect(() => {
     if (product) {
@@ -41,18 +45,6 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
     }
   }, [selectedVariant?.id, allowedQuantities.length]);
 
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
-  }, [onClose]);
-
   const handleCopyLink = () => {
     const url = `${window.location.origin}/products/${productId}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -63,13 +55,11 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
 
   if (isLoadingProducts || !product) {
     return (
-      <div className="product-modal-backdrop" onClick={onClose}>
-        <div className="product-modal" onClick={(e) => e.stopPropagation()}>
-          <div className="product-modal-loading">
-            {isLoadingProducts ? 'Loading...' : 'Product not found.'}
-          </div>
+      <BaseModal isOpen={true} onClose={onClose} className="product-modal" maxWidth="900px">
+        <div className="product-modal-loading">
+          {isLoadingProducts ? 'Loading...' : 'Product not found.'}
         </div>
-      </div>
+      </BaseModal>
     );
   }
 
@@ -83,11 +73,6 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const images = getProductAllImages(product);
   const showStock = selectedVariant?.stockEnabled !== false;
   const isOutOfStock = showStock && Number(selectedVariant?.stock ?? 0) === 0;
-  const basePrice = Number(selectedVariant?.basePrice ?? 0);
-  const unitPrice = selectedVariant ? getDiscountedUnitPrice(selectedVariant, selectedQuantity) : basePrice;
-  const totalPrice = unitPrice * selectedQuantity;
-  const originalTotal = basePrice * selectedQuantity;
-  const hasDiscount = unitPrice < basePrice;
 
   const handleAddToCart = () => {
     if (selectedVariant) addToCart(product, selectedVariant, selectedQuantity);
@@ -96,8 +81,8 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
   const priceBreaks = selectedVariant?.priceBreaks ?? [];
 
   return (
-    <div className="product-modal-backdrop" onClick={onClose}>
-      <div className="product-modal" onClick={(e) => e.stopPropagation()}>
+    <>
+    <BaseModal isOpen={true} onClose={onClose} className="product-modal" maxWidth="900px">
         <div className="product-modal-header">
           <span className="product-modal-title">{product.name}</span>
           <div className="product-modal-actions">
@@ -184,7 +169,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
             <h2 className="product-modal-product-title">{product.name}</h2>
 
             <div className="product-price-display">
-              ${basePrice.toFixed(2)}
+              {formatPrice(basePrice)}
               {priceBreaks.length > 0 && <span className="price-per-unit">/ each</span>}
             </div>
 
@@ -215,7 +200,7 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
                   {[...priceBreaks].sort((a, b) => Number(a.minQuantity) - Number(b.minQuantity)).map((pb, i) => (
                     <div key={i} className="discount-tier">
                       <span className="discount-qty">{Number(pb.minQuantity)}+:</span>
-                      <span className="discount-value">${Number(pb.unitPrice).toFixed(2)} each</span>
+                      <span className="discount-value">{formatPrice(Number(pb.unitPrice))} each</span>
                     </div>
                   ))}
                 </div>
@@ -253,18 +238,18 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
                 <>
                   <div className="price-row price-total-row">
                     <span className="price-label">Total ({selectedQuantity} items):</span>
-                    <span className="price-original">${originalTotal.toFixed(2)}</span>
+                    <span className="price-original">{formatPrice(originalTotal)}</span>
                     <span className="price-arrow">→</span>
-                    <span className="price-total">${totalPrice.toFixed(2)}</span>
+                    <span className="price-total">{formatPrice(totalPrice)}</span>
                   </div>
                   <div className="price-row">
-                    <span className="price-savings">Save ${(originalTotal - totalPrice).toFixed(2)}</span>
+                    <span className="price-savings">Save {formatPrice(originalTotal - totalPrice)}</span>
                   </div>
                 </>
               ) : (
                 <div className="price-row price-total-row">
                   <span className="price-label">Total ({selectedQuantity} items):</span>
-                  <span className="price-total">${totalPrice.toFixed(2)}</span>
+                  <span className="price-total">{formatPrice(totalPrice)}</span>
                 </div>
               )}
             </div>
@@ -286,16 +271,17 @@ function ProductItemModal({ productId, onClose, onViewFullPage }) {
             )}
           </div>
         </div>
-      </div>
 
-      {mediaModalOpen && (
-        <ProductMediaModal
-          product={product}
-          initialIndex={selectedImageIndex}
-          onClose={() => setMediaModalOpen(false)}
-        />
-      )}
-    </div>
+    </BaseModal>
+
+    {mediaModalOpen && (
+      <ProductMediaModal
+        product={product}
+        initialIndex={selectedImageIndex}
+        onClose={() => setMediaModalOpen(false)}
+      />
+    )}
+    </>
   );
 }
 

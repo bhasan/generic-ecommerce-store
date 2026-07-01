@@ -6,73 +6,10 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import AuthorizeNetPaymentModal from '../cart/AuthorizeNetPaymentModal';
 import * as ordersApi from '../../services/ordersApi';
+import { formatPrice } from '../../utils/currencyUtils';
+import OrderStatusStepper from './OrderStatusStepper';
 
 const ACTIVE_STATUSES = ['PENDING_PAYMENT', 'PENDING', 'APPROVED', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY', 'READY_FOR_PICKUP', 'ARRIVED'];
-
-// Stepper definitions per delivery method
-const DELIVERY_STEPS = [
-  { key: 'PENDING', label: 'Pending' },
-  { key: 'APPROVED', label: 'Preparing' },
-  { key: 'OUT_FOR_DELIVERY', label: 'Out for Delivery' },
-  { key: 'DELIVERED', label: 'Delivered' }
-];
-
-const PICKUP_STEPS = [
-  { key: 'PENDING', label: 'Pending' },
-  { key: 'APPROVED', label: 'Preparing' },
-  { key: 'READY_FOR_PICKUP', label: 'Ready for Pickup' },
-  { key: 'ARRIVED', label: 'Arrived' },
-  { key: 'PICKED_UP', label: 'Picked Up' }
-];
-
-// Map each status to its stepper index
-const DELIVERY_STATUS_INDEX = {
-  PENDING: 0,
-  APPROVED: 1,
-  READY_FOR_DELIVERY: 2,
-  OUT_FOR_DELIVERY: 2,
-  DELIVERED: 3
-};
-
-const PICKUP_STATUS_INDEX = {
-  PENDING: 0,
-  APPROVED: 1,
-  READY_FOR_PICKUP: 2,
-  ARRIVED: 3,
-  PICKED_UP: 4
-};
-
-function StatusStepper({ status, isPickup }) {
-  const steps = isPickup ? PICKUP_STEPS : DELIVERY_STEPS;
-  const indexMap = isPickup ? PICKUP_STATUS_INDEX : DELIVERY_STATUS_INDEX;
-  const activeIndex = indexMap[status] ?? 0;
-
-  return (
-    <div className="order-status-stepper">
-      {steps.map((step, i) => {
-        const isDone = i < activeIndex;
-        const isActive = i === activeIndex;
-        return (
-          <React.Fragment key={step.key}>
-            <div className={`stepper-step ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}>
-              <div className="stepper-dot">
-                {isDone && (
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M2 5l2.5 2.5L8 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </div>
-              <span className="stepper-label">{step.label}</span>
-            </div>
-            {i < steps.length - 1 && (
-              <div className={`stepper-line ${i < activeIndex ? 'done' : ''}`} />
-            )}
-          </React.Fragment>
-        );
-      })}
-    </div>
-  );
-}
 
 function getItemsSummary(order, products) {
   if (!order.items || order.items.length === 0) return 'No items';
@@ -226,7 +163,7 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
                     <span>Awaiting payment — your order is reserved but not yet confirmed.</span>
                   </div>
                 ) : (
-                  <StatusStepper status={order.status} isPickup={isPickup} />
+                  <OrderStatusStepper status={order.status} deliveryMethod={order.deliveryMethod} />
                 )}
 
                 {!isRejected && order.deliveryMethod === 'CURBSIDE' && order.status === 'ARRIVED' && (
@@ -273,7 +210,7 @@ function CustomerOrderList({ orders, isLoadingOrders, loadOrders, onSelectOrder,
 
                 <div className="order-card-footer">
                   <span className="order-card-total">
-                    ${order.total.toFixed(2)} &middot; {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                    {formatPrice(order.total)} &middot; {itemCount} {itemCount === 1 ? 'item' : 'items'}
                   </span>
                   <button
                     type="button"

@@ -10,6 +10,8 @@ import { useTheme, THEME_CYCLE } from '../../hooks/useTheme';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
 import { hasRole, ROLES } from '../../utils/roles';
+import { formatPrice } from '../../utils/currencyUtils';
+import StoreSwitcher from '../../features/store/StoreSwitcher';
 
 function Navbar() {
   const {
@@ -134,15 +136,15 @@ function Navbar() {
         </NavLink>
       )}
 
-      {/* Manager/Admin only - Manage Products */}
+      {/* Manager/Admin only - Manage Store */}
       {isManagement && (
         <NavLink
-          to="/manage-products"
+          to="/manage-store"
           className={({ isActive }) => `nav-link ${isActive ? 'nav-link-active' : ''}`}
-          title="Manage Products"
+          title="Manage Store"
         >
           <Tag size={18} />
-          <span>Manage Products</span>
+          <span>Manage Store</span>
         </NavLink>
       )}
 
@@ -184,6 +186,8 @@ function Navbar() {
               </button>
             )}
 
+            {!isGuest && <StoreSwitcher />}
+
             {!isGuest && (
               <NotificationDropdown
                 counts={staffNotificationCounts}
@@ -223,7 +227,7 @@ function Navbar() {
                       <p className="profile-menu-email">{currentUser.email}</p>
                       <div className="profile-menu-credit">
                         <Wallet size={13} />
-                        <span>${creditBalance.toFixed(2)} store credit</span>
+                        <span>{formatPrice(creditBalance)} store credit</span>
                         <span className="profile-menu-credit-tooltip" data-tooltip="Come into the store to fill your credit!">?</span>
                       </div>
                     </div>

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 const D = (n: number) => new Prisma.Decimal(n);
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
@@ -28,6 +28,7 @@ const prismaMock = {
     findMany: vi.fn(),
     findUnique: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
   },
   order: {
     create: vi.fn(),
@@ -79,8 +80,36 @@ const deliveryEligibilityService = {
   checkDeliveryEligibility: vi.fn(),
 };
 
+const posOrderService = vi.hoisted(() => ({ enqueue: vi.fn().mockResolvedValue(undefined), pushOrderCreated: vi.fn(), pushOrderUpdated: vi.fn() }));
+const posRegistry = vi.hoisted(() => ({ getOrderSync: vi.fn() }));
+
 vi.mock('../config/database', () => ({
   default: prismaMock,
+}));
+
+// Provide a default-store tenant context so createOrder/addItemToOrder don't throw
+// MissingTenantContextError. isDefaultStore=true preserves the existing test assertions
+// (stock is decremented via productVariant.updateMany, not via storeVariantOverride).
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  getTenantContext: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  MissingTenantContextError: class MissingTenantContextError extends Error {
+    constructor() {
+      super('Execution context is missing active tenantScope. Wrap database operations inside runWithTenant(...) first.');
+      this.name = 'MissingTenantContextError';
+    }
+  },
+  runWithTenant: vi.fn((ctx: unknown, fn: () => unknown) => fn()),
 }));
 
 vi.mock('../utils/logger', () => ({
@@ -106,6 +135,16 @@ vi.mock('./orderingConstraints.service', () => ({
 vi.mock('./deliveryEligibility.service', () => ({
   DeliveryEligibilityService: vi.fn(() => deliveryEligibilityService),
 }));
+
+vi.mock('./pos/orders/posOrderService', () => posOrderService);
+vi.mock('./pos/registry', () => posRegistry);
+vi.mock('./storeSettings.service', () => ({
+  StoreSettingsService: vi.fn(() => ({ getStoreSettings: vi.fn().mockResolvedValue({ posProvider: 'foreverpos', posConfig: {} }) })),
+}));
+
+beforeAll(async () => {
+  await import('../subscribers/order.subscriber');
+});
 
 describe('getAllOrders', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -164,11 +203,26 @@ describe('getAllOrders', () => {
     expect(call).not.toHaveProperty('take');
     expect(call).not.toHaveProperty('skip');
   });
+
+  it('getOrders requests a lean items shape without the variant→product→images join', async () => {
+    prismaMock.order.findMany.mockResolvedValue([]);
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.getAllOrders(1, ['ADMIN']);
+    const arg = prismaMock.order.findMany.mock.calls[0][0];
+    // items must use a scalar `select`, not a nested variant include
+    expect(arg.include.items.select).toBeDefined();
+    // No nested variant relation — select keys must all be scalar booleans
+    expect(arg.include.items.select.variant).toBeUndefined();
+    expect(arg.include.items.include).toBeUndefined();
+  });
 });
 
 describe('order service notifications', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    posOrderService.enqueue.mockClear();
+    posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => true, pushOrder: vi.fn(), pushStatus: vi.fn() });
     // Default: handle both array form (used by updateOrderStatus) and callback form (used by createOrder/addItemToOrder).
     prismaMock.$transaction.mockImplementation(async (opsOrCallback: unknown) => {
       if (typeof opsOrCallback === 'function') return opsOrCallback(prismaMock);
@@ -204,6 +258,7 @@ describe('order service notifications', () => {
       price: 10,
     });
     prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
 
     const { OrderService } = await import('./order.service');
     const service = new OrderService();
@@ -219,6 +274,7 @@ describe('order service notifications', () => {
     expect(thermalPrinterService.dispatchReceipt).toHaveBeenCalledWith(77, 'ORDER_CREATED', {
       userId: 5,
     });
+    expect(posOrderService.enqueue).not.toHaveBeenCalled();
   });
 
   it('revalidates delivery eligibility during order creation and rejects out-of-zone orders', async () => {
@@ -259,6 +315,32 @@ describe('order service notifications', () => {
     expect(prismaMock.order.create).not.toHaveBeenCalled();
   });
 
+  it('does not enqueue a POS update when shouldPushStatus returns false', async () => {
+    posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => false, pushOrder: vi.fn(), pushStatus: vi.fn() });
+    prismaMock.order.findUnique.mockResolvedValue({
+      id: 77,
+      userId: 5,
+      status: OrderStatus.APPROVED,
+      total: D(10),
+      paymentMethod: PaymentMethod.EXTERNAL,
+    });
+    prismaMock.order.update.mockResolvedValue({
+      id: 77,
+      userId: 5,
+      status: OrderStatus.READY_FOR_DELIVERY,
+      updatedAt: new Date('2024-01-02'),
+    });
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+    prismaMock.orderItem.findMany.mockResolvedValue([]);
+    prismaMock.productVariant.findMany.mockResolvedValue([]);
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await service.updateOrderStatus(77, { status: OrderStatus.READY_FOR_DELIVERY }, ['MANAGEMENT']);
+
+    expect(posOrderService.enqueue).not.toHaveBeenCalled();
+  });
+
   it('emits an order-status notification after successful status update', async () => {
     prismaMock.order.findUnique.mockResolvedValue({
       id: 77,
@@ -292,6 +374,7 @@ describe('order service notifications', () => {
       OrderStatus.READY_FOR_DELIVERY,
       OrderStatus.APPROVED,
     );
+    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), expect.any(Number), 'ORDER_UPDATED', 'foreverpos');
   });
 
   it('creates an OrderStatusEvent row with correct fromStatus, toStatus, changedBy, and note on status update', async () => {
@@ -308,13 +391,9 @@ describe('order service notifications', () => {
       status: OrderStatus.APPROVED,
       updatedAt: new Date('2024-01-02'),
     };
-    // $transaction receives an array of Prisma operations; return [updatedOrder, event]
-    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
-      // ops is an array of Prisma promises; resolve them by calling the underlying mocks
-      prismaMock.order.update.mockResolvedValue(updatedOrderResult);
-      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
-      return [updatedOrderResult, { id: 1 }];
-    });
+    prismaMock.order.update.mockResolvedValue(updatedOrderResult);
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.orderItem.findMany.mockResolvedValue([]);
     prismaMock.productVariant.findMany.mockResolvedValue([]);
 
@@ -328,13 +407,7 @@ describe('order service notifications', () => {
     }, ['MANAGEMENT']);
 
     expect(prismaMock.$transaction).toHaveBeenCalled();
-    const txArgs = prismaMock.$transaction.mock.calls[0][0];
-    // $transaction is called with an array of two Prisma operation promises
-    expect(Array.isArray(txArgs)).toBe(true);
-    expect(txArgs).toHaveLength(2);
-
-    // orderStatusEvent.create is called synchronously when building the transaction array,
-    // so we can assert directly on the mock call args.
+    expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), 77, 'ORDER_CREATED', 'foreverpos');
     expect(prismaMock.orderStatusEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -396,6 +469,7 @@ describe('order service notifications', () => {
       price: 10,
     });
     prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
     thermalPrinterService.dispatchReceipt.mockRejectedValue(new Error('Printer exploded'));
 
     const { OrderService } = await import('./order.service');
@@ -410,6 +484,41 @@ describe('order service notifications', () => {
       id: 78,
       status: 'PENDING',
     });
+  });
+
+  it('does not push to POS on createOrder when payment method is CC (notifiesOnCreate=false)', async () => {
+    prismaMock.productVariant.findMany.mockResolvedValue([makeVariant()]);
+    prismaMock.order.create.mockResolvedValue({
+      id: 80,
+      userId: 5,
+      total: D(10.82),
+      status: 'PENDING',
+      paymentMethod: PaymentMethod.CC,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deliveryMethod: DeliveryMethod.PICKUP,
+    });
+    prismaMock.orderItem.create.mockResolvedValue({
+      id: 903,
+      orderId: 80,
+      productId: 3,
+      quantity: 1,
+      price: 10,
+    });
+    prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await service.createOrder({
+      userId: 5,
+      items: [{ variantId: 3, quantity: 1 }],
+      deliveryMethod: DeliveryMethod.PICKUP,
+      paymentMethod: PaymentMethod.CC,
+    });
+
+    expect(posOrderService.enqueue).not.toHaveBeenCalled();
   });
 
   it('returns 404 when trying to reprint a nonexistent order', async () => {
@@ -466,6 +575,57 @@ describe('order service notifications', () => {
         OrderStatus.ARRIVED,
         OrderStatus.READY_FOR_PICKUP,
       );
+      expect(posOrderService.enqueue).toHaveBeenCalledWith(expect.anything(), 101, 'ORDER_UPDATED', 'foreverpos');
+    });
+
+    it('does not enqueue when shouldPushStatus returns false for ARRIVED', async () => {
+      posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => false, pushOrder: vi.fn(), pushStatus: vi.fn() });
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.READY_FOR_PICKUP,
+        deliveryMethod: 'CURBSIDE',
+        deliveryAddress: 'CURBSIDE: Silver Camry',
+      });
+      prismaMock.order.update.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.ARRIVED,
+        deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+        updatedAt: new Date(),
+      });
+      prismaMock.orderItem.findMany.mockResolvedValue([]);
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+      await service.customerArrive(101, 5, 'Space 4');
+
+      expect(posOrderService.enqueue).not.toHaveBeenCalled();
+    });
+
+    it('does not enqueue when POS is not configured', async () => {
+      posRegistry.getOrderSync.mockReturnValue(null);
+      prismaMock.order.findUnique.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.READY_FOR_PICKUP,
+        deliveryMethod: 'CURBSIDE',
+        deliveryAddress: 'CURBSIDE: Silver Camry',
+      });
+      prismaMock.order.update.mockResolvedValue({
+        id: 101,
+        userId: 5,
+        status: OrderStatus.ARRIVED,
+        deliveryAddress: 'CURBSIDE: Silver Camry | SPOT: Space 4',
+        updatedAt: new Date(),
+      });
+      prismaMock.orderItem.findMany.mockResolvedValue([]);
+
+      const { OrderService } = await import('./order.service');
+      const service = new OrderService();
+      await service.customerArrive(101, 5, 'Space 4');
+
+      expect(posOrderService.enqueue).not.toHaveBeenCalled();
     });
 
     it('rejects with 404 if order does not exist', async () => {
@@ -545,19 +705,19 @@ describe('order service notifications', () => {
         makeVariant({ id: 5, product: { id: 5, name: 'Test Product' }, stock: D(5) })
       );
 
-      prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
-
-      prismaMock.orderItem.create.mockResolvedValue({
-        id: 99,
-        orderId: 10,
-        variantId: 5,
-        quantity: 2,
-        unitPrice: D(10),
-        addedAfterSubmission: true,
-      });
-
-      prismaMock.order.update.mockResolvedValue({ id: 10, total: 40.00 });
-      prismaMock.productVariant.update.mockResolvedValue({ id: 5, stock: 3 });
+      const txMock = {
+        orderItem: { create: vi.fn().mockResolvedValue({
+          id: 99,
+          orderId: 10,
+          variantId: 5,
+          quantity: 2,
+          unitPrice: D(10),
+          addedAfterSubmission: true,
+        }) },
+        order: { update: vi.fn().mockResolvedValue({ id: 10, total: 40.00 }) },
+        productVariant: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      };
+      prismaMock.$transaction.mockImplementation(async (callback) => callback(txMock));
 
       const { OrderService } = await import('./order.service');
       const service = new OrderService();
@@ -565,13 +725,13 @@ describe('order service notifications', () => {
       const result = await service.addItemToOrder(10, { variantId: 5, quantity: 2 });
 
       expect(result.id).toBe(99);
-      expect(prismaMock.productVariant.update).toHaveBeenCalledWith({
-        where: { id: 5 },
+      expect(txMock.productVariant.updateMany).toHaveBeenCalledWith({
+        where: { id: 5, stock: { gte: 2 } },
         data: { stock: { decrement: 2 } },
       });
     });
 
-    it('throws 400 with insufficient stock message when stock is too low', async () => {
+    it('throws 400 with insufficient stock message when stock is too low (via updateMany race)', async () => {
       prismaMock.order.findUnique.mockResolvedValue({
         id: 10,
         total: D(20.00),
@@ -581,6 +741,13 @@ describe('order service notifications', () => {
         makeVariant({ id: 5, product: { id: 5, name: 'Low Stock Product' }, stock: D(1) })
       );
 
+      const txMock = {
+        orderItem: { create: vi.fn() },
+        order: { update: vi.fn() },
+        productVariant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      };
+      prismaMock.$transaction.mockImplementation(async (callback) => callback(txMock));
+
       const { OrderService } = await import('./order.service');
       const service = new OrderService();
 
@@ -588,8 +755,6 @@ describe('order service notifications', () => {
         message: 'Insufficient stock for Low Stock Product',
         statusCode: 400,
       });
-
-      expect(prismaMock.$transaction).not.toHaveBeenCalled();
     });
 
     it('does not decrement stock for non-stock-enabled product', async () => {
@@ -602,18 +767,19 @@ describe('order service notifications', () => {
         makeVariant({ id: 7, product: { id: 7, name: 'No Stock Product' }, basePrice: D(5), stock: D(0), stockEnabled: false })
       );
 
-      prismaMock.$transaction.mockImplementation(async (callback) => callback(prismaMock));
-
-      prismaMock.orderItem.create.mockResolvedValue({
-        id: 100,
-        orderId: 10,
-        variantId: 7,
-        quantity: 2,
-        unitPrice: D(5),
-        addedAfterSubmission: true,
-      });
-
-      prismaMock.order.update.mockResolvedValue({ id: 10, total: 30.00 });
+      const txMock = {
+        orderItem: { create: vi.fn().mockResolvedValue({
+          id: 100,
+          orderId: 10,
+          variantId: 7,
+          quantity: 2,
+          unitPrice: D(5),
+          addedAfterSubmission: true,
+        }) },
+        order: { update: vi.fn().mockResolvedValue({ id: 10, total: 30.00 }) },
+        productVariant: { updateMany: vi.fn() },
+      };
+      prismaMock.$transaction.mockImplementation(async (callback) => callback(txMock));
 
       const { OrderService } = await import('./order.service');
       const service = new OrderService();
@@ -621,7 +787,7 @@ describe('order service notifications', () => {
       const result = await service.addItemToOrder(10, { variantId: 7, quantity: 2 });
 
       expect(result.id).toBe(100);
-      expect(prismaMock.productVariant.update).not.toHaveBeenCalled();
+      expect(txMock.productVariant.updateMany).not.toHaveBeenCalled();
     });
   });
 
@@ -815,14 +981,17 @@ describe('updateOrderStatus — EXTERNAL payment settlement', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    prismaMock.$transaction.mockImplementation(async (ops: unknown) => {
-      const updated = { id: 77, userId: 5, status: OrderStatus.APPROVED, updatedAt: new Date() };
-      prismaMock.order.update.mockResolvedValue(updated);
-      prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
-      return [updated, { id: 1 }];
+    const updated = { id: 77, userId: 5, status: OrderStatus.APPROVED, updatedAt: new Date() };
+    prismaMock.order.update.mockResolvedValue(updated);
+    prismaMock.orderStatusEvent.create.mockResolvedValue({ id: 1 });
+    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.$transaction.mockImplementation(async (opsOrCallback: unknown) => {
+      if (typeof opsOrCallback === 'function') return opsOrCallback(prismaMock);
+      if (Array.isArray(opsOrCallback)) return Promise.all(opsOrCallback);
+      return opsOrCallback;
     });
     prismaMock.orderItem.findMany.mockResolvedValue([]);
-    prismaMock.payment.updateMany.mockResolvedValue({ count: 1 });
+    posRegistry.getOrderSync.mockReturnValue({ shouldPushStatus: () => true, pushOrder: vi.fn(), pushStatus: vi.fn() });
   });
 
   it('settles PENDING payments when EXTERNAL order is APPROVED', async () => {
@@ -860,5 +1029,89 @@ describe('updateOrderStatus — EXTERNAL payment settlement', () => {
     await service.updateOrderStatus(77, { status: OrderStatus.READY_FOR_DELIVERY }, ['MANAGEMENT']);
 
     expect(prismaMock.payment.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('stock race protection', () => {
+  it('throws insufficient stock when updateMany matches 0 rows (race condition)', async () => {
+    const variant = makeVariant({ stock: D(1), stockEnabled: true });
+    prismaMock.productVariant.findMany.mockResolvedValue([variant]);
+
+    // Simulate the race: another request already took the last unit,
+    // so updateMany finds no rows matching stock >= quantity.
+    const txMock = {
+      order: { create: vi.fn().mockResolvedValue({ id: 99, status: 'PENDING', total: D(10), subtotal: D(10), tax: D(0), taxRate: D(0.1), deliveryMethod: 'PICKUP', paymentMethod: 'CASH', createdAt: new Date() }) },
+      orderItem: { create: vi.fn().mockResolvedValue({}) },
+      productVariant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      payment: { create: vi.fn().mockResolvedValue({}) },
+    };
+    prismaMock.$transaction.mockImplementation((fn: (tx: any) => any) => fn(txMock));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    await expect(
+      service.createOrder({
+        userId: 1,
+        items: [{ variantId: 3, quantity: 1 }],
+        deliveryMethod: DeliveryMethod.PICKUP,
+        paymentMethod: PaymentMethod.CASH,
+        cashAppUsername: null,
+        deliveryAddress: null,
+        vehicleDescription: null,
+      })
+    ).rejects.toThrow('Insufficient stock');
+  });
+
+  it('succeeds when updateMany matches the row (stock available)', async () => {
+    const variant = makeVariant({ stock: D(5), stockEnabled: true });
+    prismaMock.productVariant.findMany.mockResolvedValue([variant]);
+
+    const txMock = {
+      order: { create: vi.fn().mockResolvedValue({ id: 100, status: 'PENDING', total: D(10), subtotal: D(10), tax: D(0), taxRate: D(0.1), deliveryMethod: 'PICKUP', paymentMethod: 'CASH', createdAt: new Date() }) },
+      orderItem: { create: vi.fn().mockResolvedValue({}) },
+      productVariant: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      payment: { create: vi.fn().mockResolvedValue({}) },
+    };
+    prismaMock.$transaction.mockImplementation((fn: (tx: any) => any) => fn(txMock));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+    // Should not throw
+    await expect(
+      service.createOrder({
+        userId: 1,
+        items: [{ variantId: 3, quantity: 1 }],
+        deliveryMethod: DeliveryMethod.PICKUP,
+        paymentMethod: PaymentMethod.CASH,
+        cashAppUsername: null,
+        deliveryAddress: null,
+        vehicleDescription: null,
+      })
+    ).resolves.toBeDefined();
+  });
+
+  it('addItem throws insufficient stock when updateMany matches 0 rows', async () => {
+    const order = {
+      id: 1, userId: 1, status: 'PENDING', total: D(10),
+      deliveryMethod: 'PICKUP', paymentMethod: 'CASH',
+    };
+    const variant = makeVariant({ stock: D(0), stockEnabled: true });
+
+    prismaMock.order.findUnique.mockResolvedValue(order);
+    prismaMock.productVariant.findUnique.mockResolvedValue(variant);
+
+    const txMock = {
+      orderItem: { create: vi.fn() },
+      order: { update: vi.fn() },
+      productVariant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    };
+    prismaMock.$transaction.mockImplementation((fn: (tx: any) => any) => fn(txMock));
+
+    const { OrderService } = await import('./order.service');
+    const service = new OrderService();
+
+    await expect(
+      service.addItemToOrder(1, { variantId: 3, quantity: 1 })
+    ).rejects.toThrow('Insufficient stock');
   });
 });

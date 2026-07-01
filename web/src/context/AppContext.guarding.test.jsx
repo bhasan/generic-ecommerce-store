@@ -6,7 +6,7 @@ import { AppProvider, useApp } from './AppContext';
 import { sampleConfig, sampleProducts, sampleCategories } from '../test/appFixtures';
 
 // Mock API modules
-const authApi = vi.hoisted(() => ({ getProfile: vi.fn(), login: vi.fn() }));
+const authApi = vi.hoisted(() => ({ getProfile: vi.fn(), login: vi.fn(), refresh: vi.fn() }));
 const productsApi = vi.hoisted(() => ({ getAllProducts: vi.fn() }));
 const categoriesApi = vi.hoisted(() => ({ getAllCategories: vi.fn() }));
 const configApi = vi.hoisted(() => ({ getConfig: vi.fn() }));
@@ -15,13 +15,33 @@ const notificationsApi = vi.hoisted(() => ({
   getUnreadNotificationCount: vi.fn().mockResolvedValue({ count: 0 }),
   getStaffNotificationCounts: vi.fn().mockResolvedValue(null),
 }));
-const apiModule = vi.hoisted(() => ({ getAuthToken: vi.fn() }));
+const apiModule = vi.hoisted(() => ({ getAuthToken: vi.fn(), getRefreshToken: vi.fn() }));
+const brandingApi = vi.hoisted(() => ({
+  getPublicBranding: vi.fn().mockResolvedValue(null),
+  getBranding: vi.fn().mockResolvedValue(null),
+}));
+const landingPageSettingsApi = vi.hoisted(() => ({
+  getLandingPageSettings: vi.fn().mockResolvedValue({}),
+}));
+const storeCreditApi = vi.hoisted(() => ({
+  getUserCredit: vi.fn().mockResolvedValue({ balance: 0 }),
+}));
+const ordersApi = vi.hoisted(() => ({
+  getAllOrders: vi.fn().mockResolvedValue([]),
+  checkDeliveryEligibility: vi.fn().mockResolvedValue({ eligible: true }),
+}));
+const storesApi = vi.hoisted(() => ({ getStores: vi.fn().mockResolvedValue([]) }));
 
 vi.mock('../services/authApi', () => authApi);
 vi.mock('../services/productsApi', () => productsApi);
 vi.mock('../services/categoriesApi', () => categoriesApi);
 vi.mock('../services/configApi', () => configApi);
 vi.mock('../services/notificationsApi', () => notificationsApi);
+vi.mock('../services/brandingApi', () => brandingApi);
+vi.mock('../services/landingPageSettingsApi', () => landingPageSettingsApi);
+vi.mock('../services/storeCreditApi', () => storeCreditApi);
+vi.mock('../services/ordersApi', () => ordersApi);
+vi.mock('../services/storesApi', () => storesApi);
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
   return { ...actual, getAuthToken: apiModule.getAuthToken };
@@ -75,7 +95,7 @@ describe('AppContext Guarding Logic', () => {
     expect(configApi.getConfig).not.toHaveBeenCalled();
   });
 
-  it('loads config but not products/categories on /register for guest users', async () => {
+  it('does not load config/products/categories on /register for guest users', async () => {
     render(
       <MemoryRouter initialEntries={['/register']}>
         <AppProvider>
@@ -85,15 +105,17 @@ describe('AppContext Guarding Logic', () => {
     );
 
     await waitFor(() => expect(screen.queryByTestId('loading')).not.toBeInTheDocument());
-    
+
     expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
     expect(screen.getByTestId('products-loaded')).toHaveTextContent('no');
     expect(screen.getByTestId('categories-loaded')).toHaveTextContent('no');
-    
-    // Config should be loaded on register page
-    await waitFor(() => expect(screen.getByTestId('config-loaded')).toHaveTextContent('yes'));
-    expect(configApi.getConfig).toHaveBeenCalled();
-    
+
+    // Store config is auth-gated for tenancy/security (revert dac5240, fix 19e975e:
+    // "do not expose store config to unauthenticated requests"). A guest on the
+    // register page must NOT trigger it — only public branding is fetched.
+    expect(screen.getByTestId('config-loaded')).toHaveTextContent('no');
+    expect(configApi.getConfig).not.toHaveBeenCalled();
+
     expect(productsApi.getAllProducts).not.toHaveBeenCalled();
     expect(categoriesApi.getAllCategories).not.toHaveBeenCalled();
   });

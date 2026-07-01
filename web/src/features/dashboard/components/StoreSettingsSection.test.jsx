@@ -31,6 +31,8 @@ describe('StoreSettingsSection', () => {
       name: 'Smoke Station West',
       address: '202 Updated Ave',
       phoneNumber: '555-0100',
+      timezone: '',
+      currency: '',
       notificationEmails: {
         adminEmail: '',
         managementEmail: '',

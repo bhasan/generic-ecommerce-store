@@ -1,28 +1,7 @@
-.media-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-  padding: 1.5rem;
-}
-
 .media-modal-content {
-  width: 100%;
-  max-width: 1000px;
   max-height: 90vh;
-  display: flex;
-  flex-direction: column;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.4);
 }
 
 .media-modal-header {

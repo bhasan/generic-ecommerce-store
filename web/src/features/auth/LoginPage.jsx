@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { toNotificationMessage } from '../../utils/notificationMessage';
 import { isGuest, ROLES } from '../../utils/roles';
 import { LogIn, User, Lock, Eye, EyeOff } from 'lucide-react';
+import useFormValidation from '../../hooks/useFormValidation';
 
 import SpaceTravelerGraphic from './SpaceTravelerGraphic';
 
@@ -15,7 +16,7 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ username: '', password: '' });
+  const { errors: fieldErrors, clearFieldError, setFieldErrors, clearErrors } = useFormValidation({ username: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
   const justLoggedInRef = useRef(false);
 
@@ -48,7 +49,7 @@ function LoginPage() {
       const success = await login(usernameTrimmed, passwordTrimmed);
       if (success) {
         setError('');
-        setFieldErrors({ username: '', password: '' });
+        clearErrors();
       } else {
         justLoggedInRef.current = false;
         setError('Invalid credentials. Please try again.');
@@ -88,7 +89,7 @@ function LoginPage() {
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
-                  if (fieldErrors.username) setFieldErrors((prev) => ({ ...prev, username: '' }));
+                  clearFieldError('username');
                 }}
                 className={`form-input glass-input ${fieldErrors.username ? 'form-input-error' : ''}`}
                 placeholder="Username"
@@ -112,7 +113,7 @@ function LoginPage() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
+                    clearFieldError('password');
                   }}
                   className={`form-input glass-input ${fieldErrors.password ? 'form-input-error' : ''}`}
                   placeholder="Password"

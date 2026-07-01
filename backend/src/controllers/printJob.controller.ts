@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { printJobService } from '../services/printJob.service';
 import { AppError } from '../middleware/error.middleware';
+import { successResponse } from '../utils/responseEnvelope';
 
 export class PrintJobController {
   async claimNextJob(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const agentId = this.requireString(req.body.agentId, 'agentId');
       const job = await printJobService.claimNextJob({ agentId });
-      res.status(200).json({ job });
+      res.status(200).json(successResponse({ job }));
     } catch (error) {
       next(error);
     }
@@ -19,7 +20,7 @@ export class PrintJobController {
       const agentId = this.requireString(req.body.agentId, 'agentId');
       const nativeJobId = typeof req.body.nativeJobId === 'string' ? req.body.nativeJobId : undefined;
       const job = await printJobService.markSuccess(id, { agentId, nativeJobId });
-      res.status(200).json({ job });
+      res.status(200).json(successResponse({ job }));
     } catch (error) {
       next(error);
     }
@@ -32,7 +33,7 @@ export class PrintJobController {
       const errorCode = this.requireString(req.body.errorCode, 'errorCode');
       const errorMessage = this.requireString(req.body.errorMessage, 'errorMessage');
       const job = await printJobService.markFailure(id, { agentId, errorCode, errorMessage });
-      res.status(200).json({ job });
+      res.status(200).json(successResponse({ job }));
     } catch (error) {
       next(error);
     }

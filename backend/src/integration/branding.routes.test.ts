@@ -2,6 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 const verifyToken = vi.hoisted(() => vi.fn());
 const extractTokenFromHeader = vi.hoisted(() =>
@@ -70,6 +71,10 @@ describe('branding routes integration', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // Mimic boot: the default-tenant cache is populated at startup in prod, but
+    // verifyDefaultTenant doesn't run under NODE_ENV=test, so legacy-token auth
+    // would otherwise fail closed (401). Establish the invariant here.
+    setDefaultTenantId(1);
     brandingService.getBranding.mockResolvedValue(DEFAULT_BRANDING);
     brandingService.generateCssBlock.mockResolvedValue(':root {}');
     server = await createServer();
@@ -91,7 +96,7 @@ describe('branding routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/css');
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe('public, max-age=60, must-revalidate');
     expect(text).toContain('--color-primary: #7c3aed');
   });
 
@@ -146,9 +151,9 @@ describe('branding routes integration', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(body.storeName).toBe('Acme Shop');
-    expect(body.palette).toBe('blue-dark');
-    expect(body.faviconUrls).toEqual({ '16': '', '32': '', '180': '' });
+    expect(body.data.storeName).toBe('Acme Shop');
+    expect(body.data.palette).toBe('blue-dark');
+    expect(body.data.faviconUrls).toEqual({ '16': '', '32': '', '180': '' });
   });
 
   // ── PUT /api/branding ──────────────────────────────────────────────────
@@ -179,8 +184,8 @@ describe('branding routes integration', () => {
 
     expect(response.status).toBe(200);
     expect(body.message).toBe('Branding updated successfully');
-    expect(body.branding.storeName).toBe('New Store');
-    expect(body.branding.tagline).toBe('Fresh start');
+    expect(body.data.branding.storeName).toBe('New Store');
+    expect(body.data.branding.tagline).toBe('Fresh start');
     expect(brandingService.updateBranding).toHaveBeenCalledWith({
       storeName: 'New Store',
       tagline: 'Fresh start',

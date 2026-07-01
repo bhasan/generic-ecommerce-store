@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Crown, Users, Package, Check, X, Loader, Search } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
 
 // Pure helper — outside component so it's never recreated on re-render
 const isUserVip = (user) =>
@@ -85,10 +86,7 @@ function VIPManagementSection({
       </div>
 
       {isLoading ? (
-        <div className="empty-state">
-          <Loader size={48} className="empty-icon spin" />
-          <p>Loading VIP data...</p>
-        </div>
+        <LoadingState message="Loading VIP data..." />
       ) : (
         <div className="vip-management-grid">
 

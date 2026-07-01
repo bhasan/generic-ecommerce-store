@@ -1,7 +1,12 @@
 import { z } from 'zod';
 import prisma from '../config/database';
+import { getEffectiveStoreId, getTenantContext } from '../config/tenantContext';
 import { SettingsStore, parseOrThrow } from './settingsStore';
-import { normalizeZipCode, extractZipCodeFromFreeformAddress } from '../utils/address.util';
+import {
+  extractAddressFromSettingsValue,
+  extractZipCodeFromFreeformAddress,
+  normalizeZipCode,
+} from '../utils/address.util';
 
 const OrderingConstraintsSchema = z.object({
   minimumDeliveryOrder: z
@@ -59,32 +64,42 @@ const store = new SettingsStore<OrderingConstraints>({
 
 const OFFLINE_ZIPS_TTL_MS = 5 * 60 * 1000;
 
-// Module-level so all service instances share one cache.
-let _cachedOfflineZips: string[] | null = null;
-let _offlineZipsCacheExpiresAt = 0;
+// Module-level cache shared across service instances, keyed by "${tenantId}:${effectiveStoreId}"
+// so one store's offline ZIPs are never served to another store of the same tenant.
+const _offlineZipsCache = new Map<string, { zips: string[]; expiresAt: number }>();
 
 export function invalidateOfflineZipsCache(): void {
-  _cachedOfflineZips = null;
+  _offlineZipsCache.clear();
 }
 
 export class OrderingConstraintsService {
   private async getOfflineZips(): Promise<string[]> {
+    const ctx = getTenantContext();
+    const effectiveStoreId = getEffectiveStoreId(ctx);
+    const cacheKey = `${ctx?.tenantId ?? 0}:${effectiveStoreId}`;
     const now = Date.now();
-    if (_cachedOfflineZips !== null && now < _offlineZipsCacheExpiresAt) {
-      return _cachedOfflineZips;
+    const hit = _offlineZipsCache.get(cacheKey);
+    if (hit && now < hit.expiresAt) {
+      return hit.zips;
     }
-    const row = await prisma.uiSetting.findUnique({ where: { key: 'store_settings' } });
-    const address = row && row.value && typeof (row.value as Record<string, unknown>).address === 'string'
-      ? (row.value as Record<string, unknown>).address as string
-      : null;
+    // findMany retrieves both the tenant default (storeId=0) and the per-store
+    // override in one query; the $extends interceptor injects tenantId automatically.
+    const rows = await prisma.uiSetting.findMany({
+      where: { key: 'store_settings', storeId: { in: [0, effectiveStoreId] } },
+    });
+    const overrideRow = rows.find((r) => r.storeId === effectiveStoreId);
+    const defaultRow = rows.find((r) => r.storeId === 0);
+    const address =
+      extractAddressFromSettingsValue(overrideRow?.value) ||
+      extractAddressFromSettingsValue(defaultRow?.value);
     const zip = extractZipCodeFromFreeformAddress(address);
-    _cachedOfflineZips = zip ? [zip] : [];
-    _offlineZipsCacheExpiresAt = now + OFFLINE_ZIPS_TTL_MS;
-    return _cachedOfflineZips;
+    const zips = zip ? [zip] : [];
+    _offlineZipsCache.set(cacheKey, { zips, expiresAt: now + OFFLINE_ZIPS_TTL_MS });
+    return zips;
   }
 
   async getOrderingConstraints(): Promise<OrderingConstraints> {
-    const row = await prisma.uiSetting.findUnique({
+    const row = await prisma.uiSetting.findFirst({
       where: { key: 'ordering_constraints' },
     });
 

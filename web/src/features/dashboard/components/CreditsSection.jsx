@@ -3,6 +3,9 @@ import { Wallet, Search, Users } from 'lucide-react';
 import * as usersApi from '../../../services/usersApi';
 import CreditModal from './CreditModal';
 import './CreditsSection.css';
+import { formatPrice } from '../../../utils/currencyUtils';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 
 function CreditsSection({ showNotification }) {
   const [users, setUsers] = useState([]);
@@ -27,7 +30,7 @@ function CreditsSection({ showNotification }) {
   }, [loadUsers]);
 
   const handleCreditAdded = (userId, newBalance) => {
-    showNotification(`Balance updated. New balance: $${newBalance.toFixed(2)}`, 'success');
+    showNotification(`Balance updated. New balance: ${formatPrice(newBalance)}`, 'success');
     setUsers(prev => prev.map(u =>
       u.id === userId ? { ...u, storeCreditBalance: newBalance } : u
     ));
@@ -45,10 +48,7 @@ function CreditsSection({ showNotification }) {
   if (isLoading) {
     return (
       <div className="dashboard-content-section surface-card">
-        <div className="empty-state">
-          <div className="loading-spinner" />
-          <p>Loading users...</p>
-        </div>
+        <LoadingState message="Loading credits..." />
       </div>
     );
   }
@@ -64,7 +64,7 @@ function CreditsSection({ showNotification }) {
           </h3>
           <div className="credits-total-badge">
             <span className="credits-total-label">Total in circulation</span>
-            <span className="credits-total-amount">${totalCredit.toFixed(2)}</span>
+            <span className="credits-total-amount">{formatPrice(totalCredit)}</span>
           </div>
         </div>
 
@@ -85,10 +85,10 @@ function CreditsSection({ showNotification }) {
 
         {/* Table */}
         {filtered.length === 0 ? (
-          <div className="empty-state">
-            <Users size={48} className="empty-icon" />
-            <p>{search ? 'No users match your search.' : 'No approved users found.'}</p>
-          </div>
+          <EmptyState
+            icon={<Users size={48} />}
+            message={search ? 'No users match your search.' : 'No approved users found.'}
+          />
         ) : (
           <div className="credits-table-container">
             <table className="credits-table">
@@ -112,7 +112,7 @@ function CreditsSection({ showNotification }) {
                       </td>
                       <td>
                         <span className={`credits-balance-badge ${balance > 0 ? 'credits-balance-positive' : 'credits-balance-zero'}`}>
-                          ${balance.toFixed(2)}
+                          {formatPrice(balance)}
                         </span>
                       </td>
                       <td className="credits-actions-cell">

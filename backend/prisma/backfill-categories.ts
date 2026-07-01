@@ -1,4 +1,6 @@
-import prisma from '../src/config/database';
+import { getUnscopedPrisma } from '../src/config/database';
+
+const prisma = getUnscopedPrisma();
 
 async function backfillCategories() {
   console.log('🔧 Backfilling categories from legacy product.category...');
@@ -48,7 +50,7 @@ async function backfillCategories() {
     const categoryId = categoryMap.get(row.category.trim());
     if (!categoryId) continue;
 
-    await prisma.productItem.update({
+    await prisma.product.update({
       where: { id: row.id },
       data: { categoryId }
     });

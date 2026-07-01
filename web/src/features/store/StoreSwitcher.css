@@ -1,0 +1,100 @@
+/* === StoreSwitcher === */
+
+.store-switcher {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Trigger button */
+.store-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.625rem;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 0.5rem);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: var(--font-weight-medium, 500);
+  transition: var(--transition-all, all 0.15s ease);
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.store-switcher-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--color-primary, #7c3aed);
+}
+
+.store-switcher-btn:focus-visible {
+  outline: 2px solid var(--color-primary, #7c3aed);
+  outline-offset: 2px;
+}
+
+.store-switcher-icon {
+  flex-shrink: 0;
+  color: var(--color-primary, #7c3aed);
+}
+
+.store-switcher-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.store-switcher-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.store-switcher-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* Dropdown */
+.store-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 160px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 0.5rem);
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-dropdown, 200);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.store-switcher-option {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.875rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm, 0.875rem);
+  text-align: left;
+  transition: background 0.1s ease;
+}
+
+.store-switcher-option:last-child {
+  border-bottom: none;
+}
+
+.store-switcher-option:hover {
+  background: var(--bg-hover);
+}
+
+.store-switcher-option.active {
+  color: var(--color-primary, #7c3aed);
+  font-weight: var(--font-weight-semibold, 600);
+  background: var(--bg-surface, var(--bg-hover));
+}

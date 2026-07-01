@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { authorize } from './role.middleware';
+import { authorize, requireSuperAdmin } from './role.middleware';
 import { logger } from '../utils/logger';
 
 vi.mock('../utils/logger', () => ({
@@ -75,5 +75,66 @@ describe('role middleware', () => {
 
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('accepts a tenant-wide role for any store and rejects a wrong-store role', () => {
+    const middleware = authorize('MANAGEMENT');
+
+    // tenant-wide ADMIN passes
+    const reqAdmin: any = { user: { roles: [{ name: 'ADMIN', storeId: null }] }, store: { id: 5 }, path: '/', method: 'GET' };
+    const mwAdmin = authorize('ADMIN');
+    const res1 = createResponse();
+    const next1 = vi.fn();
+    mwAdmin(reqAdmin, res1, next1);
+    expect(next1).toHaveBeenCalled();
+
+    // MANAGEMENT scoped to store 9 fails on store 5
+    const reqMgr: any = { user: { roles: [{ name: 'MANAGEMENT', storeId: 9 }] }, store: { id: 5 }, path: '/', method: 'GET' };
+    const res2 = createResponse();
+    const next2 = vi.fn();
+    middleware(reqMgr, res2, next2);
+    expect(next2).not.toHaveBeenCalled();
+    expect(res2.status).toHaveBeenCalledWith(403);
+  });
+
+  it('treats a role storeId of 0 as all-stores (matches any acting store)', () => {
+    const mw = authorize('EMPLOYEE');
+    const req: any = { user: { userId: 1, roles: [{ name: 'EMPLOYEE', storeId: 0 }] }, store: { id: 5 }, path: '/', method: 'GET' };
+    const res = createResponse(); const next = vi.fn();
+    mw(req, res, next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  describe('requireSuperAdmin (platform tenant-management gate)', () => {
+    it('allows a SUPER_ADMIN on any tenant', () => {
+      const req: any = { user: { userId: 1, roles: [{ name: 'SUPER_ADMIN', storeId: null }] }, tenant: { slug: 'acme' }, path: '/', method: 'GET' };
+      const res = createResponse(); const next = vi.fn();
+      requireSuperAdmin(req, res, next);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('REJECTS the default (app) tenant ADMIN — regular admins are per-tenant, not platform', () => {
+      const req: any = { user: { userId: 1, roles: [{ name: 'ADMIN', storeId: null }] }, tenant: { slug: 'app' }, path: '/', method: 'GET' };
+      const res = createResponse(); const next = vi.fn();
+      requireSuperAdmin(req, res, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('REJECTS a non-default tenant ADMIN (cross-tenant escalation blocked)', () => {
+      const req: any = { user: { userId: 2, roles: [{ name: 'ADMIN', storeId: null }] }, tenant: { slug: 'acme' }, path: '/', method: 'GET' };
+      const res = createResponse(); const next = vi.fn();
+      requireSuperAdmin(req, res, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it('rejects an unauthenticated request with 401', () => {
+      const req: any = { tenant: { slug: 'app' }, path: '/', method: 'GET' };
+      const res = createResponse(); const next = vi.fn();
+      requireSuperAdmin(req, res, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
   });
 });

@@ -6,6 +6,8 @@ export const ROLES = {
   ADMIN: 'ADMIN',
   DELIVERY_DRIVER: 'DELIVERY_DRIVER',
   VIP: 'VIP',
+  // Platform operator: gates cross-tenant management (tenant provisioning).
+  SUPER_ADMIN: 'SUPER_ADMIN',
 };
 
 export const GUEST_USER = { id: 999, email: 'guest@guest.com', roles: [ROLES.GUEST], name: 'Guest' };
@@ -27,4 +29,15 @@ export const hasRole = (user, role) => {
 export const hasAnyRole = (user, roles) => {
   const userRoles = getUserRoles(user);
   return roles.some((role) => userRoles.includes(role));
+};
+
+export const getRoleBadgeClass = (role) => {
+  const roleName = Array.isArray(role) ? role[0] : role;
+  switch (roleName) {
+    case ROLES.ADMIN: return 'role-badge role-badge-admin';
+    case ROLES.MANAGEMENT: return 'role-badge role-badge-management';
+    case ROLES.DELIVERY_DRIVER: return 'role-badge role-badge-delivery-driver';
+    case ROLES.GUEST: return 'role-badge role-badge-guest';
+    default: return 'role-badge role-badge-customer';
+  }
 };

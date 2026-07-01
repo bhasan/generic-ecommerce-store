@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppError } from '../middleware/error.middleware';
+import { clearSettingsCache } from './settingsStore';
 
 const prismaMock = vi.hoisted(() => ({
   uiSetting: {
-    findUnique: vi.fn(),
+    findFirst: vi.fn(),
+    findMany: vi.fn(),
     upsert: vi.fn(),
   },
 }));
@@ -13,6 +15,8 @@ const deliveryEligibilityService = vi.hoisted(() => ({
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
+  getUnscopedPrisma: () => prismaMock,
 }));
 
 vi.mock('./deliveryEligibility.service', () => ({
@@ -33,14 +37,11 @@ vi.mock('./thermalPrinter.service', () => ({
 describe('store settings service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    delete process.env.STORE_SUPPORT_EMAIL;
-    delete process.env.SUPPORT_EMAIL;
-    delete process.env.ADMIN_ALERT_EMAIL;
-    delete process.env.ADMIN_EMAIL;
+    clearSettingsCache();
   });
 
   it('returns defaults when no persisted settings exist', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
+    prismaMock.uiSetting.findMany.mockResolvedValue([]);
     const { StoreSettingsService } = await import('./storeSettings.service');
 
     const result = await new StoreSettingsService().getStoreSettings();
@@ -50,10 +51,19 @@ describe('store settings service', () => {
       address: '',
       phoneNumber: '',
       tagline: '',
+      timezone: '',
+      currency: '',
       notificationEmails: {
         adminEmail: '',
         managementEmail: '',
         employeeEmail: '',
+      },
+      posProvider: null,
+      posConfig: {
+        baseUrl: undefined,
+        username: undefined,
+        password: undefined,
+        apiKey: undefined,
       },
     });
   });
@@ -69,6 +79,19 @@ describe('store settings service', () => {
         managementEmail: 'manager@example.com',
         employeeEmail: '',
       },
+      posProvider: null,
+      posConfig: {},
+    };
+    const settingsWithPosDefaults = {
+      ...settings,
+      timezone: '',
+      currency: '',
+      posConfig: {
+        baseUrl: undefined,
+        username: undefined,
+        password: undefined,
+        apiKey: undefined,
+      },
     };
     prismaMock.uiSetting.upsert.mockResolvedValue({ value: settings });
     const { StoreSettingsService } = await import('./storeSettings.service');
@@ -77,11 +100,11 @@ describe('store settings service', () => {
 
     expect(deliveryEligibilityService.verifyStoreAddress).toHaveBeenCalledWith('101 Example Ave');
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { key: 'store_settings' },
-      update: { value: settings },
-      create: { key: 'store_settings', value: settings },
+      where: { tenantId_storeId_key: { tenantId: 0, storeId: 0, key: 'store_settings' } },
+      update: { value: settingsWithPosDefaults },
+      create: { key: 'store_settings', storeId: 0, value: settingsWithPosDefaults },
     });
-    expect(result).toEqual(settings);
+    expect(result).toEqual(settingsWithPosDefaults);
   });
 
   it('rejects store names longer than the allowed limit', async () => {
@@ -95,7 +118,8 @@ describe('store settings service', () => {
   });
 
   it('skips store-address verification when the address did not change', async () => {
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findMany.mockResolvedValue([{
+      storeId: 0,
       value: {
         name: 'Smoke Station',
         address: '101 Example Ave',
@@ -106,7 +130,7 @@ describe('store settings service', () => {
           employeeEmail: '',
         },
       },
-    });
+    }]);
     prismaMock.uiSetting.upsert.mockResolvedValue({
       value: {
         name: 'Smoke Station West',
@@ -135,23 +159,9 @@ describe('store settings service', () => {
     expect(deliveryEligibilityService.verifyStoreAddress).not.toHaveBeenCalled();
   });
 
-  it('uses STORE_SUPPORT_EMAIL as default admin alert email when settings are missing', async () => {
-    process.env.STORE_SUPPORT_EMAIL = 'ops@example.com';
-    prismaMock.uiSetting.findUnique.mockResolvedValue(null);
-    const { StoreSettingsService } = await import('./storeSettings.service');
-
-    const result = await new StoreSettingsService().getStoreSettings();
-
-    expect(result.notificationEmails).toEqual({
-      adminEmail: 'ops@example.com',
-      managementEmail: '',
-      employeeEmail: '',
-    });
-  });
-
   it('sanitizes invalid persisted notification routing emails and falls back safely', async () => {
-    process.env.STORE_SUPPORT_EMAIL = 'ops@example.com';
-    prismaMock.uiSetting.findUnique.mockResolvedValue({
+    prismaMock.uiSetting.findMany.mockResolvedValue([{
+      storeId: 0,
       value: {
         name: 'Smoke Station',
         address: '9400 S Texas 6 Suite C, Houston, TX 77083',
@@ -162,13 +172,13 @@ describe('store settings service', () => {
           employeeEmail: '   ',
         },
       },
-    });
+    }]);
     const { StoreSettingsService } = await import('./storeSettings.service');
 
     const result = await new StoreSettingsService().getStoreSettings();
 
     expect(result.notificationEmails).toEqual({
-      adminEmail: 'ops@example.com',
+      adminEmail: '',
       managementEmail: '',
       employeeEmail: '',
     });
@@ -187,5 +197,31 @@ describe('store settings service', () => {
         employeeEmail: '',
       },
     })).rejects.toEqual(expect.any(AppError));
+  });
+
+  it('persists SAK catch-all product ids in posConfig', async () => {
+    const svc = new (await import('./storeSettings.service')).StoreSettingsService();
+    prismaMock.uiSetting.upsert.mockResolvedValue({
+      value: {
+        name: 'S',
+        address: '',
+        phoneNumber: '',
+        tagline: '',
+        notificationEmails: { adminEmail: '', managementEmail: '', employeeEmail: '' },
+        posProvider: 'foreverpos',
+        posConfig: { baseUrl: 'https://api.sakretailsolutions.com', sakCatchAllProductId: 93147, sakCatchAllVariantId: 104831 },
+      },
+    });
+    const saved = await svc.updateStoreSettings({
+      name: 'S',
+      address: '',
+      phoneNumber: '',
+      tagline: '',
+      notificationEmails: { adminEmail: '', managementEmail: '', employeeEmail: '' },
+      posProvider: 'foreverpos',
+      posConfig: { baseUrl: 'https://api.sakretailsolutions.com', sakCatchAllProductId: 93147, sakCatchAllVariantId: 104831 },
+    } as any);
+    expect(saved.posConfig.sakCatchAllProductId).toBe(93147);
+    expect(saved.posConfig.sakCatchAllVariantId).toBe(104831);
   });
 });

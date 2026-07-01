@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import { RoleName } from '../constants/roles';
 
@@ -12,12 +13,16 @@ const JWT_SECRET: Secret = (() => {
   }
   return secret;
 })();
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+// Short-lived access token: 15 minutes. Sessions are kept alive by the
+// long-lived refresh token (see generateRefreshTokenValue), so a stolen
+// access token is only useful for a small window.
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 
 export interface JwtPayload {
   userId: number;
   username: string;
-  roles: RoleName[];
+  tenantId: number | null;
+  roles: Array<{ name: RoleName; storeId: number | null }>;
 }
 
 /**
@@ -39,6 +44,28 @@ export const verifyToken = (token: string): JwtPayload => {
   } catch (error) {
     throw new Error('Invalid or expired token');
   }
+};
+
+/**
+ * Generate an opaque refresh token value (NOT a JWT).
+ *
+ * 48 bytes of CSPRNG entropy → 96 hex chars. Because the value is
+ * unguessable, the DB stores only its SHA-256 hash; the raw value is
+ * returned to the client once and never persisted server-side.
+ */
+export const generateRefreshTokenValue = (): string => {
+  return crypto.randomBytes(48).toString('hex');
+};
+
+/**
+ * Hash a raw refresh token for storage / lookup.
+ *
+ * SHA-256 (not bcrypt) is appropriate here: the input already has full
+ * cryptographic entropy, so there is nothing to brute-force, and we need
+ * deterministic hashing for the unique-index lookup.
+ */
+export const hashRefreshToken = (raw: string): string => {
+  return crypto.createHash('sha256').update(raw).digest('hex');
 };
 
 /**

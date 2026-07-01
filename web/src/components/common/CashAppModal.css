@@ -1,29 +1,7 @@
-.cashapp-modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--bg-overlay);
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-  padding: var(--spacing-md);
-  animation: fadeIn var(--transition-fast) ease-out;
-}
-
 .cashapp-modal-container {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  max-width: 450px;
-  width: 100%;
   position: relative;
-  animation: slideDown var(--transition-slow) ease-out;
-  box-shadow: var(--shadow-2xl);
 }
 
 .cashapp-modal-close {
@@ -185,23 +163,6 @@
 .btn-cashapp-save:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-/* Animation keyframes */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 @keyframes pulse {

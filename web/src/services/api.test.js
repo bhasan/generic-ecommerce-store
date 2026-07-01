@@ -76,7 +76,8 @@ describe('api service', () => {
   });
 
   it('ignores stale 401 responses that belong to an older session token', async () => {
-    localStorage.setItem('authToken', 'token-a');
+    const { get, setAuthToken, getAuthToken } = await import('./api.js');
+    setAuthToken('token-a');
     localStorage.setItem('userData', JSON.stringify({ id: 1, username: 'customer-one' }));
 
     let resolveFetch;
@@ -87,12 +88,10 @@ describe('api service', () => {
     const unauthorizedSpy = vi.fn();
     window.addEventListener('auth:unauthorized', unauthorizedSpy);
 
-    const { get } = await import('./api.js');
-
     const pendingRequest = get('/test', { retries: 0 }).catch((error) => error);
 
     // Simulate the user signing back in before the old request completes.
-    localStorage.setItem('authToken', 'token-b');
+    setAuthToken('token-b');
     localStorage.setItem('userData', JSON.stringify({ id: 2, username: 'customer-two' }));
 
     resolveFetch({
@@ -120,7 +119,8 @@ describe('api service', () => {
       requestId: 'req-old-session',
       message: 'Session expired',
     });
-    expect(localStorage.getItem('authToken')).toBe('token-b');
+    // The newer in-memory token must survive the stale 401.
+    expect(getAuthToken()).toBe('token-b');
     expect(JSON.parse(localStorage.getItem('userData'))).toMatchObject({
       id: 2,
       username: 'customer-two',
@@ -171,31 +171,144 @@ describe('api service', () => {
     window.removeEventListener('backend:unavailable', unavailableSpy);
   });
 
-  it('still auto-logs out on a 401 for the active session token', async () => {
-    localStorage.setItem('authToken', 'token-a');
-    localStorage.setItem('userData', JSON.stringify({ id: 1, username: 'customer-one' }));
+  it('refreshes the access token on a 401 and retries the request once', async () => {
+    const { get, setAuthToken, getAuthToken } = await import('./api.js');
+    setAuthToken('expired-token');
 
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 401,
-      statusText: 'Unauthorized',
-      url: 'http://localhost/api/test',
-      headers: {
-        get: () => 'application/json',
-      },
-      json: async () => ({
-        error: {
-          message: 'Session expired',
-          code: 'SESSION_EXPIRED',
-          requestId: 'req-current-session',
-        },
-      }),
+    globalThis.fetch = vi.fn().mockImplementation((url, opts) => {
+      if (url.includes('/auth/refresh')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({ token: 'new-token' }),
+        });
+      }
+      // Original request: 401 with the stale token, success once retried.
+      if (opts?.headers?.Authorization === 'Bearer expired-token') {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          url: 'http://localhost/api/test',
+          headers: { get: () => 'application/json' },
+          json: async () => ({ error: { message: 'expired' } }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ ok: true }),
+      });
+    });
+
+    const result = await get('/test', { retries: 0 });
+
+    expect(result).toEqual({ ok: true });
+    expect(getAuthToken()).toBe('new-token');
+  });
+
+  it('coalesces concurrent 401s into a single /auth/refresh call', async () => {
+    const { get, setAuthToken } = await import('./api.js');
+    setAuthToken('expired-token');
+
+    let refreshCalls = 0;
+    globalThis.fetch = vi.fn().mockImplementation((url, opts) => {
+      if (url.includes('/auth/refresh')) {
+        refreshCalls += 1;
+        return new Promise((resolve) => setTimeout(() => resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => 'application/json' },
+          json: async () => ({ token: 'new-token' }),
+        }), 10));
+      }
+      if (opts?.headers?.Authorization === 'Bearer expired-token') {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          url: 'http://localhost/api/test',
+          headers: { get: () => 'application/json' },
+          json: async () => ({ error: { message: 'expired' } }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ ok: true }),
+      });
+    });
+
+    const [a, b] = await Promise.all([
+      get('/a', { retries: 0 }),
+      get('/b', { retries: 0 }),
+    ]);
+
+    expect(a).toEqual({ ok: true });
+    expect(b).toEqual({ ok: true });
+    expect(refreshCalls).toBe(1);
+  });
+
+  it('falls back to auth:unauthorized when the refresh attempt fails', async () => {
+    const { get, setAuthToken, getAuthToken } = await import('./api.js');
+    setAuthToken('expired-token');
+
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes('/auth/refresh')) {
+        return Promise.resolve({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: async () => ({}),
+        });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        url: 'http://localhost/api/test',
+        headers: { get: () => 'application/json' },
+        json: async () => ({ error: { message: 'expired' } }),
+      });
     });
 
     const unauthorizedSpy = vi.fn();
     window.addEventListener('auth:unauthorized', unauthorizedSpy);
 
-    const { get } = await import('./api.js');
+    await expect(get('/test', { retries: 0 })).rejects.toMatchObject({ status: 401 });
+    expect(unauthorizedSpy).toHaveBeenCalledTimes(1);
+    expect(getAuthToken()).toBeNull();
+
+    window.removeEventListener('auth:unauthorized', unauthorizedSpy);
+  });
+
+  it('still auto-logs out on a 401 when the refresh also fails', async () => {
+    const { get, setAuthToken, getAuthToken } = await import('./api.js');
+    setAuthToken('token-a');
+    localStorage.setItem('userData', JSON.stringify({ id: 1, username: 'customer-one' }));
+
+    globalThis.fetch = vi.fn().mockImplementation((url) => {
+      // No live cookie → refresh fails, so the 401 falls through to logout.
+      if (url.includes('/auth/refresh')) {
+        return Promise.resolve({ ok: false, status: 401, statusText: 'Unauthorized', json: async () => ({}) });
+      }
+      return Promise.resolve({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        url: 'http://localhost/api/test',
+        headers: { get: () => 'application/json' },
+        json: async () => ({
+          error: { message: 'Session expired', code: 'SESSION_EXPIRED', requestId: 'req-current-session' },
+        }),
+      });
+    });
+
+    const unauthorizedSpy = vi.fn();
+    window.addEventListener('auth:unauthorized', unauthorizedSpy);
 
     await expect(get('/test', { retries: 0 })).rejects.toMatchObject({
       status: 401,
@@ -203,7 +316,7 @@ describe('api service', () => {
       requestId: 'req-current-session',
       message: 'Session expired',
     });
-    expect(localStorage.getItem('authToken')).toBeNull();
+    expect(getAuthToken()).toBeNull();
     expect(localStorage.getItem('userData')).toBeNull();
     expect(unauthorizedSpy).toHaveBeenCalledTimes(1);
 

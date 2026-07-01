@@ -24,6 +24,15 @@ vi.mock('../utils/logger', () => ({
   logger,
 }));
 
+vi.mock('../config/tenantContext', () => ({
+  getTenantContext: () => ({ tenantId: 1, storeId: 2, scope: 'tenant' }),
+  MissingTenantContextError: class extends Error {
+    constructor() {
+      super('Missing context');
+    }
+  },
+}));
+
 describe('print job service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -96,6 +105,8 @@ describe('print job service', () => {
     expect(sqlText).toContain('"status" = \'PENDING\'::"PrintJobStatus"');
     expect(sqlText).toContain('"status" = \'CLAIMED\'::"PrintJobStatus"');
     expect(sqlText).toContain('"claimedAt" < NOW() - INTERVAL \'5 minutes\'');
+    expect(sqlText).toContain('"tenantId" =');
+    expect(sqlText).toContain('"storeId" =');
     expect(job).toMatchObject({
       id: 501,
       orderId: 88,
