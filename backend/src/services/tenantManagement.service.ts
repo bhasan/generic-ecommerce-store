@@ -50,8 +50,6 @@ export class TenantManagementService {
    * Write a platform audit row. MUST be called with a transaction client so the
    * audit record commits atomically with the mutation it describes.
    */
-  // Used by Task 3 (setTenantStatus rewrite).
-  // @ts-ignore TS6133 — intentionally unused until Task 3 wires the call
   private async recordTenantAudit(
     tx: Prisma.TransactionClient,
     entry: {
@@ -107,7 +105,7 @@ export class TenantManagementService {
    * Provision a new tenant with a default store, admin user, and both machine tokens.
    * Returns the plaintext tokens once — they are never stored or returned again.
    */
-  async createTenant(input: CreateTenantInput): Promise<CreateTenantResult> {
+  async createTenant(input: CreateTenantInput, actor: AuditActor): Promise<CreateTenantResult> {
     const { slug, name, plan, adminUsername, adminPassword } = input;
 
     // Reject duplicate slugs up-front with a clear 409 (the DB unique constraint
@@ -173,6 +171,13 @@ export class TenantManagementService {
         },
       });
 
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_CREATED',
+        targetTenantId: tenant.id,
+        actor,
+        detail: { slug: tenant.slug, name: tenant.name, plan: tenant.plan },
+      });
+
       return { tenant, store };
     });
 
@@ -194,16 +199,24 @@ export class TenantManagementService {
   }
 
   /**
-   * Activate or suspend a tenant.
+   * Activate or suspend a tenant. Writes an audit row atomically with the change.
+   * The action is derived from the target status: SUSPENDED → TENANT_SUSPENDED,
+   * ACTIVE → TENANT_RESTORED (covers both un-suspend and restore-from-deleted).
    */
-  async setTenantStatus(id: number, status: 'ACTIVE' | 'SUSPENDED') {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id } });
-    if (!tenant) {
-      throw new AppError('Tenant not found', 404);
-    }
-    return this.prisma.tenant.update({
-      where: { id },
-      data: { status },
+  async setTenantStatus(id: number, status: 'ACTIVE' | 'SUSPENDED', actor: AuditActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      const updated = await tx.tenant.update({ where: { id }, data: { status } });
+      await this.recordTenantAudit(tx, {
+        action: status === 'SUSPENDED' ? 'TENANT_SUSPENDED' : 'TENANT_RESTORED',
+        targetTenantId: id,
+        actor,
+        detail: { from: tenant.status, to: status },
+      });
+      return updated;
     });
   }
 
@@ -211,21 +224,27 @@ export class TenantManagementService {
    * Generate fresh machine tokens for an existing tenant.
    * Returns the new plaintext tokens once — the old tokens are immediately invalidated.
    */
-  async regenerateTokens(id: number): Promise<RegenerateTokensResult> {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id } });
-    if (!tenant) {
-      throw new AppError('Tenant not found', 404);
-    }
-
+  async regenerateTokens(id: number, actor: AuditActor): Promise<RegenerateTokensResult> {
     const reportingMachineToken = generateMachineToken();
     const printMachineToken = generateMachineToken();
 
-    await this.prisma.tenant.update({
-      where: { id },
-      data: {
-        reportingTokenHash: reportingMachineToken.hash,
-        printAgentKeyHash: printMachineToken.hash,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      await tx.tenant.update({
+        where: { id },
+        data: {
+          reportingTokenHash: reportingMachineToken.hash,
+          printAgentKeyHash: printMachineToken.hash,
+        },
+      });
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_TOKENS_REGENERATED',
+        targetTenantId: id,
+        actor,
+      });
     });
 
     logger.info('Tenant machine tokens regenerated', { tenantId: id });

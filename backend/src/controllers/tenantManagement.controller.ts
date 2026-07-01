@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
-import { tenantManagementService } from '../services/tenantManagement.service';
+import { tenantManagementService, AuditActor } from '../services/tenantManagement.service';
 import { successResponse } from '../utils/responseEnvelope';
+
+function getActor(req: Request): AuditActor {
+  return {
+    userId: req.user?.userId,
+    username: req.user?.username,
+    requestId: req.requestId,
+  };
+}
 
 export class TenantManagementController {
   async list(_req: Request, res: Response): Promise<void> {
@@ -34,7 +42,7 @@ export class TenantManagementController {
       plan: plan ?? undefined,
       adminUsername,
       adminPassword,
-    });
+    }, getActor(req));
 
     res.status(201).json(successResponse(result));
   }
@@ -48,13 +56,13 @@ export class TenantManagementController {
       return;
     }
 
-    const tenant = await tenantManagementService.setTenantStatus(id, status);
+    const tenant = await tenantManagementService.setTenantStatus(id, status, getActor(req));
     res.json(successResponse({ tenant }));
   }
 
   async regenerateTokens(req: Request, res: Response): Promise<void> {
     const id = parseInt(req.params.id, 10);
-    const tokens = await tenantManagementService.regenerateTokens(id);
+    const tokens = await tenantManagementService.regenerateTokens(id, getActor(req));
     res.json(successResponse(tokens));
   }
 }

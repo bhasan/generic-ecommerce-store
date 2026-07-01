@@ -50,3 +50,45 @@ describe('setTenantStatus audit', () => {
     });
   });
 });
+
+describe('setTenantStatus restore', () => {
+  it('records TENANT_RESTORED when reactivating (from DELETED)', async () => {
+    tx.tenant.findUnique.mockResolvedValue({ id: 7, slug: 'acme', status: 'DELETED' });
+    tx.tenant.update.mockResolvedValue({ id: 7, slug: 'acme', status: 'ACTIVE' });
+
+    await tenantManagementService.setTenantStatus(7, 'ACTIVE', { userId: 2, username: 'ops' });
+
+    expect(tx.tenantAuditLog.create).toHaveBeenCalledWith({
+      data: {
+        action: 'TENANT_RESTORED',
+        targetTenantId: 7,
+        actorUserId: 2,
+        actorUsername: 'ops',
+        requestId: null,
+        detail: { from: 'DELETED', to: 'ACTIVE' },
+      },
+    });
+  });
+
+  it('throws 404 when the tenant does not exist', async () => {
+    tx.tenant.findUnique.mockResolvedValue(null);
+    await expect(
+      tenantManagementService.setTenantStatus(999, 'ACTIVE', { username: 'ops' }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+});
+
+describe('regenerateTokens audit', () => {
+  it('records TENANT_TOKENS_REGENERATED inside the transaction', async () => {
+    tx.tenant.findUnique.mockResolvedValue({ id: 3, slug: 'x', status: 'ACTIVE' });
+    tx.tenant.update.mockResolvedValue({ id: 3 });
+
+    const result = await tenantManagementService.regenerateTokens(3, { userId: 1, username: 'root' });
+
+    expect(result.reportingToken).toBeTypeOf('string');
+    expect(result.printAgentKey).toBeTypeOf('string');
+    expect(tx.tenantAuditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ action: 'TENANT_TOKENS_REGENERATED', targetTenantId: 3 }) }),
+    );
+  });
+});
