@@ -79,7 +79,7 @@ model UserRole {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, roleId])
+  @@unique([userId, roleId, storeId])
   @@map("user_roles")
   tenantId Int?
   storeId  Int?
