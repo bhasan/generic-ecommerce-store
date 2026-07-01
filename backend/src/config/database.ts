@@ -88,6 +88,12 @@ function buildTenantClient(prismaInstance: any) {
 
           // storeId === 0 is the "all stores" sentinel: filter/stamp by tenantId only.
           // Real stores have SERIAL ids (>= 1); never inject storeId: 0 onto rows.
+          // Deliberately keyed off ctx.storeId alone, NOT ctx.isDefaultStore: the tenant's
+          // default store carries its own real serial storeId here (isDefaultStore: true
+          // + storeId: <realId>), so it is stamped/filtered like any other store. This is
+          // unrelated to getEffectiveStoreId()'s isDefaultStore -> 0 mapping in
+          // tenantContext.ts, which is a *different* sentinel (the tenant-default
+          // settings row) used only by settings/delivery/ordering-constraints code.
           const hasRealStore = ctx.storeId != null && ctx.storeId !== 0;
 
           const anyArgs = args as any;
