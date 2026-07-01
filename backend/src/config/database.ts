@@ -95,8 +95,11 @@ function buildTenantClient(prismaInstance: any) {
           // 1. Inject write scope
           if (operation === 'create') {
             // Fail closed: creating a store-scoped row with no real store produces an
-            // orphaned NULL-storeId row invisible to all customers. Reject explicitly.
-            if (isStoreScoped(table) && ctx.storeId === 0) {
+            // orphaned row invisible to all customers. `!hasRealStore` covers BOTH the
+            // storeId-0 "all stores" sentinel AND a null store context (tenant with no
+            // ACTIVE default store) — the latter would otherwise write storeId=NULL and
+            // trip the Postgres NOT NULL constraint as a raw 500. Reject explicitly.
+            if (isStoreScoped(table) && !hasRealStore) {
               throw new MissingStoreContextError(table);
             }
             anyArgs.data = anyArgs.data || {};
@@ -110,8 +113,9 @@ function buildTenantClient(prismaInstance: any) {
               injectNestedRelations(anyArgs.data, ctx);
             }
           } else if (operation === 'upsert') {
-            // Fail closed: the create branch of an upsert would produce a NULL-storeId row.
-            if (isStoreScoped(table) && ctx.storeId === 0) {
+            // Fail closed: the create branch of an upsert would produce an orphaned row.
+            // `!hasRealStore` covers both storeId 0 and a null store context.
+            if (isStoreScoped(table) && !hasRealStore) {
               throw new MissingStoreContextError(table);
             }
             anyArgs.create = anyArgs.create || {};
@@ -127,8 +131,9 @@ function buildTenantClient(prismaInstance: any) {
             injectNestedRelations(anyArgs.create, ctx);
             injectNestedRelations(anyArgs.update, ctx);
           } else if (operation === 'createMany') {
-            // Fail closed: same as create — NULL-storeId rows for every item in the batch.
-            if (isStoreScoped(table) && ctx.storeId === 0) {
+            // Fail closed: same as create — orphaned rows for every item in the batch.
+            // `!hasRealStore` covers both storeId 0 and a null store context.
+            if (isStoreScoped(table) && !hasRealStore) {
               throw new MissingStoreContextError(table);
             }
             if (anyArgs.data) {

@@ -68,6 +68,16 @@ export class StoreService {
       }
     }
 
+    // Never suspend the tenant's current default store — that would leave the
+    // tenant with no ACTIVE default, so resolveActiveStore returns null and every
+    // store-scoped create (checkout) fails closed. Require another default first.
+    if (data.status === 'SUSPENDED') {
+      const current = await db.store.findFirst({ where: { id, tenantId } });
+      if (current?.isDefault) {
+        throw new AppError('Set another store as default before suspending this one', 400);
+      }
+    }
+
     // Only allow known fields; ignore anything else from the caller.
     const patch: Record<string, unknown> = {};
     if (data.name !== undefined) patch.name = data.name;
@@ -95,6 +105,13 @@ export class StoreService {
       // (1) Verify the target belongs to this tenant inside the tx.
       const store = await tx.store.findFirst({ where: { id, tenantId } });
       if (!store) throw new AppError('Store not found', 404);
+
+      // A suspended store must never become the default: resolveActiveStore only
+      // returns ACTIVE stores, so a SUSPENDED default yields a null store context
+      // and every store-scoped create (checkout) fails closed. Reject up front.
+      if (store.status !== 'ACTIVE') {
+        throw new AppError('Cannot set a suspended store as the default', 400);
+      }
 
       // (2) Unset the current default for this tenant.
       await tx.store.updateMany({

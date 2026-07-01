@@ -323,6 +323,99 @@ describe('setDefaultStore', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Phase-2 fix: keep an ACTIVE default store per tenant so resolveActiveStore
+// never returns null (which would make store-scoped checkout creates fail closed).
+// ─────────────────────────────────────────────────────────────────────────────
+describe('setDefaultStore status guard', () => {
+  let suspendedStoreId: number;
+
+  beforeAll(async () => {
+    const s = await base.store.create({
+      data: {
+        tenantId,
+        name: 'Suspended For Default',
+        slug: 'suspended-for-default',
+        isDefault: false,
+        status: 'SUSPENDED',
+      },
+    });
+    suspendedStoreId = s.id;
+  });
+
+  afterAll(async () => {
+    if (suspendedStoreId) await base.store.deleteMany({ where: { id: suspendedStoreId } });
+    // Restore defaultStoreId as the sole default.
+    await base.store.updateMany({ where: { tenantId }, data: { isDefault: false } });
+    await base.store.update({ where: { id: defaultStoreId }, data: { isDefault: true } });
+  });
+
+  it('rejects setting a SUSPENDED store as the default', async () => {
+    await expect(
+      runWithTenant(
+        { tenantId, storeId: null, scope: 'tenant' },
+        async () => svc.setDefaultStore(suspendedStoreId),
+      ),
+    ).rejects.toThrow(/suspended/i);
+
+    // The default must be unchanged (still exactly one, still defaultStoreId).
+    const defaults = await base.store.findMany({ where: { tenantId, isDefault: true } });
+    expect(defaults).toHaveLength(1);
+    expect(defaults[0].id).toBe(defaultStoreId);
+  });
+
+  it('still sets an ACTIVE store as the default', async () => {
+    const updated = await runWithTenant(
+      { tenantId, storeId: null, scope: 'tenant' },
+      async () => svc.setDefaultStore(targetStoreId),
+    );
+    expect(updated.isDefault).toBe(true);
+
+    const defaults = await base.store.findMany({ where: { tenantId, isDefault: true } });
+    expect(defaults).toHaveLength(1);
+    expect(defaults[0].id).toBe(targetStoreId);
+
+    // Restore defaultStoreId as the sole default.
+    await base.store.updateMany({ where: { tenantId }, data: { isDefault: false } });
+    await base.store.update({ where: { id: defaultStoreId }, data: { isDefault: true } });
+  });
+});
+
+describe('updateStore status guard', () => {
+  beforeAll(async () => {
+    // Ensure defaultStoreId is the ACTIVE default before these tests.
+    await base.store.updateMany({ where: { tenantId }, data: { isDefault: false } });
+    await base.store.update({ where: { id: defaultStoreId }, data: { isDefault: true, status: 'ACTIVE' } });
+  });
+
+  afterEach(async () => {
+    // Restore statuses / default flag after each test.
+    await base.store.update({ where: { id: defaultStoreId }, data: { status: 'ACTIVE', isDefault: true } });
+    await base.store.update({ where: { id: targetStoreId }, data: { status: 'ACTIVE' } });
+  });
+
+  it('rejects suspending the store that is the current default', async () => {
+    await expect(
+      runWithTenant(
+        { tenantId, storeId: null, scope: 'tenant' },
+        async () => svc.updateStore(defaultStoreId, { status: 'SUSPENDED' }),
+      ),
+    ).rejects.toThrow(/default/i);
+
+    // The default store must remain ACTIVE.
+    const store = await base.store.findUnique({ where: { id: defaultStoreId } });
+    expect(store?.status).toBe('ACTIVE');
+  });
+
+  it('allows suspending a non-default store', async () => {
+    const updated = await runWithTenant(
+      { tenantId, storeId: null, scope: 'tenant' },
+      async () => svc.updateStore(targetStoreId, { status: 'SUSPENDED' }),
+    );
+    expect(updated.status).toBe('SUSPENDED');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // cloneFromDefault
 // ─────────────────────────────────────────────────────────────────────────────
 describe('cloneFromDefault', () => {

@@ -101,6 +101,58 @@ describe('storeId 0 sentinel — all-stores context', () => {
     expect(leaked).toBeNull();
   });
 
+  // ---------------------------------------------------------------------------
+  // Phase-2 fix: fail closed on store-scoped creates under a NULL store context
+  // too. A tenant with no ACTIVE default store makes resolveActiveStore return
+  // null → runWithTenant storeId=null. A store-scoped create then wrote a
+  // NULL-storeId row (Postgres NOT NULL violation → raw 500). Must fail closed
+  // exactly like the storeId-0 sentinel, and reads must still work (tenant-only).
+  // ---------------------------------------------------------------------------
+
+  it('storeId null: create on store-scoped table THROWS MissingStoreContextError', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+        return getTenantPrisma().announcement.create({ data: { message: 'ann-null-create' } });
+      }),
+    ).rejects.toThrow(MissingStoreContextError);
+    // Confirm no orphaned NULL-storeId row was written.
+    const leaked = await base.announcement.findFirst({ where: { tenantId, message: 'ann-null-create' } });
+    expect(leaked).toBeNull();
+  });
+
+  it('storeId null: createMany on store-scoped table THROWS MissingStoreContextError', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+        return getTenantPrisma().announcement.createMany({
+          data: [{ message: 'ann-null-cm-1' }, { message: 'ann-null-cm-2' }],
+        });
+      }),
+    ).rejects.toThrow(MissingStoreContextError);
+    const leaked = await base.announcement.findFirst({ where: { tenantId, message: 'ann-null-cm-1' } });
+    expect(leaked).toBeNull();
+  });
+
+  it('storeId null: upsert on store-scoped table THROWS MissingStoreContextError', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+        return getTenantPrisma().announcement.upsert({
+          where: { id: -9998 },
+          create: { message: 'ann-null-upsert' },
+          update: { message: 'ann-null-upsert-upd' },
+        });
+      }),
+    ).rejects.toThrow(MissingStoreContextError);
+    const leaked = await base.announcement.findFirst({ where: { tenantId, message: 'ann-null-upsert' } });
+    expect(leaked).toBeNull();
+  });
+
+  it('storeId null: findMany on store-scoped table does NOT throw (tenant-only read path)', async () => {
+    const rows = await runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+      return getTenantPrisma().announcement.findMany();
+    });
+    expect(Array.isArray(rows)).toBe(true);
+  });
+
   it('storeId 0: findMany on store-scoped table does NOT throw (all-stores aggregate path)', async () => {
     const rows = await runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
       return getTenantPrisma().announcement.findMany({ orderBy: { message: 'asc' } });
