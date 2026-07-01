@@ -178,6 +178,27 @@ describe('CartContext', () => {
     });
   });
 
+  describe('auth:unauthorized cart cleanup (shared/kiosk browser)', () => {
+    it('removes ALL per-store carts + legacy cartData_v2 on auth:unauthorized, not just the active key', () => {
+      // Multi-store browser sitting on store 1, but sibling per-store carts exist.
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 1, isMultiStore: true });
+      const { result } = renderHook(() => useCartContext(), { wrapper });
+
+      // Seed carts for the active store, a sibling store, and a legacy cart.
+      localStorage.setItem('cartData_v2_store_1', JSON.stringify({ items: [{ variantId: 11, quantity: 1 }], savedAt: Date.now() }));
+      localStorage.setItem('cartData_v2_store_2', JSON.stringify({ items: [{ variantId: 22, quantity: 1 }], savedAt: Date.now() }));
+      localStorage.setItem('cartData_v2', JSON.stringify([{ variantId: 33, quantity: 1 }]));
+
+      act(() => { window.dispatchEvent(new Event('auth:unauthorized')); });
+
+      // Every cart key for this browser must be gone — no cross-user leak.
+      expect(result.current.cart).toHaveLength(0);
+      expect(localStorage.getItem('cartData_v2_store_1')).toBeNull();
+      expect(localStorage.getItem('cartData_v2_store_2')).toBeNull();
+      expect(localStorage.getItem('cartData_v2')).toBeNull();
+    });
+  });
+
   describe('null-to-store reload lifecycle (multi-store persistence)', () => {
     it('(reload) loads per-store cart when activeStoreId resolves from null to N (multi-store)', async () => {
       const storeId = 5;

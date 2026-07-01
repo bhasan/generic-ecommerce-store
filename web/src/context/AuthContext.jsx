@@ -83,6 +83,9 @@ export function AuthProvider({ children }) {
       setCurrentUser(GUEST_USER);
       setIsAuthenticated(false);
       setReturnPath(null);
+      // Drop the prior session's store selection so the next principal on this
+      // browser doesn't inherit it (wrong catalog/pricing; a stale 0 → checkout 400s).
+      localStorage.removeItem('selectedStoreId');
       navigate('/login');
       showNotification('Your session has expired. Please log in again.', 'warning');
     };
@@ -139,6 +142,9 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(false);
       setCreditBalance(0);
       setReturnPath(null);
+      // Clear store selection too: the next session must start fresh (single-store
+      // auto-selects, multi-store shows the picker, admin re-picks All-stores).
+      localStorage.removeItem('selectedStoreId');
       navigate('/products');
       showNotification('You have been logged out', 'info');
     }

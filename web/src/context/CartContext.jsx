@@ -127,7 +127,19 @@ export function CartProvider({ children }) {
   useEffect(() => {
     const handleUnauthorized = () => {
       setCart([]);
-      localStorage.removeItem(getStorageKey(isMultiStoreRef.current, activeStoreIdRef.current));
+      // Remove EVERY cart key for this browser — not just the active store's —
+      // so sibling per-store carts (cartData_v2_store_<other>) can't leak to the
+      // next user on a shared/kiosk browser. Collect matching keys first, then
+      // delete, to avoid index shifting while iterating localStorage. Runs
+      // synchronously so the keys are gone before the navigate() unmounts us.
+      const staleKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key === 'cartData_v2' || (key && key.startsWith('cartData_v2_store_'))) {
+          staleKeys.push(key);
+        }
+      }
+      staleKeys.forEach((key) => localStorage.removeItem(key));
     };
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);

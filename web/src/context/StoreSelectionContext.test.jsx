@@ -12,6 +12,7 @@ vi.mock('./AuthContext', () => ({
 
 import * as storesApi from '../services/storesApi';
 import { useAuthContext } from './AuthContext';
+import { ROLES } from '../utils/roles';
 
 const wrapper = ({ children }) => (
   <StoreSelectionProvider>{children}</StoreSelectionProvider>
@@ -99,8 +100,13 @@ describe('StoreSelectionContext', () => {
     expect(result.current.stores).toHaveLength(0);
   });
 
-  it('(f) persisted selectedStoreId="0" (All-stores sentinel) is retained, not cleared', async () => {
+  it('(f) ADMIN with persisted selectedStoreId="0" (All-stores sentinel) is retained, not cleared', async () => {
     localStorage.setItem('selectedStoreId', '0');
+    useAuthContext.mockReturnValue({
+      isLoading: false,
+      isAuthenticated: true,
+      currentUser: { id: 1, username: 'root', roles: [ROLES.ADMIN] },
+    });
 
     storesApi.getStores.mockResolvedValue([
       { id: 1, name: 'Store A', slug: 'store-a', isDefault: true },
@@ -111,9 +117,33 @@ describe('StoreSelectionContext', () => {
 
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    // 0 is the admin All-stores sentinel — must be kept, not cleared
+    // 0 is the admin All-stores sentinel — must be kept for admins, not cleared
     expect(result.current.activeStoreId).toBe(0);
     expect(localStorage.getItem('selectedStoreId')).toBe('0');
+  });
+
+  it('(g) NON-admin with persisted selectedStoreId="0" → invalid → cleared, activeStoreId null', async () => {
+    localStorage.setItem('selectedStoreId', '0');
+    // Default mock (from beforeEach) is a non-admin authenticated user.
+    useAuthContext.mockReturnValue({
+      isLoading: false,
+      isAuthenticated: true,
+      currentUser: { id: 2, username: 'customer', roles: [ROLES.CUSTOMER] },
+    });
+
+    storesApi.getStores.mockResolvedValue([
+      { id: 1, name: 'Store A', slug: 'store-a', isDefault: true },
+      { id: 2, name: 'Store B', slug: 'store-b', isDefault: false },
+    ]);
+
+    const { result } = renderHook(() => useStoreSelection(), { wrapper });
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The admin-only All-stores sentinel must NOT stick for a non-admin:
+    // clear it so multi-store shows the picker (and single-store auto-selects).
+    expect(result.current.activeStoreId).toBeNull();
+    expect(localStorage.getItem('selectedStoreId')).toBeNull();
   });
 
   it('throws when used outside StoreSelectionProvider', () => {
