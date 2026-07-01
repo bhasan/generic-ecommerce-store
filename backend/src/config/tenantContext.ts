@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'async_hooks';
-import { AppError } from '../middleware/error.middleware';
+import { AppError } from '../utils/appError';
 
 export type TenantContext = {
   tenantId: number;

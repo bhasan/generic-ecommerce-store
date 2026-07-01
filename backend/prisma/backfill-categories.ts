@@ -50,7 +50,7 @@ async function backfillCategories() {
     const categoryId = categoryMap.get(row.category.trim());
     if (!categoryId) continue;
 
-    await prisma.productItem.update({
+    await prisma.product.update({
       where: { id: row.id },
       data: { categoryId }
     });
