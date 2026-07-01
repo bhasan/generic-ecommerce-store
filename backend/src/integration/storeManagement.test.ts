@@ -5,17 +5,19 @@
 //   - createStore: new store is ACTIVE, isDefault:false; duplicate slug rejected.
 //   - updateStore: field updates; slug collision rejected; cross-tenant 404.
 //   - setDefaultStore: exactly one default remains; cross-tenant 404.
-//   - cloneFromDefault: StoreVariantOverride rows + storeId-0 store_settings copied to target;
+//   - cloneFromDefault: SEEDS a per-store StoreVariantOverride from EVERY base ProductVariant
+//                       (stock = base stock, price/active inherited via null) so the cloned
+//                       store opens STOCKED + SELLABLE; storeId-0 store_settings still copied;
 //                       idempotent (upsert); cross-tenant 404.
 //
 // Pattern: getUnscopedPrisma() for setup/teardown; runWithTenant for service calls.
 // ALWAYS await inside runWithTenant callback (ALS context rule).
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { Prisma } from '../../generated/prisma';
 import { getUnscopedPrisma } from '../config/database';
 import { runWithTenant } from '../config/tenantContext';
 import { StoreService } from '../services/store.service';
+import { resolveVariantEffective } from '../services/storeVariant.effective';
 import { AppError } from '../middleware/error.middleware';
 
 const base = getUnscopedPrisma();
@@ -81,7 +83,7 @@ beforeAll(async () => {
     `INSERT INTO product_variants
        (label, sku, "pricingMode", "basePrice", stock, "stockEnabled", "isDefault",
         active, "sortOrder", "productId", "tenantId", "createdAt", "updatedAt")
-     VALUES ('V1', $1, 'UNIT', 10, 5, true, true, true, 0, $2, $3, now(), now()) RETURNING id`,
+     VALUES ('V1', $1, 'UNIT', 10, 25, true, true, true, 0, $2, $3, now(), now()) RETURNING id`,
     `smgmt-v1-${Date.now()}`, productId, tenantId,
   );
   variantId1 = v1Rows[0].id;
@@ -424,37 +426,12 @@ describe('cloneFromDefault', () => {
     await base.store.updateMany({ where: { tenantId }, data: { isDefault: false } });
     await base.store.update({ where: { id: defaultStoreId }, data: { isDefault: true } });
 
-    // Seed 2 StoreVariantOverride rows on the default store.
-    await base.storeVariantOverride.upsert({
-      where: { storeId_variantId: { storeId: defaultStoreId, variantId: variantId1 } },
-      create: {
-        tenantId, storeId: defaultStoreId, variantId: variantId1,
-        stock: new Prisma.Decimal(50),
-        priceOverride: new Prisma.Decimal('9.99'),
-        activeOverride: true,
-      },
-      update: {
-        stock: new Prisma.Decimal(50),
-        priceOverride: new Prisma.Decimal('9.99'),
-        activeOverride: true,
-      },
-    });
-    await base.storeVariantOverride.upsert({
-      where: { storeId_variantId: { storeId: defaultStoreId, variantId: variantId2 } },
-      create: {
-        tenantId, storeId: defaultStoreId, variantId: variantId2,
-        stock: new Prisma.Decimal(30),
-        priceOverride: new Prisma.Decimal('19.99'),
-        activeOverride: false,
-      },
-      update: {
-        stock: new Prisma.Decimal(30),
-        priceOverride: new Prisma.Decimal('19.99'),
-        activeOverride: false,
-      },
-    });
+    // New behavior seeds from the BASE catalog, NOT from the default store's
+    // override rows — so the realistic scenario is a default store with NO
+    // overrides. Start from a clean slate to prove the seed reads base variants.
+    await base.storeVariantOverride.deleteMany({ where: { tenantId } });
 
-    // Seed storeId=0 store_settings row (tenant-default settings).
+    // Seed storeId=0 store_settings row (tenant-default settings) — still copied.
     await base.uiSetting.upsert({
       where: { tenantId_storeId_key: { tenantId, storeId: 0, key: 'store_settings' } },
       create: {
@@ -465,35 +442,45 @@ describe('cloneFromDefault', () => {
     });
   });
 
-  it('copies 2 StoreVariantOverride rows and 1 store_settings row from default to target', async () => {
+  it('seeds a StoreVariantOverride from every base variant (stocked + price-inherited) and copies store_settings', async () => {
     const result = await runWithTenant(
       { tenantId, storeId: null, scope: 'tenant' },
       async () => svc.cloneFromDefault(targetStoreId),
     );
 
+    // One override seeded per base ProductVariant in the tenant (V1, V2).
     expect(result.overridesCopied).toBe(2);
     expect(result.settingsCopied).toBe(1);
 
-    // ── Verify StoreVariantOverride rows on the target store ─────────────────
-    const overrides = await base.storeVariantOverride.findMany({
-      where: { storeId: targetStoreId },
-      orderBy: { variantId: 'asc' },
+    // ── Verify the seeded override for V1 carries the BASE stock, null price,
+    //    null active (inherit) so the store opens with its own stock pool. ────
+    const v1Override = await base.storeVariantOverride.findUnique({
+      where: { storeId_variantId: { storeId: targetStoreId, variantId: variantId1 } },
     });
-    expect(overrides).toHaveLength(2);
-
-    const v1Override = overrides.find((o) => o.variantId === variantId1);
     expect(v1Override).toBeDefined();
-    expect(Number(v1Override!.stock)).toBe(50);
-    expect(Number(v1Override!.priceOverride)).toBeCloseTo(9.99, 2);
-    expect(v1Override!.activeOverride).toBe(true);
+    expect(Number(v1Override!.stock)).toBe(25); // base variant.stock, now the store's pool
+    expect(v1Override!.priceOverride).toBeNull(); // inherit base price + price breaks (not flat)
+    expect(v1Override!.activeOverride).toBeNull(); // inherit base active
 
-    const v2Override = overrides.find((o) => o.variantId === variantId2);
-    expect(v2Override).toBeDefined();
-    expect(Number(v2Override!.stock)).toBe(30);
-    expect(Number(v2Override!.priceOverride)).toBeCloseTo(19.99, 2);
-    expect(v2Override!.activeOverride).toBe(false);
+    // ── The cloned (NON-default) store must be SELLABLE via the effective
+    //    resolver: base stock, inherited base price, available in stock. ──────
+    const variant = await base.productVariant.findUnique({ where: { id: variantId1 } });
+    const effective = resolveVariantEffective(
+      {
+        basePrice: variant!.basePrice,
+        stock: variant!.stock,
+        stockEnabled: variant!.stockEnabled,
+        active: variant!.active,
+      },
+      v1Override!,
+      false, // isDefaultStore — a cloned non-default store used to show 0 stock
+    );
+    expect(effective.stock).toBe(25);
+    expect(effective.price).toBe(Number(variant!.basePrice)); // inherited base price
+    expect(effective.priceOverridden).toBe(false); // null price → breaks still apply
+    expect(effective.available).toBe(true); // in stock → sellable
 
-    // ── Verify store_settings row on the target store ─────────────────────────
+    // ── store_settings row copied from the storeId-0 sentinel to the target ──
     const settings = await base.uiSetting.findFirst({
       where: { tenantId, storeId: targetStoreId, key: 'store_settings' },
     });
@@ -502,12 +489,22 @@ describe('cloneFromDefault', () => {
     expect((settings!.value as Record<string, unknown>).phoneNumber).toBe('555-1234');
   });
 
-  it('is idempotent: cloning again upserts without error', async () => {
+  it('is idempotent: re-cloning upserts without duplicating rows and keeps base stock', async () => {
     const result = await runWithTenant(
       { tenantId, storeId: null, scope: 'tenant' },
       async () => svc.cloneFromDefault(targetStoreId),
     );
     expect(result.overridesCopied).toBe(2);
+
+    // No duplicate rows: exactly one override per variant for the target store.
+    const overrides = await base.storeVariantOverride.findMany({
+      where: { storeId: targetStoreId },
+    });
+    expect(overrides).toHaveLength(2);
+
+    const v1Override = overrides.find((o) => o.variantId === variantId1);
+    expect(Number(v1Override!.stock)).toBe(25); // upsert kept base stock
+    expect(v1Override!.priceOverride).toBeNull();
   });
 
   it('returns 404 when the target store does not belong to the caller tenant', async () => {

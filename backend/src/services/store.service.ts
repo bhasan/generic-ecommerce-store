@@ -134,12 +134,27 @@ export class StoreService {
   }
 
   // ── Clone from Default ────────────────────────────────────────────────────
-  // Copies:
-  //  1. All StoreVariantOverride rows from the tenant's default store → target store (upsert).
-  //  2. The tenant-default store_settings row (storeId=0) → per-store row for target (upsert).
+  // SEEDS a new (non-default) store from the tenant's BASE catalog so it opens
+  // already STOCKED and SELLABLE — instead of all-out-of-stock. Concretely:
+  //  1. For EVERY ProductVariant in the tenant, UPSERT a StoreVariantOverride for
+  //     the target store (idempotent on the @@unique([storeId, variantId]) key).
+  //  2. Copy the tenant-default store_settings row (storeId=0 sentinel) → per-store
+  //     row for the target (upsert) — unchanged.
   //
-  // Note: the default store in this system normally uses BASE variant values and may have
-  // few or no override rows in practice. The copy is faithful regardless — seeds 0+ rows.
+  // Why seed from base variants (not from the default store's override rows): the
+  // default store keeps its stock in the BASE ProductVariant and has ~0 override
+  // rows, so copying its overrides copies nothing meaningful and, for a non-default
+  // store, resolveVariantEffective returns stock 0 (out of stock) for every variant.
+  //
+  // Seeded override values:
+  //   • stock          = variant.stock  → the new store opens with the catalog's
+  //                       stock as its OWN independent per-store pool.
+  //   • priceOverride  = null           → INHERIT the base price AND the tenant's
+  //                       quantity price breaks. A non-null priceOverride is treated
+  //                       as FLAT (F5: order.crud.service drops priceBreaks when
+  //                       effective.priceOverridden), which is NOT what a base seed
+  //                       wants — the store should track base pricing exactly.
+  //   • activeOverride = null           → INHERIT the base variant's active flag.
   async cloneFromDefault(id: number) {
     const { tenantId } = getTenantContextOrThrow();
     const db = getUnscopedPrisma();
@@ -148,38 +163,36 @@ export class StoreService {
     const target = await db.store.findFirst({ where: { id, tenantId } });
     if (!target) throw new AppError('Store not found', 404);
 
-    // Find the tenant's default store.
+    // Require a default store (kept behavior).
     const defaultStore = await db.store.findFirst({ where: { tenantId, isDefault: true } });
     if (!defaultStore) {
       throw new AppError('No default store is configured for this tenant', 400, 'BAD_REQUEST');
     }
 
-    // ── Copy StoreVariantOverride rows ────────────────────────────────────
-    const overrides = await db.storeVariantOverride.findMany({
-      where: { tenantId, storeId: defaultStore.id },
-    });
+    // ── Seed per-store overrides from the tenant's BASE variants ──────────
+    const variants = await db.productVariant.findMany({ where: { tenantId } });
 
-    for (const ov of overrides) {
+    for (const v of variants) {
       await db.storeVariantOverride.upsert({
-        where: { storeId_variantId: { storeId: id, variantId: ov.variantId } },
+        where: { storeId_variantId: { storeId: id, variantId: v.id } },
         create: {
           tenantId,
           storeId: id,
-          variantId: ov.variantId,
-          stock: ov.stock,
-          priceOverride: ov.priceOverride,
-          activeOverride: ov.activeOverride,
+          variantId: v.id,
+          stock: v.stock,
+          priceOverride: null, // inherit base price + quantity price breaks (not flat)
+          activeOverride: null, // inherit base active
         },
         update: {
-          stock: ov.stock,
-          priceOverride: ov.priceOverride,
-          activeOverride: ov.activeOverride,
+          stock: v.stock,
+          priceOverride: null,
+          activeOverride: null,
           tenantId,
         },
       });
     }
 
-    // ── Copy tenant-default store_settings (storeId=0 sentinel) ──────────
+    // ── Copy tenant-default store_settings (storeId=0 sentinel) — unchanged ──
     const defaultSettings = await db.uiSetting.findFirst({
       where: { tenantId, storeId: 0, key: 'store_settings' },
     });
@@ -194,6 +207,6 @@ export class StoreService {
       settingsCopied = 1;
     }
 
-    return { store: target, overridesCopied: overrides.length, settingsCopied };
+    return { store: target, overridesCopied: variants.length, settingsCopied };
   }
 }
