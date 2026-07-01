@@ -13,6 +13,7 @@ const svc = new ProductService();
 let tenantId: number;
 let storeD: number; // default store
 let storeS: number; // non-default store
+let productId: number;
 let variantV1Id: number; // has an override for store S
 let variantV2Id: number; // NO override for store S
 
@@ -50,7 +51,7 @@ beforeAll(async () => {
     catId,
     tenantId,
   );
-  const productId = prodRows[0].id;
+  productId = prodRows[0].id;
 
   // V1: basePrice=10, stock=5 — will have an S-override
   const v1Rows = await base.$queryRawUnsafe<Array<{ id: number }>>(
@@ -141,5 +142,43 @@ describe('per-store catalog — effective price/stock (Task 3)', () => {
     const v2 = products.flatMap((p) => p.variants).find((v) => v.id === variantV2Id);
     expect(v2).toBeDefined();
     expect(Number(v2!.stock)).toBe(0);
+  });
+});
+
+describe('per-store catalog — getProductById and search paths (Task 3 review fix)', () => {
+  it('getProductById: non-default store S → V1 gets override (basePrice=8, stock=2)', async () => {
+    const product = await runWithTenant(
+      { tenantId, storeId: storeS, isDefaultStore: false, scope: 'tenant' },
+      async () => svc.getProductById(productId),
+    );
+
+    const v1 = product.variants.find((v) => v.id === variantV1Id);
+    expect(v1).toBeDefined();
+    expect(Number(v1!.basePrice)).toBe(8);
+    expect(Number(v1!.stock)).toBe(2);
+  });
+
+  it('searchProducts (fallback): non-default store S → V1 gets override (basePrice=8, stock=2)', async () => {
+    const results = await runWithTenant(
+      { tenantId, storeId: storeS, isDefaultStore: false, scope: 'tenant' },
+      async () => svc.searchProducts(undefined, '', { limit: 100, offset: 0 }),
+    );
+
+    const v1 = results.flatMap((p: any) => p.variants as Array<any>).find((v: any) => v.id === variantV1Id);
+    expect(v1).toBeDefined();
+    expect(Number(v1!.basePrice)).toBe(8);
+    expect(Number(v1!.stock)).toBe(2);
+  });
+
+  it('null-storeId context (passthrough): getAllProducts returns V1 with BASE stock=5', async () => {
+    const products = await runWithTenant(
+      { tenantId, storeId: null, isDefaultStore: false, scope: 'tenant' },
+      async () => svc.getAllProducts(),
+    );
+
+    const v1 = products.flatMap((p) => p.variants).find((v) => v.id === variantV1Id);
+    expect(v1).toBeDefined();
+    expect(Number(v1!.basePrice)).toBe(10);
+    expect(Number(v1!.stock)).toBe(5);
   });
 });

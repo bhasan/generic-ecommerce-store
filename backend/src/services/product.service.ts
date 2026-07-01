@@ -149,10 +149,12 @@ export class ProductService {
     }>;
   }>(products: T[]): Promise<T[]> {
     const ctx = getTenantContext();
-    if (!ctx) return products; // no ALS context (unit-test pass-through, etc.)
+    // Apply per-store overrides ONLY for a real, non-default store. No store / default
+    // store / "All stores" (storeId 0/null) → base catalog values (unchanged behavior).
+    if (!ctx || !ctx.storeId || ctx.isDefaultStore) return products;
 
-    const storeId = ctx.storeId ?? 0;
-    const isDefaultStore = !!ctx.isDefaultStore;
+    const storeId = ctx.storeId;
+    const isDefaultStore = !!ctx.isDefaultStore; // always false here (guarded above)
 
     const variantIds = products.flatMap((p) => p.variants.map((v) => v.id));
     if (variantIds.length === 0) return products;
