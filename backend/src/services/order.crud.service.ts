@@ -3,7 +3,7 @@ import { AppError } from '../middleware/error.middleware';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 import { resolveUnitPrice, isQuantityAllowed } from './pricing';
 import { getTenantContextOrThrow } from '../config/tenantContext';
-import { resolveVariantEffective } from './storeVariant.effective';
+import { resolveVariantEffective, VariantOverrideLike } from './storeVariant.effective';
 import { RoleName, hasAnyRole, ROLES } from '../constants/roles';
 import { DEFAULT_TAX_RATE } from '../constants/settings';
 import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
@@ -44,6 +44,27 @@ export async function decrementStockGuarded(
       throw new AppError(`Insufficient stock for ${productName}`, 400);
     }
   }
+}
+
+// Shared per-store override fetch used by pricing/availability resolution call sites
+// (createOrder, addItemToOrder). Callers must only invoke this in a real non-default-store
+// context (isBaseContext === false) — the base context uses the variant's base price/stock
+// directly and never consults StoreVariantOverride rows.
+// `client` is accepted as a parameter (rather than hardcoded) so callers running inside a
+// transaction can pass `tx` and callers outside one can pass the request-scoped `prisma`.
+export async function resolveOverridesForVariants(
+  client: any,
+  storeId: number,
+  variantIds: number[],
+): Promise<Map<number, VariantOverrideLike>> {
+  const overrides: Array<{ variantId: number } & VariantOverrideLike> = await client.storeVariantOverride.findMany({
+    where: { storeId, variantId: { in: variantIds } },
+  });
+  const overrideMap = new Map<number, VariantOverrideLike>();
+  for (const ov of overrides) {
+    overrideMap.set(ov.variantId, ov);
+  }
+  return overrideMap;
 }
 
 // Single source for the notify+print side-effects fired when an order becomes active.
@@ -306,16 +327,9 @@ export class OrderCrudService {
 
       // For a real non-default store, fetch per-store price/stock overrides to apply
       // effective pricing. (For the base context the variant base values apply.)
-      const overrideMap = new Map<number, { stock: Prisma.Decimal; priceOverride: Prisma.Decimal | null; activeOverride: boolean | null }>();
-      if (!isBaseContext) {
-        const overrides: Array<{ variantId: number; stock: Prisma.Decimal; priceOverride: Prisma.Decimal | null; activeOverride: boolean | null }> =
-          await (prisma as any).storeVariantOverride.findMany({
-            where: { storeId, variantId: { in: variantIds } },
-          });
-        for (const ov of overrides) {
-          overrideMap.set(ov.variantId, ov);
-        }
-      }
+      const overrideMap: Map<number, VariantOverrideLike> = isBaseContext
+        ? new Map()
+        : await resolveOverridesForVariants(prisma, storeId!, variantIds);
 
       // Calculate total and prepare order items (unit price resolved via pricing.ts
       // on top of the effective per-store base price from resolveVariantEffective).
@@ -528,12 +542,9 @@ export class OrderCrudService {
       }
 
       // Resolve effective per-store price and availability for this variant.
-      let override: { stock: Prisma.Decimal; priceOverride: Prisma.Decimal | null; activeOverride: boolean | null } | undefined;
-      if (!isBaseContext) {
-        override = await (prisma as any).storeVariantOverride.findFirst({
-          where: { storeId, variantId: data.variantId },
-        }) ?? undefined;
-      }
+      const override: VariantOverrideLike | undefined = isBaseContext
+        ? undefined
+        : (await resolveOverridesForVariants(prisma, storeId!, [data.variantId])).get(data.variantId);
       const effective = resolveVariantEffective(variant, override, isBaseContext);
       // Reject if a per-store override marks this variant inactive at the active store.
       if (!isBaseContext && !effective.active) {
