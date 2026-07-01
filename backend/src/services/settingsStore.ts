@@ -80,11 +80,12 @@ export class SettingsStore<T extends object> {
   // The DB rows are tenant-scoped via the Prisma extension; the in-memory cache
   // must match or one tenant's cached settings could be served to another.
   // (Context is absent only in dev/scripts; key 0 there is harmless.)
-  private cacheKeyFor(key: string): string {
+  private cacheKeyFor(key: string, storeIdOverride?: number): string {
     const ctx = getTenantContext();
     const tenantId = ctx?.tenantId ?? 0;
     if (this.config.storeScoped) {
-      return `${tenantId}:${getEffectiveStoreId(ctx)}:${key}`;
+      const storeId = storeIdOverride ?? getEffectiveStoreId(ctx);
+      return `${tenantId}:${storeId}:${key}`;
     }
     return `${tenantId}:${key}`;
   }
@@ -147,10 +148,17 @@ export class SettingsStore<T extends object> {
       create: { key, storeId: effectiveStoreId, value: toStore as object },
     });
     if (storeScoped) {
-      // A store-scoped write (even to storeId 0) invalidates cached merges for ALL
-      // stores that inherit row 0. TtlCache has no prefix-delete, so clear everything.
-      // Settings writes are rare admin actions; the small cache re-warms quickly.
-      settingsCache.clear();
+      // Invalidate exactly the cache entries this write could have staled: the
+      // tenant-default row's entry (storeId 0 — every store's merged read folds
+      // row0 in) and, if different, the specific store's own merged-read entry.
+      // Do NOT settingsCache.clear() — this module-level cache is shared by every
+      // SettingsStore instance (branding, storeSettings, landingPageSettings,
+      // orderingConstraints, paymentSettings) across ALL tenants/stores, so a
+      // blanket clear would evict unrelated, still-valid entries process-wide.
+      settingsCache.delete(this.cacheKeyFor(key, 0));
+      if (effectiveStoreId !== 0) {
+        settingsCache.delete(this.cacheKeyFor(key, effectiveStoreId));
+      }
     } else {
       settingsCache.delete(this.cacheKeyFor(key));
     }
