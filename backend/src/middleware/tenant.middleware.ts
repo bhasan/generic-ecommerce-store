@@ -169,6 +169,13 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
     res.status(404).json({ error: 'Tenant not found' });
     return;
   }
+  // A soft-deleted tenant is hidden: it resolves exactly like an unknown tenant
+  // (404), never a suspend notice. This runs BEFORE the suspend check so DELETED
+  // is not collapsed into 403.
+  if (tenant.status === 'DELETED') {
+    res.status(404).json({ error: 'Tenant not found' });
+    return;
+  }
   if (tenant.status !== 'ACTIVE') {
     res.status(403).json({ error: 'This store is suspended' });
     return;

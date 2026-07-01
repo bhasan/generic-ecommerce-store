@@ -729,6 +729,7 @@ model StoreVariantOverride {
 enum TenantStatus {
   ACTIVE
   SUSPENDED
+  DELETED
 }
 
 enum StoreStatus {
