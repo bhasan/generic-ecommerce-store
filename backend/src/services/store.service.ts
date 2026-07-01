@@ -170,27 +170,34 @@ export class StoreService {
     }
 
     // ── Seed per-store overrides from the tenant's BASE variants ──────────
+    // Upserts key on the distinct (storeId, variantId) unique index, so they
+    // are independent writes with no ordering dependency — fire them
+    // concurrently instead of one-at-a-time to avoid N sequential round-trips
+    // for tenants with large catalogs (see other bulk-upsert call sites, e.g.
+    // deliveryEligibility.service.ts, which use the same Promise.all pattern).
     const variants = await db.productVariant.findMany({ where: { tenantId } });
 
-    for (const v of variants) {
-      await db.storeVariantOverride.upsert({
-        where: { storeId_variantId: { storeId: id, variantId: v.id } },
-        create: {
-          tenantId,
-          storeId: id,
-          variantId: v.id,
-          stock: v.stock,
-          priceOverride: null, // inherit base price + quantity price breaks (not flat)
-          activeOverride: null, // inherit base active
-        },
-        update: {
-          stock: v.stock,
-          priceOverride: null,
-          activeOverride: null,
-          tenantId,
-        },
-      });
-    }
+    await Promise.all(
+      variants.map((v) =>
+        db.storeVariantOverride.upsert({
+          where: { storeId_variantId: { storeId: id, variantId: v.id } },
+          create: {
+            tenantId,
+            storeId: id,
+            variantId: v.id,
+            stock: v.stock,
+            priceOverride: null, // inherit base price + quantity price breaks (not flat)
+            activeOverride: null, // inherit base active
+          },
+          update: {
+            stock: v.stock,
+            priceOverride: null,
+            activeOverride: null,
+            tenantId,
+          },
+        }),
+      ),
+    );
 
     // ── Copy tenant-default store_settings (storeId=0 sentinel) — unchanged ──
     const defaultSettings = await db.uiSetting.findFirst({

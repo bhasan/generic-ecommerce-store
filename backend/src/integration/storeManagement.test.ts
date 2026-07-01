@@ -532,3 +532,137 @@ describe('cloneFromDefault', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// cloneFromDefault — parallelized per-variant upsert (perf fix regression)
+//
+// cloneFromDefault batches its N StoreVariantOverride upserts via Promise.all
+// instead of a sequential for-loop. The risk of a naive parallelization is
+// dropped rows or cross-contaminated values (e.g. a shared/mutated closure
+// variable scrambling which stock goes with which variantId). Use a dedicated
+// tenant with 5 variants (across 2 products) each with a DISTINCT stock value,
+// so any row mixup or drop is immediately visible.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('cloneFromDefault — parallel upsert of many variants', () => {
+  let mvTenantId: number;
+  let mvDefaultStoreId: number;
+  let mvTargetStoreId: number;
+  const mvVariants: Array<{ id: number; stock: number }> = [];
+
+  beforeAll(async () => {
+    const tenant = await base.tenant.create({
+      data: { slug: `smgmt-mv-${Date.now()}`, name: 'Store Mgmt Multi-Variant Tenant' },
+    });
+    mvTenantId = tenant.id;
+
+    const defaultStore = await base.store.create({
+      data: { tenantId: mvTenantId, name: 'MV Default Store', slug: 'mv-default-store', isDefault: true },
+    });
+    mvDefaultStoreId = defaultStore.id;
+
+    const target = await base.store.create({
+      data: { tenantId: mvTenantId, name: 'MV Target Store', slug: 'mv-target-store', isDefault: false },
+    });
+    mvTargetStoreId = target.id;
+
+    const catRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO categories (name, "tenantId", "createdAt", "updatedAt")
+       VALUES ('SmgmtMvCat', $1, now(), now()) RETURNING id`,
+      mvTenantId,
+    );
+    const catId = catRows[0].id;
+
+    // Two products, so overrides span more than a single product's variants.
+    const prodASlug = `smgmt-mv-prod-a-${Date.now()}`;
+    const prodARows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO products
+         (name, slug, "categoryId", "tenantId", hidden, "vipOnly", "cardSize", "sortOrder", "createdAt", "updatedAt")
+       VALUES ('SmgmtMvProductA', $1, $2, $3, false, false, 'STANDARD', 0, now(), now()) RETURNING id`,
+      prodASlug, catId, mvTenantId,
+    );
+    const productAId = prodARows[0].id;
+
+    const prodBSlug = `smgmt-mv-prod-b-${Date.now()}`;
+    const prodBRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO products
+         (name, slug, "categoryId", "tenantId", hidden, "vipOnly", "cardSize", "sortOrder", "createdAt", "updatedAt")
+       VALUES ('SmgmtMvProductB', $1, $2, $3, false, false, 'STANDARD', 1, now(), now()) RETURNING id`,
+      prodBSlug, catId, mvTenantId,
+    );
+    const productBId = prodBRows[0].id;
+
+    // 5 variants across the two products, each with a DISTINCT stock value
+    // (11, 22, 33, 44, 55) so a scrambled/dropped row is unmistakable.
+    const variantDefs = [
+      { label: 'MV1', stock: 11, productId: productAId, isDefault: true, sort: 0 },
+      { label: 'MV2', stock: 22, productId: productAId, isDefault: false, sort: 1 },
+      { label: 'MV3', stock: 33, productId: productAId, isDefault: false, sort: 2 },
+      { label: 'MV4', stock: 44, productId: productBId, isDefault: true, sort: 0 },
+      { label: 'MV5', stock: 55, productId: productBId, isDefault: false, sort: 1 },
+    ];
+
+    for (const def of variantDefs) {
+      const rows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+        `INSERT INTO product_variants
+           (label, sku, "pricingMode", "basePrice", stock, "stockEnabled", "isDefault",
+            active, "sortOrder", "productId", "tenantId", "createdAt", "updatedAt")
+         VALUES ($1, $2, 'UNIT', 10, $3, true, $4, true, $5, $6, $7, now(), now()) RETURNING id`,
+        def.label, `smgmt-${def.label.toLowerCase()}-${Date.now()}-${def.sort}`, def.stock,
+        def.isDefault, def.sort, def.productId, mvTenantId,
+      );
+      mvVariants.push({ id: rows[0].id, stock: def.stock });
+    }
+  });
+
+  afterAll(async () => {
+    await base.$executeRawUnsafe(`DELETE FROM store_variant_overrides WHERE "tenantId" = $1`, mvTenantId);
+    await base.$executeRawUnsafe(`DELETE FROM ui_settings WHERE "tenantId" = $1`, mvTenantId);
+    await base.$executeRawUnsafe(`DELETE FROM product_variants WHERE "tenantId" = $1`, mvTenantId);
+    await base.$executeRawUnsafe(`DELETE FROM products WHERE "tenantId" = $1`, mvTenantId);
+    await base.$executeRawUnsafe(`DELETE FROM categories WHERE "tenantId" = $1`, mvTenantId);
+    await base.store.deleteMany({ where: { tenantId: mvTenantId } });
+    await base.tenant.deleteMany({ where: { id: mvTenantId } });
+  });
+
+  it('creates a StoreVariantOverride for EVERY variant with the correct base stock (no dropped/corrupted rows)', async () => {
+    const result = await runWithTenant(
+      { tenantId: mvTenantId, storeId: null, scope: 'tenant' },
+      async () => svc.cloneFromDefault(mvTargetStoreId),
+    );
+    expect(result.overridesCopied).toBe(mvVariants.length);
+
+    const overrides = await base.storeVariantOverride.findMany({
+      where: { storeId: mvTargetStoreId },
+    });
+    expect(overrides).toHaveLength(mvVariants.length);
+
+    // Every variant must have exactly one override, carrying ITS OWN base
+    // stock — not a neighbor's (which is the failure mode of a broken
+    // parallelization that shares/mutates a closure variable).
+    for (const v of mvVariants) {
+      const o = overrides.find((row) => row.variantId === v.id);
+      expect(o).toBeDefined();
+      expect(Number(o!.stock)).toBe(v.stock);
+      expect(o!.priceOverride).toBeNull();
+      expect(o!.activeOverride).toBeNull();
+    }
+  });
+
+  it('is idempotent under the parallelized upsert: re-cloning keeps exactly one row per variant with base stock', async () => {
+    const result = await runWithTenant(
+      { tenantId: mvTenantId, storeId: null, scope: 'tenant' },
+      async () => svc.cloneFromDefault(mvTargetStoreId),
+    );
+    expect(result.overridesCopied).toBe(mvVariants.length);
+
+    const overrides = await base.storeVariantOverride.findMany({
+      where: { storeId: mvTargetStoreId },
+    });
+    expect(overrides).toHaveLength(mvVariants.length);
+
+    for (const v of mvVariants) {
+      const o = overrides.find((row) => row.variantId === v.id);
+      expect(Number(o!.stock)).toBe(v.stock);
+    }
+  });
+});
