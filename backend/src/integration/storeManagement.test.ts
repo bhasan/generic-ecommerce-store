@@ -196,6 +196,22 @@ describe('updateStore', () => {
       ),
     ).rejects.toThrow(AppError);
   });
+
+  it('TOCTOU: foreign store id throws and mutates zero rows', async () => {
+    // Capture the other tenant's store name before the attempt.
+    const before = await base.store.findUnique({ where: { id: otherStoreId } });
+
+    await expect(
+      runWithTenant(
+        { tenantId, storeId: null, scope: 'tenant' },
+        async () => svc.updateStore(otherStoreId, { name: 'CrossTenantHack' }),
+      ),
+    ).rejects.toThrow(AppError);
+
+    // The other tenant's store must be completely unchanged.
+    const after = await base.store.findUnique({ where: { id: otherStoreId } });
+    expect(after?.name).toBe(before?.name);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -229,6 +245,30 @@ describe('setDefaultStore', () => {
         async () => svc.setDefaultStore(otherStoreId),
       ),
     ).rejects.toThrow(AppError);
+  });
+
+  it('TOCTOU: foreign store id throws, tx rolls back, and caller tenant default is unchanged', async () => {
+    // Confirm our tenant's default is defaultStoreId before the attempt.
+    const beforeDefaults = await base.store.findMany({
+      where: { tenantId, isDefault: true },
+    });
+    expect(beforeDefaults).toHaveLength(1);
+    expect(beforeDefaults[0].id).toBe(defaultStoreId);
+
+    await expect(
+      runWithTenant(
+        { tenantId, storeId: null, scope: 'tenant' },
+        async () => svc.setDefaultStore(otherStoreId),
+      ),
+    ).rejects.toThrow(AppError);
+
+    // The caller tenant's default must remain unchanged — the tx must not have
+    // blanked it out before failing on the final updateMany.
+    const afterDefaults = await base.store.findMany({
+      where: { tenantId, isDefault: true },
+    });
+    expect(afterDefaults).toHaveLength(1);
+    expect(afterDefaults[0].id).toBe(defaultStoreId);
   });
 });
 

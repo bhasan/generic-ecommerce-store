@@ -43,10 +43,9 @@ export class StoreService {
     const { tenantId } = getTenantContextOrThrow();
     const db = getUnscopedPrisma();
 
-    const store = await db.store.findFirst({ where: { id, tenantId } });
-    if (!store) throw new AppError('Store not found', 404);
-
-    if (data.slug !== undefined && data.slug !== store.slug) {
+    // Tenant-scoped slug-collision check: exclude the current store so a no-op
+    // slug update (same value) is never flagged as a collision.
+    if (data.slug !== undefined) {
       const collision = await db.store.findFirst({
         where: { tenantId, slug: data.slug, id: { not: id } },
       });
@@ -65,24 +64,45 @@ export class StoreService {
     if (data.slug !== undefined) patch.slug = data.slug;
     if (data.status !== undefined) patch.status = data.status;
 
-    return db.store.update({ where: { id }, data: patch });
+    // tenantId is part of the write predicate — closes the TOCTOU window
+    // between a pre-check and the mutation.
+    const { count } = await db.store.updateMany({ where: { id, tenantId }, data: patch });
+    if (count === 0) throw new AppError('Store not found', 404);
+
+    const updated = await db.store.findFirst({ where: { id, tenantId } });
+    if (!updated) throw new AppError('Store not found', 404);
+    return updated;
   }
 
   // ── Set Default ───────────────────────────────────────────────────────────
-  // Atomically unsets every current default for the tenant then sets this store.
+  // Atomically verifies ownership, unsets every current default for the tenant,
+  // then sets this store — all inside a single transaction to close TOCTOU.
   async setDefaultStore(id: number) {
     const { tenantId } = getTenantContextOrThrow();
     const db = getUnscopedPrisma();
 
-    const store = await db.store.findFirst({ where: { id, tenantId } });
-    if (!store) throw new AppError('Store not found', 404);
-
     return db.$transaction(async (tx) => {
+      // (1) Verify the target belongs to this tenant inside the tx.
+      const store = await tx.store.findFirst({ where: { id, tenantId } });
+      if (!store) throw new AppError('Store not found', 404);
+
+      // (2) Unset the current default for this tenant.
       await tx.store.updateMany({
         where: { tenantId, isDefault: true },
         data: { isDefault: false },
       });
-      return tx.store.update({ where: { id }, data: { isDefault: true } });
+
+      // (3) Set the new default — tenantId in the predicate closes the TOCTOU
+      // window; count===0 means a foreign id slipped through and we roll back.
+      const { count } = await tx.store.updateMany({
+        where: { id, tenantId },
+        data: { isDefault: true },
+      });
+      if (count === 0) throw new AppError('Store not found', 404);
+
+      const updated = await tx.store.findFirst({ where: { id, tenantId } });
+      if (!updated) throw new AppError('Store not found', 404);
+      return updated;
     });
   }
 
