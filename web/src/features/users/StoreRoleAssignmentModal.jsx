@@ -115,6 +115,14 @@ function StoreRoleAssignmentModal({ isOpen, onClose, user, onSaved }) {
     }
   };
 
+  // True when any staff role has allStores off AND zero stores checked — the backend
+  // rejects an empty storeIds array with 400, so block the save at the UI layer.
+  const hasInvalidRoleState = staffRoles.some((roleName) => {
+    const state = roleState[roleName];
+    if (!state) return false; // Still loading; isLoading already disables Save
+    return !state.allStores && state.checkedIds.size === 0;
+  });
+
   const titleId = 'store-role-assignment-title';
 
   return (
@@ -201,7 +209,7 @@ function StoreRoleAssignmentModal({ isOpen, onClose, user, onSaved }) {
         </button>
         <button
           onClick={handleSave}
-          disabled={isSaving || isLoading || staffRoles.length === 0}
+          disabled={isSaving || isLoading || staffRoles.length === 0 || hasInvalidRoleState}
           className="btn btn-primary"
         >
           {isSaving ? 'Saving…' : 'Save'}

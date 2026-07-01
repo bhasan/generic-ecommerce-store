@@ -123,9 +123,12 @@ describe('StoreRoleAssignmentModal', () => {
     await screen.findByText('EMPLOYEE');
 
     // Find all checkboxes; first group is EMPLOYEE: [All stores, Alpha, Beta]
+    // second group is MANAGEMENT: [All stores, Alpha, Beta]
     const allCheckboxes = screen.getAllByRole('checkbox');
     // Check Store Alpha for EMPLOYEE (index 1)
     fireEvent.click(allCheckboxes[1]);
+    // Enable "All stores" for MANAGEMENT (index 3) so Save is not blocked by guard
+    fireEvent.click(allCheckboxes[3]);
 
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
@@ -155,6 +158,8 @@ describe('StoreRoleAssignmentModal', () => {
     const allCheckboxes = screen.getAllByRole('checkbox');
     // Toggle "All stores" for EMPLOYEE (index 0)
     fireEvent.click(allCheckboxes[0]);
+    // Enable "All stores" for MANAGEMENT (index 3) so Save is not blocked by guard
+    fireEvent.click(allCheckboxes[3]);
 
     fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
 
@@ -170,6 +175,18 @@ describe('StoreRoleAssignmentModal', () => {
 
   it('surfaces API error in a role="alert" element when save fails', async () => {
     vi.mocked(usersApi.setUserStoreRoles).mockRejectedValue(new Error('Server error'));
+    // Use default beforeEach assignments (EMPLOYEE=[10,20], MANAGEMENT='all') so Save is enabled
+
+    renderModal();
+    await screen.findByText('EMPLOYEE');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Server error');
+  });
+
+  it('disables Save when any staff role has allStores off and no stores checked', async () => {
+    // Empty assignments → both roles in invalid state (no stores, allStores off)
     vi.mocked(usersApi.getUserStoreRoles).mockResolvedValue({
       userId: STAFF_USER.id,
       assignments: [],
@@ -178,9 +195,7 @@ describe('StoreRoleAssignmentModal', () => {
     renderModal();
     await screen.findByText('EMPLOYEE');
 
-    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Server error');
+    expect(screen.getByRole('button', { name: /^Save$/i })).toBeDisabled();
   });
 
   it('shows "no staff roles" message for a customer-only user', async () => {
