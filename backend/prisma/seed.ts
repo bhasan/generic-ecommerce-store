@@ -54,7 +54,7 @@ async function seed() {
     roles.find(r => r.name === name)?.id ?? (() => { throw new Error(`Missing role ${name}`); })();
 
   const assignRoles = (userId: number, names: RoleName[]) =>
-    prisma.userRole.createMany({ data: names.map(name => ({ userId, roleId: roleId(name), tenantId })) });
+    prisma.userRole.createMany({ data: names.map(name => ({ userId, roleId: roleId(name), tenantId, storeId: 0 })) });
 
   // ── Users ──────────────────────────────────────────────────────────────
   const makeUser = async (

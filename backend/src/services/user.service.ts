@@ -189,7 +189,8 @@ export class UserService {
         await prisma.userRole.createMany({
           data: dbRoles.map(dbRole => ({
             userId,
-            roleId: dbRole.id
+            roleId: dbRole.id,
+            storeId: 0,
           }))
         });
       }

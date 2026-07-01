@@ -41,7 +41,8 @@ export class UserApprovalService {
       await prisma.userRole.create({
         data: {
           userId,
-          roleId: customerRole.id
+          roleId: customerRole.id,
+          storeId: 0,
         }
       });
     }

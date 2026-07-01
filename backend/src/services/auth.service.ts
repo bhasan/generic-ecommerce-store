@@ -125,7 +125,8 @@ export class AuthService {
     await prisma.userRole.createMany({
       data: roleConnections.map(role => ({
         userId: user.id,
-        roleId: role.id
+        roleId: role.id,
+        storeId: 0,
       }))
     });
     logger.info('Registration role assignments created', {

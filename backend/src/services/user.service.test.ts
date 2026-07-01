@@ -185,6 +185,9 @@ describe('user service logging', () => {
 
     await service.approveUser(14);
 
+    expect(prismaMock.userRole.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: 14, storeId: 0 }),
+    });
     expect(notificationEventsService.notifyAccountApproved).toHaveBeenCalledWith(14);
   });
 
