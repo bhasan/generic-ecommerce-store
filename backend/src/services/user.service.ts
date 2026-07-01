@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { getTenantContextOrThrow } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import { hashPassword, comparePassword } from '../utils/password.util';
 import { RoleName, ROLES, hasAnyRole } from '../constants/roles';
@@ -181,19 +182,43 @@ export class UserService {
         throw new AppError(`Invalid roles: ${missing.join(', ')}`, 400);
       }
 
-      await prisma.userRole.deleteMany({
-        where: { userId }
-      });
+      // Reconcile the desired role SET against the user's existing UserRole rows
+      // WITHOUT blanket delete-and-recreate. The old code deleted every row and
+      // recreated each role at storeId 0 (all-stores), which silently destroyed the
+      // per-store scoping written by the staff-assignment feature — escalating a
+      // store-scoped employee to EVERY store. Instead:
+      //   - roles the user already holds: keep their rows (and storeId) untouched;
+      //   - roles removed from the set: delete ALL of that role's rows for the user;
+      //   - roles newly added: create ONE all-stores (storeId 0) row as a sensible
+      //     default the admin can later narrow via the Assign-Stores modal.
+      const { tenantId } = getTenantContextOrThrow();
+      const desiredRoleIds = new Set(dbRoles.map(dbRole => dbRole.id));
 
-      if (dbRoles.length > 0) {
-        await prisma.userRole.createMany({
-          data: dbRoles.map(dbRole => ({
+      await prisma.$transaction(async (tx) => {
+        const existingRows = await tx.userRole.findMany({
+          where: { userId }
+        });
+        const existingRoleIds = new Set(existingRows.map(row => row.roleId));
+
+        const roleIdsToRemove = [...existingRoleIds].filter(id => !desiredRoleIds.has(id));
+        if (roleIdsToRemove.length > 0) {
+          await tx.userRole.deleteMany({
+            where: { userId, roleId: { in: roleIdsToRemove } }
+          });
+        }
+
+        const rowsToAdd = dbRoles
+          .filter(dbRole => !existingRoleIds.has(dbRole.id))
+          .map(dbRole => ({
             userId,
             roleId: dbRole.id,
+            tenantId,
             storeId: 0,
-          }))
-        });
-      }
+          }));
+        if (rowsToAdd.length > 0) {
+          await tx.userRole.createMany({ data: rowsToAdd });
+        }
+      });
 
       if (validRoles.length === 0) {
         updateData.approved = false;
