@@ -67,6 +67,34 @@ export class TenantManagementController {
     res.json(successResponse({ tenant }));
   }
 
+  async update(req: Request, res: Response): Promise<void> {
+    const id = parseInt(req.params.id, 10);
+    const { name, plan } = req.body;
+
+    if (name === undefined && plan === undefined) {
+      res.status(400).json({ error: { message: 'name or plan is required', code: 'BAD_REQUEST' } });
+      return;
+    }
+    if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+      res.status(400).json({ error: { message: 'name must be a non-empty string', code: 'BAD_REQUEST' } });
+      return;
+    }
+    if (plan !== undefined && plan !== null && typeof plan !== 'string') {
+      res.status(400).json({ error: { message: 'plan must be a string or null', code: 'BAD_REQUEST' } });
+      return;
+    }
+
+    const tenant = await tenantManagementService.updateTenant(
+      id,
+      {
+        name: typeof name === 'string' ? name.trim() : undefined,
+        plan: typeof plan === 'string' ? plan.trim() : plan,
+      },
+      getActor(req),
+    );
+    res.json(successResponse({ tenant }));
+  }
+
   async regenerateTokens(req: Request, res: Response): Promise<void> {
     const id = parseInt(req.params.id, 10);
     const tokens = await tenantManagementService.regenerateTokens(id, getActor(req));

@@ -39,6 +39,13 @@ router.delete(
   asyncHandler(tenantManagementController.remove.bind(tenantManagementController)),
 );
 
+router.patch(
+  '/:id',
+  authenticate,
+  requireSuperAdmin,
+  asyncHandler(tenantManagementController.update.bind(tenantManagementController)),
+);
+
 router.post(
   '/:id/regenerate-tokens',
   authenticate,

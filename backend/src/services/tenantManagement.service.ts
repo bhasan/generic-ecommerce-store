@@ -251,6 +251,41 @@ export class TenantManagementService {
   }
 
   /**
+   * Update mutable tenant profile fields (name, free-text plan). Only provided
+   * fields change. Audits TENANT_UPDATED with the new values.
+   */
+  async updateTenant(
+    id: number,
+    input: { name?: string; plan?: string | null },
+    actor: AuditActor,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      const data: { name?: string; plan?: string | null } = {};
+      if (input.name !== undefined) data.name = input.name;
+      if (input.plan !== undefined) data.plan = input.plan;
+
+      const updated = await tx.tenant.update({ where: { id }, data });
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_UPDATED',
+        targetTenantId: id,
+        actor,
+        detail: { name: updated.name, plan: updated.plan },
+      });
+      return {
+        id: updated.id,
+        slug: updated.slug,
+        name: updated.name,
+        plan: updated.plan,
+        status: updated.status,
+      };
+    });
+  }
+
+  /**
    * Generate fresh machine tokens for an existing tenant.
    * Returns the new plaintext tokens once — the old tokens are immediately invalidated.
    */

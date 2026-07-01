@@ -114,6 +114,21 @@ describe('deleteTenant', () => {
   });
 });
 
+describe('updateTenant', () => {
+  it('updates name and plan and records TENANT_UPDATED', async () => {
+    tx.tenant.findUnique.mockResolvedValue({ id: 8, slug: 'acme', name: 'Old', plan: 'Free', status: 'ACTIVE' });
+    tx.tenant.update.mockResolvedValue({ id: 8, slug: 'acme', name: 'New', plan: 'Pro', status: 'ACTIVE' });
+
+    const result = await tenantManagementService.updateTenant(8, { name: 'New', plan: 'Pro' }, { username: 'root' });
+
+    expect(tx.tenant.update).toHaveBeenCalledWith({ where: { id: 8 }, data: { name: 'New', plan: 'Pro' } });
+    expect(result).toEqual({ id: 8, slug: 'acme', name: 'New', plan: 'Pro', status: 'ACTIVE' });
+    expect(tx.tenantAuditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ action: 'TENANT_UPDATED', targetTenantId: 8, detail: { name: 'New', plan: 'Pro' } }) }),
+    );
+  });
+});
+
 describe('listTenants status filter', () => {
   beforeEach(() => prismaStub.tenant.findMany.mockResolvedValue([]));
 
