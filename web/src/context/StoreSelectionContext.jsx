@@ -47,8 +47,8 @@ export function StoreSelectionProvider({ children }) {
           // Auto-select the only store
           setActiveStoreId(safeList[0].id);
           localStorage.setItem('selectedStoreId', String(safeList[0].id));
-        } else if (persistedId !== null && safeList.some((s) => s.id === persistedId)) {
-          // Restore valid persisted selection
+        } else if (persistedId !== null && (persistedId === 0 || safeList.some((s) => s.id === persistedId))) {
+          // Restore valid persisted selection — 0 is the admin "All stores" sentinel
           setActiveStoreId(persistedId);
         } else {
           // Clear stale persisted id
