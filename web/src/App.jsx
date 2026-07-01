@@ -54,6 +54,7 @@ import ManageStoreProductsPage from './features/manage-store/pages/ManageStorePr
 import ManageStoreCategoriesPage from './features/manage-store/pages/ManageStoreCategoriesPage';
 import ManageStoreMediaPage from './features/manage-store/pages/ManageStoreMediaPage';
 import ManageStoreBulkPage from './features/manage-store/pages/ManageStoreBulkPage';
+import StoreInventoryPage from './features/manage-store/pages/StoreInventoryPage';
 import StorePicker from './features/store/StorePicker';
 
 function App() {
@@ -151,6 +152,11 @@ function AppContent() {
             <Route path="categories" element={<ManageStoreCategoriesPage />} />
             <Route path="media" element={<ManageStoreMediaPage />} />
             <Route path="bulk" element={<ManageStoreBulkPage />} />
+            <Route path="inventory" element={
+              <ProtectedRoute roles={[ROLES.ADMIN]}>
+                <StoreInventoryPage />
+              </ProtectedRoute>
+            } />
           </Route>
 
           {/* Dashboard - Admin/Manager only */}
