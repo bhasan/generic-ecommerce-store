@@ -127,4 +127,48 @@ describe('resolveTenant', () => {
     expect(res.status).toHaveBeenCalledWith(404);
     expect(next).not.toHaveBeenCalled();
   });
+
+  describe('active store selection (X-Store-Id)', () => {
+    const wireStores = (opts: { selected?: any; def?: any }) => {
+      // store.findFirst serves BOTH the selected lookup and the default lookup;
+      // disambiguate by the where clause.
+      findStore.mockImplementation(async (args: any) => {
+        if (args.where?.isDefault) return opts.def ?? null;
+        return opts.selected ?? null;
+      });
+    };
+
+    it('uses the X-Store-Id store when it belongs to the tenant and is active', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ selected: { id: 9 }, def: { id: 5 } });
+      const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': '9' });
+      await resolveTenant(req, res, next);
+      expect(req.store.id).toBe(9);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('falls back to the default store when X-Store-Id is foreign/inactive', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ selected: null, def: { id: 5 } });
+      const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': '999' });
+      await resolveTenant(req, res, next);
+      expect(req.store.id).toBe(5);
+    });
+
+    it('uses the default store when no X-Store-Id header is present', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ def: { id: 5 } });
+      const { req, res, next } = mk('acme.yourapp.com');
+      await resolveTenant(req, res, next);
+      expect(req.store.id).toBe(5);
+    });
+
+    it('ignores a non-numeric X-Store-Id and uses the default store', async () => {
+      tenantFindFirst.mockResolvedValue(ACTIVE(1, 'acme'));
+      wireStores({ selected: { id: 9 }, def: { id: 5 } });
+      const { req, res, next } = mk('acme.yourapp.com', { 'x-store-id': 'abc' });
+      await resolveTenant(req, res, next);
+      expect(req.store.id).toBe(5);
+    });
+  });
 });

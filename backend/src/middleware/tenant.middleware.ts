@@ -21,6 +21,28 @@ interface JwtPayload {
 }
 
 /**
+ * Resolve the ACTIVE store: the X-Store-Id store when it belongs to `tenantId` and
+ * is ACTIVE, otherwise the tenant's default store. Fail-safe: an invalid/foreign/
+ * inactive id silently falls back to the default. `stores` is UNSCOPED, so tenantId
+ * is filtered explicitly.
+ */
+async function resolveActiveStore(
+  prisma: ReturnType<typeof getUnscopedPrisma>,
+  tenantId: number,
+  headerStoreId: string | undefined,
+): Promise<{ id: number } | null> {
+  if (headerStoreId) {
+    const id = Number(headerStoreId);
+    if (Number.isInteger(id) && id > 0) {
+      const selected = await prisma.store.findFirst({ where: { id, tenantId, status: 'ACTIVE' } });
+      if (selected) return { id: selected.id };
+    }
+  }
+  const def = await prisma.store.findFirst({ where: { tenantId, isDefault: true, status: 'ACTIVE' } });
+  return def ? { id: def.id } : null;
+}
+
+/**
  * Resolve the active tenant for a request and run the rest of the request inside
  * its AsyncLocalStorage context. Priority (highest first):
  *
@@ -118,13 +140,16 @@ export async function resolveTenant(req: Request, res: Response, next: NextFunct
     return;
   }
 
-  const store = await prisma.store.findFirst({
-    where: { tenantId: tenant.id, isDefault: true, status: 'ACTIVE' },
-  });
+  const headerStoreId = req.headers['x-store-id'];
+  const store = await resolveActiveStore(
+    prisma,
+    tenant.id,
+    typeof headerStoreId === 'string' ? headerStoreId : undefined,
+  );
 
   req.tenantId = tenant.id;
   req.tenant = { id: tenant.id, slug: tenant.slug, status: tenant.status };
-  req.store = store ? { id: store.id } : null;
+  req.store = store;
 
   runWithTenant(
     { tenantId: tenant.id, storeId: store?.id ?? null, scope: 'tenant' },
