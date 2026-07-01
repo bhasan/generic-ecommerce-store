@@ -36,6 +36,7 @@ vi.mock('../services/notificationsApi', () => ({
   markAllNotificationsRead: vi.fn(),
 }));
 vi.mock('../utils/colorUtils', () => ({ applyBrandingTokens: vi.fn() }));
+vi.mock('./StoreSelectionContext', () => ({ useStoreSelection: vi.fn(() => ({ activeStoreId: null, stores: [], isMultiStore: false, selectStore: vi.fn(), loading: false })) }));
 
 import * as ordersApi from '../services/ordersApi';
 

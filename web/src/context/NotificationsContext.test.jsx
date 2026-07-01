@@ -24,6 +24,7 @@ vi.mock('../services/landingPageSettingsApi', () => ({ getLandingPageSettings: v
 vi.mock('../services/productsApi', () => ({ getAllProducts: vi.fn(), createProduct: vi.fn(), updateProduct: vi.fn(), deleteProduct: vi.fn() }));
 vi.mock('../services/categoriesApi', () => ({ getAllCategories: vi.fn(), createCategory: vi.fn(), updateCategory: vi.fn(), deleteCategory: vi.fn() }));
 vi.mock('../utils/colorUtils', () => ({ applyBrandingTokens: vi.fn() }));
+vi.mock('./StoreSelectionContext', () => ({ useStoreSelection: vi.fn(() => ({ activeStoreId: null, stores: [], isMultiStore: false, selectStore: vi.fn(), loading: false })) }));
 
 import * as notificationsApi from '../services/notificationsApi';
 
