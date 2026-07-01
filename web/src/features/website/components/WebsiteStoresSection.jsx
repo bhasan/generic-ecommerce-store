@@ -76,60 +76,37 @@ export default function WebsiteStoresSection() {
     }));
   };
 
-  const handleSaveEdit = async (storeId) => {
+  // Run a per-row store mutation with shared busy/error handling, then refresh.
+  const runStoreAction = async (storeId, action, fallbackMessage) => {
     setError('');
     setBusyId(storeId);
     try {
+      await action();
+      await loadStores();
+    } catch (err) {
+      setError(err.message || fallbackMessage);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleSaveEdit = (storeId) =>
+    runStoreAction(storeId, async () => {
       const patch = editState[storeId];
       await updateStore(storeId, { name: patch.name.trim(), slug: patch.slug.trim(), status: patch.status });
       cancelEdit(storeId);
-      await loadStores();
-    } catch (err) {
-      setError(err.message || 'Failed to update store');
-    } finally {
-      setBusyId(null);
-    }
-  };
+    }, 'Failed to update store');
 
-  const handleToggleStatus = async (store) => {
-    setError('');
-    setBusyId(store.id);
+  const handleToggleStatus = (store) => {
     const next = store.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
-    try {
-      await updateStore(store.id, { status: next });
-      await loadStores();
-    } catch (err) {
-      setError(err.message || 'Failed to update status');
-    } finally {
-      setBusyId(null);
-    }
+    return runStoreAction(store.id, () => updateStore(store.id, { status: next }), 'Failed to update status');
   };
 
-  const handleSetDefault = async (storeId) => {
-    setError('');
-    setBusyId(storeId);
-    try {
-      await setDefaultStore(storeId);
-      await loadStores();
-    } catch (err) {
-      setError(err.message || 'Failed to set default store');
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const handleSetDefault = (storeId) =>
+    runStoreAction(storeId, () => setDefaultStore(storeId), 'Failed to set default store');
 
-  const handleCloneFromDefault = async (storeId) => {
-    setError('');
-    setBusyId(storeId);
-    try {
-      await cloneFromDefault(storeId);
-      await loadStores();
-    } catch (err) {
-      setError(err.message || 'Failed to clone from default');
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const handleCloneFromDefault = (storeId) =>
+    runStoreAction(storeId, () => cloneFromDefault(storeId), 'Failed to clone from default');
 
   return (
     <div className="website-mgmt-section stores-section">
