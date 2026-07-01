@@ -1,5 +1,5 @@
 import { PrismaClient } from '../../generated/prisma';
-import { getTenantContext, MissingTenantContextError } from './tenantContext';
+import { getTenantContext, MissingTenantContextError, MissingStoreContextError } from './tenantContext';
 import { isUnscoped, isStoreScoped } from './tenantScope';
 
 function parsePositiveIntEnv(raw: string | undefined): number | undefined {
@@ -94,6 +94,11 @@ function buildTenantClient(prismaInstance: any) {
 
           // 1. Inject write scope
           if (operation === 'create') {
+            // Fail closed: creating a store-scoped row with no real store produces an
+            // orphaned NULL-storeId row invisible to all customers. Reject explicitly.
+            if (isStoreScoped(table) && ctx.storeId === 0) {
+              throw new MissingStoreContextError(table);
+            }
             anyArgs.data = anyArgs.data || {};
             anyArgs.data.tenantId = ctx.tenantId;
             if (hasRealStore && isStoreScoped(table)) {
@@ -105,6 +110,10 @@ function buildTenantClient(prismaInstance: any) {
               injectNestedRelations(anyArgs.data, ctx);
             }
           } else if (operation === 'upsert') {
+            // Fail closed: the create branch of an upsert would produce a NULL-storeId row.
+            if (isStoreScoped(table) && ctx.storeId === 0) {
+              throw new MissingStoreContextError(table);
+            }
             anyArgs.create = anyArgs.create || {};
             anyArgs.create.tenantId = ctx.tenantId;
             if (hasRealStore && isStoreScoped(table)) {
@@ -118,6 +127,10 @@ function buildTenantClient(prismaInstance: any) {
             injectNestedRelations(anyArgs.create, ctx);
             injectNestedRelations(anyArgs.update, ctx);
           } else if (operation === 'createMany') {
+            // Fail closed: same as create — NULL-storeId rows for every item in the batch.
+            if (isStoreScoped(table) && ctx.storeId === 0) {
+              throw new MissingStoreContextError(table);
+            }
             if (anyArgs.data) {
               const list = Array.isArray(anyArgs.data) ? anyArgs.data : [anyArgs.data];
               for (const item of list) {

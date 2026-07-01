@@ -1,7 +1,7 @@
 // backend/src/config/database.tenant.test.ts
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getTenantPrisma, getUnscopedPrisma } from './database';
-import { runWithTenant } from './tenantContext';
+import { runWithTenant, MissingStoreContextError } from './tenantContext';
 
 // ---------------------------------------------------------------------------
 // storeId: 0 sentinel — "all stores" context
@@ -59,19 +59,82 @@ describe('storeId 0 sentinel — all-stores context', () => {
     expect(rows[0].storeId).toBe(STORE_A);
   });
 
-  it('storeId 0: create on store-scoped table does NOT stamp storeId 0 onto the row', async () => {
-    const created = await runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
-      return getTenantPrisma().announcement.create({ data: { message: 'ann-created-s0' } });
-    });
-    // Verify via unscoped client that storeId is null (not 0)
-    const raw = await base.announcement.findUnique({ where: { id: created.id } });
-    expect(raw).not.toBeNull();
-    expect(raw!.storeId).toBeNull();
-    expect(raw!.tenantId).toBe(tenantId); // tenantId IS always stamped
-    await base.announcement.delete({ where: { id: created.id } });
+  // ---------------------------------------------------------------------------
+  // Phase-2e fix: fail closed on store-scoped creates under storeId 0
+  // ---------------------------------------------------------------------------
+
+  it('storeId 0: create on store-scoped table THROWS MissingStoreContextError', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+        return getTenantPrisma().announcement.create({ data: { message: 'ann-throw-create' } });
+      }),
+    ).rejects.toThrow(MissingStoreContextError);
+    // Confirm no orphaned row was written
+    const leaked = await base.announcement.findFirst({ where: { tenantId, message: 'ann-throw-create' } });
+    expect(leaked).toBeNull();
   });
 
-  it('storeId N: create on store-scoped table stamps the real storeId', async () => {
+  it('storeId 0: createMany on store-scoped table THROWS MissingStoreContextError', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+        return getTenantPrisma().announcement.createMany({
+          data: [{ message: 'ann-throw-cm-1' }, { message: 'ann-throw-cm-2' }],
+        });
+      }),
+    ).rejects.toThrow(MissingStoreContextError);
+    const leaked = await base.announcement.findFirst({ where: { tenantId, message: 'ann-throw-cm-1' } });
+    expect(leaked).toBeNull();
+  });
+
+  it('storeId 0: upsert on store-scoped table THROWS MissingStoreContextError', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+        // upsert with a where that will not match any row → create branch would run
+        return getTenantPrisma().announcement.upsert({
+          where: { id: -9999 },
+          create: { message: 'ann-throw-upsert' },
+          update: { message: 'ann-throw-upsert-upd' },
+        });
+      }),
+    ).rejects.toThrow(MissingStoreContextError);
+    const leaked = await base.announcement.findFirst({ where: { tenantId, message: 'ann-throw-upsert' } });
+    expect(leaked).toBeNull();
+  });
+
+  it('storeId 0: findMany on store-scoped table does NOT throw (all-stores aggregate path)', async () => {
+    const rows = await runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+      return getTenantPrisma().announcement.findMany({ orderBy: { message: 'asc' } });
+    });
+    expect(Array.isArray(rows)).toBe(true);
+    // Both announcements from different stores must be present (no storeId filter)
+    const messages = rows.map((r) => r.message);
+    expect(messages).toContain('ann-storeA');
+    expect(messages).toContain('ann-storeB');
+  });
+
+  it('storeId 0: update on store-scoped table does NOT throw (all-stores bulk path)', async () => {
+    // update should not throw — it is a legitimate aggregate operation
+    await expect(
+      runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+        return getTenantPrisma().announcement.updateMany({
+          where: { message: '__nonexistent__' },
+          data: { message: '__nonexistent__' },
+        });
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('storeId 0: deleteMany on store-scoped table does NOT throw (all-stores bulk path)', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: 0, scope: 'tenant' }, async () => {
+        return getTenantPrisma().announcement.deleteMany({
+          where: { message: '__nonexistent_delete__' },
+        });
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('storeId N: create on store-scoped table stamps the real storeId (unchanged behavior)', async () => {
     const created = await runWithTenant({ tenantId, storeId: STORE_A, scope: 'tenant' }, async () => {
       return getTenantPrisma().announcement.create({ data: { message: 'ann-created-sA' } });
     });
@@ -80,6 +143,18 @@ describe('storeId 0 sentinel — all-stores context', () => {
     expect(raw!.storeId).toBe(STORE_A);
     expect(raw!.tenantId).toBe(tenantId);
     await base.announcement.delete({ where: { id: created.id } });
+  });
+
+  it('storeId N: createMany on store-scoped table stamps the real storeId', async () => {
+    await runWithTenant({ tenantId, storeId: STORE_B, scope: 'tenant' }, async () => {
+      return getTenantPrisma().announcement.createMany({
+        data: [{ message: 'ann-cm-sB-1' }, { message: 'ann-cm-sB-2' }],
+      });
+    });
+    const rows = await base.announcement.findMany({ where: { tenantId, message: { startsWith: 'ann-cm-sB' } } });
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.storeId === STORE_B)).toBe(true);
+    await base.announcement.deleteMany({ where: { tenantId, message: { startsWith: 'ann-cm-sB' } } });
   });
 
   it('sanity: UNSCOPED table (tenants) is never filtered by storeId regardless of context', async () => {
