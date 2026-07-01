@@ -95,6 +95,14 @@ export class TenantManagementController {
     res.json(successResponse({ tenant }));
   }
 
+  async audit(req: Request, res: Response): Promise<void> {
+    const tenantId = req.query.tenantId !== undefined ? parseInt(String(req.query.tenantId), 10) : undefined;
+    const action = typeof req.query.action === 'string' ? req.query.action : undefined;
+    const limit = req.query.limit !== undefined ? parseInt(String(req.query.limit), 10) : undefined;
+    const items = await tenantManagementService.getAuditLog({ tenantId, action, limit });
+    res.json(successResponse(items));
+  }
+
   async regenerateTokens(req: Request, res: Response): Promise<void> {
     const id = parseInt(req.params.id, 10);
     const tokens = await tenantManagementService.regenerateTokens(id, getActor(req));

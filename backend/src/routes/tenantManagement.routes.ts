@@ -25,6 +25,13 @@ router.post(
   asyncHandler(tenantManagementController.create.bind(tenantManagementController)),
 );
 
+router.get(
+  '/audit',
+  authenticate,
+  requireSuperAdmin,
+  asyncHandler(tenantManagementController.audit.bind(tenantManagementController)),
+);
+
 router.patch(
   '/:id/status',
   authenticate,

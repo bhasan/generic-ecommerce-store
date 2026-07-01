@@ -35,6 +35,17 @@ export interface RegenerateTokensResult {
   printAgentKey: string;
 }
 
+export interface TenantAuditItem {
+  id: number;
+  action: string;
+  targetTenantId: number;
+  actorUserId: number | null;
+  actorUsername: string;
+  requestId: string | null;
+  detail: unknown;
+  createdAt: Date;
+}
+
 export interface AuditActor {
   userId?: number;
   username?: string;
@@ -283,6 +294,35 @@ export class TenantManagementService {
         status: updated.status,
       };
     });
+  }
+
+  /**
+   * Read the platform audit log, newest first. Optional filters by target tenant
+   * and action. Limit is clamped to 200 to keep the console feed bounded.
+   */
+  async getAuditLog(filter: { tenantId?: number; action?: string; limit?: number }): Promise<TenantAuditItem[]> {
+    const where: Prisma.TenantAuditLogWhereInput = {};
+    if (filter.tenantId !== undefined && !Number.isNaN(filter.tenantId)) {
+      where.targetTenantId = filter.tenantId;
+    }
+    if (filter.action) {
+      where.action = filter.action;
+    }
+    const rows = await this.prisma.tenantAuditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(filter.limit ?? 100, 200),
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      targetTenantId: r.targetTenantId,
+      actorUserId: r.actorUserId,
+      actorUsername: r.actorUsername,
+      requestId: r.requestId,
+      detail: r.detail,
+      createdAt: r.createdAt,
+    }));
   }
 
   /**

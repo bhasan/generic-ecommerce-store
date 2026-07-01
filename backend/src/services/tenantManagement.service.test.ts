@@ -129,6 +129,33 @@ describe('updateTenant', () => {
   });
 });
 
+describe('getAuditLog', () => {
+  it('queries newest-first with optional tenant + action filters and a capped limit', async () => {
+    prismaStub.tenantAuditLog.findMany.mockResolvedValue([
+      { id: 2, action: 'TENANT_DELETED', targetTenantId: 5, actorUserId: 1, actorUsername: 'root', requestId: 'r9', detail: { from: 'ACTIVE', to: 'DELETED' }, createdAt: new Date('2026-07-01') },
+    ]);
+
+    const rows = await tenantManagementService.getAuditLog({ tenantId: 5, action: 'TENANT_DELETED', limit: 500 });
+
+    expect(prismaStub.tenantAuditLog.findMany).toHaveBeenCalledWith({
+      where: { targetTenantId: 5, action: 'TENANT_DELETED' },
+      orderBy: { createdAt: 'desc' },
+      take: 200, // 500 clamped to the 200 cap
+    });
+    expect(rows[0]).toMatchObject({ id: 2, action: 'TENANT_DELETED', targetTenantId: 5, actorUsername: 'root' });
+  });
+
+  it('defaults to no filters and a 100 limit', async () => {
+    prismaStub.tenantAuditLog.findMany.mockResolvedValue([]);
+    await tenantManagementService.getAuditLog({});
+    expect(prismaStub.tenantAuditLog.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  });
+});
+
 describe('listTenants status filter', () => {
   beforeEach(() => prismaStub.tenant.findMany.mockResolvedValue([]));
 
