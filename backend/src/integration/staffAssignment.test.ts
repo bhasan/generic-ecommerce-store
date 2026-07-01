@@ -167,14 +167,14 @@ describe('setUserRoleAssignments — core', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('setUserRoleAssignments — cross-tenant guards', () => {
-  it('rejects a userId belonging to another tenant', async () => {
+  it('rejects a userId belonging to another tenant with 404', async () => {
     await expect(
       runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
         await setUserRoleAssignments(otherUserId, [
           { roleName: 'EMPLOYEE', storeIds: [s1Id] },
         ]);
       }),
-    ).rejects.toThrow(AppError);
+    ).rejects.toMatchObject({ statusCode: 404 });
   });
 
   it('rejects a storeId belonging to another tenant', async () => {
@@ -218,6 +218,16 @@ describe('setUserRoleAssignments — input validation', () => {
       runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
         await setUserRoleAssignments(userId, [
           { roleName: 'EMPLOYEE', storeIds: [0, s1Id] },
+        ]);
+      }),
+    ).rejects.toMatchObject({ statusCode: 400 });
+  });
+
+  it('rejects a negative storeId with 400', async () => {
+    await expect(
+      runWithTenant({ tenantId, storeId: null, scope: 'tenant' }, async () => {
+        await setUserRoleAssignments(userId, [
+          { roleName: 'EMPLOYEE', storeIds: [-1] },
         ]);
       }),
     ).rejects.toMatchObject({ statusCode: 400 });

@@ -72,6 +72,16 @@ export async function setUserRoleAssignments(
         );
       }
 
+      // Reject negative or non-integer store ids (only 0 sentinel and positive ids are valid)
+      const invalidIds = rawIds.filter((id) => !Number.isInteger(id) || id < 0);
+      if (invalidIds.length > 0) {
+        throw new AppError(
+          `Assignment for role "${assignment.roleName}": invalid store id(s) ${invalidIds.join(', ')} — ` +
+            `store ids must be non-negative integers (use 'all' to grant all-stores access)`,
+          400,
+        );
+      }
+
       // Deduplicate
       resolvedStoreIds = [...new Set(rawIds)];
 
