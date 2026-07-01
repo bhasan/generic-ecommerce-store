@@ -4,6 +4,16 @@ import { streamProductsExportZip } from '../services/productExport.service';
 import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 import { successResponse } from '../utils/responseEnvelope';
+import { hasAnyRole } from '../constants/roles';
+
+/**
+ * Resolve whether this read should use BASE (canonical, un-overridden) catalog
+ * values instead of per-store effective ones. Honored only for the base-catalog
+ * management editor: gated to ADMIN/MANAGEMENT so a customer can't request base
+ * pricing via `?scope=base` and bypass per-store effective price/stock.
+ */
+const wantsBaseScope = (req: Request): boolean =>
+  req.query.scope === 'base' && hasAnyRole(req.user?.roles, ['ADMIN', 'MANAGEMENT']);
 
 export class ProductController {
   async getAllProducts(req: Request, res: Response) : Promise<void> {
@@ -11,7 +21,9 @@ export class ProductController {
       req.query as { limit?: string; offset?: string },
       { defaultLimit: 500, maxLimit: 1000 }, // catalog browse stays generous; pathological growth capped
     );
-    const products = await productService.getAllProducts(req.user?.roles, limit, offset);
+    const products = await productService.getAllProducts(req.user?.roles, limit, offset, {
+      base: wantsBaseScope(req),
+    });
     res.status(200).json(successResponse(products));
   }
 
@@ -21,13 +33,17 @@ export class ProductController {
       req.query as { limit?: string; offset?: string },
       { defaultLimit: 50, maxLimit: 200 },
     );
-    const products = await productService.searchProducts(req.user?.roles, q, { limit, offset });
+    const products = await productService.searchProducts(req.user?.roles, q, { limit, offset }, {
+      base: wantsBaseScope(req),
+    });
     res.status(200).json(successResponse(products));
   }
 
   async getProductById(req: Request, res: Response) : Promise<void> {
     const id = parseInt(req.params.id, 10);
-    const product = await productService.getProductById(id, req.user?.roles);
+    const product = await productService.getProductById(id, req.user?.roles, {
+      base: wantsBaseScope(req),
+    });
     res.status(200).json(successResponse(product));
   }
 

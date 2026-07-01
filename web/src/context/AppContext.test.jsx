@@ -64,6 +64,10 @@ const landingPageSettingsApi = vi.hoisted(() => ({
   getLandingPageSettings: vi.fn(),
 }));
 
+const storesApi = vi.hoisted(() => ({
+  getStores: vi.fn(),
+}));
+
 const apiModule = vi.hoisted(() => ({
   getAuthToken: vi.fn(),
   getRefreshToken: vi.fn(),
@@ -78,6 +82,7 @@ vi.mock('../services/notificationsApi', () => notificationsApi);
 vi.mock('../services/configApi', () => configApi);
 vi.mock('../services/storeCreditApi', () => creditApi);
 vi.mock('../services/landingPageSettingsApi', () => landingPageSettingsApi);
+vi.mock('../services/storesApi', () => storesApi);
 vi.mock('../services/api', async () => {
   const actual = await vi.importActual('../services/api');
   return {
@@ -139,6 +144,7 @@ describe('AppContext', () => {
     notificationsApi.markAllNotificationsRead.mockResolvedValue({ updated: 1 });
     configApi.getConfig.mockResolvedValue(sampleConfig);
     creditApi.getUserCredit.mockResolvedValue({ balance: 20 });
+    storesApi.getStores.mockResolvedValue([{ id: 1, name: 'Store A', slug: 'store-a', isDefault: true }]);
     landingPageSettingsApi.getLandingPageSettings.mockResolvedValue({
       featuredProductIds: [5, 6],
       promotions: [{ url: '/api/uploads/slide.webp', description: 'Promo' }],
@@ -221,6 +227,7 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
 
     fireEvent.click(screen.getByText('Add To Cart'));
+    // Single-store tenant (1 store → isMultiStore=false): cart lives under cartData_v2
     await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
 
     await act(async () => {
@@ -257,6 +264,7 @@ describe('AppContext', () => {
 
     fireEvent.click(screen.getByText('Add To Cart'));
     expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
+    // Single-store tenant (1 store → isMultiStore=false): cart lives under cartData_v2
     await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
 
     await act(async () => {
@@ -271,6 +279,8 @@ describe('AppContext', () => {
   });
 
   it('persists cart changes to localStorage after adding an item', async () => {
+    // No token → guest user. getStores is now auth-gated, so activeStoreId stays null
+    // and the cart is persisted under the legacy key 'cartData_v2' (no per-store suffix).
     renderWithProviders(
       <AppProvider>
         <ContextHarness />
@@ -397,6 +407,50 @@ describe('AppContext', () => {
 
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('false'));
     expect(landingPageSettingsApi.getLandingPageSettings).not.toHaveBeenCalled();
+  });
+
+  it('exposes storeLoading (not loading) for the store-list fetch so auth/cart loading is not shadowed', async () => {
+    // storeLoading must appear on useApp() and must be a boolean.
+    // The bare `loading` key must NOT be present — its absence prevents the store-fetch flag
+    // from silently shadowing any `loading` key added by auth, cart, catalog, or other contexts.
+    // getStores is now auth-gated — must supply a token so isAuthenticated=true triggers the fetch.
+    apiModule.getAuthToken.mockReturnValue('token-123');
+    function StoreLoadingHarness() {
+      const app = useApp();
+      return (
+        <div>
+          <div data-testid="store-loading-type">{typeof app.storeLoading}</div>
+          <div data-testid="bare-loading">{String('loading' in app)}</div>
+          <div data-testid="stores-count">{app.stores.length}</div>
+          <div data-testid="active-store-id">{String(app.activeStoreId)}</div>
+          <div data-testid="is-multi-store">{String(app.isMultiStore)}</div>
+        </div>
+      );
+    }
+
+    storesApi.getStores.mockResolvedValue([
+      { id: 10, name: 'Shop A', slug: 'shop-a', isDefault: true },
+      { id: 20, name: 'Shop B', slug: 'shop-b', isDefault: false },
+    ]);
+
+    renderWithProviders(
+      <AppProvider>
+        <StoreLoadingHarness />
+      </AppProvider>,
+      { route: '/' }
+    );
+
+    // Wait for the store fetch to settle
+    await waitFor(() => expect(screen.getByTestId('store-loading-type')).toHaveTextContent('boolean'));
+    await waitFor(() => expect(screen.getByTestId('stores-count')).toHaveTextContent('2'));
+
+    // storeLoading must be false once the fetch resolves
+    expect(screen.getByTestId('store-loading-type')).toHaveTextContent('boolean');
+    // The bare `loading` key must NOT leak into the top-level useApp() value
+    expect(screen.getByTestId('bare-loading')).toHaveTextContent('false');
+    // Other store-selection fields must still be accessible via useApp()
+    expect(screen.getByTestId('is-multi-store')).toHaveTextContent('true');
+    expect(screen.getByTestId('active-store-id')).toHaveTextContent('null');
   });
 
   it('leaves featuredProductIds and promotions at defaults when landing page API returns null', async () => {

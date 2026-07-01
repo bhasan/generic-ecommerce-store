@@ -1,5 +1,5 @@
 // web/src/context/CartContext.jsx
-import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import React, { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ordersApi from '../services/ordersApi';
 import * as authApi from '../services/authApi';
@@ -9,9 +9,37 @@ import { useUIContext } from './UIContext';
 import { useAuthContext } from './AuthContext';
 import { useOrdersContext } from './OrdersContext';
 import { useNotificationsContext } from './NotificationsContext';
+import { useStoreSelection } from './StoreSelectionContext';
 
 const CartContext = createContext(null);
-const CART_STORAGE_KEY = 'cartData_v2';
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+const getStorageKey = (isMultiStore, storeId) =>
+  isMultiStore && storeId != null ? `cartData_v2_store_${storeId}` : 'cartData_v2';
+
+const loadCartFromStorage = (isMultiStore, storeId) => {
+  const key = getStorageKey(isMultiStore, storeId);
+  const stored = localStorage.getItem(key);
+  if (!stored) return [];
+  try {
+    const parsed = JSON.parse(stored);
+    // Legacy format: plain array (no savedAt) — treat as valid, not expired
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.items)) {
+      // savedAt present: enforce 7-day TTL
+      if (parsed.savedAt != null && Date.now() - parsed.savedAt > SEVEN_DAYS_MS) {
+        localStorage.removeItem(key);
+        return [];
+      }
+      // savedAt absent: treat as not expired (backward-compat)
+      return parsed.items;
+    }
+    return [];
+  } catch (e) {
+    console.error('Error parsing stored cart data:', e);
+    return [];
+  }
+};
 
 export const useCartContext = () => {
   const ctx = useContext(CartContext);
@@ -26,23 +54,71 @@ export function CartProvider({ children }) {
   const { refreshNotifications, loadStaffNotificationCounts } = useNotificationsContext();
   const navigate = useNavigate();
 
-  const getInitialCart = () => {
-    const stored = localStorage.getItem(CART_STORAGE_KEY);
-    if (!stored) return [];
-    try {
-      const parsed = JSON.parse(stored);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      console.error('Error parsing stored cart data:', error);
-      return [];
-    }
-  };
+  const { activeStoreId, isMultiStore } = useStoreSelection();
 
-  const [cart, setCart] = useState(getInitialCart);
+  // Refs kept in sync on every render so effects always read the current values
+  // even between the store-switch re-render and the cart state update re-render.
+  const activeStoreIdRef = useRef(activeStoreId);
+  activeStoreIdRef.current = activeStoreId;
 
+  const isMultiStoreRef = useRef(isMultiStore);
+  isMultiStoreRef.current = isMultiStore;
+
+  // Tracks the previous non-null activeStoreId to gate the re-init logic below.
+  const prevNonNullStoreIdRef = useRef(activeStoreId != null ? activeStoreId : null);
+
+  const [cart, setCart] = useState(() => loadCartFromStorage(isMultiStore, activeStoreId));
+
+  // Re-initialize cart on store changes:
+  // - Real store-to-store switch (A → B, both non-null): always reload from new store's key.
+  // - null → N (initial async resolve for single-store or restored multi-store):
+  //     • Per-store key EXISTS in localStorage → load it (7-day TTL check applies inside
+  //       loadCartFromStorage). Respects a deliberately-emptied cart — an absent key means
+  //       the user cleared it and the save effect already removed it.
+  //     • Per-store key ABSENT → keep in-memory cart (one-time migration of legacy cartData_v2);
+  //       remove the legacy key and force a re-save so the cart lands under the per-store key.
   useEffect(() => {
-    if (cart.length === 0) { localStorage.removeItem(CART_STORAGE_KEY); return; }
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    // Single-store tenants: key is always cartData_v2, nothing to reload or migrate.
+    if (!isMultiStore) return;
+
+    const prev = prevNonNullStoreIdRef.current;
+    if (activeStoreId != null) {
+      if (prev !== null && prev !== activeStoreId) {
+        // Real store switch: reload cart from the new store's key
+        setCart(loadCartFromStorage(isMultiStore, activeStoreId));
+      } else if (prev === null) {
+        // null → N: key-existence decides, not item count
+        const perStoreKey = getStorageKey(isMultiStore, activeStoreId);
+        if (localStorage.getItem(perStoreKey) !== null) {
+          // Key exists: load it; loadCartFromStorage handles the 7-day TTL and key removal
+          setCart(loadCartFromStorage(isMultiStore, activeStoreId));
+        } else {
+          // Key absent: migration — keep in-memory cart, remove legacy key.
+          // Force a re-save only when items exist to migrate; skipping the setCart for
+          // empty carts avoids a spurious save-effect that could remove a concurrently
+          // written per-store key from a sibling CartProvider (e.g. nested providers).
+          localStorage.removeItem('cartData_v2');
+          if (cart.length > 0) {
+            setCart(c => [...c]);
+          }
+        }
+      }
+      prevNonNullStoreIdRef.current = activeStoreId;
+    }
+  }, [activeStoreId, isMultiStore]);
+
+  // Persist cart. Depends only on cart — isMultiStore and activeStoreId are read via refs
+  // to avoid a mid-switch write: refs are updated synchronously on render before effects fire.
+  // Format: multi-store uses { items, savedAt } (7-day TTL); single-store uses plain array
+  // (backward-compat with the original cartData_v2 format, preserves E2E contract).
+  useEffect(() => {
+    const isMultiS = isMultiStoreRef.current;
+    const key = getStorageKey(isMultiS, activeStoreIdRef.current);
+    if (cart.length === 0) { localStorage.removeItem(key); return; }
+    const payload = isMultiS
+      ? JSON.stringify({ items: cart, savedAt: Date.now() })
+      : JSON.stringify(cart);
+    localStorage.setItem(key, payload);
   }, [cart]);
 
   // Clear cart on auth:unauthorized — write localStorage synchronously because
@@ -51,7 +127,19 @@ export function CartProvider({ children }) {
   useEffect(() => {
     const handleUnauthorized = () => {
       setCart([]);
-      localStorage.removeItem(CART_STORAGE_KEY);
+      // Remove EVERY cart key for this browser — not just the active store's —
+      // so sibling per-store carts (cartData_v2_store_<other>) can't leak to the
+      // next user on a shared/kiosk browser. Collect matching keys first, then
+      // delete, to avoid index shifting while iterating localStorage. Runs
+      // synchronously so the keys are gone before the navigate() unmounts us.
+      const staleKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key === 'cartData_v2' || (key && key.startsWith('cartData_v2_store_'))) {
+          staleKeys.push(key);
+        }
+      }
+      staleKeys.forEach((key) => localStorage.removeItem(key));
     };
     window.addEventListener('auth:unauthorized', handleUnauthorized);
     return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);

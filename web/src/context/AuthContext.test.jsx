@@ -57,6 +57,19 @@ describe('AuthContext', () => {
     expect(result.current.isAuthenticated).toBe(false);
   });
 
+  it('logout clears the persisted store selection', async () => {
+    authApi.login.mockResolvedValue({ user: { id: 1, username: 'bilal', roles: ['CUSTOMER'] } });
+    authApi.logout.mockResolvedValue({});
+    storeCreditApi.getUserCredit.mockResolvedValue({ balance: 0 });
+    localStorage.setItem('selectedStoreId', '0');
+    const { result } = renderHook(() => useAuthContext(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(() => result.current.login('bilal', 'pw'));
+    await act(() => result.current.logout());
+    // Next principal on this browser must not inherit the prior store selection.
+    expect(localStorage.getItem('selectedStoreId')).toBeNull();
+  });
+
   it('throws when used outside AuthProvider', () => {
     const miniWrapper = ({ children }) => <MemoryRouter><UIProvider>{children}</UIProvider></MemoryRouter>;
     expect(() => renderHook(() => useAuthContext(), { wrapper: miniWrapper })).toThrow('useAuthContext must be used within AuthProvider');

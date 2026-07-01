@@ -46,6 +46,7 @@ import DeliveryPage from './features/website/pages/DeliveryPage';
 // (inherits the parent /website-management ADMIN guard); it will move to a
 // dedicated super-admin portal later.
 import TenantsPage from './features/website/pages/TenantsPage';
+import StoresPage from './features/website/pages/StoresPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
 import ManageStorePage from './features/manage-store/ManageStorePage';
@@ -53,6 +54,8 @@ import ManageStoreProductsPage from './features/manage-store/pages/ManageStorePr
 import ManageStoreCategoriesPage from './features/manage-store/pages/ManageStoreCategoriesPage';
 import ManageStoreMediaPage from './features/manage-store/pages/ManageStoreMediaPage';
 import ManageStoreBulkPage from './features/manage-store/pages/ManageStoreBulkPage';
+import StoreInventoryPage from './features/manage-store/pages/StoreInventoryPage';
+import StorePicker from './features/store/StorePicker';
 
 function App() {
   return (
@@ -73,6 +76,7 @@ function AppContent() {
       <OrderPickupNotice />
       <CustomerArrivedNotice />
       <Navbar />
+      <StorePicker />
       <Notification />
       <main className={isOrdersPage ? 'full-width-layout main-content' : 'container main-content'}>
         <Routes>
@@ -148,6 +152,11 @@ function AppContent() {
             <Route path="categories" element={<ManageStoreCategoriesPage />} />
             <Route path="media" element={<ManageStoreMediaPage />} />
             <Route path="bulk" element={<ManageStoreBulkPage />} />
+            <Route path="inventory" element={
+              <ProtectedRoute roles={[ROLES.ADMIN]}>
+                <StoreInventoryPage />
+              </ProtectedRoute>
+            } />
           </Route>
 
           {/* Dashboard - Admin/Manager only */}
@@ -200,6 +209,8 @@ function AppContent() {
                 <TenantsPage />
               </ProtectedRoute>
             } />
+            {/* Store management — per-tenant-admin (ADMIN role, not SUPER_ADMIN). */}
+            <Route path="stores" element={<StoresPage />} />
           </Route>
 
           {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}

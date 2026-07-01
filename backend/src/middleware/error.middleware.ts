@@ -1,35 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
+import { AppError } from '../utils/appError';
 
-/**
- * Custom error class
- */
-export class AppError extends Error {
-  statusCode: number;
-  isOperational: boolean;
-  code: string;
-
-  constructor(message: string, statusCode: number = 500, code?: string) {
-    super(message);
-    this.statusCode = statusCode;
-    this.code = code ?? AppError.defaultCode(statusCode);
-    this.isOperational = true;
-    Error.captureStackTrace(this, this.constructor);
-  }
-
-  private static defaultCode(statusCode: number): string {
-    const codes: Record<number, string> = {
-      400: 'BAD_REQUEST',
-      401: 'UNAUTHORIZED',
-      403: 'FORBIDDEN',
-      404: 'NOT_FOUND',
-      409: 'CONFLICT',
-      422: 'UNPROCESSABLE',
-      429: 'RATE_LIMITED',
-    };
-    return codes[statusCode] ?? 'INTERNAL_ERROR';
-  }
-}
+// Re-export so existing `import { AppError } from '.../middleware/error.middleware'`
+// call sites keep working unchanged. `AppError` now lives in the pure
+// `../utils/appError` module (no express coupling) — see that file for why.
+export { AppError } from '../utils/appError';
 
 /**
  * Global error handling middleware

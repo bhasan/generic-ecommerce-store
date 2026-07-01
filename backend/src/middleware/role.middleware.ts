@@ -29,7 +29,8 @@ export const authorize = (...allowedRoles: RoleName[]) => {
       const storeId = typeof r === 'string' ? null : r.storeId;
 
       const isAllowed = allowedRoles.includes(roleName as RoleName) || roleName === 'SUPER_ADMIN';
-      const isStoreMatched = storeId === null || storeId === actingStore || roleName === 'SUPER_ADMIN';
+      // storeId 0 (and legacy null) = "all stores"; a real store id matches only that store.
+      const isStoreMatched = storeId === null || storeId === 0 || storeId === actingStore || roleName === 'SUPER_ADMIN';
 
       return isAllowed && isStoreMatched;
     });

@@ -54,7 +54,7 @@ async function seed() {
     roles.find(r => r.name === name)?.id ?? (() => { throw new Error(`Missing role ${name}`); })();
 
   const assignRoles = (userId: number, names: RoleName[]) =>
-    prisma.userRole.createMany({ data: names.map(name => ({ userId, roleId: roleId(name), tenantId })) });
+    prisma.userRole.createMany({ data: names.map(name => ({ userId, roleId: roleId(name), tenantId, storeId: 0 })) });
 
   // ── Users ──────────────────────────────────────────────────────────────
   const makeUser = async (
@@ -282,11 +282,12 @@ async function seed() {
 
   // ── Landing Page Settings ───────────────────────────────────────────────
   await prisma.uiSetting.upsert({
-    where: { tenantId_key: { tenantId, key: 'landing_page_settings' } },
+    where: { tenantId_storeId_key: { tenantId, storeId: 0, key: 'landing_page_settings' } },
     update: {},
     create: {
       key: 'landing_page_settings',
       tenantId,
+      storeId: 0,
       value: {
         featuredProductIds: [],
         promotions: [

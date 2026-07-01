@@ -1,7 +1,12 @@
 import React from 'react';
-import { Users, Clock, Mail, Check, X, User, Calendar, Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Users, Clock, Mail, Check, X, User, Calendar, Edit, Trash2, ChevronUp, ChevronDown, Store } from 'lucide-react';
+import { ROLES } from '../../../utils/roles';
 import LoadingState from '../../../components/common/LoadingState';
 import EmptyState from '../../../components/common/EmptyState';
+
+const NON_STAFF_ROLES = new Set([ROLES.CUSTOMER, ROLES.GUEST]);
+const isStaffUser = (user) =>
+  (user?.roles ?? []).some((r) => !NON_STAFF_ROLES.has(r));
 
 function SortIcon({ field, sortField, sortDirection }) {
   if (sortField !== field) {
@@ -28,6 +33,7 @@ function UsersSection({
   onCancelEdit,
   onEditRoles,
   onDeleteUser,
+  onAssignStores,
   formatDateShort,
   getRoleBadgeClass
 }) {
@@ -201,6 +207,15 @@ function UsersSection({
                           >
                             <Edit size={16} />
                           </button>
+                          {onAssignStores && isStaffUser(user) && (
+                            <button
+                              onClick={() => onAssignStores(user)}
+                              className="btn-assign-stores"
+                              title="Assign stores"
+                            >
+                              <Store size={16} />
+                            </button>
+                          )}
                           {user.id !== currentUserId && (
                             <button
                               onClick={() => onDeleteUser(user.id, user.username)}

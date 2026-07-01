@@ -1,5 +1,6 @@
 import { Prisma, CardSize, PricingMode, ImageRole } from '../../generated/prisma';
-import prisma from '../config/database';
+import prisma, { getTenantPrisma } from '../config/database';
+import { getTenantContext } from '../config/tenantContext';
 import { AppError } from '../middleware/error.middleware';
 import { RoleName, hasAnyRole } from '../constants/roles';
 import { logger } from '../utils/logger';
@@ -7,6 +8,7 @@ import { deleteUploadedFile } from '../utils/fileUtils';
 import type { SearchService, ProductVisibilityFilter } from './search/search.service';
 import { PostgresSearchService } from './search/postgres.search.service';
 import { productInclude, visibilityFilterToWhere } from './product.shared';
+import { resolveVariantEffective } from './storeVariant.effective';
 
 interface VariantQuantityOptionInput {
   quantity: number;
@@ -50,6 +52,16 @@ interface CreateProductData {
   sortOrder?: number;
   images?: ProductImageInput[];
   variants: VariantInput[];
+}
+
+/**
+ * Read-time options for catalog reads. `base: true` returns the canonical
+ * (un-overridden) variant basePrice/stock, bypassing per-store effective values —
+ * required by the base-catalog management editor so a Save can't overwrite the
+ * tenant-wide catalog with per-store overrides.
+ */
+interface ProductReadOptions {
+  base?: boolean;
 }
 
 interface UpdateProductData {
@@ -130,6 +142,67 @@ export class ProductService {
     return variants.map((v, i) => ({ ...v, isDefault: hasDefault ? !!v.isDefault : i === 0 }));
   }
 
+  /**
+   * Return copies of each product whose variants carry the EFFECTIVE price/stock/
+   * active for the active store. For the default store with no overrides the
+   * effective values equal the variant's own values, so single-store behaviour is
+   * unchanged.
+   *
+   * Non-mutating by design: the canonical variant objects Prisma returned are
+   * never rewritten in place. If a base-catalog write path ever holds a reference
+   * to those rows, it must keep seeing the true basePrice/stock — mutating them to
+   * per-store effective values here would let a Save overwrite the tenant-wide
+   * canonical catalog. Base-catalog reads bypass this entirely (see getAllProducts
+   * `base` option).
+   */
+  private async applyStoreOverrides<T extends {
+    variants: Array<{
+      id: number;
+      basePrice: Prisma.Decimal;
+      stock: Prisma.Decimal;
+      stockEnabled: boolean;
+      active: boolean;
+      available?: boolean;
+    }>;
+  }>(products: T[]): Promise<T[]> {
+    const ctx = getTenantContext();
+    // Apply per-store overrides ONLY for a real, non-default store. No store / default
+    // store / "All stores" (storeId 0/null) → base catalog values (unchanged behavior).
+    if (!ctx || !ctx.storeId || ctx.isDefaultStore) return products;
+
+    const storeId = ctx.storeId;
+    const isDefaultStore = !!ctx.isDefaultStore; // always false here (guarded above)
+
+    const variantIds = products.flatMap((p) => p.variants.map((v) => v.id));
+    if (variantIds.length === 0) return products;
+
+    const overrides = await getTenantPrisma().storeVariantOverride.findMany({
+      where: { storeId, variantId: { in: variantIds } },
+    });
+
+    const overrideMap = new Map<number, (typeof overrides)[0]>(
+      overrides.map((o) => [o.variantId, o]),
+    );
+
+    return products.map((product) => ({
+      ...product,
+      variants: product.variants.map((variant) => {
+        const eff = resolveVariantEffective(
+          variant,
+          overrideMap.get(variant.id),
+          isDefaultStore,
+        );
+        return {
+          ...variant,
+          basePrice: new Prisma.Decimal(eff.price),
+          stock: new Prisma.Decimal(eff.stock),
+          active: eff.active,
+          available: eff.available,
+        };
+      }),
+    }));
+  }
+
   private toVisibilityFilter(userRoles: RoleName[] | undefined): ProductVisibilityFilter {
     if (hasAnyRole(userRoles, ['ADMIN', 'MANAGEMENT'])) return { includeHidden: true, includeVipOnly: true };
     if (hasAnyRole(userRoles, ['VIP'])) return { includeHidden: false, includeVipOnly: true };
@@ -140,7 +213,12 @@ export class ProductService {
     return visibilityFilterToWhere(this.toVisibilityFilter(userRoles));
   }
 
-  async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {
+  async getAllProducts(
+    userRoles?: RoleName[],
+    limit?: number,
+    offset?: number,
+    options?: ProductReadOptions,
+  ) {
     const where = this.visibilityWhere(userRoles);
 
     const products = await prisma.product.findMany({
@@ -156,20 +234,29 @@ export class ProductService {
     });
 
     // Reviews feature remains disabled at the list level; populated by getProductById.
-    return products.map((product) => ({ ...product, reviews: [] }));
+    const mapped = products.map((product) => ({ ...product, reviews: [] }));
+    // Base-catalog reads (admin catalog editor) must return canonical base values —
+    // skip per-store overrides so a Save never persists store-effective price/stock.
+    if (options?.base) return mapped;
+    return this.applyStoreOverrides(mapped);
   }
 
   async searchProducts(
     userRoles: RoleName[] | undefined,
     q: string,
     pagination: { limit: number; offset: number },
+    options?: ProductReadOptions,
   ) {
     const visibility = this.toVisibilityFilter(userRoles);
     const results = await this.searchService.searchProducts(visibility, q, pagination);
-    return results.map((p) => ({ ...p, reviews: [] }));
+    const mapped = results.map((p) => ({ ...p, reviews: [] }));
+    if (options?.base) return mapped;
+    // SearchedProduct is loosely typed (Record<string, unknown>); runtime shape has
+    // variants — applyStoreOverrides returns copies, so cast the arg and the result.
+    return this.applyStoreOverrides(mapped as any) as unknown as typeof mapped;
   }
 
-  async getProductById(id: number, userRoles?: RoleName[]) {
+  async getProductById(id: number, userRoles?: RoleName[], options?: ProductReadOptions) {
     const product = await prisma.product.findUnique({ where: { id }, include: productInclude });
 
     if (!product) {
@@ -193,10 +280,14 @@ export class ProductService {
     });
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    return {
+    const result = {
       ...product,
       reviews: reviews.map((review) => ({ ...review, user: userMap.get(review.userId) || null })),
     };
+    // Base-catalog reads bypass per-store overrides (see getAllProducts).
+    if (options?.base) return result;
+    const [withOverrides] = await this.applyStoreOverrides([result]);
+    return withOverrides!;
   }
 
   async createProduct(data: CreateProductData) {

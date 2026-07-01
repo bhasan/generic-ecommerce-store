@@ -47,9 +47,9 @@ describe('landing page settings service', () => {
     const result = await new LandingPageSettingsService().updateLandingPageSettings(settings);
 
     expect(prismaMock.uiSetting.upsert).toHaveBeenCalledWith({
-      where: { tenantId_key: { tenantId: 0, key: 'landing_page_settings' } },
+      where: { tenantId_storeId_key: { tenantId: 0, storeId: 0, key: 'landing_page_settings' } },
       update: { value: settings },
-      create: { key: 'landing_page_settings', value: settings },
+      create: { key: 'landing_page_settings', storeId: 0, value: settings },
     });
     expect(result).toEqual(settings);
   });

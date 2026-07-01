@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Prisma } from '../../generated/prisma';
+import type { TenantContext } from '../config/tenantContext';
 
 const prismaMock = {
   product: {
@@ -28,6 +30,9 @@ const prismaMock = {
   user: {
     findMany: vi.fn(),
   },
+  storeVariantOverride: {
+    findMany: vi.fn(),
+  },
   $transaction: vi.fn(async (cb: (tx: unknown) => unknown) => cb(prismaMock)),
 };
 
@@ -40,6 +45,7 @@ const logger = {
 
 vi.mock('../config/database', () => ({
   default: prismaMock,
+  getTenantPrisma: () => prismaMock,
 }));
 
 vi.mock('../utils/logger', () => ({
@@ -362,5 +368,122 @@ describe('product service logging', () => {
       name: 'Test Product',
     }));
     expect(result).toEqual({ message: 'Product deleted successfully' });
+  });
+});
+
+describe('base-scope catalog reads bypass per-store overrides', () => {
+  // resetModules so the dynamically-imported service and runWithTenant share the
+  // same AsyncLocalStorage instance (an earlier describe calls vi.resetModules()).
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  // Non-default store: applyStoreOverrides is active for this context.
+  const storeCtx: TenantContext = { tenantId: 1, storeId: 5, scope: 'tenant', isDefaultStore: false };
+
+  const makeVariantProduct = () => ({
+    id: 1,
+    name: 'Cola',
+    slug: 'cola',
+    categoryId: 1,
+    hidden: false,
+    vipOnly: false,
+    category: { id: 1, sortOrder: 0, parent: null },
+    images: [],
+    variants: [
+      {
+        id: 100,
+        basePrice: new Prisma.Decimal('9.99'),
+        stock: new Prisma.Decimal('42'),
+        stockEnabled: true,
+        active: true,
+      },
+    ],
+  });
+
+  it('CUSTOMER read at a non-default store returns per-store EFFECTIVE price/stock', async () => {
+    prismaMock.product.findMany.mockImplementation(async () => [makeVariantProduct()]);
+    prismaMock.storeVariantOverride.findMany.mockResolvedValue([
+      { variantId: 100, stock: new Prisma.Decimal('7'), priceOverride: new Prisma.Decimal('12.50'), activeOverride: null },
+    ]);
+    const { ProductService } = await import('./product.service');
+    const { runWithTenant } = await import('../config/tenantContext');
+    const service = new ProductService();
+
+    const products = await runWithTenant(storeCtx, () => service.getAllProducts(['CUSTOMER']));
+
+    expect(Number(products[0].variants[0].basePrice)).toBe(12.5);
+    expect(Number(products[0].variants[0].stock)).toBe(7);
+  });
+
+  it('BASE-scope getAllProducts returns canonical basePrice/stock even under a non-default store', async () => {
+    prismaMock.product.findMany.mockImplementation(async () => [makeVariantProduct()]);
+    prismaMock.storeVariantOverride.findMany.mockResolvedValue([
+      { variantId: 100, stock: new Prisma.Decimal('7'), priceOverride: new Prisma.Decimal('12.50'), activeOverride: null },
+    ]);
+    const { ProductService } = await import('./product.service');
+    const { runWithTenant } = await import('../config/tenantContext');
+    const service = new ProductService();
+
+    const products = await runWithTenant(storeCtx, () =>
+      service.getAllProducts(['ADMIN'], undefined, undefined, { base: true }),
+    );
+
+    expect(Number(products[0].variants[0].basePrice)).toBe(9.99);
+    expect(Number(products[0].variants[0].stock)).toBe(42);
+    // The base read must not even consult the overrides table.
+    expect(prismaMock.storeVariantOverride.findMany).not.toHaveBeenCalled();
+  });
+
+  it('un-overridden variant is zeroed for CUSTOMER at a non-default store, but base scope keeps true stock', async () => {
+    prismaMock.product.findMany.mockImplementation(async () => [makeVariantProduct()]);
+    prismaMock.storeVariantOverride.findMany.mockResolvedValue([]); // no override for this store
+    const { ProductService } = await import('./product.service');
+    const { runWithTenant } = await import('../config/tenantContext');
+    const service = new ProductService();
+
+    const effective = await runWithTenant(storeCtx, () => service.getAllProducts(['CUSTOMER']));
+    expect(Number(effective[0].variants[0].stock)).toBe(0); // un-overridden → 0 at non-default store
+
+    const base = await runWithTenant(storeCtx, () =>
+      service.getAllProducts(['ADMIN'], undefined, undefined, { base: true }),
+    );
+    expect(Number(base[0].variants[0].stock)).toBe(42);
+    expect(Number(base[0].variants[0].basePrice)).toBe(9.99);
+  });
+
+  it('BASE-scope getProductById returns canonical values under a non-default store', async () => {
+    prismaMock.product.findUnique.mockImplementation(async () => makeVariantProduct());
+    prismaMock.review.findMany.mockResolvedValue([]);
+    prismaMock.user.findMany.mockResolvedValue([]);
+    prismaMock.storeVariantOverride.findMany.mockResolvedValue([
+      { variantId: 100, stock: new Prisma.Decimal('7'), priceOverride: new Prisma.Decimal('12.50'), activeOverride: null },
+    ]);
+    const { ProductService } = await import('./product.service');
+    const { runWithTenant } = await import('../config/tenantContext');
+    const service = new ProductService();
+
+    const product = await runWithTenant(storeCtx, () => service.getProductById(1, ['ADMIN'], { base: true }));
+
+    expect(Number(product.variants[0].basePrice)).toBe(9.99);
+    expect(Number(product.variants[0].stock)).toBe(42);
+  });
+
+  it('applyStoreOverrides does not mutate the canonical variant objects returned by Prisma', async () => {
+    const source = makeVariantProduct();
+    prismaMock.product.findMany.mockResolvedValue([source]);
+    prismaMock.storeVariantOverride.findMany.mockResolvedValue([
+      { variantId: 100, stock: new Prisma.Decimal('7'), priceOverride: new Prisma.Decimal('12.50'), activeOverride: null },
+    ]);
+    const { ProductService } = await import('./product.service');
+    const { runWithTenant } = await import('../config/tenantContext');
+    const service = new ProductService();
+
+    await runWithTenant(storeCtx, () => service.getAllProducts(['CUSTOMER']));
+
+    // The row object Prisma handed us must still carry the canonical base values.
+    expect(Number(source.variants[0].basePrice)).toBe(9.99);
+    expect(Number(source.variants[0].stock)).toBe(42);
   });
 });

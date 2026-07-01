@@ -181,6 +181,10 @@ const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Forward the active store selection to the backend
+  const sid = localStorage.getItem('selectedStoreId');
+  if (sid) headers['X-Store-Id'] = sid;
+
   const config = {
     ...requestOptions,
     headers,

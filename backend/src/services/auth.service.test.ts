@@ -171,6 +171,11 @@ describe('auth service', () => {
       password: 'secret123',
     });
 
+    expect(prismaMock.userRole.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ userId: 21, storeId: 0 }),
+      ]),
+    });
     expect(notificationEventsService.notifyRegistrationSubmitted).toHaveBeenCalledWith(21, 'new-user');
   });
 

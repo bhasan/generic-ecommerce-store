@@ -39,6 +39,30 @@ const creditServiceMock = vi.hoisted(() => ({
 
 vi.mock('../config/database', () => ({ default: prismaMock }));
 vi.mock('../utils/logger', () => ({ logger }));
+
+// Provide a default-store tenant context so createOrder doesn't throw
+// MissingTenantContextError. isDefaultStore=true preserves existing test behaviour.
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  getTenantContext: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  MissingTenantContextError: class MissingTenantContextError extends Error {
+    constructor() {
+      super('Execution context is missing active tenantScope. Wrap database operations inside runWithTenant(...) first.');
+      this.name = 'MissingTenantContextError';
+    }
+  },
+  runWithTenant: vi.fn((ctx: unknown, fn: () => unknown) => fn()),
+}));
 vi.mock('./orderingConstraints.service', () => ({
   OrderingConstraintsService: vi.fn(() => orderingConstraintsMock),
 }));

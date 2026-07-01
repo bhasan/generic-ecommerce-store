@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import userService from '../services/user.service';
+import { setUserRoleAssignments, getUserRoleAssignments } from '../services/staffAssignment.service';
 import { validateRequest, parsePaginationQuery } from '../utils/request.util';
 import { logAuditEvent } from '../utils/auditLog.util';
 import { successResponse } from '../utils/responseEnvelope';
+import { AppError } from '../middleware/error.middleware';
 
 export class UserController {
   async getAllUsers(req: Request, res: Response) : Promise<void> {
@@ -85,6 +87,36 @@ export class UserController {
   async getAllRoles(_req: Request, res: Response) : Promise<void> {
     const roles = await userService.getAllRoles();
     res.status(200).json(successResponse(roles));
+  }
+
+  async getStoreRoles(req: Request, res: Response): Promise<void> {
+    const id = parseInt(req.params.id, 10);
+    const result = await getUserRoleAssignments(id);
+    res.status(200).json(successResponse(result));
+  }
+
+  async setStoreRoles(req: Request, res: Response): Promise<void> {
+    const userId = parseInt(req.params.id, 10);
+    const { assignments } = req.body;
+
+    // Guard: assignments must be present and an array
+    if (!Array.isArray(assignments)) {
+      throw new AppError('assignments must be an array', 400);
+    }
+
+    // Guard: each element must have a roleName string and a valid storeIds shape
+    for (const item of assignments) {
+      if (typeof item?.roleName !== 'string') {
+        throw new AppError('each assignment must have a roleName string', 400);
+      }
+      if (item.storeIds !== 'all' && !Array.isArray(item.storeIds)) {
+        throw new AppError('each assignment storeIds must be "all" or an array', 400);
+      }
+    }
+
+    const result = await setUserRoleAssignments(userId, assignments);
+    logAuditEvent(req, 'Staff store-role assignments updated', { targetUserId: userId });
+    res.status(200).json(successResponse(result, 'Store role assignments updated successfully'));
   }
 }
 

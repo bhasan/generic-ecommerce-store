@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, beforeEach, afterEach, expect, it, vi } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 import { renderWithProviders } from './test/renderWithProviders';
@@ -16,6 +16,10 @@ vi.mock('./context/AppContext', () => ({
 vi.mock('./components/common/AnnouncementBanner', () => ({ default: () => <div>AnnouncementBanner</div> }));
 vi.mock('./components/common/OrderPickupNotice', () => ({ default: () => <div>OrderPickupNotice</div> }));
 vi.mock('./components/layout/Navbar', () => ({ default: () => <div>Navbar</div> }));
+// StorePicker is a global overlay rendered directly in App.jsx (Phase 2d). It calls
+// useStoreSelection(), which throws without a StoreSelectionProvider — and this suite
+// mocks the whole AppContext, so no provider exists. Mock it like the other shell parts.
+vi.mock('./features/store/StorePicker', () => ({ default: () => <div>StorePicker</div> }));
 vi.mock('./components/common/Notification', () => ({ default: () => <div>Notification</div> }));
 vi.mock('./components/common/ErrorBoundary', () => ({ default: ({ children }) => <>{children}</> }));
 vi.mock('./features/auth/LoginPage', () => ({ default: () => <div>LoginPage</div> }));

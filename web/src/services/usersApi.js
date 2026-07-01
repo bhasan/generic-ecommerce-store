@@ -86,3 +86,18 @@ export const deleteUser = usersResource.remove;
 export const getAllRoles = async () => {
   return get('/users/roles');
 };
+
+/**
+ * Get the current store-role assignments for a staff user.
+ * @param {number} id - User ID
+ * @returns {Promise<{ userId: number, assignments: Array<{ roleName: string, storeIds: number[]|'all' }> }>}
+ */
+export const getUserStoreRoles = (id) => get(`/users/${id}/store-roles`);
+
+/**
+ * Replace store-role assignments for a staff user.
+ * @param {number} id - User ID
+ * @param {Array<{ roleName: string, storeIds: number[]|'all' }>} assignments
+ * @returns {Promise<{ userId: number, assignments: Array }>}
+ */
+export const setUserStoreRoles = (id, assignments) => put(`/users/${id}/store-roles`, { assignments });

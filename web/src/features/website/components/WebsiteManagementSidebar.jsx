@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Globe, Palette, Image, Heart, Info, CreditCard, Truck, Building2 } from 'lucide-react';
+import { Globe, Palette, Image, Heart, Info, CreditCard, Truck, Building2, Store } from 'lucide-react';
 import { useApp } from '../../../context/AppContext';
 import { getUserRoles, ROLES } from '../../../utils/roles';
 
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   // TEMPORARY: tenant management lives here for now but is a PLATFORM function —
   // visible to SUPER_ADMIN only. It will move to a dedicated super-admin portal later.
   { to: '/website-management/tenants', icon: Building2, label: 'Tenants', superAdminOnly: true },
+  { to: '/website-management/stores', icon: Store, label: 'Stores' },
 ];
 
 function WebsiteManagementSidebar() {

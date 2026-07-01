@@ -1,0 +1,72 @@
+/* === StorePicker === */
+
+/* Elevate above standard modal z-index to ensure it gates the storefront */
+.store-picker-overlay {
+  z-index: var(--z-modal, 1000);
+}
+
+/* Body */
+.store-picker-body {
+  padding: var(--spacing-lg, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md, 1rem);
+  overflow-y: auto;
+}
+
+/* Subtitle */
+.store-picker-subtitle {
+  font-size: var(--font-size-sm, 0.875rem);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* List */
+.store-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm, 0.5rem);
+}
+
+.store-picker-item {
+  display: contents;
+}
+
+/* Card button */
+.store-picker-card {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: var(--spacing-md, 1rem) var(--spacing-lg, 1.25rem);
+  background: var(--bg-surface, var(--bg-card));
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 0.75rem);
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-all, all 0.15s ease);
+  color: var(--text-primary);
+  font-size: var(--font-size-base, 1rem);
+  font-weight: var(--font-weight-medium, 500);
+}
+
+.store-picker-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--color-primary, #7c3aed);
+  box-shadow: var(--shadow-sm);
+}
+
+.store-picker-card:focus-visible {
+  outline: 2px solid var(--color-primary, #7c3aed);
+  outline-offset: 2px;
+}
+
+.store-picker-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

@@ -5,6 +5,7 @@ import * as categoriesApi from '../services/categoriesApi';
 import { ROLES } from '../utils/roles';
 import { useUIContext } from './UIContext';
 import { useAuthContext } from './AuthContext';
+import { useStoreSelection } from './StoreSelectionContext';
 
 const CatalogContext = createContext(null);
 
@@ -17,6 +18,7 @@ export const useCatalogContext = () => {
 export function CatalogProvider({ children }) {
   const { showNotification } = useUIContext();
   const { currentUser, isLoading, isAuthenticated } = useAuthContext();
+  const { activeStoreId } = useStoreSelection();
 
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
@@ -48,11 +50,12 @@ export function CatalogProvider({ children }) {
   }, []);
 
   // Auto-load products and categories once auth check completes and user is authenticated.
+  // Re-fetches when activeStoreId changes so per-store effective prices/stock load.
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       Promise.allSettled([loadProducts(), loadCategories()]);
     }
-  }, [isLoading, isAuthenticated, loadProducts, loadCategories]);
+  }, [isLoading, isAuthenticated, loadProducts, loadCategories, activeStoreId]);
 
   const addProduct = async (product) => {
     try {

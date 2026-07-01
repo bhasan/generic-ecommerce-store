@@ -127,13 +127,15 @@ export class TenantManagementService {
         },
       });
 
-      // 5. Assign the ADMIN role to the user (scoped to this tenant's store).
+      // 5. Assign the ADMIN role to the user across ALL of this tenant's stores
+      //    (storeId 0 = all-stores), so the tenant admin can manage every store,
+      //    including ones added later.
       await tx.userRole.create({
         data: {
           userId: user.id,
           roleId: adminRole.id,
           tenantId: tenant.id,
-          storeId: store.id,
+          storeId: 0,
         },
       });
 

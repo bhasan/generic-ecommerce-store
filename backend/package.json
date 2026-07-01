@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && npm run typecheck:seed",
+    "typecheck:seed": "tsc --noEmit -p tsconfig.seed.json",
     "start": "node dist/index.js",
     "start:prod": "npx prisma migrate deploy && node dist/index.js",
     "test": "vitest run",
@@ -15,15 +16,15 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "prisma:seed:prod": "node prisma/seed-prod.js",
-    "prisma:seed:demo": "ts-node prisma/seed-demo.ts",
-    "prisma:backfill-categories": "ts-node prisma/backfill-categories.ts",
-    "migrate-password": "ts-node prisma/migrate-password.ts",
+    "prisma:seed:demo": "ts-node --transpile-only prisma/seed-demo.ts",
+    "prisma:backfill-categories": "ts-node --transpile-only prisma/backfill-categories.ts",
+    "migrate-password": "ts-node --transpile-only prisma/migrate-password.ts",
     "test:coverage": "vitest run --coverage"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "keywords": [
     "ecommerce",

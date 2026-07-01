@@ -7,6 +7,9 @@ import { CatalogProvider, useCatalogContext } from './CatalogContext';
 import { NotificationsProvider, useNotificationsContext } from './NotificationsContext';
 import { OrdersProvider, useOrdersContext } from './OrdersContext';
 import { CartProvider, useCartContext } from './CartContext';
+import { StoreSelectionProvider, useStoreSelection } from './StoreSelectionContext';
+
+export { useStoreSelection };
 
 const AppContext = createContext(null);
 
@@ -24,6 +27,7 @@ function AppValueProvider({ children }) {
   const notifications = useNotificationsContext();
   const orders = useOrdersContext();
   const cart = useCartContext();
+  const { loading: storeLoading, ...storeSelectionRest } = useStoreSelection();
 
   const value = {
     ...ui,
@@ -35,6 +39,10 @@ function AppValueProvider({ children }) {
     ...notifications,
     ...orders,
     ...cart,
+    // Spread store-selection fields but expose `loading` as `storeLoading` so it cannot
+    // shadow a `loading` key from auth/cart/catalog or any other context in this merge.
+    ...storeSelectionRest,
+    storeLoading,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -44,19 +52,21 @@ export function AppProvider({ children }) {
   return (
     <UIProvider>
       <AuthProvider>
-        <StoreConfigProvider>
-          <CatalogProvider>
-            <NotificationsProvider>
-              <OrdersProvider>
-                <CartProvider>
-                  <AppValueProvider>
-                    {children}
-                  </AppValueProvider>
-                </CartProvider>
-              </OrdersProvider>
-            </NotificationsProvider>
-          </CatalogProvider>
-        </StoreConfigProvider>
+        <StoreSelectionProvider>
+          <StoreConfigProvider>
+            <CatalogProvider>
+              <NotificationsProvider>
+                <OrdersProvider>
+                  <CartProvider>
+                    <AppValueProvider>
+                      {children}
+                    </AppValueProvider>
+                  </CartProvider>
+                </OrdersProvider>
+              </NotificationsProvider>
+            </CatalogProvider>
+          </StoreConfigProvider>
+        </StoreSelectionProvider>
       </AuthProvider>
     </UIProvider>
   );
