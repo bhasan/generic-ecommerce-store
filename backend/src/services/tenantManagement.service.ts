@@ -74,8 +74,16 @@ export class TenantManagementService {
   /**
    * List all tenants with token-presence flags (never exposes hashes).
    */
-  async listTenants(): Promise<TenantListItem[]> {
+  async listTenants(statusFilter?: string): Promise<TenantListItem[]> {
+    let where: Prisma.TenantWhereInput = { status: { not: 'DELETED' } };
+    if (statusFilter === 'all') {
+      where = {};
+    } else if (statusFilter === 'ACTIVE' || statusFilter === 'SUSPENDED' || statusFilter === 'DELETED') {
+      where = { status: statusFilter };
+    }
+
     const tenants = await this.prisma.tenant.findMany({
+      where,
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -215,6 +223,28 @@ export class TenantManagementService {
         targetTenantId: id,
         actor,
         detail: { from: tenant.status, to: status },
+      });
+      return updated;
+    });
+  }
+
+  /**
+   * Soft-delete a tenant: flips status to DELETED (no hard delete). The tenant
+   * then resolves as 404 at the middleware and its child data is untouched, so a
+   * later restore (setTenantStatus ACTIVE) brings everything back intact.
+   */
+  async deleteTenant(id: number, actor: AuditActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      const updated = await tx.tenant.update({ where: { id }, data: { status: 'DELETED' } });
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_DELETED',
+        targetTenantId: id,
+        actor,
+        detail: { from: tenant.status, to: 'DELETED' },
       });
       return updated;
     });

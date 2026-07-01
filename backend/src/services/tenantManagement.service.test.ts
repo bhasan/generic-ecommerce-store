@@ -92,3 +92,47 @@ describe('regenerateTokens audit', () => {
     );
   });
 });
+
+describe('deleteTenant', () => {
+  it('soft-deletes (status DELETED) and records TENANT_DELETED', async () => {
+    tx.tenant.findUnique.mockResolvedValue({ id: 5, slug: 'gone', status: 'ACTIVE' });
+    tx.tenant.update.mockResolvedValue({ id: 5, slug: 'gone', status: 'DELETED' });
+
+    await tenantManagementService.deleteTenant(5, { userId: 1, username: 'root', requestId: 'r9' });
+
+    expect(tx.tenant.update).toHaveBeenCalledWith({ where: { id: 5 }, data: { status: 'DELETED' } });
+    expect(tx.tenantAuditLog.create).toHaveBeenCalledWith({
+      data: {
+        action: 'TENANT_DELETED',
+        targetTenantId: 5,
+        actorUserId: 1,
+        actorUsername: 'root',
+        requestId: 'r9',
+        detail: { from: 'ACTIVE', to: 'DELETED' },
+      },
+    });
+  });
+});
+
+describe('listTenants status filter', () => {
+  beforeEach(() => prismaStub.tenant.findMany.mockResolvedValue([]));
+
+  it('excludes DELETED by default', async () => {
+    await tenantManagementService.listTenants();
+    expect(prismaStub.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: { not: 'DELETED' } } }),
+    );
+  });
+
+  it('shows everything for "all"', async () => {
+    await tenantManagementService.listTenants('all');
+    expect(prismaStub.tenant.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  });
+
+  it('filters to an exact status', async () => {
+    await tenantManagementService.listTenants('DELETED');
+    expect(prismaStub.tenant.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: 'DELETED' } }),
+    );
+  });
+});

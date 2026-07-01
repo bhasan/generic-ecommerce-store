@@ -11,8 +11,9 @@ function getActor(req: Request): AuditActor {
 }
 
 export class TenantManagementController {
-  async list(_req: Request, res: Response): Promise<void> {
-    const tenants = await tenantManagementService.listTenants();
+  async list(req: Request, res: Response): Promise<void> {
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const tenants = await tenantManagementService.listTenants(status);
     res.json(successResponse(tenants));
   }
 
@@ -57,6 +58,12 @@ export class TenantManagementController {
     }
 
     const tenant = await tenantManagementService.setTenantStatus(id, status, getActor(req));
+    res.json(successResponse({ tenant }));
+  }
+
+  async remove(req: Request, res: Response): Promise<void> {
+    const id = parseInt(req.params.id, 10);
+    const tenant = await tenantManagementService.deleteTenant(id, getActor(req));
     res.json(successResponse({ tenant }));
   }
 
