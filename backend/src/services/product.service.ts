@@ -54,6 +54,16 @@ interface CreateProductData {
   variants: VariantInput[];
 }
 
+/**
+ * Read-time options for catalog reads. `base: true` returns the canonical
+ * (un-overridden) variant basePrice/stock, bypassing per-store effective values —
+ * required by the base-catalog management editor so a Save can't overwrite the
+ * tenant-wide catalog with per-store overrides.
+ */
+interface ProductReadOptions {
+  base?: boolean;
+}
+
 interface UpdateProductData {
   name?: string;
   slug?: string;
@@ -133,10 +143,17 @@ export class ProductService {
   }
 
   /**
-   * Rewrite each variant's basePrice/stock/active with the effective values for
-   * the active store.  For the default store with no overrides the effective
-   * values equal the variant's own values, so single-store behaviour is unchanged.
-   * Returns the SAME array (mutates in place for efficiency; callers always await).
+   * Return copies of each product whose variants carry the EFFECTIVE price/stock/
+   * active for the active store. For the default store with no overrides the
+   * effective values equal the variant's own values, so single-store behaviour is
+   * unchanged.
+   *
+   * Non-mutating by design: the canonical variant objects Prisma returned are
+   * never rewritten in place. If a base-catalog write path ever holds a reference
+   * to those rows, it must keep seeing the true basePrice/stock — mutating them to
+   * per-store effective values here would let a Save overwrite the tenant-wide
+   * canonical catalog. Base-catalog reads bypass this entirely (see getAllProducts
+   * `base` option).
    */
   private async applyStoreOverrides<T extends {
     variants: Array<{
@@ -167,21 +184,23 @@ export class ProductService {
       overrides.map((o) => [o.variantId, o]),
     );
 
-    for (const product of products) {
-      for (const variant of product.variants) {
+    return products.map((product) => ({
+      ...product,
+      variants: product.variants.map((variant) => {
         const eff = resolveVariantEffective(
           variant,
           overrideMap.get(variant.id),
           isDefaultStore,
         );
-        (variant as any).basePrice = new Prisma.Decimal(eff.price);
-        (variant as any).stock = new Prisma.Decimal(eff.stock);
-        (variant as any).active = eff.active;
-        (variant as any).available = eff.available;
-      }
-    }
-
-    return products;
+        return {
+          ...variant,
+          basePrice: new Prisma.Decimal(eff.price),
+          stock: new Prisma.Decimal(eff.stock),
+          active: eff.active,
+          available: eff.available,
+        };
+      }),
+    }));
   }
 
   private toVisibilityFilter(userRoles: RoleName[] | undefined): ProductVisibilityFilter {
@@ -194,7 +213,12 @@ export class ProductService {
     return visibilityFilterToWhere(this.toVisibilityFilter(userRoles));
   }
 
-  async getAllProducts(userRoles?: RoleName[], limit?: number, offset?: number) {
+  async getAllProducts(
+    userRoles?: RoleName[],
+    limit?: number,
+    offset?: number,
+    options?: ProductReadOptions,
+  ) {
     const where = this.visibilityWhere(userRoles);
 
     const products = await prisma.product.findMany({
@@ -211,6 +235,9 @@ export class ProductService {
 
     // Reviews feature remains disabled at the list level; populated by getProductById.
     const mapped = products.map((product) => ({ ...product, reviews: [] }));
+    // Base-catalog reads (admin catalog editor) must return canonical base values —
+    // skip per-store overrides so a Save never persists store-effective price/stock.
+    if (options?.base) return mapped;
     return this.applyStoreOverrides(mapped);
   }
 
@@ -218,17 +245,18 @@ export class ProductService {
     userRoles: RoleName[] | undefined,
     q: string,
     pagination: { limit: number; offset: number },
+    options?: ProductReadOptions,
   ) {
     const visibility = this.toVisibilityFilter(userRoles);
     const results = await this.searchService.searchProducts(visibility, q, pagination);
     const mapped = results.map((p) => ({ ...p, reviews: [] }));
+    if (options?.base) return mapped;
     // SearchedProduct is loosely typed (Record<string, unknown>); runtime shape has
-    // variants — applyStoreOverrides mutates in place, so cast the arg and return mapped.
-    await this.applyStoreOverrides(mapped as any);
-    return mapped;
+    // variants — applyStoreOverrides returns copies, so cast the arg and the result.
+    return this.applyStoreOverrides(mapped as any) as unknown as typeof mapped;
   }
 
-  async getProductById(id: number, userRoles?: RoleName[]) {
+  async getProductById(id: number, userRoles?: RoleName[], options?: ProductReadOptions) {
     const product = await prisma.product.findUnique({ where: { id }, include: productInclude });
 
     if (!product) {
@@ -256,6 +284,8 @@ export class ProductService {
       ...product,
       reviews: reviews.map((review) => ({ ...review, user: userMap.get(review.userId) || null })),
     };
+    // Base-catalog reads bypass per-store overrides (see getAllProducts).
+    if (options?.base) return result;
     const [withOverrides] = await this.applyStoreOverrides([result]);
     return withOverrides!;
   }

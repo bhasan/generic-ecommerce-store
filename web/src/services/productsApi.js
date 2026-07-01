@@ -3,7 +3,14 @@ import { createResourceApi } from './createResourceApi';
 
 const api = createResourceApi('/products', 'product');
 
-export const getAllProducts = api.getAll;
+/**
+ * Fetch the product catalog. Pass `{ scope: 'base' }` for the base-catalog
+ * management editor so variants carry canonical basePrice/stock instead of
+ * per-store effective values (the customer storefront omits scope and keeps the
+ * per-store effective view).
+ */
+export const getAllProducts = ({ scope } = {}) =>
+  get(scope === 'base' ? '/products?scope=base' : '/products');
 export const getProductById = api.getById;
 export const createProduct = api.create;
 export const updateProduct = api.update;
