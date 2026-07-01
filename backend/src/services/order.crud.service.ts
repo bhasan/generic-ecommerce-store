@@ -340,8 +340,11 @@ export class OrderCrudService {
           throw new AppError(`${variant.product.name} is not available at this store`, 400);
         }
         const effectiveBasePrice = effective.price;
-        // Apply price breaks (if any) on top of the effective base price.
-        const unitPrice = resolveUnitPrice({ ...variant, basePrice: effectiveBasePrice }, item.quantity);
+        // A per-store price override is FLAT: it replaces the price for ALL quantities, so the
+        // tenant's quantity price breaks (absolute unitPrices) must NOT apply on top of it.
+        // With no override, keep existing behaviour: tenant breaks apply on the base price.
+        const priceBreaks = effective.priceOverridden ? [] : variant.priceBreaks;
+        const unitPrice = resolveUnitPrice({ ...variant, basePrice: effectiveBasePrice, priceBreaks }, item.quantity);
         subtotal += unitPrice.toNumber() * item.quantity;
 
         return {
@@ -537,7 +540,10 @@ export class OrderCrudService {
         throw new AppError(`${variant.product.name} is not available at this store`, 400);
       }
       const effectiveBasePrice = effective.price;
-      const unitPrice = resolveUnitPrice({ ...variant, basePrice: effectiveBasePrice }, data.quantity);
+      // A per-store price override is FLAT: tenant quantity price breaks do not apply on top
+      // of it. With no override, keep existing behaviour (tenant breaks apply on base price).
+      const priceBreaks = effective.priceOverridden ? [] : variant.priceBreaks;
+      const unitPrice = resolveUnitPrice({ ...variant, basePrice: effectiveBasePrice, priceBreaks }, data.quantity);
 
       // Recalculate order total
       const oldTotal = order.total;

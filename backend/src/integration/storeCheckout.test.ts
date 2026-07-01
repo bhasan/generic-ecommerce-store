@@ -297,6 +297,147 @@ describe('checkout — per-store active check + base-path for no-store context (
   });
 });
 
+// Phase-2 pricing defect — per-store price override is FLAT: quantity price breaks
+// do NOT apply when a store overrides the price. A variant with a tenant-level price
+// break (absolute unitPrice) that is ordered at a non-default store with an active
+// priceOverride must be charged the flat override price for ALL quantities, never the
+// tenant break price. When there is NO priceOverride (default store, or an override
+// with only stock/active set), the tenant price breaks still apply on the base price.
+describe('checkout — per-store price override is flat, tenant price breaks suppressed', () => {
+  let storeF: number; // non-default store WITH priceOverride
+  let storeK: number; // non-default store with stock-only override (no priceOverride)
+  let pbVariantId: number; // variant with basePrice=10 + price break qty>=3 -> unitPrice=7
+
+  beforeAll(async () => {
+    // Re-uses tenantId, storeD, userId from the outer beforeAll.
+    const s = await base.store.create({
+      data: { tenantId, name: 'Store F', slug: `store-f-${Date.now()}`, isDefault: false },
+    });
+    storeF = s.id;
+    const k = await base.store.create({
+      data: { tenantId, name: 'Store K', slug: `store-k-${Date.now()}`, isDefault: false },
+    });
+    storeK = k.id;
+
+    const catRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO categories (name, "tenantId", "createdAt", "updatedAt")
+       VALUES ('PriceBreakCat', $1, now(), now()) RETURNING id`,
+      tenantId,
+    );
+    const catId = catRows[0].id;
+
+    const prodRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO products
+         (name, slug, "categoryId", "tenantId", hidden, "vipOnly", "cardSize", "sortOrder", "createdAt", "updatedAt")
+       VALUES ('PriceBreakProduct', $1, $2, $3, false, false, 'STANDARD', 0, now(), now()) RETURNING id`,
+      `price-break-prod-${Date.now()}`, catId, tenantId,
+    );
+    const productId = prodRows[0].id;
+
+    // Variant: basePrice=10, stock=1000, stockEnabled=true.
+    const varRows = await base.$queryRawUnsafe<Array<{ id: number }>>(
+      `INSERT INTO product_variants
+         (label, sku, "pricingMode", "basePrice", stock, "stockEnabled", "isDefault", active, "sortOrder", "productId", "tenantId", "createdAt", "updatedAt")
+       VALUES ('Default', $1, 'UNIT', 10, 1000, true, true, true, 0, $2, $3, now(), now()) RETURNING id`,
+      `price-break-v-${Date.now()}`, productId, tenantId,
+    );
+    pbVariantId = varRows[0].id;
+
+    // Tenant-level price break: qty >= 3 -> ABSOLUTE unitPrice 7 (a bulk discount off base 10).
+    await base.$executeRawUnsafe(
+      `INSERT INTO variant_price_breaks ("variantId", "minQuantity", "unitPrice", "tenantId")
+       VALUES ($1, 3, 7, $2)`,
+      pbVariantId, tenantId,
+    );
+
+    // Store F override: priceOverride=8 (flat), plenty of stock.
+    await (base as any).storeVariantOverride.create({
+      data: { tenantId, storeId: storeF, variantId: pbVariantId, stock: new Prisma.Decimal(1000), priceOverride: new Prisma.Decimal(8) },
+    });
+    // Store K override: stock only, NO priceOverride (price untouched at this store).
+    await (base as any).storeVariantOverride.create({
+      data: { tenantId, storeId: storeK, variantId: pbVariantId, stock: new Prisma.Decimal(1000), priceOverride: null },
+    });
+  });
+
+  it('createOrder NON-default store with priceOverride: qty>=break is charged flat override (8), NOT tenant break price (7)', async () => {
+    const order = await runWithTenant(
+      { tenantId, storeId: storeF, isDefaultStore: false, scope: 'tenant' },
+      async () =>
+        orderSvc.createOrder({
+          userId,
+          items: [{ variantId: pbVariantId, quantity: 3 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+        }),
+    );
+    // Flat override wins over the tenant break: 8, not 7.
+    expect(Number(order.items[0].unitPrice)).toBe(8);
+  });
+
+  it('createOrder DEFAULT store: qty>=break still gets the tenant break price (7), unchanged', async () => {
+    const order = await runWithTenant(
+      { tenantId, storeId: storeD, isDefaultStore: true, scope: 'tenant' },
+      async () =>
+        orderSvc.createOrder({
+          userId,
+          items: [{ variantId: pbVariantId, quantity: 3 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+        }),
+    );
+    expect(Number(order.items[0].unitPrice)).toBe(7);
+  });
+
+  it('createOrder NON-default store with stock-only override (no priceOverride): tenant break price (7) still applies', async () => {
+    const order = await runWithTenant(
+      { tenantId, storeId: storeK, isDefaultStore: false, scope: 'tenant' },
+      async () =>
+        orderSvc.createOrder({
+          userId,
+          items: [{ variantId: pbVariantId, quantity: 3 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+        }),
+    );
+    expect(Number(order.items[0].unitPrice)).toBe(7);
+  });
+
+  it('addItemToOrder NON-default store with priceOverride: added qty>=break is charged flat override (8), NOT tenant break price (7)', async () => {
+    const { orderId, addedItem } = await runWithTenant(
+      { tenantId, storeId: storeF, isDefaultStore: false, scope: 'tenant' },
+      async () => {
+        const created = await orderSvc.createOrder({
+          userId,
+          items: [{ variantId: pbVariantId, quantity: 1 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+        });
+        const item = await orderSvc.addItemToOrder(created.id, { variantId: pbVariantId, quantity: 3 });
+        return { orderId: created.id, addedItem: item };
+      },
+    );
+    expect(orderId).toBeDefined();
+    expect(Number(addedItem.unitPrice)).toBe(8);
+  });
+
+  it('addItemToOrder DEFAULT store: added qty>=break still gets the tenant break price (7), unchanged', async () => {
+    const addedItem = await runWithTenant(
+      { tenantId, storeId: storeD, isDefaultStore: true, scope: 'tenant' },
+      async () => {
+        const created = await orderSvc.createOrder({
+          userId,
+          items: [{ variantId: pbVariantId, quantity: 1 }],
+          deliveryMethod: DeliveryMethod.PICKUP,
+          paymentMethod: PaymentMethod.EXTERNAL,
+        });
+        return orderSvc.addItemToOrder(created.id, { variantId: pbVariantId, quantity: 3 });
+      },
+    );
+    expect(Number(addedItem.unitPrice)).toBe(7);
+  });
+});
+
 // Regression test: createOrder must scope the override lookup by storeId.
 // Old code: findMany({ where: { variantId: { in: variantIds } } }) — no storeId filter.
 // With two stores sharing the same variantId, both overrides are returned; last-write-wins
