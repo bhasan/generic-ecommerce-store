@@ -27,7 +27,7 @@ function AppValueProvider({ children }) {
   const notifications = useNotificationsContext();
   const orders = useOrdersContext();
   const cart = useCartContext();
-  const storeSelection = useStoreSelection();
+  const { loading: storeLoading, ...storeSelectionRest } = useStoreSelection();
 
   const value = {
     ...ui,
@@ -39,7 +39,10 @@ function AppValueProvider({ children }) {
     ...notifications,
     ...orders,
     ...cart,
-    ...storeSelection,
+    // Spread store-selection fields but expose `loading` as `storeLoading` so it cannot
+    // shadow a `loading` key from auth/cart/catalog or any other context in this merge.
+    ...storeSelectionRest,
+    storeLoading,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
