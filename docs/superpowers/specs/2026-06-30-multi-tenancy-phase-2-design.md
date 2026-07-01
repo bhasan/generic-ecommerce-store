@@ -124,3 +124,15 @@ Unique constraint relaxed to **`(userId, roleId, storeId)`** so a person can hol
 5. **2e — Admin UIs:** store management, per-store inventory/pricing, staff↔store assignment, store-scoped dashboards + switcher.
 
 Each sub-plan gets its own implementation plan (writing-plans) and is executed/reviewed before the next.
+
+---
+
+## Post-validation refinements (2026-07-01)
+
+Validated the design against the codebase before implementation. No design-level blockers; Phase 2 is Phase-1-native (storeId ALS context + scoped-client injection, JWT scoped roles `{name,storeId}`, role-middleware store match, and no store-scoped table bypasses the scoped client). Refinements from that review:
+
+- **`storeId 0` is the universal "tenant-wide / default" sentinel** (0 is never a real store id — stores start at 1). It means "all stores / tenant default" for: the tenant-default `ui_settings` row, all-stores `UserRole` rows, and the admin "All stores" aggregate context. The scoped Prisma client is tweaked to **skip the store filter when `ctx.storeId` is `0`** (same as `null` today). This resolves caveat #2 (nullable-`storeId` uniqueness) cleanly — the default settings row is keyed by `storeId = 0`, so `@@unique([tenantId, storeId, key])` works with no NULL-distinctness problem. Existing `null` store values migrate to `0`.
+- **Existing staff stay all-stores.** On migration, `user_roles.storeId` `null → 0` for every existing row (all-stores). Adding a store does not auto-restrict existing staff; admins narrow them later via the 2e assignment UI. `role.middleware` treats `storeId 0` (and legacy `null`) as all-stores.
+- **Cart is client-side (caveat #1 correction).** There are no server-side `cart_items` writes; the cart lives in the browser and is materialized only at checkout. "Per-store cart" is therefore **2d frontend work**: segregate/reset the cart on store switch and re-validate prices. Additionally, the client cart carries a `savedAt` timestamp and is **cleared after 7 days**.
+- **Sequencing impact:** the `storeId 0` sentinel is foundational, so `role.middleware` (treat 0 as all-stores) and the `user_roles.storeId null→0` backfill move into **sub-plan 2a**. The scoped-client `0`-as-no-filter tweak lands in **2e** (where the admin "All stores" context first sets `ctx.storeId = 0`); `ui_settings.storeId = 0` default rows land in **2b**.
+- **Minor (accepted):** full-text search ranks on text then hydrates via the scoped client, so per-store price/availability applies at hydration — a variant hidden at a store can rank then be filtered (not hidden from search). No action.
