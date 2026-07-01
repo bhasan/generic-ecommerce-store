@@ -94,8 +94,8 @@ describe('CartContext', () => {
 
   describe('per-store cart isolation', () => {
     it('(a) items saved under store A are not visible when active store is B, and re-appear on switch back', async () => {
-      // Start on store A
-      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 1 });
+      // Start on store A (multi-store tenant: per-store keys apply)
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 1, isMultiStore: true });
       const { result, rerender } = renderHook(() => useCartContext(), { wrapper });
 
       // Add item in store A
@@ -104,12 +104,12 @@ describe('CartContext', () => {
       expect(result.current.cart[0].variantId).toBe(10);
 
       // Switch to store B
-      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 2 });
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 2, isMultiStore: true });
       rerender();
       await waitFor(() => expect(result.current.cart).toHaveLength(0));
 
       // Switch back to store A
-      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 1 });
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 1, isMultiStore: true });
       rerender();
       await waitFor(() => expect(result.current.cart).toHaveLength(1));
       expect(result.current.cart[0].variantId).toBe(10);
@@ -121,7 +121,8 @@ describe('CartContext', () => {
       const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
       localStorage.setItem(key, JSON.stringify({ items: [{ variantId: 99, quantity: 1 }], savedAt: eightDaysAgo }));
 
-      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId });
+      // isMultiStore: true so per-store key is used
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId, isMultiStore: true });
       const { result } = renderHook(() => useCartContext(), { wrapper });
 
       expect(result.current.cart).toHaveLength(0);
@@ -130,7 +131,8 @@ describe('CartContext', () => {
 
     it('(c) savedAt is written to localStorage on save', () => {
       const storeId = 7;
-      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId });
+      // isMultiStore: true so per-store key is used
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId, isMultiStore: true });
       const { result } = renderHook(() => useCartContext(), { wrapper });
 
       act(() => result.current.addToCart(sampleProduct, sampleVariant, 1));
@@ -142,6 +144,25 @@ describe('CartContext', () => {
       expect(typeof parsed.savedAt).toBe('number');
       expect(parsed.savedAt).toBeGreaterThan(0);
       expect(parsed.items).toHaveLength(1);
+    });
+
+    it('(single-store) single-store tenant with auto-selected storeId persists under cartData_v2 as plain array (backward-compat)', async () => {
+      // isMultiStore: false even though activeStoreId is set (single-store auto-select)
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: 1, isMultiStore: false });
+      const { result } = renderHook(() => useCartContext(), { wrapper });
+
+      act(() => result.current.addToCart(sampleProduct, sampleVariant, 1));
+      expect(result.current.cart).toHaveLength(1);
+
+      // Cart must live under the legacy/fallback key, not the per-store key
+      expect(localStorage.getItem('cartData_v2')).not.toBeNull();
+      expect(localStorage.getItem('cartData_v2_store_1')).toBeNull();
+
+      // Single-store saves as plain array (backward-compat), not { items, savedAt }
+      const parsed = JSON.parse(localStorage.getItem('cartData_v2'));
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].variantId).toBe(10);
     });
 
     it('(legacy-compat) missing savedAt is not treated as expired', () => {
@@ -157,21 +178,21 @@ describe('CartContext', () => {
     });
   });
 
-  describe('null-to-store reload lifecycle (single-store persistence)', () => {
-    it('(reload) loads per-store cart when activeStoreId resolves from null to N', async () => {
+  describe('null-to-store reload lifecycle (multi-store persistence)', () => {
+    it('(reload) loads per-store cart when activeStoreId resolves from null to N (multi-store)', async () => {
       const storeId = 5;
       const key = `cartData_v2_store_${storeId}`;
       // Simulate a page reload: per-store key already exists in localStorage
       localStorage.setItem(key, JSON.stringify({ items: [{ variantId: 77, quantity: 2 }], savedAt: Date.now() }));
 
-      // Start with activeStoreId: null (async not yet resolved)
+      // Start with activeStoreId: null, isMultiStore: false (stores not yet loaded)
       vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: null });
       const { result, rerender } = renderHook(() => useCartContext(), { wrapper });
       // null phase: loads from cartData_v2 (absent) → empty
       expect(result.current.cart).toHaveLength(0);
 
-      // Simulate async resolve: null → 5
-      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId });
+      // Simulate async resolve: null → 5, and isMultiStore becomes true (multi-store tenant)
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId, isMultiStore: true });
       rerender();
       await waitFor(() => expect(result.current.cart).toHaveLength(1));
       expect(result.current.cart[0].variantId).toBe(77);
@@ -182,14 +203,15 @@ describe('CartContext', () => {
       // Seed legacy key only (no per-store key for store 9)
       localStorage.setItem('cartData_v2', JSON.stringify([{ variantId: 42, quantity: 3 }]));
 
+      // Start with isMultiStore: false (stores not yet loaded)
       vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: null });
       const { result, rerender } = renderHook(() => useCartContext(), { wrapper });
-      // null phase: legacy cart loaded
+      // null phase: legacy cart loaded from cartData_v2
       expect(result.current.cart).toHaveLength(1);
       expect(result.current.cart[0].variantId).toBe(42);
 
-      // Resolve to store N (no per-store key exists)
-      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId });
+      // Resolve to store N (no per-store key exists); isMultiStore becomes true
+      vi.mocked(useStoreSelection).mockReturnValue({ ...defaultStoreSelection, activeStoreId: storeId, isMultiStore: true });
       rerender();
       // After migration: cartData_v2 removed AND cart items preserved
       await waitFor(() => expect(localStorage.getItem('cartData_v2')).toBeNull());

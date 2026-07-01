@@ -227,7 +227,8 @@ describe('AppContext', () => {
     await waitFor(() => expect(screen.getByTestId('authenticated')).toHaveTextContent('true'));
 
     fireEvent.click(screen.getByText('Add To Cart'));
-    await waitFor(() => expect(localStorage.getItem('cartData_v2_store_1')).toContain('"productId":101'));
+    // Single-store tenant (1 store → isMultiStore=false): cart lives under cartData_v2
+    await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
 
     await act(async () => {
       window.dispatchEvent(new CustomEvent('auth:unauthorized'));
@@ -263,7 +264,8 @@ describe('AppContext', () => {
 
     fireEvent.click(screen.getByText('Add To Cart'));
     expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
-    await waitFor(() => expect(localStorage.getItem('cartData_v2_store_1')).toContain('"productId":101'));
+    // Single-store tenant (1 store → isMultiStore=false): cart lives under cartData_v2
+    await waitFor(() => expect(localStorage.getItem('cartData_v2')).toContain('"productId":101'));
 
     await act(async () => {
       fireEvent.click(screen.getByText('Checkout With Credit'));
