@@ -8,6 +8,10 @@ import { ROLES } from '../../utils/roles';
 // Roles that are purely non-staff (never assigned to stores)
 const NON_STAFF_ROLES = new Set([ROLES.CUSTOMER, ROLES.GUEST]);
 
+// Fresh default state for a role: no "all stores", no individual stores checked.
+// A factory (not a shared constant) so each role gets its own mutable Set.
+const emptyRoleState = () => ({ allStores: false, checkedIds: new Set() });
+
 /**
  * Modal for assigning which stores a staff user acts at, per role.
  *
@@ -53,7 +57,7 @@ function StoreRoleAssignmentModal({ isOpen, onClose, user, onSaved }) {
             initial[roleName] = { allStores: false, checkedIds: new Set(loaded) };
           } else {
             // No existing assignment — default to no stores selected
-            initial[roleName] = { allStores: false, checkedIds: new Set() };
+            initial[roleName] = emptyRoleState();
           }
         }
         setRoleState(initial);
@@ -81,7 +85,7 @@ function StoreRoleAssignmentModal({ isOpen, onClose, user, onSaved }) {
 
   const handleStoreToggle = (roleName, storeId) => {
     setRoleState((prev) => {
-      const current = prev[roleName] ?? { allStores: false, checkedIds: new Set() };
+      const current = prev[roleName] ?? emptyRoleState();
       const nextIds = new Set(current.checkedIds);
       if (nextIds.has(storeId)) {
         nextIds.delete(storeId);
@@ -98,7 +102,7 @@ function StoreRoleAssignmentModal({ isOpen, onClose, user, onSaved }) {
 
     try {
       const assignments = staffRoles.map((roleName) => {
-        const state = roleState[roleName] ?? { allStores: false, checkedIds: new Set() };
+        const state = roleState[roleName] ?? emptyRoleState();
         return {
           roleName,
           storeIds: state.allStores ? 'all' : [...state.checkedIds],
@@ -156,7 +160,7 @@ function StoreRoleAssignmentModal({ isOpen, onClose, user, onSaved }) {
 
         {!isLoading &&
           staffRoles.map((roleName) => {
-            const state = roleState[roleName] ?? { allStores: false, checkedIds: new Set() };
+            const state = roleState[roleName] ?? emptyRoleState();
             return (
               <div key={roleName} style={{ marginBottom: '1.25rem' }}>
                 <h4 style={{ marginBottom: '0.5rem', fontWeight: 600 }}>{roleName}</h4>
