@@ -39,6 +39,7 @@ model User {
   contactMessages           ContactMessage[]
   cartItems                 CartItem[]
   statusEventChanges        OrderStatusEvent[]  @relation("StatusEventChanger")
+  tenantAuditActions        TenantAuditLog[]           @relation("TenantAuditActor")
   refreshTokens             RefreshToken[]
 
   @@map("users")
@@ -724,6 +725,23 @@ model StoreVariantOverride {
   @@index([tenantId])
   @@index([variantId])
   @@map("store_variant_overrides")
+}
+
+model TenantAuditLog {
+  id             Int      @id @default(autoincrement())
+  action         String
+  targetTenantId Int
+  actorUserId    Int?
+  actorUsername  String
+  requestId      String?
+  detail         Json?
+  createdAt      DateTime @default(now())
+
+  actor User? @relation("TenantAuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([targetTenantId, createdAt])
+  @@index([createdAt])
+  @@map("tenant_audit_log")
 }
 
 enum TenantStatus {

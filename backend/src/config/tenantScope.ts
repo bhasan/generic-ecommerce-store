@@ -8,6 +8,7 @@ export const UNSCOPED_TABLES: ReadonlySet<string> = new Set([
   'tenants',
   'stores',
   'refresh_tokens',
+  'tenant_audit_log',
 ]);
 
 export const STORE_SCOPED_TABLES: ReadonlySet<string> = new Set([

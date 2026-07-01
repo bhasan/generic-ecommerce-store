@@ -1,4 +1,5 @@
 import { getUnscopedPrisma } from '../config/database';
+import { Prisma } from '../../generated/prisma';
 import { AppError } from '../middleware/error.middleware';
 import { hashPassword } from '../utils/password.util';
 import { generateMachineToken } from '../utils/machineToken';
@@ -34,9 +35,42 @@ export interface RegenerateTokensResult {
   printAgentKey: string;
 }
 
+export interface AuditActor {
+  userId?: number;
+  username?: string;
+  requestId?: string;
+}
+
 export class TenantManagementService {
   private get prisma() {
     return getUnscopedPrisma();
+  }
+
+  /**
+   * Write a platform audit row. MUST be called with a transaction client so the
+   * audit record commits atomically with the mutation it describes.
+   */
+  // Used by Task 3 (setTenantStatus rewrite).
+  // @ts-ignore TS6133 — intentionally unused until Task 3 wires the call
+  private async recordTenantAudit(
+    tx: Prisma.TransactionClient,
+    entry: {
+      action: string;
+      targetTenantId: number;
+      actor: AuditActor;
+      detail?: Prisma.InputJsonValue;
+    },
+  ): Promise<void> {
+    await tx.tenantAuditLog.create({
+      data: {
+        action: entry.action,
+        targetTenantId: entry.targetTenantId,
+        actorUserId: entry.actor.userId ?? null,
+        actorUsername: entry.actor.username ?? 'unknown',
+        requestId: entry.actor.requestId ?? null,
+        detail: entry.detail,
+      },
+    });
   }
 
   /**
