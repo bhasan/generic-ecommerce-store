@@ -1,1 +1,5 @@
-export default function AdminActivityPage() { return null; }
+import AdminActivitySection from '../components/AdminActivitySection';
+
+export default function AdminActivityPage() {
+  return <AdminActivitySection />;
+}
