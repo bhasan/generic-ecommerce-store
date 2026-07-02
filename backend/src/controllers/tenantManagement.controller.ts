@@ -50,6 +50,10 @@ export class TenantManagementController {
 
   async setStatus(req: Request, res: Response): Promise<void> {
     const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: { message: 'invalid tenant id', code: 'BAD_REQUEST' } });
+      return;
+    }
     const { status } = req.body;
 
     if (status !== 'ACTIVE' && status !== 'SUSPENDED') {
@@ -63,12 +67,20 @@ export class TenantManagementController {
 
   async remove(req: Request, res: Response): Promise<void> {
     const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: { message: 'invalid tenant id', code: 'BAD_REQUEST' } });
+      return;
+    }
     const tenant = await tenantManagementService.deleteTenant(id, getActor(req));
     res.json(successResponse({ tenant }));
   }
 
   async update(req: Request, res: Response): Promise<void> {
     const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: { message: 'invalid tenant id', code: 'BAD_REQUEST' } });
+      return;
+    }
     const { name, plan } = req.body;
 
     if (name === undefined && plan === undefined) {
@@ -105,6 +117,10 @@ export class TenantManagementController {
 
   async regenerateTokens(req: Request, res: Response): Promise<void> {
     const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: { message: 'invalid tenant id', code: 'BAD_REQUEST' } });
+      return;
+    }
     const tokens = await tenantManagementService.regenerateTokens(id, getActor(req));
     res.json(successResponse(tokens));
   }

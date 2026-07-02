@@ -154,6 +154,16 @@ describe('getAuditLog', () => {
       take: 100,
     });
   });
+
+  it('falls back to take:100 when limit is NaN (e.g. ?limit=abc parsed by controller)', async () => {
+    prismaStub.tenantAuditLog.findMany.mockResolvedValue([]);
+    await tenantManagementService.getAuditLog({ limit: NaN });
+    expect(prismaStub.tenantAuditLog.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  });
 });
 
 describe('listTenants status filter', () => {

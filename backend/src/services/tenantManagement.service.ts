@@ -311,7 +311,7 @@ export class TenantManagementService {
     const rows = await this.prisma.tenantAuditLog.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      take: Math.min(filter.limit ?? 100, 200),
+      take: Number.isFinite(filter.limit) ? Math.min(filter.limit as number, 200) : 100,
     });
     return rows.map((r) => ({
       id: r.id,
