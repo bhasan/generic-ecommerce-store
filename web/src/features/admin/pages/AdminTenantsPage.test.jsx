@@ -134,4 +134,47 @@ describe('AdminTenantsPage', () => {
     expect(screen.getByText('PRINT-REGEN-012')).toBeInTheDocument();
     expect(screen.getByText(/will not be shown again/i)).toBeInTheDocument();
   });
+
+  it('soft-deletes a tenant via the Delete action (after confirm)', async () => {
+    vi.mocked(tenantApi.deleteTenant).mockResolvedValue({});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderPage();
+    await screen.findByText('acme');
+    fireEvent.click(screen.getByRole('button', { name: /^Delete$/i }));
+
+    await waitFor(() => expect(tenantApi.deleteTenant).toHaveBeenCalledWith('t1'));
+  });
+
+  it('reloads with a status filter when the filter changes', async () => {
+    renderPage();
+    await waitFor(() => expect(tenantApi.listTenants).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: 'DELETED' } });
+
+    await waitFor(() => expect(tenantApi.listTenants).toHaveBeenCalledWith('DELETED'));
+  });
+
+  it('shows Restore for a DELETED tenant and reactivates it', async () => {
+    vi.mocked(tenantApi.listTenants).mockResolvedValue([{ ...SAMPLE[0], status: 'DELETED' }]);
+    vi.mocked(tenantApi.setTenantStatus).mockResolvedValue({});
+
+    renderPage();
+    await screen.findByText('DELETED');
+    fireEvent.click(screen.getByRole('button', { name: /Restore/i }));
+
+    await waitFor(() => expect(tenantApi.setTenantStatus).toHaveBeenCalledWith('t1', 'ACTIVE'));
+  });
+
+  it('edits name/plan via updateTenant', async () => {
+    vi.mocked(tenantApi.updateTenant).mockResolvedValue({});
+    renderPage();
+    await screen.findByText('acme');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Edit$/i }));
+    fireEvent.change(screen.getByLabelText(/Edit name/i), { target: { value: 'Acme Renamed' } });
+    fireEvent.change(screen.getByLabelText(/Edit plan/i), { target: { value: 'enterprise' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    await waitFor(() => expect(tenantApi.updateTenant).toHaveBeenCalledWith('t1', { name: 'Acme Renamed', plan: 'enterprise' }));
+  });
 });
