@@ -31,6 +31,8 @@ export const hasAnyRole = (user, roles) => {
   return roles.some((role) => userRoles.includes(role));
 };
 
+export const isSuperAdmin = (user) => getUserRoles(user).includes(ROLES.SUPER_ADMIN);
+
 export const getRoleBadgeClass = (role) => {
   const roleName = Array.isArray(role) ? role[0] : role;
   switch (roleName) {
