@@ -9,7 +9,7 @@ import MobileMenu from './MobileMenu';
 import { useTheme, THEME_CYCLE } from '../../hooks/useTheme';
 import CartPreview from '../cart/CartPreview';
 import NotificationDropdown from './NotificationDropdown';
-import { hasRole, ROLES } from '../../utils/roles';
+import { hasRole, ROLES, isSuperAdmin as checkIsSuperAdmin } from '../../utils/roles';
 import { formatPrice } from '../../utils/currencyUtils';
 import StoreSwitcher from '../../features/store/StoreSwitcher';
 
@@ -52,6 +52,7 @@ function Navbar() {
   const isEmployee = hasRole(currentUser, ROLES.EMPLOYEE);
   const isManagement = hasRole(currentUser, ROLES.MANAGEMENT) || hasRole(currentUser, ROLES.ADMIN);
   const isAdmin = hasRole(currentUser, ROLES.ADMIN);
+  const superAdmin = checkIsSuperAdmin(currentUser);
   const isDeliveryDriver = hasRole(currentUser, ROLES.DELIVERY_DRIVER);
   // Can manage orders: employees, managers, and admins
   const canManageOrders = isEmployee || isManagement;
@@ -168,7 +169,7 @@ function Navbar() {
               <div className="navbar-links">
                 {renderNavLinks()}
               </div>
-              {isManagement && <AdminDropdown isAdmin={isAdmin} />}
+              {(isManagement || superAdmin) && <AdminDropdown isAdmin={isAdmin} isSuperAdmin={superAdmin} />}
             </div>
           </div>
 

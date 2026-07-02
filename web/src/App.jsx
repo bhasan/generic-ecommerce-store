@@ -42,11 +42,10 @@ import FaviconPage from './features/website/pages/FaviconPage';
 import StoreInfoPage from './features/website/pages/StoreInfoPage';
 import PaymentPage from './features/website/pages/PaymentPage';
 import DeliveryPage from './features/website/pages/DeliveryPage';
-// TEMPORARY: tenant management lives in website-management and is ADMIN-gated
-// (inherits the parent /website-management ADMIN guard); it will move to a
-// dedicated super-admin portal later.
-import TenantsPage from './features/website/pages/TenantsPage';
 import StoresPage from './features/website/pages/StoresPage';
+import AdminConsolePage from './features/admin/AdminConsolePage';
+import AdminTenantsPage from './features/admin/pages/AdminTenantsPage';
+import AdminActivityPage from './features/admin/pages/AdminActivityPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
 import ManageStorePage from './features/manage-store/ManageStorePage';
@@ -203,15 +202,23 @@ function AppContent() {
             <Route path="info" element={<StoreInfoPage />} />
             <Route path="payment" element={<PaymentPage />} />
             <Route path="delivery" element={<DeliveryPage />} />
-            {/* Tenant management is a PLATFORM function — SUPER_ADMIN only, not per-tenant admins. */}
-            <Route path="tenants" element={
-              <ProtectedRoute roles={[ROLES.SUPER_ADMIN]}>
-                <TenantsPage />
-              </ProtectedRoute>
-            } />
             {/* Store management — per-tenant-admin (ADMIN role, not SUPER_ADMIN). */}
             <Route path="stores" element={<StoresPage />} />
           </Route>
+
+          {/* Platform super-admin console — cross-tenant, SUPER_ADMIN only. */}
+          <Route path="/admin" element={
+            <ProtectedRoute roles={[ROLES.SUPER_ADMIN]}>
+              <AdminConsolePage />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="tenants" replace />} />
+            <Route path="tenants" element={<AdminTenantsPage />} />
+            <Route path="activity" element={<AdminActivityPage />} />
+          </Route>
+
+          {/* Backward-compat: tenant management moved out of website-management. */}
+          <Route path="/website-management/tenants" element={<Navigate to="/admin/tenants" replace />} />
 
           {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
           <Route path="/delivery-dashboard" element={
