@@ -16,28 +16,3 @@
 .section-moved-notice { display: flex; align-items: flex-start; gap: 0.75rem; padding: 1rem 1.25rem; background: var(--bg-card); border-radius: var(--radius-md); border-left: 3px solid var(--color-primary); margin-bottom: 1rem; color: var(--text-secondary); }
 .section-moved-notice strong { color: var(--text-primary); }
 .section-moved-notice a { color: var(--color-primary); }
-
-/* Tenant management (ADMIN-only; temporary home in website-management) */
-.tenant-error { padding: 0.75rem 1rem; margin-bottom: 1rem; border-radius: var(--radius-md); background: var(--color-danger-bg, rgba(220,38,38,0.12)); color: var(--color-danger, #dc2626); border-left: 3px solid var(--color-danger, #dc2626); font-size: 0.9rem; }
-.tenant-create-form { margin-bottom: 1.5rem; }
-.tenant-create-form h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary); }
-.tenant-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
-.tenant-section input[type="password"] { width: 100%; padding: 0.5rem 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-size: 0.9rem; }
-.tenant-table-wrap { overflow-x: auto; }
-.tenant-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-.tenant-table th, .tenant-table td { text-align: left; padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary); vertical-align: middle; }
-.tenant-table th { color: var(--text-secondary); font-weight: 600; }
-.tenant-empty { padding: 1rem; color: var(--text-secondary); }
-.tenant-badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-.tenant-badge-active { background: var(--color-success-bg, rgba(16,185,129,0.15)); color: var(--color-success, #10b981); }
-.tenant-badge-suspended { background: var(--color-danger-bg, rgba(220,38,38,0.12)); color: var(--color-danger, #dc2626); }
-.tenant-token-presence { color: var(--text-secondary); font-size: 0.8rem; }
-.tenant-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-.tenant-token-panel { position: relative; padding: 1rem 1.25rem; margin-bottom: 1.5rem; border-radius: var(--radius-md); background: var(--bg-secondary); border: 2px solid var(--color-primary); }
-.tenant-token-warning { display: flex; align-items: center; gap: 0.5rem; color: var(--color-danger, #dc2626); margin-bottom: 0.5rem; }
-.tenant-token-title { font-weight: 600; color: var(--text-primary); margin-bottom: 0.75rem; }
-.tenant-token-dismiss { position: absolute; top: 0.5rem; right: 0.5rem; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; }
-.tenant-token-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
-.tenant-token-row label { min-width: 120px; color: var(--text-secondary); font-size: 0.8rem; margin: 0; }
-.tenant-token-value { flex: 1; min-width: 200px; padding: 0.4rem 0.6rem; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); color: var(--text-primary); font-family: monospace; font-size: 0.85rem; word-break: break-all; }
-.tenant-copy-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.7rem; background: var(--color-primary); color: #fff; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 0.8rem; }
