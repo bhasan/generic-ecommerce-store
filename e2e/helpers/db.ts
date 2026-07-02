@@ -71,6 +71,21 @@ export function getDefaultTenantId(): number {
 }
 
 /**
+ * Promote an existing user to SUPER_ADMIN (idempotent). Creates the SUPER_ADMIN
+ * role if missing and grants it at storeId 0 (all-stores) for the user's tenant.
+ * The user must log in AFTER this so their JWT carries the SUPER_ADMIN role.
+ */
+export function grantSuperAdmin(username: string): void {
+  const safe = username.replace(/'/g, "''");
+  execPsql(`INSERT INTO roles (name) VALUES ('SUPER_ADMIN') ON CONFLICT DO NOTHING`);
+  execPsql(
+    `INSERT INTO user_roles ("userId", "roleId", "tenantId", "storeId") ` +
+    `SELECT u.id, r.id, u."tenantId", 0 FROM users u, roles r ` +
+    `WHERE u.username = '${safe}' AND r.name = 'SUPER_ADMIN' ON CONFLICT DO NOTHING`,
+  );
+}
+
+/**
  * Insert a non-default ACTIVE store under `tenantId` and return its generated id.
  * Use a timestamp in the slug to avoid unique-constraint collisions on re-runs
  * without a reseed.

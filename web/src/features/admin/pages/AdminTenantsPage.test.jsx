@@ -1,14 +1,18 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import TenantsPage from './TenantsPage';
+import AdminTenantsPage from './AdminTenantsPage';
 import * as tenantApi from '../../../services/tenantApi';
 
 vi.mock('../../../services/tenantApi', () => ({
   listTenants: vi.fn(),
   createTenant: vi.fn(),
+  updateTenant: vi.fn(),
   setTenantStatus: vi.fn(),
+  deleteTenant: vi.fn(),
   regenerateTokens: vi.fn(),
+  getTenantAudit: vi.fn(),
 }));
 
 const SAMPLE = [
@@ -23,14 +27,16 @@ const SAMPLE = [
   },
 ];
 
-describe('TenantsPage', () => {
+const renderPage = () => render(<MemoryRouter><AdminTenantsPage /></MemoryRouter>);
+
+describe('AdminTenantsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(tenantApi.listTenants).mockResolvedValue(SAMPLE);
   });
 
   it('renders the tenant list from the API on mount', async () => {
-    render(<TenantsPage />);
+    renderPage();
     expect(await screen.findByText('acme')).toBeInTheDocument();
     expect(screen.getByText('Acme Co')).toBeInTheDocument();
     expect(screen.getByText('ACTIVE')).toBeInTheDocument();
@@ -44,7 +50,7 @@ describe('TenantsPage', () => {
       printAgentKey: 'PRINT-PLAINTEXT-456',
     });
 
-    render(<TenantsPage />);
+    renderPage();
     await screen.findByText('acme');
 
     fireEvent.change(screen.getByLabelText(/Slug/i), { target: { value: 'newco' } });
@@ -64,7 +70,7 @@ describe('TenantsPage', () => {
   it('surfaces a visible error when create fails (e.g. duplicate slug)', async () => {
     vi.mocked(tenantApi.createTenant).mockRejectedValue(new Error('slug already exists'));
 
-    render(<TenantsPage />);
+    renderPage();
     await screen.findByText('acme');
 
     fireEvent.change(screen.getByLabelText(/Slug/i), { target: { value: 'acme' } });
@@ -78,7 +84,7 @@ describe('TenantsPage', () => {
 
   it('toggles tenant status via the API', async () => {
     vi.mocked(tenantApi.setTenantStatus).mockResolvedValue({});
-    render(<TenantsPage />);
+    renderPage();
     await screen.findByText('acme');
 
     fireEvent.click(screen.getByRole('button', { name: /Suspend/i }));
@@ -93,7 +99,7 @@ describe('TenantsPage', () => {
       .mockResolvedValueOnce(SAMPLE)
       .mockResolvedValueOnce(suspendedList);
 
-    render(<TenantsPage />);
+    renderPage();
     await screen.findByText('ACTIVE');
 
     fireEvent.click(screen.getByRole('button', { name: /Suspend/i }));
@@ -106,7 +112,7 @@ describe('TenantsPage', () => {
     vi.mocked(tenantApi.listTenants).mockResolvedValue(suspendedList);
     vi.mocked(tenantApi.setTenantStatus).mockResolvedValue({});
 
-    render(<TenantsPage />);
+    renderPage();
     await screen.findByText('SUSPENDED');
 
     fireEvent.click(screen.getByRole('button', { name: /Activate/i }));
@@ -119,7 +125,7 @@ describe('TenantsPage', () => {
       printAgentKey: 'PRINT-REGEN-012',
     });
 
-    render(<TenantsPage />);
+    renderPage();
     await screen.findByText('acme');
 
     fireEvent.click(screen.getByRole('button', { name: /Regenerate tokens/i }));
@@ -127,5 +133,48 @@ describe('TenantsPage', () => {
     expect(await screen.findByText('RPT-REGEN-789')).toBeInTheDocument();
     expect(screen.getByText('PRINT-REGEN-012')).toBeInTheDocument();
     expect(screen.getByText(/will not be shown again/i)).toBeInTheDocument();
+  });
+
+  it('soft-deletes a tenant via the Delete action (after confirm)', async () => {
+    vi.mocked(tenantApi.deleteTenant).mockResolvedValue({});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    renderPage();
+    await screen.findByText('acme');
+    fireEvent.click(screen.getByRole('button', { name: /^Delete$/i }));
+
+    await waitFor(() => expect(tenantApi.deleteTenant).toHaveBeenCalledWith('t1'));
+  });
+
+  it('reloads with a status filter when the filter changes', async () => {
+    renderPage();
+    await waitFor(() => expect(tenantApi.listTenants).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: 'DELETED' } });
+
+    await waitFor(() => expect(tenantApi.listTenants).toHaveBeenCalledWith('DELETED'));
+  });
+
+  it('shows Restore for a DELETED tenant and reactivates it', async () => {
+    vi.mocked(tenantApi.listTenants).mockResolvedValue([{ ...SAMPLE[0], status: 'DELETED' }]);
+    vi.mocked(tenantApi.setTenantStatus).mockResolvedValue({});
+
+    renderPage();
+    await screen.findByText('DELETED');
+    fireEvent.click(screen.getByRole('button', { name: /Restore/i }));
+
+    await waitFor(() => expect(tenantApi.setTenantStatus).toHaveBeenCalledWith('t1', 'ACTIVE'));
+  });
+
+  it('edits name/plan via updateTenant', async () => {
+    vi.mocked(tenantApi.updateTenant).mockResolvedValue({});
+    renderPage();
+    await screen.findByText('acme');
+
+    fireEvent.click(screen.getByRole('button', { name: /^Edit$/i }));
+    fireEvent.change(screen.getByLabelText(/Edit name/i), { target: { value: 'Acme Renamed' } });
+    fireEvent.change(screen.getByLabelText(/Edit plan/i), { target: { value: 'enterprise' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
+
+    await waitFor(() => expect(tenantApi.updateTenant).toHaveBeenCalledWith('t1', { name: 'Acme Renamed', plan: 'enterprise' }));
   });
 });

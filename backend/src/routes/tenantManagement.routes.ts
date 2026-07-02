@@ -25,11 +25,32 @@ router.post(
   asyncHandler(tenantManagementController.create.bind(tenantManagementController)),
 );
 
+router.get(
+  '/audit',
+  authenticate,
+  requireSuperAdmin,
+  asyncHandler(tenantManagementController.audit.bind(tenantManagementController)),
+);
+
 router.patch(
   '/:id/status',
   authenticate,
   requireSuperAdmin,
   asyncHandler(tenantManagementController.setStatus.bind(tenantManagementController)),
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  requireSuperAdmin,
+  asyncHandler(tenantManagementController.remove.bind(tenantManagementController)),
+);
+
+router.patch(
+  '/:id',
+  authenticate,
+  requireSuperAdmin,
+  asyncHandler(tenantManagementController.update.bind(tenantManagementController)),
 );
 
 router.post(

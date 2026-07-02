@@ -1,4 +1,5 @@
 import { getUnscopedPrisma } from '../config/database';
+import { Prisma } from '../../generated/prisma';
 import { AppError } from '../middleware/error.middleware';
 import { hashPassword } from '../utils/password.util';
 import { generateMachineToken } from '../utils/machineToken';
@@ -34,16 +35,66 @@ export interface RegenerateTokensResult {
   printAgentKey: string;
 }
 
+export interface TenantAuditItem {
+  id: number;
+  action: string;
+  targetTenantId: number;
+  actorUserId: number | null;
+  actorUsername: string;
+  requestId: string | null;
+  detail: unknown;
+  createdAt: Date;
+}
+
+export interface AuditActor {
+  userId?: number;
+  username?: string;
+  requestId?: string;
+}
+
 export class TenantManagementService {
   private get prisma() {
     return getUnscopedPrisma();
   }
 
   /**
+   * Write a platform audit row. MUST be called with a transaction client so the
+   * audit record commits atomically with the mutation it describes.
+   */
+  private async recordTenantAudit(
+    tx: Prisma.TransactionClient,
+    entry: {
+      action: string;
+      targetTenantId: number;
+      actor: AuditActor;
+      detail?: Prisma.InputJsonValue;
+    },
+  ): Promise<void> {
+    await tx.tenantAuditLog.create({
+      data: {
+        action: entry.action,
+        targetTenantId: entry.targetTenantId,
+        actorUserId: entry.actor.userId ?? null,
+        actorUsername: entry.actor.username ?? 'unknown',
+        requestId: entry.actor.requestId ?? null,
+        detail: entry.detail,
+      },
+    });
+  }
+
+  /**
    * List all tenants with token-presence flags (never exposes hashes).
    */
-  async listTenants(): Promise<TenantListItem[]> {
+  async listTenants(statusFilter?: string): Promise<TenantListItem[]> {
+    let where: Prisma.TenantWhereInput = { status: { not: 'DELETED' } };
+    if (statusFilter === 'all') {
+      where = {};
+    } else if (statusFilter === 'ACTIVE' || statusFilter === 'SUSPENDED' || statusFilter === 'DELETED') {
+      where = { status: statusFilter };
+    }
+
     const tenants = await this.prisma.tenant.findMany({
+      where,
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -73,7 +124,7 @@ export class TenantManagementService {
    * Provision a new tenant with a default store, admin user, and both machine tokens.
    * Returns the plaintext tokens once — they are never stored or returned again.
    */
-  async createTenant(input: CreateTenantInput): Promise<CreateTenantResult> {
+  async createTenant(input: CreateTenantInput, actor: AuditActor): Promise<CreateTenantResult> {
     const { slug, name, plan, adminUsername, adminPassword } = input;
 
     // Reject duplicate slugs up-front with a clear 409 (the DB unique constraint
@@ -139,6 +190,13 @@ export class TenantManagementService {
         },
       });
 
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_CREATED',
+        targetTenantId: tenant.id,
+        actor,
+        detail: { slug: tenant.slug, name: tenant.name, plan: tenant.plan },
+      });
+
       return { tenant, store };
     });
 
@@ -160,38 +218,138 @@ export class TenantManagementService {
   }
 
   /**
-   * Activate or suspend a tenant.
+   * Activate or suspend a tenant. Writes an audit row atomically with the change.
+   * The action is derived from the target status: SUSPENDED → TENANT_SUSPENDED,
+   * ACTIVE → TENANT_RESTORED (covers both un-suspend and restore-from-deleted).
    */
-  async setTenantStatus(id: number, status: 'ACTIVE' | 'SUSPENDED') {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id } });
-    if (!tenant) {
-      throw new AppError('Tenant not found', 404);
-    }
-    return this.prisma.tenant.update({
-      where: { id },
-      data: { status },
+  async setTenantStatus(id: number, status: 'ACTIVE' | 'SUSPENDED', actor: AuditActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      const updated = await tx.tenant.update({ where: { id }, data: { status } });
+      await this.recordTenantAudit(tx, {
+        action: status === 'SUSPENDED' ? 'TENANT_SUSPENDED' : 'TENANT_RESTORED',
+        targetTenantId: id,
+        actor,
+        detail: { from: tenant.status, to: status },
+      });
+      return updated;
     });
+  }
+
+  /**
+   * Soft-delete a tenant: flips status to DELETED (no hard delete). The tenant
+   * then resolves as 404 at the middleware and its child data is untouched, so a
+   * later restore (setTenantStatus ACTIVE) brings everything back intact.
+   */
+  async deleteTenant(id: number, actor: AuditActor) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      const updated = await tx.tenant.update({ where: { id }, data: { status: 'DELETED' } });
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_DELETED',
+        targetTenantId: id,
+        actor,
+        detail: { from: tenant.status, to: 'DELETED' },
+      });
+      return updated;
+    });
+  }
+
+  /**
+   * Update mutable tenant profile fields (name, free-text plan). Only provided
+   * fields change. Audits TENANT_UPDATED with the new values.
+   */
+  async updateTenant(
+    id: number,
+    input: { name?: string; plan?: string | null },
+    actor: AuditActor,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      const data: { name?: string; plan?: string | null } = {};
+      if (input.name !== undefined) data.name = input.name;
+      if (input.plan !== undefined) data.plan = input.plan;
+
+      const updated = await tx.tenant.update({ where: { id }, data });
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_UPDATED',
+        targetTenantId: id,
+        actor,
+        detail: { name: updated.name, plan: updated.plan },
+      });
+      return {
+        id: updated.id,
+        slug: updated.slug,
+        name: updated.name,
+        plan: updated.plan,
+        status: updated.status,
+      };
+    });
+  }
+
+  /**
+   * Read the platform audit log, newest first. Optional filters by target tenant
+   * and action. Limit is clamped to 200 to keep the console feed bounded.
+   */
+  async getAuditLog(filter: { tenantId?: number; action?: string; limit?: number }): Promise<TenantAuditItem[]> {
+    const where: Prisma.TenantAuditLogWhereInput = {};
+    if (filter.tenantId !== undefined && !Number.isNaN(filter.tenantId)) {
+      where.targetTenantId = filter.tenantId;
+    }
+    if (filter.action) {
+      where.action = filter.action;
+    }
+    const rows = await this.prisma.tenantAuditLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: Number.isFinite(filter.limit) ? Math.min(filter.limit as number, 200) : 100,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      targetTenantId: r.targetTenantId,
+      actorUserId: r.actorUserId,
+      actorUsername: r.actorUsername,
+      requestId: r.requestId,
+      detail: r.detail,
+      createdAt: r.createdAt,
+    }));
   }
 
   /**
    * Generate fresh machine tokens for an existing tenant.
    * Returns the new plaintext tokens once — the old tokens are immediately invalidated.
    */
-  async regenerateTokens(id: number): Promise<RegenerateTokensResult> {
-    const tenant = await this.prisma.tenant.findUnique({ where: { id } });
-    if (!tenant) {
-      throw new AppError('Tenant not found', 404);
-    }
-
+  async regenerateTokens(id: number, actor: AuditActor): Promise<RegenerateTokensResult> {
     const reportingMachineToken = generateMachineToken();
     const printMachineToken = generateMachineToken();
 
-    await this.prisma.tenant.update({
-      where: { id },
-      data: {
-        reportingTokenHash: reportingMachineToken.hash,
-        printAgentKeyHash: printMachineToken.hash,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.findUnique({ where: { id } });
+      if (!tenant) {
+        throw new AppError('Tenant not found', 404);
+      }
+      await tx.tenant.update({
+        where: { id },
+        data: {
+          reportingTokenHash: reportingMachineToken.hash,
+          printAgentKeyHash: printMachineToken.hash,
+        },
+      });
+      await this.recordTenantAudit(tx, {
+        action: 'TENANT_TOKENS_REGENERATED',
+        targetTenantId: id,
+        actor,
+      });
     });
 
     logger.info('Tenant machine tokens regenerated', { tenantId: id });

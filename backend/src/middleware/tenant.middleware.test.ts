@@ -75,6 +75,15 @@ describe('resolveTenant', () => {
     expect(res.status).toHaveBeenCalledWith(403);
   });
 
+  it('404s a DELETED tenant (indistinguishable from unknown)', async () => {
+    tenantFindFirst.mockResolvedValue({ id: 1, slug: 'acme', status: 'DELETED' });
+    const { req, res, next } = mk('acme.yourapp.com');
+    await resolveTenant(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: 'Tenant not found' });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('maps the `admin` subdomain to the super-admin scope (no tenant)', async () => {
     const { req, res, next } = mk('admin.yourapp.com');
     await resolveTenant(req, res, next);
