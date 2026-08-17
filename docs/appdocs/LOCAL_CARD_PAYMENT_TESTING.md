@@ -42,7 +42,7 @@ chmod +x /tmp/cloudflared
 ### 1. Start the dev stack
 
 ```bash
-cd ~/projects/smoke-station-delivery
+cd ~/projects/generic-ecommerce-store-delivery
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db backend web-dev
 ```
 

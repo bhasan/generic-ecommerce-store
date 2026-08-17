@@ -1,11 +1,11 @@
 # Multi-tenant HTTPS / TLS deployment
 
-How to put Smoke Station behind HTTPS for many tenants on one instance. The
+How to put Generic Ecommerce Store behind HTTPS for many tenants on one instance. The
 application side is already done — this is purely the edge (DNS + TLS + proxy).
 
 ## The one thing the app needs from the edge
 
-Smoke Station resolves the active tenant from the **HTTP Host header** (named
+Generic Ecommerce Store resolves the active tenant from the **HTTP Host header** (named
 subdomain or custom domain → `backend/src/middleware/tenant.middleware.ts`). So
 the proxy's entire multi-tenant responsibility is:
 

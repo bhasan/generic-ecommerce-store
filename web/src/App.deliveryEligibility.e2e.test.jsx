@@ -138,7 +138,7 @@ const installApiMock = ({
           venmo: { enabled: false, handle: '' },
         },
         storeSettings: {
-          name: 'Smoke Station',
+          name: 'Generic Ecommerce Store',
           address: '101 Example Ave',
           phoneNumber: '555-0100',
         },

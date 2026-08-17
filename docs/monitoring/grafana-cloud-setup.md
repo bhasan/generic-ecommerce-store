@@ -2,7 +2,7 @@
 
 ## 1. Create a free account
 
-Go to [grafana.com](https://grafana.com) → **Get started for free**. Choose a stack name (e.g. `smoke-station`). The free tier includes 50 GB logs/month, 10k metric series, and 14-day retention — more than enough for a single app.
+Go to [grafana.com](https://grafana.com) → **Get started for free**. Choose a stack name (e.g. `generic-ecommerce-store`). The free tier includes 50 GB logs/month, 10k metric series, and 14-day retention — more than enough for a single app.
 
 ## 2. Get Loki connection details
 
@@ -64,26 +64,26 @@ Create an alert that fires when the 5xx error rate spikes:
 After deploying with the monitoring stack:
 
 1. In Grafana Cloud, go to **Explore → Loki**
-2. Run this query: `{app="smoke-station-delivery"}`
+2. Run this query: `{app="generic-ecommerce-store-delivery"}`
 3. You should see logs from all three containers within 30 seconds of startup
 
 ## Troubleshooting
 
 **No logs in Loki:**
-- Check Promtail is running: `docker logs smoke-station-promtail`
+- Check Promtail is running: `docker logs generic-ecommerce-store-promtail`
 - Verify `LOKI_URL` includes the scheme (`https://`) but no trailing slash
 - Confirm the API token has `logs:write` scope
 
 **No metrics in Prometheus:**
-- Check Prometheus is running: `docker logs smoke-station-prometheus`
+- Check Prometheus is running: `docker logs generic-ecommerce-store-prometheus`
 - Verify the backend `/metrics` endpoint responds (the image has `wget`, not `curl`):
   ```bash
-  docker exec smoke-station-delivery-backend-prod wget -qO- http://localhost:3000/metrics | head -5
+  docker exec generic-ecommerce-store-delivery-backend-prod wget -qO- http://localhost:3000/metrics | head -5
   ```
 - Confirm `PROMETHEUS_REMOTE_WRITE_URL` is the full push URL (ends in `/api/prom/push`)
 - Check the entrypoint substituted the URL correctly:
   ```bash
-  docker exec smoke-station-prometheus cat /tmp/prometheus.yml | grep url
+  docker exec generic-ecommerce-store-prometheus cat /tmp/prometheus.yml | grep url
   ```
 
 **Monitoring containers keep restarting:**

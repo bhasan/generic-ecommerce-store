@@ -23,11 +23,11 @@ cd "$PROJECT_ROOT"
 # --- Docker image builds ---
 echo ""
 echo "==> [3/6] Building backend Docker image..."
-docker build -t smoke-station-delivery/backend:latest -f backend/Dockerfile ./backend
+docker build -t generic-ecommerce-store-delivery/backend:latest -f backend/Dockerfile ./backend
 
 echo ""
 echo "==> [4/6] Building web Docker image..."
-docker build -t smoke-station-delivery/web:latest -f nginx/Dockerfile .
+docker build -t generic-ecommerce-store-delivery/web:latest -f nginx/Dockerfile .
 
 # --- Save images ---
 BACKEND_TAR="$DOCKER_DIR/backend.tar"
@@ -35,10 +35,10 @@ WEB_TAR="$DOCKER_DIR/web.tar"
 
 echo ""
 echo "==> [5/6] Saving backend image to $BACKEND_TAR..."
-docker save smoke-station-delivery/backend:latest -o "$BACKEND_TAR"
+docker save generic-ecommerce-store-delivery/backend:latest -o "$BACKEND_TAR"
 
 echo "==> [6/6] Saving web image to $WEB_TAR..."
-docker save smoke-station-delivery/web:latest -o "$WEB_TAR"
+docker save generic-ecommerce-store-delivery/web:latest -o "$WEB_TAR"
 
 # --- Summary ---
 echo ""

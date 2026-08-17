@@ -119,8 +119,8 @@ Promtail reads logs from the Docker socket and attaches these labels to every lo
 
 | Label | Source | Example value |
 |-------|--------|---------------|
-| `app` | static | `smoke-station-delivery` |
-| `container` | Docker metadata | `smoke-station-delivery-backend-prod` |
+| `app` | static | `generic-ecommerce-store-delivery` |
+| `container` | Docker metadata | `generic-ecommerce-store-delivery-backend-prod` |
 | `service` | Docker metadata | `backend` |
 | `level` | JSON body (pipeline stage) | `info`, `warn`, `error` |
 
@@ -130,27 +130,27 @@ The `level` label is extracted from the `"level"` field in JSON log lines by Pro
 
 ```logql
 # All error logs across the app
-{app="smoke-station-delivery"} | json | level = "error"
+{app="generic-ecommerce-store-delivery"} | json | level = "error"
 
 # Backend errors only
-{app="smoke-station-delivery", service="backend"} | json | level = "error"
+{app="generic-ecommerce-store-delivery", service="backend"} | json | level = "error"
 
 # Trace a specific request across Nginx + backend logs (same request_id)
-{app="smoke-station-delivery"} |= "abc123"
+{app="generic-ecommerce-store-delivery"} |= "abc123"
 
 # Slow responses (>1s)
-{app="smoke-station-delivery", service="backend"} | json | message = "API Response"
+{app="generic-ecommerce-store-delivery", service="backend"} | json | message = "API Response"
   | duration > "1000ms"
 
 # 5xx responses
-{app="smoke-station-delivery", service="backend"} | json | message = "API Response"
+{app="generic-ecommerce-store-delivery", service="backend"} | json | message = "API Response"
   | statusCode >= 500
 
 # Nginx 5xx (JSON fields, no regex needed)
-{app="smoke-station-delivery", service="nginx"} | json | status >= 500
+{app="generic-ecommerce-store-delivery", service="nginx"} | json | status >= 500
 
 # Slow Nginx upstream responses (>500ms)
-{app="smoke-station-delivery", service="nginx"} | json | request_time > 0.5
+{app="generic-ecommerce-store-delivery", service="nginx"} | json | request_time > 0.5
 ```
 
 ## Environment variables
@@ -166,7 +166,7 @@ The `level` label is extracted from the `"level"` field in JSON log lines by Pro
 Key business actions emit structured event logs via `logger.logEvent()`. These have a top-level `event` field, making them queryable as a distinct class of logs in Loki:
 
 ```logql
-{app="smoke-station-delivery", service="backend"} | json | event != ""
+{app="generic-ecommerce-store-delivery", service="backend"} | json | event != ""
 ```
 
 | Event | Trigger | Key fields |
@@ -178,7 +178,7 @@ Key business actions emit structured event logs via `logger.logEvent()`. These h
 
 Login failures (401) are captured by the global error handler and appear as `level=error` logs — they don't have a separate `event` field, but can be found via:
 ```logql
-{app="smoke-station-delivery", service="backend"} | json | level = "error" | statusCode = 401
+{app="generic-ecommerce-store-delivery", service="backend"} | json | level = "error" | statusCode = 401
 ```
 
 See the [monitoring README](./README.md) for the full observability architecture.

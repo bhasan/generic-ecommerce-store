@@ -141,7 +141,7 @@ async function main() {
   };
 
   writeJson(path.join(reportDir, 'summary.json'), report);
-  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Smoke Station Local Smoke Report', report));
+  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Generic Ecommerce Store Local Smoke Report', report));
 
   if (report.status === 'FAIL') {
     process.exitCode = 1;

@@ -1,6 +1,6 @@
-# Smoke Station Delivery — Multi-Tenancy Architecture Rules
+# Generic Ecommerce Store Delivery — Multi-Tenancy Architecture Rules
 
-This file outlines the critical constraints, gotchas, and guidelines for developing within the multi-tenant architecture of Smoke Station Delivery.
+This file outlines the critical constraints, gotchas, and guidelines for developing within the multi-tenant architecture of Generic Ecommerce Store Delivery.
 
 ---
 

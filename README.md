@@ -1,4 +1,4 @@
-# Smoke Station
+# Generic Ecommerce Store
 
 E-commerce platform with React frontend, Express backend, PostgreSQL database, and Nginx reverse proxy.
 
@@ -73,7 +73,7 @@ After starting the dev containers:
 ### 1. Run database migrations
 
 ```bash
-docker exec smoke-station-delivery-backend npm run prisma:migrate
+docker exec generic-ecommerce-store-backend npm run prisma:migrate
 ```
 
 ### 2. Optional seed

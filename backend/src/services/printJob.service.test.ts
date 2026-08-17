@@ -41,11 +41,11 @@ describe('print job service', () => {
   it('creates pending print jobs with the full receipt payload unchanged', async () => {
     const payload = {
       eventType: 'ORDER_RECEIPT_PRINT_REQUESTED',
-      source: 'smoke-station-delivery',
+      source: 'generic-ecommerce-store-delivery',
       requestedAt: '2026-04-20T12:00:00.000Z',
       reason: 'ORDER_CREATED',
       actor: { userId: 7, username: null },
-      printer: { storeName: 'Smoke Station', format: 'text/plain', width: 42 },
+      printer: { storeName: 'Generic Ecommerce Store', format: 'text/plain', width: 42 },
       order: { id: 88 },
       receipt: { templateType: 'STAFF_TICKET', text: 'ORDER #88', lineCount: 1 },
     };

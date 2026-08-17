@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Quick Start Script for Smoke Station Delivery Docker Setup
+# Quick Start Script for Generic Ecommerce Store Delivery Docker Setup
 
 set -e
 
-echo "🐳 Docker Setup - Smoke Station Delivery"
+echo "🐳 Docker Setup - Generic Ecommerce Store Delivery"
 echo "========================================"
 echo
 

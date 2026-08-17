@@ -1,6 +1,6 @@
-# Smoke Station Backend
+# Generic Ecommerce Store Backend
 
-This package contains the Express/TypeScript API for Smoke Station.
+This package contains the Express/TypeScript API for Generic Ecommerce Store.
 
 Current source of truth:
 

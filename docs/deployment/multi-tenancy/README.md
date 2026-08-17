@@ -38,7 +38,7 @@ provision additional tenants.
 ```bash
 # 1. BACK UP THE DATABASE. Non-negotiable — there is no down-migration; rollback
 #    = restore this dump.
-pg_dump "$DATABASE_URL" -Fc -f smoke-station-pre-multitenant-$(date +%Y%m%d%H%M).dump
+pg_dump "$DATABASE_URL" -Fc -f generic-ecommerce-store-pre-multitenant-$(date +%Y%m%d%H%M).dump
 
 # 2. Confirm the DB is on the expected migration state (everything up to the
 #    branch point already applied, the 3 new ones NOT yet applied).
@@ -116,7 +116,7 @@ state). To roll back: stop the app, `pg_restore` the pre-migration dump, and
 redeploy the previous image.
 
 ```bash
-pg_restore --clean --if-exists -d "$DATABASE_URL" smoke-station-pre-multitenant-*.dump
+pg_restore --clean --if-exists -d "$DATABASE_URL" generic-ecommerce-store-pre-multitenant-*.dump
 ```
 
 ## Next

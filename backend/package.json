@@ -1,7 +1,7 @@
 {
-  "name": "smoke-station-backend",
+  "name": "generic-ecommerce-store-backend",
   "version": "2.0.0",
-  "description": "Backend API for Smoke Station E-commerce with Authentication & Authorization",
+  "description": "Backend API for Generic Ecommerce Store E-commerce with Authentication & Authorization",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",

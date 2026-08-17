@@ -77,16 +77,16 @@ docker compose build
 
 # Production with versioning
 docker compose -f docker-compose.prod.yml build
-docker tag smoke-station-delivery/backend:latest smoke-station-delivery/backend:v1.0.0
-docker tag smoke-station-delivery/web:latest smoke-station-delivery/web:v1.0.0
+docker tag generic-ecommerce-store-delivery/backend:latest generic-ecommerce-store-delivery/backend:v1.0.0
+docker tag generic-ecommerce-store-delivery/web:latest generic-ecommerce-store-delivery/web:v1.0.0
 ```
 
 ### Push to Registry (Optional)
 ```bash
 docker login your-registry
-docker tag smoke-station-delivery/backend:latest your-registry/backend:latest
+docker tag generic-ecommerce-store-delivery/backend:latest your-registry/backend:latest
 docker push your-registry/backend:latest
-docker tag smoke-station-delivery/web:latest your-registry/web:latest
+docker tag generic-ecommerce-store-delivery/web:latest your-registry/web:latest
 docker push your-registry/web:latest
 ```
 
@@ -140,9 +140,9 @@ docker compose logs -f --tail=100
 All services include health checks that can be used with orchestrators:
 
 ```bash
-docker inspect --format='{{json .State.Health}}' smoke-station-delivery-backend
-docker inspect --format='{{json .State.Health}}' smoke-station-delivery-web
-docker inspect --format='{{json .State.Health}}' smoke-station-delivery-db
+docker inspect --format='{{json .State.Health}}' generic-ecommerce-store-delivery-backend
+docker inspect --format='{{json .State.Health}}' generic-ecommerce-store-delivery-web
+docker inspect --format='{{json .State.Health}}' generic-ecommerce-store-delivery-db
 ```
 
 ### Resource Monitoring
@@ -180,10 +180,10 @@ docker compose exec backend npm run prisma:seed
 docker compose exec backend sh
 
 # View image details
-docker inspect smoke-station-delivery/backend:latest
+docker inspect generic-ecommerce-store-delivery/backend:latest
 
 # Check image size
-docker images | grep smoke-station
+docker images | grep generic-ecommerce-store
 ```
 
 ---

@@ -1,8 +1,8 @@
 @echo off
-REM Quick Start Script for Smoke Station Delivery Docker Setup (Windows)
+REM Quick Start Script for Generic Ecommerce Store Delivery Docker Setup (Windows)
 
 echo.
-echo 🐳 Docker Setup - Smoke Station Delivery
+echo 🐳 Docker Setup - Generic Ecommerce Store Delivery
 echo ========================================
 echo.
 

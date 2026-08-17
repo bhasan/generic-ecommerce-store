@@ -1,9 +1,9 @@
-name: smoke-station-monitoring
+name: generic-ecommerce-store-monitoring
 
 services:
   promtail:
     image: grafana/promtail:3.0.0
-    container_name: smoke-station-promtail
+    container_name: generic-ecommerce-store-promtail
     restart: unless-stopped
     volumes:
       - ./monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
@@ -20,7 +20,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.53.0
-    container_name: smoke-station-prometheus
+    container_name: generic-ecommerce-store-prometheus
     restart: unless-stopped
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.template:ro
@@ -42,4 +42,4 @@ volumes:
 networks:
   sshtx_network:
     external: true
-    name: smoke-station_sshtx_network
+    name: generic-ecommerce-store_sshtx_network

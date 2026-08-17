@@ -27,7 +27,7 @@ Phase 1 has no self-service UI. Tenants are provisioned via a database seed scri
 SSH into the server and run inside the backend container:
 
 ```bash
-docker exec -it smoke-station-delivery-backend npx ts-node prisma/seed-tenant.ts \
+docker exec -it generic-ecommerce-store-delivery-backend npx ts-node prisma/seed-tenant.ts \
   --slug acme \
   --name "Acme Smoke Shop" \
   --status ACTIVE

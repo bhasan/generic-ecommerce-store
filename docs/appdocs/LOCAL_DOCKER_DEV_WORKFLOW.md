@@ -29,7 +29,7 @@ Typical keys:
 ```env
 DB_USER=backend_user
 DB_PASSWORD=change-me
-DB_NAME=smoke-station-delivery-db
+DB_NAME=generic-ecommerce-store-delivery-db
 JWT_SECRET=replace-with-local-secret
 ```
 
@@ -38,7 +38,7 @@ JWT_SECRET=replace-with-local-secret
 Typical keys:
 
 ```env
-DATABASE_URL=postgresql://backend_user:change-me@db:5432/smoke-station-delivery-db
+DATABASE_URL=postgresql://backend_user:change-me@db:5432/generic-ecommerce-store-delivery-db
 JWT_SECRET=replace-with-local-secret
 JWT_EXPIRES_IN=24h
 PORT=3000
@@ -64,8 +64,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db 
 Then apply schema and seed:
 
 ```powershell
-docker exec smoke-station-delivery-backend npm run prisma:migrate
-docker exec smoke-station-delivery-backend npm run prisma:seed
+docker exec generic-ecommerce-store-delivery-backend npm run prisma:migrate
+docker exec generic-ecommerce-store-delivery-backend npm run prisma:seed
 ```
 
 Open:
@@ -100,8 +100,8 @@ Warning: this deletes local Postgres data.
 ```powershell
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build db backend web-dev
-docker exec smoke-station-delivery-backend npm run prisma:migrate
-docker exec smoke-station-delivery-backend npm run prisma:seed
+docker exec generic-ecommerce-store-delivery-backend npm run prisma:migrate
+docker exec generic-ecommerce-store-delivery-backend npm run prisma:seed
 ```
 
 ## Why The Dev Override Exists

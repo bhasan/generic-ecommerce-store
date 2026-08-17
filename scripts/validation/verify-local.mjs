@@ -32,7 +32,7 @@ function main() {
   runGate(
     'migration_status',
     'docker',
-    ['exec', 'smoke-station-delivery-backend', 'npx', 'prisma', 'migrate', 'status'],
+    ['exec', 'generic-ecommerce-store-delivery-backend', 'npx', 'prisma', 'migrate', 'status'],
     'Local dev database migration history is clean.',
   );
   runGate('backend_tests', npmCommand, ['run', 'test:backend'], 'Backend Vitest suite passed.');
@@ -49,7 +49,7 @@ function main() {
   };
 
   writeJson(path.join(reportDir, 'summary.json'), report);
-  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Smoke Station Local E2E Verification Report', report));
+  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Generic Ecommerce Store Local E2E Verification Report', report));
 
   if (report.status === 'FAIL') {
     process.exitCode = 1;

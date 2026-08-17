@@ -68,7 +68,7 @@ async function main() {
   );
   if (compose.status === 'PASS') {
     const output = `${compose.stdoutTail || ''} ${compose.stderrTail || ''}`;
-    for (const service of ['smoke-station-delivery-db', 'smoke-station-delivery-backend', 'smoke-station-delivery-web-dev']) {
+    for (const service of ['generic-ecommerce-store-delivery-db', 'generic-ecommerce-store-delivery-backend', 'generic-ecommerce-store-delivery-web-dev']) {
       addResult(
         results,
         `compose_service_${service}`,
@@ -121,7 +121,7 @@ async function main() {
   };
 
   writeJson(path.join(reportDir, 'summary.json'), report);
-  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Smoke Station Preflight Report', report));
+  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Generic Ecommerce Store Preflight Report', report));
 
   if (report.status === 'FAIL') {
     process.exitCode = 1;

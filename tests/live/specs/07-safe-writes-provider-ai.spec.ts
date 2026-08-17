@@ -6,7 +6,7 @@ import { hasPersona, liveEnv } from '../helpers/env';
 
 test.describe('optional live gates', () => {
   test('safe write creates and resolves disposable contact message @safe-writes', async ({ request }) => {
-    test.skip(!liveEnv.allowSafeWrites, 'Set SMOKE_STATION_ALLOW_SAFE_WRITES=true to run safe writes.');
+    test.skip(!liveEnv.allowSafeWrites, 'Set GENERIC_ECOMMERCE_STORE_ALLOW_SAFE_WRITES=true to run safe writes.');
     test.skip(!hasPersona('customer'), 'Customer live credentials are not configured.');
     test.skip(!hasPersona('manager'), 'Manager live credentials are required for cleanup/resolve.');
 
@@ -41,7 +41,7 @@ test.describe('optional live gates', () => {
   });
 
   test('provider live evidence remains opt-in and shape-only @provider-live', async ({ request }) => {
-    test.skip(!liveEnv.allowProviderTests, 'Set SMOKE_STATION_ALLOW_PROVIDER_TESTS=true to run provider live checks.');
+    test.skip(!liveEnv.allowProviderTests, 'Set GENERIC_ECOMMERCE_STORE_ALLOW_PROVIDER_TESTS=true to run provider live checks.');
     test.skip(!hasPersona('customer'), 'Customer live credentials are not configured.');
 
     const { token } = await loginViaApi(
@@ -56,7 +56,7 @@ test.describe('optional live gates', () => {
           street: '123 Test Street',
           city: 'Houston',
           state: 'TX',
-          zipCode: process.env.SMOKE_STATION_PROVIDER_TEST_ZIP || '77083',
+          zipCode: process.env.GENERIC_ECOMMERCE_STORE_PROVIDER_TEST_ZIP || '77083',
         },
       },
     });
@@ -78,7 +78,7 @@ test.describe('optional live gates', () => {
   });
 
   test('AI live gate is not applicable until an AI integration exists @ai-live', async () => {
-    test.skip(!liveEnv.allowAiTests, 'Set SMOKE_STATION_ALLOW_AI_TESTS=true to require live AI evidence.');
-    test.skip(true, 'No AI/LLM integration was found in the current Smoke Station implementation.');
+    test.skip(!liveEnv.allowAiTests, 'Set GENERIC_ECOMMERCE_STORE_ALLOW_AI_TESTS=true to require live AI evidence.');
+    test.skip(true, 'No AI/LLM integration was found in the current Generic Ecommerce Store implementation.');
   });
 });

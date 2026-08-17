@@ -5,7 +5,7 @@ import { liveEnv } from '../helpers/env';
 
 test.describe('performance smoke @performance', () => {
   test('hot public APIs stay under smoke latency threshold', async ({ request }) => {
-    const thresholdMs = Number(process.env.SMOKE_STATION_PERF_THRESHOLD_MS || 2000);
+    const thresholdMs = Number(process.env.GENERIC_ECOMMERCE_STORE_PERF_THRESHOLD_MS || 2000);
     const endpoints = ['/health', '/config', '/products', '/categories'];
     const samples = [];
 
