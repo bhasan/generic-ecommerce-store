@@ -7,13 +7,13 @@ services:
     environment:
       POSTGRES_USER: ${DB_USER:-backend_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me}
-      POSTGRES_DB: ${DB_NAME:-smoke-station-delivery-db}
+      POSTGRES_DB: ${DB_NAME:-generic-ecommerce-store-db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - sshtx_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-backend_user} -d ${DB_NAME:-smoke-station-delivery-db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-backend_user} -d ${DB_NAME:-generic-ecommerce-store-db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: "postgresql://${DB_USER:-backend_user}:${DB_PASSWORD:-change-me}@db:5432/${DB_NAME:-smoke-station-delivery-db}"
+      DATABASE_URL: "postgresql://${DB_USER:-backend_user}:${DB_PASSWORD:-change-me}@db:5432/${DB_NAME:-generic-ecommerce-store-db}"
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-24h}

@@ -219,7 +219,7 @@ curl http://localhost:3000/api/health
 curl http://localhost/
 
 # 4. Verify database
-docker compose exec db psql -U backend_user -d smoke-station-delivery-db -c "SELECT version();"
+docker compose exec db psql -U backend_user -d generic-ecommerce-store-db -c "SELECT version();"
 
 # 5. View real-time logs
 docker compose logs -f
@@ -230,7 +230,7 @@ docker compose logs -f
 ## 📋 Service Details
 
 ### Backend Service
-- **Container**: smoke-station-delivery-backend
+- **Container**: generic-ecommerce-store-delivery-backend
 - **Port**: 3000
 - **Health Check**: GET /api/health (every 30s)
 - **Startup**: npx prisma migrate deploy && node dist/index.js
@@ -238,14 +238,14 @@ docker compose logs -f
 - **Volumes**: ./backend/src (dev hot reload)
 
 ### Frontend Service
-- **Container**: smoke-station-delivery-web
+- **Container**: generic-ecommerce-store-delivery-web
 - **Port**: 80
 - **Health Check**: HTTP / (every 30s)
 - **Proxy**: /api/* → backend:3000
 - **Volumes**: ./web/dist (built app)
 
 ### Database Service
-- **Container**: smoke-station-delivery-db
+- **Container**: generic-ecommerce-store-db
 - **Port**: 5432
 - **Health Check**: pg_isready (every 10s)
 - **Volume**: postgres_data (persistent)

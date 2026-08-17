@@ -17,7 +17,7 @@ async function main() {
   console.log(`store_settings: ${storeRow ? 'EXISTS' : 'MISSING'} (name="${storeName}")`);
 
   // ── 2. Seed payment_settings if missing ───────────────────────────────────
-  // Risk: old code defaulted to handle '$SmokeStationX' in-memory when no DB row.
+  // Risk: old code defaulted to handle '$GenericEcommerceStoreX' in-memory when no DB row.
   //       New code defaults to '' — silently breaks CashApp checkout.
   const paymentRow = await prisma.uiSetting.findUnique({ where: { key: 'payment_settings' } });
   if (!paymentRow) {
@@ -26,7 +26,7 @@ async function main() {
       data: {
         key: 'payment_settings',
         value: {
-          cashapp: { enabled: true, handle: '$SmokeStationX' },
+          cashapp: { enabled: true, handle: '$GenericEcommerceStoreX' },
           zelle:   { enabled: false, handle: '' },
           venmo:   { enabled: false, handle: '' },
         },

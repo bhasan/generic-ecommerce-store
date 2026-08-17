@@ -66,14 +66,14 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod build web --no-ca
 docker images
 ```
 
-Look for names like `smoke-station-delivery-backend-prod` and `smoke-station-delivery-web-prod`. If your project directory name differs the prefix will differ — use the names shown by `docker images`.
+Look for names like `generic-ecommerce-store-delivery-backend-prod` and `generic-ecommerce-store-delivery-web-prod`. If your project directory name differs the prefix will differ — use the names shown by `docker images`.
 
 **1.4** Save both app images to a single versioned tarball:
 
 ```bash
 docker save -o smoke_station_app_v1.0.0.tar \
-  smoke-station-delivery-backend-prod \
-  smoke-station-delivery-web-prod
+  generic-ecommerce-store-delivery-backend-prod \
+  generic-ecommerce-store-delivery-web-prod
 ```
 
 Replace `v1.0.0` with your version or release tag. Postgres is **not** included in the tarball — the target will pull `postgres:16-alpine` on first start.
@@ -100,7 +100,7 @@ Both files must exist at the exact paths the Compose file expects:
 
 ## Step 3: Copy Files to Target
 
-Copy these to the target's application directory (e.g. `/home/webuser/smoke-station-delivery` or `C:\webhosting\webapp`):
+Copy these to the target's application directory (e.g. `/home/webuser/generic-ecommerce-store-delivery` or `C:\webhosting\webapp`):
 
 | Item | Purpose |
 |------|---------|
@@ -123,7 +123,7 @@ Before running `docker compose up`:
 - **Windows/WSL:** All commands below run inside WSL (e.g. Ubuntu). Navigate to the application directory with `cd /path/to/app`.
 - Suggested directory layout on target:
   ```
-  /home/webuser/smoke-station-delivery/
+  /home/webuser/generic-ecommerce-store-delivery/
   ├── docker-compose.prod.yml
   ├── .env.prod
   ├── backend/
@@ -142,7 +142,7 @@ Before running `docker compose up`:
 **5.1** Navigate to the application directory on the target:
 
 ```bash
-cd /path/to/smoke-station-delivery
+cd /path/to/generic-ecommerce-store-delivery
 ```
 
 **5.2** Load the images from the tarball:
@@ -172,13 +172,13 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 **5.6** Run migrations (required on first deploy and after any schema changes):
 
 ```bash
-docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
+docker exec generic-ecommerce-store-delivery-backend-prod npx prisma migrate deploy
 ```
 
 **5.7** (First time only) Seed the database:
 
 ```bash
-docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod
+docker exec generic-ecommerce-store-delivery-backend-prod npm run prisma:seed:prod
 ```
 
 Ensure `ADMIN_PASSWORD` is set in `backend/.env` before running this.
@@ -218,8 +218,8 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod build
 
 # 4. Export updated images (use a new version tag)
 docker save -o smoke_station_app_v1.1.0.tar \
-  smoke-station-delivery-backend-prod \
-  smoke-station-delivery-web-prod
+  generic-ecommerce-store-delivery-backend-prod \
+  generic-ecommerce-store-delivery-web-prod
 ```
 
 **Copy the new tarball to the target**, then on the target:
@@ -235,7 +235,7 @@ docker load -i smoke_station_app_v1.1.0.tar
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 # 4. Apply any schema changes
-docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
+docker exec generic-ecommerce-store-delivery-backend-prod npx prisma migrate deploy
 ```
 
 The target's database volume and data are preserved — only the app images are replaced.
@@ -249,11 +249,11 @@ If the target can reach a container registry (Docker Hub, GitHub Container Regis
 **On the build machine — tag and push:**
 
 ```bash
-docker tag smoke-station-delivery-backend-prod your-registry/smoke-station-backend:v1.1.0
-docker push your-registry/smoke-station-backend:v1.1.0
+docker tag generic-ecommerce-store-delivery-backend-prod your-registry/generic-ecommerce-store-backend:v1.1.0
+docker push your-registry/generic-ecommerce-store-backend:v1.1.0
 
-docker tag smoke-station-delivery-web-prod your-registry/smoke-station-web:v1.1.0
-docker push your-registry/smoke-station-web:v1.1.0
+docker tag generic-ecommerce-store-delivery-web-prod your-registry/generic-ecommerce-store-web:v1.1.0
+docker push your-registry/generic-ecommerce-store-web:v1.1.0
 ```
 
 **Update `docker-compose.prod.yml`** on the target to reference the registry image names and tags.
@@ -263,7 +263,7 @@ docker push your-registry/smoke-station-web:v1.1.0
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod pull
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
+docker exec generic-ecommerce-store-delivery-backend-prod npx prisma migrate deploy
 ```
 
 No manual save/copy/load required.
@@ -275,18 +275,18 @@ No manual save/copy/load required.
 ### Migrations not applied after deploy
 
 ```bash
-docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
+docker exec generic-ecommerce-store-delivery-backend-prod npx prisma migrate deploy
 ```
 
 If the DB volume was recreated (e.g. `docker compose down -v`), run migrations and seed again after bringing the stack up:
 
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.prod down
-docker volume ls  # find the postgres volume, e.g. smoke-station-delivery_postgres_data_prod
+docker volume ls  # find the postgres volume, e.g. generic-ecommerce-store-delivery_postgres_data_prod
 docker volume rm <volume_name>
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
-docker exec smoke-station-delivery-backend-prod npx prisma migrate deploy
-docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod
+docker exec generic-ecommerce-store-delivery-backend-prod npx prisma migrate deploy
+docker exec generic-ecommerce-store-delivery-backend-prod npm run prisma:seed:prod
 ```
 
 ### Backend can't connect to DB
@@ -295,7 +295,7 @@ docker exec smoke-station-delivery-backend-prod npm run prisma:seed:prod
 - Confirm `DATABASE_URL` in the backend container uses host `db`: `postgresql://USER:PASS@db:5432/DBNAME`.
 
 ```bash
-docker exec smoke-station-delivery-backend-prod env | grep DATABASE_URL
+docker exec generic-ecommerce-store-delivery-backend-prod env | grep DATABASE_URL
 ```
 
 ### Docker build fails with TLS/network errors

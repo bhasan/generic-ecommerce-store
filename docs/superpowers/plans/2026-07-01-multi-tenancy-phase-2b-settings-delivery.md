@@ -6,7 +6,7 @@
 
 **Architecture:** `ui_settings` gains a `storeId` column; the `storeId 0` row is the tenant default (= the default store's settings, inherited by others), a real `storeId` row is a non-default store's partial override. `SettingsStore` gains a `storeScoped` mode whose read merges `row0 ⊕ row[activeStore]` (non-blank override wins, blank inherits) and whose write targets `row 0` for the default store or `row[activeStore]` for a non-default store — using a new `isDefaultStore` flag on the tenant context. Delivery reads the active store's merged address.
 
-**Tech Stack:** Express + TypeScript, Prisma (`../../generated/prisma`), Vitest. Tests run in the container: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run <path>'`.
+**Tech Stack:** Express + TypeScript, Prisma (`../../generated/prisma`), Vitest. Tests run in the container: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run <path>'`.
 
 ## Global Constraints
 
@@ -54,7 +54,7 @@ Adds the column and repoints the existing tenant-scoped read/write to `storeId 0
   });
 ```
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/integration/tenantUniqueConstraints.test.ts'` → FAIL (no `storeId` column; `create` with `storeId` errors on the generated client).
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/integration/tenantUniqueConstraints.test.ts'` → FAIL (no `storeId` column; `create` with `storeId` errors on the generated client).
 
 - [ ] **Step 2: Update the schema.** In `UiSetting`: add `storeId Int?` (NO `@relation`), change `@@unique([tenantId, key])` → `@@unique([tenantId, storeId, key])`, add `@@index([storeId])`.
 
@@ -74,7 +74,7 @@ CREATE INDEX "ui_settings_storeId_idx" ON "ui_settings"("storeId");
   - `read()`: change `getTenantPrisma().uiSetting.findFirst({ where: { key } })` → `findFirst({ where: { key, storeId: 0 } })`.
   - `write()`: change the upsert `where: { tenantId_key: { tenantId, key } }` → `where: { tenantId_storeId_key: { tenantId, storeId: 0, key } }`, and `create: { key, value: … }` → `create: { key, storeId: 0, value: … }`.
 
-- [ ] **Step 5: Apply + regenerate.** `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx prisma migrate deploy && npx prisma generate'` → 1 migration applied.
+- [ ] **Step 5: Apply + regenerate.** `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx prisma migrate deploy && npx prisma generate'` → 1 migration applied.
 
 - [ ] **Step 6: Run the extended test + the settings suites** (`settingsStore`, `storeSettings.service`, `branding.service`, `settingsIsolation`, `tenantUniqueConstraints`): `docker exec … npx vitest run src/services/settingsStore.test.ts src/services/storeSettings.service.test.ts src/services/branding.service.test.ts src/integration/settingsIsolation.test.ts src/integration/tenantUniqueConstraints.test.ts` → all pass.
 

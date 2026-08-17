@@ -604,7 +604,7 @@ describe('resolveTenantUploadPath', () => {
 
 - [ ] **Step 4: Run test to verify it fails**
 
-Run (in container): `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/utils/fileUtils.test.ts'`
+Run (in container): `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/utils/fileUtils.test.ts'`
 Expected: FAIL — `resolveTenantUploadPath` is not exported.
 
 - [ ] **Step 5: Implement `resolveTenantUploadPath` in `fileUtils.ts`**
@@ -632,7 +632,7 @@ export function resolveTenantUploadPath(
 
 - [ ] **Step 6: Run test to verify it passes**
 
-Run (in container): `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/utils/fileUtils.test.ts'`
+Run (in container): `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/utils/fileUtils.test.ts'`
 Expected: PASS (the `tenantUploadsDir` test from B1 plus the five new guard tests).
 
 - [ ] **Step 7: Wire the thin route into `index.ts`**
@@ -669,7 +669,7 @@ Leave the existing legacy `app.use('/api/uploads', express.static(...))` mount i
 
 - [ ] **Step 8: Typecheck + commit**
 
-Run (in container): `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx tsc --noEmit'`
+Run (in container): `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx tsc --noEmit'`
 
 ```bash
 git add backend/src/controllers/upload.controller.ts backend/src/index.ts \

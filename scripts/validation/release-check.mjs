@@ -42,7 +42,7 @@ function main() {
   runGate(
     'migration_status',
     'docker',
-    ['exec', 'smoke-station-delivery-backend', 'npx', 'prisma', 'migrate', 'status'],
+    ['exec', 'generic-ecommerce-store-delivery-backend', 'npx', 'prisma', 'migrate', 'status'],
     'Local dev database migration history is clean.',
   );
 
@@ -74,7 +74,7 @@ function main() {
   };
 
   writeJson(path.join(reportDir, 'summary.json'), report);
-  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Smoke Station Release Gate Report', report));
+  writeText(path.join(reportDir, 'summary.md'), markdownSummary('Generic Ecommerce Store Release Gate Report', report));
 
   if (report.status === 'FAIL') {
     process.exitCode = 1;

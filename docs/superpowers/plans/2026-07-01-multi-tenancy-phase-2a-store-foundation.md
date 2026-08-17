@@ -6,7 +6,7 @@
 
 **Architecture:** Extends the Phase-1 `resolveTenant` middleware to also resolve the active store and put its `storeId` in the AsyncLocalStorage context (the scoped Prisma client already auto-filters store-scoped tables on `storeId`). Establishes `storeId 0` as the universal all-stores/default marker in `role.middleware` and backfills existing all-stores roles from `null → 0`. No frontend, no catalog/settings changes yet — foundation sub-plan (2a of 2a–2e in `docs/superpowers/specs/2026-06-30-multi-tenancy-phase-2-design.md`).
 
-**Tech Stack:** Express + TypeScript, Prisma (generated client at `../../generated/prisma`, imported via `getUnscopedPrisma()` / default scoped export from `src/config/database.ts`), Vitest. Tests run in the container: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run <path>'`.
+**Tech Stack:** Express + TypeScript, Prisma (generated client at `../../generated/prisma`, imported via `getUnscopedPrisma()` / default scoped export from `src/config/database.ts`), Vitest. Tests run in the container: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run <path>'`.
 
 ## Global Constraints
 
@@ -47,7 +47,7 @@ In `backend/src/middleware/role.middleware.test.ts`, inside the existing top-lev
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/role.middleware.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/role.middleware.test.ts'`
 Expected: FAIL — with `storeId: 0`, the current `storeId === null || storeId === actingStore` is `false` for acting store 5, so `next` is not called (403).
 
 - [ ] **Step 3: Implement the change**
@@ -64,7 +64,7 @@ to:
 
 - [ ] **Step 4: Run to verify pass**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/role.middleware.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/role.middleware.test.ts'`
 Expected: PASS (all prior tests + the new one).
 
 - [ ] **Step 5: Commit**
@@ -134,7 +134,7 @@ describe('UserRole multi-store uniqueness', () => {
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/integration/userRoleMultiStore.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/integration/userRoleMultiStore.test.ts'`
 Expected: FAIL — the second `create` (`s2`) throws (old `@@unique([userId, roleId])`).
 
 - [ ] **Step 3: Update the schema**
@@ -156,17 +156,17 @@ CREATE UNIQUE INDEX "user_roles_userId_roleId_storeId_key" ON "user_roles"("user
 
 - [ ] **Step 5: Apply the migration + regenerate the client**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx prisma migrate deploy && npx prisma generate'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx prisma migrate deploy && npx prisma generate'`
 Expected: `1 migration applied` (`20260701000000_userrole_store_unique`); client regenerated.
 
 - [ ] **Step 6: Run the test to verify it passes**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/integration/userRoleMultiStore.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/integration/userRoleMultiStore.test.ts'`
 Expected: PASS.
 
 - [ ] **Step 7: Run the full backend suite (backward-compat gate)**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run 2>&1 | tail -3'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run 2>&1 | tail -3'`
 Expected: all pass, 0 failed. Existing staff now carry `storeId 0` (all-stores), which Task 1 already treats as all-stores — so RBAC tests stay green.
 
 - [ ] **Step 8: Commit**
@@ -242,7 +242,7 @@ The existing `backend/src/middleware/tenant.middleware.test.ts` mocks `getUnscop
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/tenant.middleware.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/tenant.middleware.test.ts'`
 Expected: the new tests FAIL — current code always looks up `isDefault` and never reads `x-store-id`, so the first test gets `req.store.id === 5`.
 
 - [ ] **Step 3: Implement `resolveActiveStore` and use it**
@@ -310,12 +310,12 @@ with:
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/tenant.middleware.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/middleware/tenant.middleware.test.ts'`
 Expected: PASS (prior + 4 new).
 
 - [ ] **Step 5: Typecheck + full suite**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npm run typecheck && npx vitest run 2>&1 | tail -3'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npm run typecheck && npx vitest run 2>&1 | tail -3'`
 Expected: tsc clean; all tests pass, 0 failed.
 
 - [ ] **Step 6: Commit**
@@ -370,7 +370,7 @@ describe('StoreService.listStores', () => {
 
 - [ ] **Step 2: Run to verify failure**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/services/store.service.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/services/store.service.test.ts'`
 Expected: FAIL — `./store.service` does not exist.
 
 - [ ] **Step 3: Implement the service**
@@ -395,7 +395,7 @@ export class StoreService {
 
 - [ ] **Step 4: Run the test to verify it passes**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run src/services/store.service.test.ts'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run src/services/store.service.test.ts'`
 Expected: PASS.
 
 - [ ] **Step 5: Implement the controller + route**
@@ -445,7 +445,7 @@ app.use('/api/stores', generalLimiter, storeRoutes);
 
 - [ ] **Step 7: Typecheck + full suite**
 
-Run: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npm run typecheck && npx vitest run 2>&1 | tail -3'`
+Run: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npm run typecheck && npx vitest run 2>&1 | tail -3'`
 Expected: tsc clean; all tests pass, 0 failed.
 
 - [ ] **Step 8: Commit**

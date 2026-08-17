@@ -22,7 +22,7 @@
 ## Test DB Setup
 
 Verified environment facts:
-- The DB is **real Postgres 16** (`postgres:16-alpine`), reachable as `db:5432` inside the `smoke-station-delivery-backend` container and as `localhost:15432` from the WSL host.
+- The DB is **real Postgres 16** (`postgres:16-alpine`), reachable as `db:5432` inside the `generic-ecommerce-store-delivery-backend` container and as `localhost:15432` from the WSL host.
 - Tests run inside the backend container (where `db` resolves).
 - Since tenant isolation is enforced at the application level (via the Prisma client extension), we do not need custom database roles, superuser privilege assertions, or session-variable connections. Standard vitest database runners are compatible without modifications.
 

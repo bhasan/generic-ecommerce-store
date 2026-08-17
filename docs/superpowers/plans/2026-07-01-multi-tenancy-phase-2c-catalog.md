@@ -6,7 +6,7 @@
 
 **Architecture:** New `StoreVariantOverride` (storeId+variantId → stock, optional price/active) with a real store FK (it never stores the `0` sentinel). A pure `resolveVariantEffective(variant, override, isDefaultStore)` computes effective price/stock/available; product reads apply it transparently (replacing `basePrice`/`stock`/`active` in the response). Checkout decrements the active store's override row (or `variant.stock` for the default store). POS-outbox per-store resolution comes free from 2b (store-scoped `store_settings`).
 
-**Tech Stack:** Express + TypeScript, Prisma, Vitest, Playwright. Container: `docker exec smoke-station-delivery-backend sh -c 'cd /app && npx vitest run <path>'`.
+**Tech Stack:** Express + TypeScript, Prisma, Vitest, Playwright. Container: `docker exec generic-ecommerce-store-delivery-backend sh -c 'cd /app && npx vitest run <path>'`.
 
 ## Global Constraints
 - **Backward-compat:** default store, no overrides → `variant.stock`/`basePrice`/`active` unchanged. Full backend suite + E2E stay green.

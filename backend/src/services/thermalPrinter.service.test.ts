@@ -48,7 +48,7 @@ describe('thermal printer service', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.THERMAL_PRINTER_STORE_NAME = 'Smoke Station Test';
+    process.env.THERMAL_PRINTER_STORE_NAME = 'Generic Ecommerce Store Test';
     printJobService.createPrintJob.mockResolvedValue({
       id: 501,
       orderId: 81,

@@ -14,9 +14,9 @@ USAGE
 }
 
 run_local_check() {
-  local app_dir="${APP_DIR:-/docker/smoke-station}"
-  local backend_container="${BACKEND_CONTAINER:-smoke-station-delivery-backend-prod}"
-  local web_container="${WEB_CONTAINER:-smoke-station-delivery-web-prod}"
+  local app_dir="${APP_DIR:-/docker/generic-ecommerce-store}"
+  local backend_container="${BACKEND_CONTAINER:-generic-ecommerce-store-delivery-backend-prod}"
+  local web_container="${WEB_CONTAINER:-generic-ecommerce-store-delivery-web-prod}"
   local health_url="${HEALTH_URL:-http://localhost/api/health}"
   local proxy_probe_url="${PROXY_PROBE_URL:-http://localhost/api/notifications/unread-count}"
   local log_lines="${LOG_LINES:-300}"

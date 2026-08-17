@@ -50,7 +50,7 @@ function toMarkdown(summary: {
   tests: Entry[];
 }) {
   const lines = [
-    '# Smoke Station Live Verification Summary',
+    '# Generic Ecommerce Store Live Verification Summary',
     '',
     `Generated: ${summary.generatedAt}`,
     `Overall status: ${summary.status}`,

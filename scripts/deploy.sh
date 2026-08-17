@@ -13,11 +13,11 @@ usage() {
   cat <<USAGE
 Usage: $0 <server-ip> [OPTIONS]
 
-Tarball-based deploy for Smoke Station Delivery. Builds must already be saved
+Tarball-based deploy for Generic Ecommerce Store Delivery. Builds must already be saved
 to docker/backend.tar and docker/web.tar (run scripts/build.sh first).
 
 Requires the server-side docker-compose.shared-edge.override.yml file so
-Smoke Station keeps the shared public edge networks and mounts.
+Generic Ecommerce Store keeps the shared public edge networks and mounts.
 
 By default, only Docker images are uploaded and services are restarted.
 Config files and env files on the server are left untouched unless the
@@ -128,11 +128,11 @@ BACKEND_TAR="$DOCKER_DIR/backend.tar"
 WEB_TAR="$DOCKER_DIR/web.tar"
 
 SSH_USER="${SSH_USER:-root}"
-REMOTE_DIR="/docker/smoke-station"
+REMOTE_DIR="/docker/generic-ecommerce-store"
 DEPLOY_TS="$(date +%Y%m%d_%H%M%S)"
 DEPLOY_BACKUP_DIR="$REMOTE_DIR/backups/${DEPLOY_TS}-deploy"
 REMOTE_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.shared-edge.override.yml"
-# Monitoring runs as a separate compose project to prevent its `name: smoke-station-monitoring`
+# Monitoring runs as a separate compose project to prevent its `name: generic-ecommerce-store-monitoring`
 # from overriding the main stack's project name and causing volume prefix collisions on `db`.
 REMOTE_COMPOSE_MONITORING="docker compose -f monitoring/docker-compose.monitoring.yml"
 # Config files synced (relative to PROJECT_ROOT and REMOTE_DIR) when --sync-config

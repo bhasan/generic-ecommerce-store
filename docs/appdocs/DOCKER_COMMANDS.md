@@ -87,7 +87,7 @@ docker compose exec backend npm run prisma:seed
 docker compose exec -T backend npm run build
 
 # Run command in database
-docker compose exec db psql -U backend_user -d smoke-station-delivery-db
+docker compose exec db psql -U backend_user -d generic-ecommerce-store-db
 
 # View environment variables in container
 docker compose exec backend env | grep DATABASE_URL
@@ -168,16 +168,16 @@ docker compose watch backend
 ### Access Database
 ```bash
 # Connect with psql
-docker compose exec db psql -U backend_user -d smoke-station-delivery-db
+docker compose exec db psql -U backend_user -d generic-ecommerce-store-db
 
 # List databases
 docker compose exec -T db psql -U backend_user -l
 
 # Dump database
-docker compose exec -T db pg_dump -U backend_user smoke-station-delivery-db > backup.sql
+docker compose exec -T db pg_dump -U backend_user generic-ecommerce-store-db > backup.sql
 
 # Restore database
-docker compose exec -T db psql -U backend_user smoke-station-delivery-db < backup.sql
+docker compose exec -T db psql -U backend_user generic-ecommerce-store-db < backup.sql
 ```
 
 ### Prisma Commands
@@ -207,22 +207,22 @@ docker compose exec backend npx prisma generate
 docker images
 
 # List project images
-docker images | grep smoke-station
+docker images | grep generic-ecommerce-store
 
 # View image details
-docker inspect smoke-station-delivery/backend:latest
+docker inspect generic-ecommerce-store-delivery/backend:latest
 
 # View image size
-docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep smoke-station
+docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep generic-ecommerce-store
 
 # View image layers
-docker history smoke-station-delivery/backend:latest
+docker history generic-ecommerce-store-delivery/backend:latest
 ```
 
 ### Tag & Push Images
 ```bash
 # Tag for registry
-docker tag smoke-station-delivery/backend:latest myregistry.com/backend:1.0.0
+docker tag generic-ecommerce-store-delivery/backend:latest myregistry.com/backend:1.0.0
 
 # Push to registry
 docker push myregistry.com/backend:1.0.0
@@ -248,7 +248,7 @@ docker stats
 docker stats --no-stream
 
 # View container resource limits
-docker inspect smoke-station-delivery-backend | grep -A 10 "Memory"
+docker inspect generic-ecommerce-store-delivery-backend | grep -A 10 "Memory"
 ```
 
 ### Cleanup (Careful!)
@@ -272,7 +272,7 @@ docker system prune -a
 docker system prune -a --volumes
 
 # Remove specific image
-docker rmi smoke-station-delivery/backend:old-version
+docker rmi generic-ecommerce-store-delivery/backend:old-version
 
 # Remove dangling images
 docker image prune -a --filter "dangling=true"
@@ -286,13 +286,13 @@ docker image prune -a --filter "until=168h"
 ### Container Inspection
 ```bash
 # View container details
-docker inspect smoke-station-delivery-backend
+docker inspect generic-ecommerce-store-delivery-backend
 
 # View container events
-docker events --filter container=smoke-station-delivery-backend
+docker events --filter container=generic-ecommerce-store-delivery-backend
 
 # View container resource usage
-docker stats smoke-station-delivery-backend
+docker stats generic-ecommerce-store-delivery-backend
 
 # View network connections
 docker network inspect sshtx_network
@@ -304,16 +304,16 @@ docker network inspect sshtx_network
 docker compose ps
 
 # Detailed health check
-docker inspect --format='{{json .State.Health}}' smoke-station-delivery-backend
+docker inspect --format='{{json .State.Health}}' generic-ecommerce-store-delivery-backend
 
 # View startup logs (from container start)
-docker logs smoke-station-delivery-backend
+docker logs generic-ecommerce-store-delivery-backend
 
 # Follow logs with timestamps
-docker logs -t --tail=50 smoke-station-delivery-backend
+docker logs -t --tail=50 generic-ecommerce-store-delivery-backend
 
 # View logs since specific time
-docker logs --since 2024-01-15T10:00:00 smoke-station-delivery-backend
+docker logs --since 2024-01-15T10:00:00 generic-ecommerce-store-delivery-backend
 
 # Exec into container for debugging
 docker compose exec backend sh
@@ -393,7 +393,7 @@ docker compose exec backend env
 docker compose exec backend env | grep DATABASE_URL
 
 # Check in running container
-docker exec smoke-station-delivery-backend env
+docker exec generic-ecommerce-store-delivery-backend env
 ```
 
 ## Advanced

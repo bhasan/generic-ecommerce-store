@@ -7,7 +7,7 @@ Usage: $0 <server-ip> [--ssh-user <user>] [--backup-dir <remote-path>]
 
 Takes a pg_dump of the production database on the remote server.
 
-By default saves to: /docker/smoke-station/backups/YYYYMMDD_HHMMSS-manual/db.sql
+By default saves to: /docker/generic-ecommerce-store/backups/YYYYMMDD_HHMMSS-manual/db.sql
 Pass --backup-dir to override the directory (used by deploy.sh to co-locate
 all deploy artifacts under one timestamped folder).
 
@@ -63,9 +63,9 @@ echo "    Connecting..."
 ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "BACKUP_DIR_OVERRIDE='${BACKUP_DIR_OVERRIDE}' bash -s" <<'REMOTE'
 set -euo pipefail
 
-REMOTE_DIR="/docker/smoke-station"
-BACKEND_CONTAINER="smoke-station-delivery-backend-prod"
-DB_CONTAINER="smoke-station-delivery-db-prod"
+REMOTE_DIR="/docker/generic-ecommerce-store"
+BACKEND_CONTAINER="generic-ecommerce-store-delivery-backend-prod"
+DB_CONTAINER="generic-ecommerce-store-delivery-db-prod"
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="${BACKUP_DIR_OVERRIDE:-$REMOTE_DIR/backups/${TIMESTAMP}-db-backup}"

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Smoke Station is a multi-tenant e-commerce + delivery/POS platform. Three apps in one repo: `web/` (React 19 + Vite SPA), `backend/` (Express + TypeScript + Prisma API), `nginx/` (reverse proxy).
+Generic Ecommerce Store is a multi-tenant e-commerce + delivery/POS platform. Three apps in one repo: `web/` (React 19 + Vite SPA), `backend/` (Express + TypeScript + Prisma API), `nginx/` (reverse proxy).
 
 `backend/prisma/schema.prisma` is the DB source of truth; `backend/src/routes/*.ts` and `services/*.ts` are the behavioral source of truth. Older markdown docs may be stale — verify against code and schema.
 

@@ -24,7 +24,7 @@
 **Commands used throughout:**
 - Typecheck backend: `npm --prefix backend run build`
 - Regenerate Prisma client (no DB required): `npm --prefix backend run prisma:generate`
-- Apply migrations (needs the dev DB up): `docker exec smoke-station-delivery-backend npm run prisma:migrate` — or `npm --prefix backend run prisma:migrate` if the backend runs locally against the DB on host port `15432`.
+- Apply migrations (needs the dev DB up): `docker exec generic-ecommerce-store-delivery-backend npm run prisma:migrate` — or `npm --prefix backend run prisma:migrate` if the backend runs locally against the DB on host port `15432`.
 - Lint frontend: `npm --prefix web run lint`
 
 ---
@@ -2104,7 +2104,7 @@ git commit -m "feat(phase3): admin console Activity page (global audit feed + pe
 
 Ensure the dev stack is up, then:
 
-Run: `docker exec smoke-station-delivery-backend npm run prisma:migrate`
+Run: `docker exec generic-ecommerce-store-delivery-backend npm run prisma:migrate`
 Expected: both `20260701040000_tenant_status_deleted` and `20260701050000_add_tenant_audit_log` apply cleanly; `tenant_audit_log` table exists and `TenantStatus` has `DELETED`.
 
 > If not running in Docker, run `npm --prefix backend run prisma:migrate` against the DB on host port `15432`.

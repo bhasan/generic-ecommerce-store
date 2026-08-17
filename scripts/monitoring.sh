@@ -12,12 +12,12 @@ SERVER_IP=""
 COMMAND=""
 ENV_FILE=".env.prod"
 SSH_USER="${SSH_USER:-root}"
-REMOTE_DIR="/docker/smoke-station"
+REMOTE_DIR="/docker/generic-ecommerce-store"
 
 # Run monitoring as its own compose project — do NOT merge with the main stack compose files.
 # Merging causes Docker to use the monitoring project name for all volumes, which prefixes
-# the db volume as smoke-station-monitoring_postgres_data_prod instead of the correct
-# smoke-station_postgres_data_prod, wiping out the database on next deploy.
+# the db volume as generic-ecommerce-store-monitoring_postgres_data_prod instead of the correct
+# generic-ecommerce-store_postgres_data_prod, wiping out the database on next deploy.
 COMPOSE_CMD="docker compose -f monitoring/docker-compose.monitoring.yml"
 
 usage() {
@@ -73,7 +73,7 @@ case "$COMMAND" in
     echo ""
     echo "==> Container status:"
     ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
-      "docker ps --filter name=smoke-station-promtail --filter name=smoke-station-prometheus --format 'table {{.Names}}\t{{.Status}}'"
+      "docker ps --filter name=generic-ecommerce-store-promtail --filter name=generic-ecommerce-store-prometheus --format 'table {{.Names}}\t{{.Status}}'"
     ;;
 
   down)
@@ -87,15 +87,15 @@ case "$COMMAND" in
   status)
     echo "==> Monitoring container status on $SERVER_IP:"
     ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
-      "docker ps -a --filter name=smoke-station-promtail --filter name=smoke-station-prometheus \
+      "docker ps -a --filter name=generic-ecommerce-store-promtail --filter name=generic-ecommerce-store-prometheus \
          --format 'table {{.Names}}\t{{.Status}}\t{{.RunningFor}}'"
     echo ""
     echo "==> Last 20 lines — promtail:"
     ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
-      "docker logs --tail 20 smoke-station-promtail 2>&1" || echo "(not running)"
+      "docker logs --tail 20 generic-ecommerce-store-promtail 2>&1" || echo "(not running)"
     echo ""
     echo "==> Last 20 lines — prometheus:"
     ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
-      "docker logs --tail 20 smoke-station-prometheus 2>&1" || echo "(not running)"
+      "docker logs --tail 20 generic-ecommerce-store-prometheus 2>&1" || echo "(not running)"
     ;;
 esac

@@ -105,7 +105,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 
 # 3. Verify health
 docker compose -f docker-compose.prod.yml ps
-docker logs smoke-station-delivery-backend-prod
+docker logs generic-ecommerce-store-delivery-backend-prod
 ```
 
 #### SSL/HTTPS (Optional)
@@ -204,7 +204,7 @@ docker compose logs backend
 #### React build fails
 ```bash
 # Check Node version compatibility
-docker exec smoke-station-delivery-web node --version
+docker exec generic-ecommerce-store-delivery-web node --version
 
 # Rebuild with fresh dependencies
 docker compose build web --no-cache

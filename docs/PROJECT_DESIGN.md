@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-This document describes the current application design for Smoke Station.
+This document describes the current application design for Generic Ecommerce Store.
 
 It is intended to help engineers, maintainers, Codex, and future contributors understand the product flows, UI/UX doctrine, API surface, endpoint behavior, JSON structures, integration boundaries, visual design patterns, and screen-level user experience.
 
@@ -12,7 +12,7 @@ This document is separate from changelogs, implementation notes, release notes, 
 
 ## 2. Product Summary
 
-Smoke Station is a role-gated e-commerce and operations application with:
+Generic Ecommerce Store is a role-gated e-commerce and operations application with:
 
 - React/Vite frontend in `web/`
 - Express/TypeScript backend in `backend/`

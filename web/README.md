@@ -1,6 +1,6 @@
-# Smoke Station Web
+# Generic Ecommerce Store Web
 
-This package contains the React/Vite frontend for Smoke Station.
+This package contains the React/Vite frontend for Generic Ecommerce Store.
 
 Current source of truth:
 

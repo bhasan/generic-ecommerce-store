@@ -1,9 +1,9 @@
 import { spawnSync } from 'child_process';
 
 const BACKEND_HEALTH_URL = 'http://localhost:3000/api/health';
-const DB_CONTAINER = 'smoke-station-delivery-db';
+const DB_CONTAINER = 'generic-ecommerce-store-delivery-db';
 const DB_USER = 'backend_user';
-const DB_NAME = 'smoke-station-delivery-db';
+const DB_NAME = 'generic-ecommerce-store-delivery-db';
 const DEV_DB_PORT = '15432';
 const POLL_INTERVAL_MS = 2000;
 const MAX_WAIT_MS = 120_000;

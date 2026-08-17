@@ -70,7 +70,7 @@ describe('store settings service', () => {
 
   it('upserts validated store settings', async () => {
     const settings = {
-      name: 'Smoke Station West',
+      name: 'Generic Ecommerce Store West',
       address: '101 Example Ave',
       phoneNumber: '555-0100',
       tagline: 'Your neighborhood smoke shop',
@@ -121,7 +121,7 @@ describe('store settings service', () => {
     prismaMock.uiSetting.findMany.mockResolvedValue([{
       storeId: 0,
       value: {
-        name: 'Smoke Station',
+        name: 'Generic Ecommerce Store',
         address: '101 Example Ave',
         phoneNumber: '555-0100',
         notificationEmails: {
@@ -133,7 +133,7 @@ describe('store settings service', () => {
     }]);
     prismaMock.uiSetting.upsert.mockResolvedValue({
       value: {
-        name: 'Smoke Station West',
+        name: 'Generic Ecommerce Store West',
         address: '101 Example Ave',
         phoneNumber: '555-0100',
         notificationEmails: {
@@ -146,7 +146,7 @@ describe('store settings service', () => {
     const { StoreSettingsService } = await import('./storeSettings.service');
 
     await new StoreSettingsService().updateStoreSettings({
-      name: 'Smoke Station West',
+      name: 'Generic Ecommerce Store West',
       address: '101 Example Ave',
       phoneNumber: '555-0100',
       notificationEmails: {
@@ -163,7 +163,7 @@ describe('store settings service', () => {
     prismaMock.uiSetting.findMany.mockResolvedValue([{
       storeId: 0,
       value: {
-        name: 'Smoke Station',
+        name: 'Generic Ecommerce Store',
         address: '9400 S Texas 6 Suite C, Houston, TX 77083',
         phoneNumber: '',
         notificationEmails: {
@@ -188,7 +188,7 @@ describe('store settings service', () => {
     const { StoreSettingsService } = await import('./storeSettings.service');
 
     await expect(new StoreSettingsService().updateStoreSettings({
-      name: 'Smoke Station West',
+      name: 'Generic Ecommerce Store West',
       address: '101 Example Ave',
       phoneNumber: '555-0100',
       notificationEmails: {

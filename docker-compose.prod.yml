@@ -1,6 +1,6 @@
 services:
   db:
-    container_name: smoke-station-delivery-db-prod
+    container_name: generic-ecommerce-store-db-prod
     restart: always
     logging:
       driver: json-file
@@ -15,8 +15,8 @@ services:
       - postgres_data_prod:/var/lib/postgresql/data
 
   backend:
-    image: smoke-station-delivery/backend:latest
-    container_name: smoke-station-delivery-backend-prod
+    image: generic-ecommerce-store/backend:latest
+    container_name: generic-ecommerce-store-backend-prod
     logging:
       driver: json-file
       options:
@@ -57,8 +57,8 @@ services:
       - uploads_data_prod:/app/uploads
 
   web:
-    image: smoke-station-delivery/web:latest
-    container_name: smoke-station-delivery-web-prod
+    image: generic-ecommerce-store/web:latest
+    container_name: generic-ecommerce-store-web-prod
     logging:
       driver: json-file
       options:
@@ -80,7 +80,7 @@ services:
   # Optional: Cloudflare Dynamic DNS
   # cloudflare-ddns:
   #   image: timothyjmiller/cloudflare-ddns:latest
-  #   container_name: smoke-station-delivery-cloudflare-ddns
+  #   container_name: generic-ecommerce-store-cloudflare-ddns
   #   restart: unless-stopped
   #   network_mode: host
   #   security_opt:

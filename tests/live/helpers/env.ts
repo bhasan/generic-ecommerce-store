@@ -18,14 +18,14 @@ loadEnvFile(path.join(liveDir, '.env.production'));
 loadEnvFile(path.join(liveDir, '.env.local'));
 
 const baseUrl = (
-  process.env.SMOKE_STATION_LIVE_BASE_URL
-  || process.env.SMOKE_STATION_WEB_BASE_URL
+  process.env.GENERIC_ECOMMERCE_STORE_LIVE_BASE_URL
+  || process.env.GENERIC_ECOMMERCE_STORE_WEB_BASE_URL
   || 'http://localhost:5843'
 ).replace(/\/$/, '');
 
 const apiBaseUrl = (
-  process.env.SMOKE_STATION_LIVE_API_BASE_URL
-  || process.env.SMOKE_STATION_API_BASE_URL
+  process.env.GENERIC_ECOMMERCE_STORE_LIVE_API_BASE_URL
+  || process.env.GENERIC_ECOMMERCE_STORE_API_BASE_URL
   || (baseUrl.includes('5843') ? 'http://localhost:3000/api' : `${baseUrl}/api`)
 ).replace(/\/$/, '');
 
@@ -34,27 +34,27 @@ export const liveEnv = {
   reportsDir,
   baseUrl,
   apiBaseUrl,
-  timeoutMs: Number(process.env.SMOKE_STATION_LIVE_TIMEOUT_MS || 30000),
-  allowSafeWrites: process.env.SMOKE_STATION_ALLOW_SAFE_WRITES === 'true',
-  allowDestructiveTests: process.env.SMOKE_STATION_ALLOW_DESTRUCTIVE_TESTS === 'true',
-  allowProviderTests: process.env.SMOKE_STATION_ALLOW_PROVIDER_TESTS === 'true',
-  allowAiTests: process.env.SMOKE_STATION_ALLOW_AI_TESTS === 'true',
+  timeoutMs: Number(process.env.GENERIC_ECOMMERCE_STORE_LIVE_TIMEOUT_MS || 30000),
+  allowSafeWrites: process.env.GENERIC_ECOMMERCE_STORE_ALLOW_SAFE_WRITES === 'true',
+  allowDestructiveTests: process.env.GENERIC_ECOMMERCE_STORE_ALLOW_DESTRUCTIVE_TESTS === 'true',
+  allowProviderTests: process.env.GENERIC_ECOMMERCE_STORE_ALLOW_PROVIDER_TESTS === 'true',
+  allowAiTests: process.env.GENERIC_ECOMMERCE_STORE_ALLOW_AI_TESTS === 'true',
   personas: {
     customer: {
-      username: process.env.SMOKE_STATION_LIVE_CUSTOMER_USERNAME || process.env.SMOKE_STATION_SMOKE_USERNAME,
-      password: process.env.SMOKE_STATION_LIVE_CUSTOMER_PASSWORD || process.env.SMOKE_STATION_SMOKE_PASSWORD,
+      username: process.env.GENERIC_ECOMMERCE_STORE_LIVE_CUSTOMER_USERNAME || process.env.GENERIC_ECOMMERCE_STORE_SMOKE_USERNAME,
+      password: process.env.GENERIC_ECOMMERCE_STORE_LIVE_CUSTOMER_PASSWORD || process.env.GENERIC_ECOMMERCE_STORE_SMOKE_PASSWORD,
     },
     manager: {
-      username: process.env.SMOKE_STATION_LIVE_MANAGER_USERNAME,
-      password: process.env.SMOKE_STATION_LIVE_MANAGER_PASSWORD,
+      username: process.env.GENERIC_ECOMMERCE_STORE_LIVE_MANAGER_USERNAME,
+      password: process.env.GENERIC_ECOMMERCE_STORE_LIVE_MANAGER_PASSWORD,
     },
     admin: {
-      username: process.env.SMOKE_STATION_LIVE_ADMIN_USERNAME,
-      password: process.env.SMOKE_STATION_LIVE_ADMIN_PASSWORD,
+      username: process.env.GENERIC_ECOMMERCE_STORE_LIVE_ADMIN_USERNAME,
+      password: process.env.GENERIC_ECOMMERCE_STORE_LIVE_ADMIN_PASSWORD,
     },
     driver: {
-      username: process.env.SMOKE_STATION_LIVE_DRIVER_USERNAME,
-      password: process.env.SMOKE_STATION_LIVE_DRIVER_PASSWORD,
+      username: process.env.GENERIC_ECOMMERCE_STORE_LIVE_DRIVER_USERNAME,
+      password: process.env.GENERIC_ECOMMERCE_STORE_LIVE_DRIVER_PASSWORD,
     },
   },
 };

@@ -1,11 +1,11 @@
 services:
   db:
-    container_name: smoke-station-delivery-db
+    container_name: generic-ecommerce-store-db
     ports:
       - "15432:5432"
 
   backend:
-    container_name: smoke-station-delivery-backend
+    container_name: generic-ecommerce-store-backend
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
@@ -32,7 +32,7 @@ services:
 
   web-dev:
     image: node:20-alpine
-    container_name: smoke-station-delivery-web-dev
+    container_name: generic-ecommerce-store-web-dev
     working_dir: /app/web
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:

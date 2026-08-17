@@ -11,7 +11,7 @@ describe('StoreSettingsSection', () => {
       <StoreSettingsSection
         isLoading={false}
         storeSettings={{
-          name: 'Smoke Station',
+          name: 'Generic Ecommerce Store',
           address: '101 Example Ave',
           phoneNumber: '555-0100',
         }}
@@ -20,7 +20,7 @@ describe('StoreSettingsSection', () => {
     );
 
     fireEvent.change(screen.getByLabelText(/store name/i), {
-      target: { value: 'Smoke Station West' },
+      target: { value: 'Generic Ecommerce Store West' },
     });
     fireEvent.change(screen.getByLabelText(/address \/ pickup location/i), {
       target: { value: '202 Updated Ave' },
@@ -28,7 +28,7 @@ describe('StoreSettingsSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /save changes/i }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledWith({
-      name: 'Smoke Station West',
+      name: 'Generic Ecommerce Store West',
       address: '202 Updated Ave',
       phoneNumber: '555-0100',
       timezone: '',

@@ -16,7 +16,7 @@ how to run it, and the conventions to follow when adding tests.
 | `npm run test:e2e` | Playwright e2e — real-backend suite (reseed + smoke + flows) + mocked checkout layer |
 | `npm run test:e2e:ui` | Playwright with interactive UI explorer |
 
-All commands run from the **workspace root** (`/smoke-station-delivery/`).
+All commands run from the **workspace root** (`/generic-ecommerce-store-delivery/`).
 
 ### Continuous integration
 

@@ -44,7 +44,7 @@ Artifacts:
 | Preflight | `npm.cmd run preflight` | `build/preflight-report/` |
 | Backend tests | `npm.cmd run test:backend` | terminal output / CI artifact |
 | Prisma client | `npm.cmd --prefix backend run prisma:generate` | command exit status |
-| Migration status | `docker exec smoke-station-delivery-backend npx prisma migrate status` | command exit status |
+| Migration status | `docker exec generic-ecommerce-store-delivery-backend npx prisma migrate status` | command exit status |
 | Backend build | `npm.cmd --prefix backend run build` | command exit status |
 | Frontend tests | `npm.cmd run test:web` | terminal output / CI artifact |
 | Frontend build | `npm.cmd --prefix web run build` | `web/dist/` plus command exit status |
@@ -69,7 +69,7 @@ Run:
 npm.cmd --prefix backend run prisma:generate
 npm.cmd run test:backend
 npm.cmd --prefix backend run build
-docker exec smoke-station-delivery-backend npx prisma migrate status
+docker exec generic-ecommerce-store-delivery-backend npx prisma migrate status
 ```
 
 Coverage target:
@@ -83,7 +83,7 @@ Coverage target:
 Safety rules:
 
 - Destructive database tests must refuse to run unless the database name or URL is clearly disposable, for example a name containing `test`, `e2e`, or `ci`.
-- Do not run destructive tests against `smoke-station-delivery-db`, production, or any shared local/dev DB.
+- Do not run destructive tests against `generic-ecommerce-store-delivery-db`, production, or any shared local/dev DB.
 - Schema changes are not complete until Prisma migration SQL exists, Prisma client is regenerated, and backend build passes.
 
 Known root-cause pattern:
@@ -372,7 +372,7 @@ Evidence captured on 2026-06-06:
 - Docker dev services were running: db healthy, backend healthy, web-dev up.
 - `GET http://localhost:3000/api/health` returned 200 with database `ok`.
 - `GET http://localhost:5843` returned 200.
-- `docker exec smoke-station-delivery-backend npx prisma migrate status` reported database schema up to date with 37 migrations.
+- `docker exec generic-ecommerce-store-delivery-backend npx prisma migrate status` reported database schema up to date with 37 migrations.
 - `npm.cmd run test:backend` passed 37 files / 222 tests.
 - `npm.cmd run test:web` passed 46 files / 473 tests, with existing React `act(...)` warnings and an existing jsdom AbortSignal warning in output.
 - `npm.cmd --prefix web run build` passed.

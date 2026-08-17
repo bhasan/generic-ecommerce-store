@@ -13,10 +13,10 @@ The production stack layers four Compose files on the server:
 | `docker-compose.yml` | Shared base |
 | `docker-compose.prod.yml` | Production overrides, SSL mounts, ports |
 | `docker-compose.shared-edge.override.yml` | Server-side only — shared edge networks/mounts, not in repo |
-| `monitoring/docker-compose.monitoring.yml` | Promtail + Prometheus (project: `smoke-station-monitoring`) |
+| `monitoring/docker-compose.monitoring.yml` | Promtail + Prometheus (project: `generic-ecommerce-store-monitoring`) |
 
 The web container (nginx) acts as a shared edge router — it handles
-`smokestationhtx.store` (Smoke Station), `buddash.tech` (Physalia), and
+`generic-ecommerce-store.example.com` (Smoke Station), `buddash.tech` (Physalia), and
 `nanomia.buddash.tech` (Nanomia) from one nginx process. The server-side
 `nginx/nginx.prod.conf` must not be overwritten without a manual diff review
 first. Use `--sync-config` carefully for nginx changes.
@@ -25,7 +25,7 @@ first. Use `--sync-config` carefully for nginx changes.
 
 - Linux server with Docker and Docker Compose v2
 - `docker-compose.shared-edge.override.yml` present at `$REMOTE_DIR` on the server
-- SSL certs for `smokestationhtx.store` at `$REMOTE_DIR/nginx/ssl/` on the server
+- SSL certs for `generic-ecommerce-store.example.com` at `$REMOTE_DIR/nginx/ssl/` on the server
 - Let's Encrypt certs at `/etc/letsencrypt/` on the server (for Physalia/Nanomia blocks)
 - Server firewall open on ports `80` and `443`
 
@@ -36,7 +36,7 @@ bootstraps most of them automatically, but the live env files must be created ma
 
 ```bash
 # On the server
-mkdir -p /docker/smoke-station/{nginx/ssl,monitoring/promtail,monitoring/prometheus,scripts,backups}
+mkdir -p /docker/generic-ecommerce-store/{nginx/ssl,monitoring/promtail,monitoring/prometheus,scripts,backups}
 
 # Create live env files (fill in real values)
 cp .env.example .env.prod
@@ -104,8 +104,8 @@ catch pending migrations. If migrations are pending:
 
 1. **Take a DB backup first:**
    ```bash
-   docker exec smoke-station-delivery-db-prod pg_dump -U backend_user smoke-station-delivery-db-prod \
-     > /docker/smoke-station/backups/pre-deploy-$(date +%Y%m%d_%H%M%S).sql
+   docker exec generic-ecommerce-store-delivery-db-prod pg_dump -U backend_user generic-ecommerce-store-delivery-db-prod \
+     > /docker/generic-ecommerce-store/backups/pre-deploy-$(date +%Y%m%d_%H%M%S).sql
    ```
 
 2. Proceed with deploy — `migrate deploy` runs on container start.
@@ -151,8 +151,8 @@ Monitoring vars that must be filled in manually on the server:
 ## Monitoring Stack
 
 Promtail and Prometheus run as part of the same deploy under the
-`smoke-station-monitoring` Compose project. They join the
-`smoke-station_sshtx_network` external network.
+`generic-ecommerce-store-monitoring` Compose project. They join the
+`generic-ecommerce-store_sshtx_network` external network.
 
 After deploy, confirm both are running:
 
@@ -166,8 +166,8 @@ docker ps | grep -E "promtail|prometheus"
 curl -s http://localhost/api/health
 # Expected: {"status":"ok","checks":{"database":"ok"}}
 
-docker ps | grep smoke-station
-docker logs --tail 50 smoke-station-delivery-backend-prod
+docker ps | grep generic-ecommerce-store
+docker logs --tail 50 generic-ecommerce-store-delivery-backend-prod
 ```
 
 The post-deploy hardening checklist runs automatically at the end of every
