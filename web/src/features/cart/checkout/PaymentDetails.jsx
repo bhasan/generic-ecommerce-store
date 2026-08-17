@@ -2,6 +2,7 @@ import React from 'react';
 import { Lock } from 'lucide-react';
 import { PaymentMethod } from '../../../constants/orderMethods';
 import ErrorMessage from './ErrorMessage';
+import { formatPrice } from '../../../utils/currencyUtils';
 
 export default function PaymentDetails({
   paymentMethod,
@@ -64,7 +65,7 @@ export default function PaymentDetails({
   if (paymentMethod === PaymentMethod.STORE_CREDIT) {
     return (
       <div className="payment-method-detail payment-credit-confirm">
-        <p>Your store credit balance of <strong>${creditBalance.toFixed(2)}</strong> will be used to pay for this order.</p>
+        <p>Your store credit balance of <strong>{formatPrice(creditBalance)}</strong> will be used to pay for this order.</p>
       </div>
     );
   }
@@ -72,7 +73,7 @@ export default function PaymentDetails({
   if (paymentMethod === PaymentMethod.IN_STORE) {
     return (
       <div className="payment-method-detail payment-credit-confirm">
-        <p>You&rsquo;ll pay <strong>${total.toFixed(2)}</strong> when you arrive to pick up your order.</p>
+        <p>You&rsquo;ll pay <strong>{formatPrice(total)}</strong> when you arrive to pick up your order.</p>
       </div>
     );
   }

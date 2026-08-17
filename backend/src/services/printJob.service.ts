@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { logger } from '../utils/logger';
+import { getTenantContext, MissingTenantContextError } from '../config/tenantContext';
 
 type PrintJobRow = {
   id: number;
@@ -61,6 +62,9 @@ export class PrintJobService {
   }
 
   async claimNextJob(data: ClaimNextJobData) {
+    const ctx = getTenantContext();
+    if (!ctx) throw new MissingTenantContextError();
+
     const rows = await prisma.$queryRaw<PrintJobRow[]>`
       UPDATE "print_jobs"
       SET
@@ -73,11 +77,13 @@ export class PrintJobService {
         SELECT "id"
         FROM "print_jobs"
         WHERE
-          "status" = 'PENDING'::"PrintJobStatus"
+          ("status" = 'PENDING'::"PrintJobStatus"
           OR (
             "status" = 'CLAIMED'::"PrintJobStatus"
             AND "claimedAt" < NOW() - INTERVAL '5 minutes'
-          )
+          ))
+          AND "tenantId" = ${ctx.tenantId}
+          AND "storeId" = ${ctx.storeId}
         ORDER BY "createdAt" ASC
         FOR UPDATE SKIP LOCKED
         LIMIT 1

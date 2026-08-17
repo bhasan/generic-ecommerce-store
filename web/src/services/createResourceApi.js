@@ -4,18 +4,9 @@ export function createResourceApi(endpoint, resourceKey) {
   return {
     getAll: () => get(endpoint),
     getById: (id) => get(`${endpoint}/${id}`),
-    create: async (data) => {
-      const response = await post(endpoint, data);
-      return response[resourceKey] || response;
-    },
-    update: async (id, data) => {
-      const response = await put(`${endpoint}/${id}`, data);
-      return response[resourceKey] || response;
-    },
-    patch: async (id, data) => {
-      const response = await patch(`${endpoint}/${id}`, data);
-      return response[resourceKey] || response;
-    },
+    create: (data) => post(endpoint, data),
+    update: (id, data) => put(`${endpoint}/${id}`, data),
+    patch: (id, data) => patch(`${endpoint}/${id}`, data),
     remove: (id) => del(`${endpoint}/${id}`),
   };
 }

@@ -129,10 +129,12 @@ WEB_TAR="$DOCKER_DIR/web.tar"
 
 SSH_USER="${SSH_USER:-root}"
 REMOTE_DIR="/docker/smoke-station"
+DEPLOY_TS="$(date +%Y%m%d_%H%M%S)"
+DEPLOY_BACKUP_DIR="$REMOTE_DIR/backups/${DEPLOY_TS}-deploy"
 REMOTE_COMPOSE="docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.shared-edge.override.yml"
-if [[ "$NO_MONITORING" == "false" ]]; then
-  REMOTE_COMPOSE="$REMOTE_COMPOSE -f monitoring/docker-compose.monitoring.yml"
-fi
+# Monitoring runs as a separate compose project to prevent its `name: smoke-station-monitoring`
+# from overriding the main stack's project name and causing volume prefix collisions on `db`.
+REMOTE_COMPOSE_MONITORING="docker compose -f monitoring/docker-compose.monitoring.yml"
 # Config files synced (relative to PROJECT_ROOT and REMOTE_DIR) when --sync-config
 # is passed. Paths with subdirs (e.g. nginx/) must already exist on the server.
 CONFIG_FILES=(
@@ -149,10 +151,8 @@ if [[ "$CHECKLIST_ONLY" == "true" ]]; then
   echo "    --checklist-only: skipping upload, bootstrap, and compose steps."
 fi
 
-if [[ "$SKIP_UPLOAD" == "true" ]]; then
-  echo "    Skipping upload (--skip-upload)"
-elif [[ "$CHECKLIST_ONLY" == "true" ]]; then
-  true
+if [[ "$SKIP_UPLOAD" == "true" || "$CHECKLIST_ONLY" == "true" ]]; then
+  [[ "$SKIP_UPLOAD" == "true" ]] && echo "    Skipping upload (--skip-upload)"
 else
   if [[ ! -f "$BACKEND_TAR" || ! -f "$WEB_TAR" ]]; then
     echo "Error: Image tar files not found."
@@ -240,8 +240,7 @@ ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && test -f docker-
 if [[ "$SKIP_UPLOAD" == "false" ]]; then
   echo ""
   echo "==> [1/4] Uploading images to $SSH_USER@$SERVER_IP:/docker/images/..."
-  scp "${SSH_OPTS[@]}" "$BACKEND_TAR" "$SSH_USER@$SERVER_IP:/docker/images/"
-  scp "${SSH_OPTS[@]}" "$WEB_TAR" "$SSH_USER@$SERVER_IP:/docker/images/"
+  scp "${SSH_OPTS[@]}" "$BACKEND_TAR" "$WEB_TAR" "$SSH_USER@$SERVER_IP:/docker/images/"
 
   echo ""
   echo "==> [2/4] Loading images on server..."
@@ -299,11 +298,15 @@ else
     echo ""
     read -rp "Upload ${#CHANGED_CONFIGS[@]} changed config file(s) to $REMOTE_DIR? [y/N] " confirm_cfg
     if [[ "$confirm_cfg" == "y" || "$confirm_cfg" == "Y" ]]; then
-      CONFIG_TS="$(date +%Y%m%d_%H%M%S)"
       for cfg in "${CHANGED_CONFIGS[@]}"; do
-        # Back up the existing server copy (if any) before overwriting.
-        ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" \
-          "if [ -f '$REMOTE_DIR/$cfg' ]; then cp -p '$REMOTE_DIR/$cfg' '$REMOTE_DIR/${cfg}.${CONFIG_TS}.bak' && echo '    Backed up $cfg -> ${cfg}.${CONFIG_TS}.bak'; fi"
+        # Back up the existing server copy (if any) into the deploy backup dir.
+        ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "
+          if [ -f '$REMOTE_DIR/$cfg' ]; then
+            mkdir -p '$DEPLOY_BACKUP_DIR/configs/$(dirname "$cfg")'
+            cp -p '$REMOTE_DIR/$cfg' '$DEPLOY_BACKUP_DIR/configs/$cfg'
+            echo '    Backed up $cfg -> $DEPLOY_BACKUP_DIR/configs/$cfg'
+          fi
+        "
         scp "${SSH_OPTS[@]}" "$PROJECT_ROOT/$cfg" "$SSH_USER@$SERVER_IP:$REMOTE_DIR/$cfg"
         if [[ "$cfg" == "nginx/nginx.prod.conf" ]]; then
           NGINX_SYNCED=true
@@ -325,16 +328,29 @@ else
   echo "==> Syncing env files on server (backup + append missing keys)..."
   ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "
     cd '$REMOTE_DIR'
-    bash scripts/sync-env.sh .env.example .env
-    bash scripts/sync-env.sh backend/.env.example backend/.env
+    bash scripts/sync-env.sh .env.example .env --backup-dir '$DEPLOY_BACKUP_DIR/env'
+    bash scripts/sync-env.sh backend/.env.example backend/.env --backup-dir '$DEPLOY_BACKUP_DIR/env'
   "
 fi
 
 # --- Confirm compose up ---
 echo ""
 echo ""
+echo "==> Taking pre-deploy database backup..."
+bash "$SCRIPT_DIR/backup-db.sh" "$SERVER_IP" --ssh-user "$SSH_USER" --control-path "$SSH_SOCKET" --backup-dir "$DEPLOY_BACKUP_DIR"
+
+echo ""
+echo "==> Archiving backup..."
+ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "
+  ARCHIVE='${DEPLOY_BACKUP_DIR}.tar.gz'
+  tar -czf \"\$ARCHIVE\" -C '$REMOTE_DIR/backups' '${DEPLOY_TS}-deploy'
+  rm -rf '$DEPLOY_BACKUP_DIR'
+  echo \"    \$(du -h \"\$ARCHIVE\" | cut -f1)  \$ARCHIVE\"
+"
+
+echo ""
 echo "==> Checking Prisma migration status before backend recreation..."
-echo "    If this reports pending migrations, stop and take a DB backup first."
+echo "    If pending migrations are shown, review them before confirming the deploy below."
 ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE run --rm --no-deps backend npx prisma migrate status" || true
 
 read -rp "Run shared-edge 'docker compose up -d --no-deps --no-build --force-recreate backend web' on server? [y/N] " confirm_up
@@ -351,7 +367,7 @@ ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE
 if [[ "$NO_MONITORING" == "false" ]]; then
   echo ""
   echo "==> Starting monitoring services (promtail, prometheus)..."
-  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE up -d promtail prometheus"
+  ssh "${SSH_OPTS[@]}" "$SSH_USER@$SERVER_IP" "cd '$REMOTE_DIR' && $REMOTE_COMPOSE_MONITORING --env-file .env.prod up -d promtail prometheus"
 fi
 
 if [[ "$NGINX_SYNCED" == "true" ]]; then

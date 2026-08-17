@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { CreditCard, Save } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
 import './PaymentSettingsSection.css';
 
 const DEFAULT_SETTINGS = {
@@ -91,10 +92,7 @@ function PaymentSettingsSection({ isLoading, paymentSettings, onSave }) {
   if (isLoading) {
     return (
       <div className="dashboard-content-section surface-card">
-        <div className="empty-state">
-          <div className="loading-spinner" />
-          <p>Loading payment settings...</p>
-        </div>
+        <LoadingState />
       </div>
     );
   }

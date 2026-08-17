@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { verifyPayment } from '../../services/ordersApi';
+import { formatPrice } from '../../utils/currencyUtils';
+import BaseModal from '../../components/common/BaseModal';
 
 const IFRAME_NAME = 'authnet-payment-frame';
 
@@ -77,56 +79,54 @@ export default function AuthorizeNetPaymentModal({ orderId, token, paymentFormUr
   }, [token, verifying, verifyError]);
 
   return (
-    <div className="modal-overlay" role="dialog" aria-modal="true">
-      <div className="send-payment-modal">
-        <div className="modal-header">
-          <h3>Complete Payment · Order #{orderId}</h3>
-          <button
-            className="modal-close-btn"
-            onClick={onClose}
-            aria-label="close"
-            disabled={verifying}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="modal-body">
-          {verifying ? (
-            <div className="modal-verifying">
-              <div className="spinner" />
-              <p>Confirming your payment…</p>
-            </div>
-          ) : verifyError ? (
-            <div className="modal-verify-error">
-              <p>{verifyError}</p>
-            </div>
-          ) : (
-            <>
-              <form
-                ref={formRef}
-                action={paymentFormUrl}
-                method="post"
-                target={IFRAME_NAME}
-                style={{ display: 'none' }}
-              >
-                <input type="hidden" name="token" value={token} />
-              </form>
-              <iframe
-                name={IFRAME_NAME}
-                title="Secure Card Payment"
-                width="100%"
-                height="100%"
-                style={{ border: 'none' }}
-              />
-            </>
-          )}
-        </div>
-
-        <div className="modal-footer">
-          <p><Lock size={14} /> Total: <strong>${amount.toFixed(2)}</strong> — Card details processed by Authorize.Net</p>
-        </div>
+    <BaseModal isOpen={true} onClose={onClose} className="send-payment-modal" aria-label="Payment form">
+      <div className="modal-header">
+        <h3>Complete Payment · Order #{orderId}</h3>
+        <button
+          className="modal-close-btn"
+          onClick={onClose}
+          aria-label="close"
+          disabled={verifying}
+        >
+          ✕
+        </button>
       </div>
-    </div>
+
+      <div className="modal-body">
+        {verifying ? (
+          <div className="modal-verifying">
+            <div className="spinner" />
+            <p>Confirming your payment…</p>
+          </div>
+        ) : verifyError ? (
+          <div className="modal-verify-error">
+            <p>{verifyError}</p>
+          </div>
+        ) : (
+          <>
+            <form
+              ref={formRef}
+              action={paymentFormUrl}
+              method="post"
+              target={IFRAME_NAME}
+              style={{ display: 'none' }}
+            >
+              <input type="hidden" name="token" value={token} />
+            </form>
+            <iframe
+              name={IFRAME_NAME}
+              title="Secure Card Payment"
+              width="100%"
+              height="100%"
+              style={{ border: 'none' }}
+            />
+          </>
+        )}
+      </div>
+
+      <div className="modal-footer">
+        <p><Lock size={14} /> Total: <strong>{formatPrice(amount)}</strong> — Card details processed by Authorize.Net</p>
+      </div>
+    </BaseModal>
   );
 }

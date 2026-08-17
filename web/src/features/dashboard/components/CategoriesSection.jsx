@@ -3,6 +3,8 @@ import '../../categories/CategoriesPage.css';
 import { useApp } from '../../../context/AppContext';
 import * as categoriesApi from '../../../services/categoriesApi';
 import { Save, X, Trash2, Edit, GripVertical } from 'lucide-react';
+import LoadingState from '../../../components/common/LoadingState';
+import EmptyState from '../../../components/common/EmptyState';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -255,13 +257,9 @@ function CategoriesSection() {
 
         <div className="categories-list">
           {isLoadingCategories ? (
-            <div className="empty-state">
-              <p>Loading categories...</p>
-            </div>
+            <LoadingState message="Loading categories..." />
           ) : topLevelOrder.length === 0 ? (
-            <div className="empty-state">
-              <p>No categories yet.</p>
-            </div>
+            <EmptyState message="No categories yet." />
           ) : (
             topLevelOrder.map(parent => (
               <div key={parent.id} className="category-group">

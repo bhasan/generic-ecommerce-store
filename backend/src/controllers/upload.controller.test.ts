@@ -11,6 +11,11 @@ vi.mock('unzipper', () => ({
 
 vi.mock('../utils/fileUtils', () => ({
   UPLOADS_DIR: '/fake/uploads',
+  tenantUploadsDir: vi.fn().mockReturnValue('/fake/uploads/tenants/1'),
+}));
+
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn().mockReturnValue({ tenantId: 1, storeId: null, scope: 'tenant' }),
 }));
 
 const sharpMock = vi.fn();
@@ -74,7 +79,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 2, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 2, skipped: 0 } });
     expect(writeSpy).toHaveBeenCalledTimes(2);
   });
 
@@ -96,7 +101,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 1, skipped: 1 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 1, skipped: 1 } });
     expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -116,7 +121,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 1, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 1, skipped: 0 } });
     expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -136,7 +141,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 1, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 1, skipped: 0 } });
     expect(writeSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -147,7 +152,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 0, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 0, skipped: 0 } });
   });
 
   it('skips entries whose path resolves to only the images/ prefix (empty filename)', async () => {
@@ -164,7 +169,7 @@ describe('importZip', () => {
     const res = makeRes();
     await controller.importZip(makeReq(Buffer.from('zip')), res, makeNext());
 
-    expect(res.json).toHaveBeenCalledWith({ imported: 0, skipped: 0 });
+    expect(res.json).toHaveBeenCalledWith({ success: true, data: { imported: 0, skipped: 0 } });
     expect(writeSpy).not.toHaveBeenCalled();
   });
 });
@@ -179,7 +184,7 @@ describe('uploadFavicon', () => {
   }
 
   function makeFileReq(filename = 'source.png') {
-    return { file: { filename } } as any;
+    return { file: { filename, destination: '/fake/uploads/tenants/1' } } as any;
   }
 
   beforeEach(() => {
@@ -202,11 +207,11 @@ describe('uploadFavicon', () => {
     await controller.uploadFavicon(makeFileReq(), res, makeNext());
 
     expect(res.status).toHaveBeenCalledWith(201);
-    const { urls } = res.json.mock.calls[0][0];
+    const { urls } = res.json.mock.calls[0][0].data;
     expect(Object.keys(urls).sort()).toEqual(['16', '180', '32']);
-    expect(urls['16']).toContain('favicon-16.png');
-    expect(urls['32']).toContain('favicon-32.png');
-    expect(urls['180']).toContain('favicon-180.png');
+    expect(urls['16']).toMatch(/\/api\/uploads\/tenants\/\d+\/favicon-16\.png/);
+    expect(urls['32']).toMatch(/\/api\/uploads\/tenants\/\d+\/favicon-32\.png/);
+    expect(urls['180']).toMatch(/\/api\/uploads\/tenants\/\d+\/favicon-180\.png/);
   });
 
   it('appends a ?v= cache-busting timestamp to every favicon URL', async () => {
@@ -215,7 +220,7 @@ describe('uploadFavicon', () => {
 
     await controller.uploadFavicon(makeFileReq(), res, makeNext());
 
-    const { urls } = res.json.mock.calls[0][0];
+    const { urls } = res.json.mock.calls[0][0].data;
     for (const url of Object.values(urls) as string[]) {
       expect(url).toMatch(/\?v=\d+$/);
     }

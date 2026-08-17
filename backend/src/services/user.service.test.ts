@@ -53,6 +53,12 @@ vi.mock('./notificationEvents.service', () => ({
   notificationEventsService,
 }));
 
+vi.mock('./userRoles.helper', () => ({
+  getUserRolesWithNames: vi.fn(),
+  getUserRolesMapForUsers: vi.fn(),
+  formatUserWithRoles: vi.fn((user, rolesMap) => ({ ...user, roles: rolesMap.get(user.id) ?? [] })),
+}));
+
 describe('user service logging', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -76,13 +82,10 @@ describe('user service logging', () => {
       createdAt: new Date('2024-01-01'),
       updatedAt: new Date('2024-01-02'),
     });
-    prismaMock.userRole.findMany
-      .mockResolvedValueOnce([{ userId: 5, roleId: 1 }])
-      .mockResolvedValueOnce([{ userId: 5, roleId: 1 }]);
-    prismaMock.role.findMany
-      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }])
-      .mockResolvedValueOnce([{ id: 1, name: 'CUSTOMER' }]);
     hashPassword.mockResolvedValue('hashed-password');
+
+    const { getUserRolesWithNames } = await import('./userRoles.helper');
+    vi.mocked(getUserRolesWithNames).mockResolvedValue([{ role: { name: 'CUSTOMER' } }]);
 
     const { UserService } = await import('./user.service');
     const service = new UserService();
@@ -131,7 +134,7 @@ describe('user service logging', () => {
 
     expect(logger.info).toHaveBeenCalledWith('Fetched pending registrations', {
       count: 2,
-      usersWithoutRoles: 2,
+      usersWithoutRoles: 1,
     });
     expect(result).toHaveLength(2);
   });
@@ -182,6 +185,9 @@ describe('user service logging', () => {
 
     await service.approveUser(14);
 
+    expect(prismaMock.userRole.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ userId: 14, storeId: 0 }),
+    });
     expect(notificationEventsService.notifyAccountApproved).toHaveBeenCalledWith(14);
   });
 

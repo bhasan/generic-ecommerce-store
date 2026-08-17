@@ -14,7 +14,7 @@ const ROLE_NAMES = ['GUEST', 'CUSTOMER', 'EMPLOYEE', 'MANAGEMENT', 'ADMIN', 'DEL
 async function seedProd() {
   console.log('🌱 Production seed: roles, admin user, admin role mapping...');
 
-  const plainPassword = 'admin';
+  const plainPassword = 'changeme123';
   const username = 'admin';
 
   // 1. Roles: ensure all app roles exist
@@ -30,8 +30,10 @@ async function seedProd() {
   }
   const adminRoleId = roleMap['ADMIN'].id;
 
-  // 2. Admin user: create or get existing
-  let adminUser = await prisma.user.findUnique({ where: { username } });
+  // 2. Admin user: create or get existing.
+  // `username` is not globally unique (schema uses @@unique([tenantId, username])),
+  // so findUnique({ where: { username } }) is a runtime Prisma validation error.
+  let adminUser = await prisma.user.findFirst({ where: { username } });
   if (!adminUser) {
     const hashedPassword = await bcrypt.hash(plainPassword, SALT_ROUNDS);
     adminUser = await prisma.user.create({

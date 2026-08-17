@@ -4,6 +4,7 @@ import * as ordersApi from '../../services/ordersApi';
 import { useApp } from '../../context/AppContext';
 import { Package, History, ChevronDown } from 'lucide-react';
 import HeaderDivider from '../../components/common/HeaderDivider';
+import { formatDate } from '../../utils/dateUtils';
 
 const STATUS_OPTIONS = [
   { value: 'PENDING_PAYMENT', label: 'Awaiting Payment' },
@@ -50,21 +51,6 @@ function OrderHistoryPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (e) {
-      return dateString;
-    }
-  };
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {

@@ -11,14 +11,13 @@
 
 import { test, expect, Page } from '@playwright/test';
 import { ACCOUNTS } from '../helpers/accounts';
-
-const ADMIN_STATE = ACCOUNTS.admin.storageStatePath;
+import { establishSession } from '../helpers/auth';
+import { fetchProducts } from '../helpers/products';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
 async function getProductId(page: Page, name: string): Promise<number> {
-  const res = await page.request.get('http://localhost:3000/api/products');
-  const products = await res.json();
+  const products = await fetchProducts(page.request);
   const p = products.find((x: any) => x.name === name);
   if (!p) throw new Error(`Product "${name}" not found in seed data`);
   return p.id;
@@ -44,7 +43,7 @@ async function openEditModal(page: Page, productName?: string) {
 // ── CUSTOMER-FACING: variant selector on product page ─────────────────────
 
 test.describe('Customer view — variant selector', () => {
-  test.use({ storageState: ADMIN_STATE }); // admin can see all products
+  test.beforeEach(async ({ context }) => { await establishSession(context, ACCOUNTS.admin); });
 
   test('variant buttons have the variant-btn class applied (styled)', async ({ page }) => {
     const id = await getProductId(page, 'Flow Test Hoodie');
@@ -140,7 +139,7 @@ test.describe('Customer view — variant selector', () => {
     await page.waitForLoadState('networkidle');
 
     // The product card's image or heading triggers the modal
-    const hoodieHeading = page.getByRole('heading', { name: 'Flow Test Hoodie' });
+    const hoodieHeading = page.getByRole('heading', { name: 'Flow Test Hoodie' }).first();
     await expect(hoodieHeading).toBeVisible({ timeout: 10_000 });
     // Click the parent product card via the heading
     await hoodieHeading.click();
@@ -164,9 +163,8 @@ test.describe('Customer view — variant selector', () => {
 // ── ADMIN: variant editing in ProductFormModal ────────────────────────────
 
 test.describe('Admin edit — variant combinations', () => {
-  test.use({ storageState: ADMIN_STATE });
-
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ context, page }) => {
+    await establishSession(context, ACCOUNTS.admin);
     await openManageProducts(page);
     await expect(page.locator('.btn-edit').first()).toBeVisible({ timeout: 10_000 });
   });

@@ -24,12 +24,37 @@ import OrderSuccessPage from './features/cart/OrderSuccessPage';
 import OrdersPage from './features/orders/OrdersPage';
 import ProfilePage from './features/profile/ProfilePage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import PendingRegistrationsPage from './features/dashboard/pages/PendingRegistrationsPage';
+import AnnouncementsPage from './features/dashboard/pages/AnnouncementsPage';
+import MessagesPage from './features/dashboard/pages/MessagesPage';
+import RejectedUsersPage from './features/dashboard/pages/RejectedUsersPage';
+import UsersPage from './features/dashboard/pages/UsersPage';
+import LandingPageSettingsPage from './features/dashboard/pages/LandingPageSettingsPage';
+import VIPManagementPage from './features/dashboard/pages/VIPManagementPage';
 import StoreCreditPage from './features/credits/StoreCreditPage';
 import DeliveryDriverDashboard from './features/delivery/DeliveryDriverDashboard';
 import OrderHistoryPage from './features/orders/OrderHistoryPage';
 import WebsiteManagementPage from './features/website/WebsiteManagementPage';
+import StoreIdentityPage from './features/website/pages/StoreIdentityPage';
+import BrandColorsPage from './features/website/pages/BrandColorsPage';
+import HeroImagePage from './features/website/pages/HeroImagePage';
+import FaviconPage from './features/website/pages/FaviconPage';
+import StoreInfoPage from './features/website/pages/StoreInfoPage';
+import PaymentPage from './features/website/pages/PaymentPage';
+import DeliveryPage from './features/website/pages/DeliveryPage';
+import StoresPage from './features/website/pages/StoresPage';
+import AdminConsolePage from './features/admin/AdminConsolePage';
+import AdminTenantsPage from './features/admin/pages/AdminTenantsPage';
+import AdminActivityPage from './features/admin/pages/AdminActivityPage';
 import HelpPage from './features/help/HelpPage';
 import LandingPage from './features/landing/LandingPage';
+import ManageStorePage from './features/manage-store/ManageStorePage';
+import ManageStoreProductsPage from './features/manage-store/pages/ManageStoreProductsPage';
+import ManageStoreCategoriesPage from './features/manage-store/pages/ManageStoreCategoriesPage';
+import ManageStoreMediaPage from './features/manage-store/pages/ManageStoreMediaPage';
+import ManageStoreBulkPage from './features/manage-store/pages/ManageStoreBulkPage';
+import StoreInventoryPage from './features/manage-store/pages/StoreInventoryPage';
+import StorePicker from './features/store/StorePicker';
 
 function App() {
   return (
@@ -50,9 +75,10 @@ function AppContent() {
       <OrderPickupNotice />
       <CustomerArrivedNotice />
       <Navbar />
+      <StorePicker />
       <Notification />
       <main className={isOrdersPage ? 'full-width-layout main-content' : 'container main-content'}>
-        <Routes key={location.pathname}>
+        <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
@@ -111,19 +137,42 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          {/* Admin/Manager Routes */}
-          <Route path="/manage-products" element={
+          {/* Old manage-products redirect */}
+          <Route path="/manage-products" element={<Navigate to="/manage-store/products" replace />} />
+
+          {/* Manage Store - nested routes */}
+          <Route path="/manage-store" element={
             <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
-              <ProductsPage mode="manage" />
+              <ManageStorePage />
             </ProtectedRoute>
-          } />
+          }>
+            <Route index element={<Navigate to="products" replace />} />
+            <Route path="products" element={<ManageStoreProductsPage />} />
+            <Route path="categories" element={<ManageStoreCategoriesPage />} />
+            <Route path="media" element={<ManageStoreMediaPage />} />
+            <Route path="bulk" element={<ManageStoreBulkPage />} />
+            <Route path="inventory" element={
+              <ProtectedRoute roles={[ROLES.ADMIN]}>
+                <StoreInventoryPage />
+              </ProtectedRoute>
+            } />
+          </Route>
 
           {/* Dashboard - Admin/Manager only */}
           <Route path="/dashboard" element={
             <ProtectedRoute roles={[ROLES.MANAGEMENT, ROLES.ADMIN]}>
               <DashboardPage />
             </ProtectedRoute>
-          } />
+          }>
+            <Route index element={<Navigate to="pending-registrations" replace />} />
+            <Route path="pending-registrations" element={<PendingRegistrationsPage />} />
+            <Route path="announcements" element={<AnnouncementsPage />} />
+            <Route path="messages" element={<MessagesPage />} />
+            <Route path="vip-management" element={<VIPManagementPage />} />
+            <Route path="landing-page" element={<LandingPageSettingsPage />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="rejected-users" element={<RejectedUsersPage />} />
+          </Route>
 
 
           {/* Store Credit - Admin/Manager only */}
@@ -140,14 +189,36 @@ function AppContent() {
             </ProtectedRoute>
           } />
 
-          <Route
-            path="/website-management"
-            element={
-              <ProtectedRoute roles={[ROLES.ADMIN]}>
-                <WebsiteManagementPage />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/website-management" element={
+            <ProtectedRoute roles={[ROLES.ADMIN]}>
+              <WebsiteManagementPage />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="identity" replace />} />
+            <Route path="identity" element={<StoreIdentityPage />} />
+            <Route path="colors" element={<BrandColorsPage />} />
+            <Route path="hero" element={<HeroImagePage />} />
+            <Route path="favicon" element={<FaviconPage />} />
+            <Route path="info" element={<StoreInfoPage />} />
+            <Route path="payment" element={<PaymentPage />} />
+            <Route path="delivery" element={<DeliveryPage />} />
+            {/* Store management — per-tenant-admin (ADMIN role, not SUPER_ADMIN). */}
+            <Route path="stores" element={<StoresPage />} />
+          </Route>
+
+          {/* Platform super-admin console — cross-tenant, SUPER_ADMIN only. */}
+          <Route path="/admin" element={
+            <ProtectedRoute roles={[ROLES.SUPER_ADMIN]}>
+              <AdminConsolePage />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Navigate to="tenants" replace />} />
+            <Route path="tenants" element={<AdminTenantsPage />} />
+            <Route path="activity" element={<AdminActivityPage />} />
+          </Route>
+
+          {/* Backward-compat: tenant management moved out of website-management. */}
+          <Route path="/website-management/tenants" element={<Navigate to="/admin/tenants" replace />} />
 
           {/* Delivery Driver Dashboard - Admin, Management, Delivery Driver */}
           <Route path="/delivery-dashboard" element={

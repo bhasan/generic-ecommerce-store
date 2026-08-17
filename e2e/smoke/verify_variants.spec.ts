@@ -21,13 +21,15 @@ test.beforeAll(async () => {
   const loginResp = await ctx.post(`${API}/api/auth/login`, {
     data: { username: 'admin', password: 'admin123' },
   });
-  const { token } = await loginResp.json();
+  const loginBody = await loginResp.json();
+  const token = loginBody.data.token;
 
   // Get first category id
   const catsResp = await ctx.get(`${API}/api/categories`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  const cats = await catsResp.json();
+  const body = await catsResp.json();
+  const cats = Array.isArray(body) ? body : body.data;
   const catId = cats[0].id;
 
   // Create multi-variant test product
@@ -44,8 +46,8 @@ test.beforeAll(async () => {
       images: [],
     },
   });
-  const body = await createResp.json();
-  productId = body.product.id;
+  const productBody = await createResp.json();
+  productId = productBody.data.product.id;
   productUrl = `${BASE}/products/${productId}`;
   await ctx.dispose();
 });
@@ -118,9 +120,9 @@ test('add Medium variant to cart and verify in cart page', async ({ page }) => {
 
 test('admin manage panel loads and shows products', async ({ page }) => {
   await loginAs(page, 'admin', 'admin123');
-  await page.goto(`${BASE}/manage-products`);
+  await page.goto(`${BASE}/manage-store/products`);
   await page.waitForLoadState('networkidle');
-  await expect(page.locator('.products-header').first()).toBeVisible({ timeout: 8000 });
+  await expect(page.getByRole('heading', { name: 'Products' }).first()).toBeVisible({ timeout: 8000 });
   await expect(page.getByText(/test t-shirt/i)).toBeVisible({ timeout: 5000 });
   await page.screenshot({ path: '/tmp/ss_manage.png' });
 });

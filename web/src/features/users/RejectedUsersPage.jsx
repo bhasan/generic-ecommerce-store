@@ -3,8 +3,8 @@ import './RejectedUsersPage.css';
 import { useApp } from '../../context/AppContext';
 import * as usersApi from '../../services/usersApi';
 import { UserX, Mail, Phone, DollarSign, MapPin, Clock, Calendar, FileText } from 'lucide-react';
-import AdminLayout from '../../components/layout/AdminLayout';
 import HeaderDivider from '../../components/common/HeaderDivider';
+import { formatDate } from '../../utils/dateUtils';
 
 function RejectedUsersPage() {
   const { showNotification } = useApp();
@@ -27,24 +27,8 @@ function RejectedUsersPage() {
     loadRejectedUsers();
   }, [loadRejectedUsers]);
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (e) {
-      return dateString;
-    }
-  };
-
   return (
-    <AdminLayout>
-      <div className="rejected-users-page-container">
+    <div className="rejected-users-page-container">
       <div className="rejected-users-header section-header-surface">
         <div>
           <h2 className="page-title">Rejected Users</h2>
@@ -124,7 +108,6 @@ function RejectedUsersPage() {
         </div>
       )}
       </div>
-    </AdminLayout>
   );
 }
 

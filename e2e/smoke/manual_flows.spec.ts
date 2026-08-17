@@ -20,19 +20,21 @@ async function ss(page: Page, name: string) {
 
 async function apiCreateProduct(name: string, variants: any[]) {
   const ctx = await request.newContext();
-  const { token } = await (await ctx.post(`${API}/api/auth/login`, {
+  const loginResp = await (await ctx.post(`${API}/api/auth/login`, {
     data: { username: 'admin', password: 'admin123' },
   })).json();
-  const cats = await (await ctx.get(`${API}/api/categories`, {
+  const token = loginResp.data.token;
+  const bodyCats = await (await ctx.get(`${API}/api/categories`, {
     headers: { Authorization: `Bearer ${token}` },
   })).json();
+  const cats = Array.isArray(bodyCats) ? bodyCats : bodyCats.data;
   const catId = cats[0].id;
   const body = await (await ctx.post(`${API}/api/products`, {
     headers: { Authorization: `Bearer ${token}` },
     data: { name, categoryId: catId, variants, images: [] },
   })).json();
   await ctx.dispose();
-  return body.product.id as number;
+  return body.data.product.id as number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,11 +147,11 @@ test.describe('Flow 1: Customer browse → variant → cart → checkout', () =>
     await ss(page, '1f_success');
 
     const rawText = await page.locator('.order-id-number').textContent();
-    const orderId = String(parseInt(rawText!.replace('#', '').trim(), 10));
+    const orderId = rawText!.replace('#', '').trim();
 
     await page.goto(`${BASE}/my-orders`);
     await page.waitForLoadState('networkidle');
-    await expect(page.getByText(`Order #${orderId}`, { exact: false })).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText(`Order #${parseInt(orderId, 10)}`, { exact: false })).toBeVisible({ timeout: 8000 });
     await ss(page, '1f_my_orders');
   });
 });
@@ -162,18 +164,18 @@ test.describe('Flow 2: Admin create product via UI → customer sees it', () => 
 
   test('2a — manage products page loads', async ({ page }) => {
     await login(page, 'admin', 'admin123');
-    await page.goto(`${BASE}/manage-products`);
+    await page.goto(`${BASE}/manage-store/products`);
     await page.waitForLoadState('networkidle');
-    await expect(page.locator('.products-header').first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('heading', { name: 'Products' }).first()).toBeVisible({ timeout: 8000 });
     await ss(page, '2a_manage');
   });
 
   test('2b — admin creates a new product via the form', async ({ page }) => {
     await login(page, 'admin', 'admin123');
-    await page.goto(`${BASE}/manage-products`);
+    await page.goto(`${BASE}/manage-store/products`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByRole('button', { name: /add new product/i }).click();
+    await page.getByRole('button', { name: /add product/i }).click();
     await page.waitForTimeout(600);
     await ss(page, '2b_form_open');
 
@@ -202,7 +204,7 @@ test.describe('Flow 2: Admin create product via UI → customer sees it', () => 
     await priceInput.fill('49.99');
 
     await ss(page, '2b_form_filled');
-    await page.getByRole('button', { name: /save product|add product/i }).first().click();
+    await page.getByRole('button', { name: /save product/i }).first().click();
     await page.waitForTimeout(2000);
 
     await expect(page.getByText(/admin flow widget/i).first()).toBeVisible({ timeout: 8000 });
@@ -264,7 +266,7 @@ test.describe('Flow 4: Admin edit variant price → storefront updates', () => {
 
   test('4a — admin opens edit form and updates the variant price', async ({ page }) => {
     await login(page, 'admin', 'admin123');
-    await page.goto(`${BASE}/manage-products`);
+    await page.goto(`${BASE}/manage-store/products`);
     await page.waitForLoadState('networkidle');
 
     // Find product row and click its Edit button

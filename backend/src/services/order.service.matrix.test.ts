@@ -9,7 +9,7 @@ import { DeliveryMethod, PaymentMethod } from '../constants/orderMethods';
 
 const prismaMock = vi.hoisted(() => ({
   user: { update: vi.fn() },
-  productVariant: { findMany: vi.fn(), update: vi.fn() },
+  productVariant: { findMany: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   order: { create: vi.fn(), findUnique: vi.fn() },
   orderItem: { create: vi.fn() },
   payment: { create: vi.fn() },
@@ -39,6 +39,30 @@ const creditServiceMock = vi.hoisted(() => ({
 
 vi.mock('../config/database', () => ({ default: prismaMock }));
 vi.mock('../utils/logger', () => ({ logger }));
+
+// Provide a default-store tenant context so createOrder doesn't throw
+// MissingTenantContextError. isDefaultStore=true preserves existing test behaviour.
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  getTenantContext: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  MissingTenantContextError: class MissingTenantContextError extends Error {
+    constructor() {
+      super('Execution context is missing active tenantScope. Wrap database operations inside runWithTenant(...) first.');
+      this.name = 'MissingTenantContextError';
+    }
+  },
+  runWithTenant: vi.fn((ctx: unknown, fn: () => unknown) => fn()),
+}));
 vi.mock('./orderingConstraints.service', () => ({
   OrderingConstraintsService: vi.fn(() => orderingConstraintsMock),
 }));
@@ -171,6 +195,7 @@ describe('createOrder — fulfillment × payment matrix', () => {
     prismaMock.user.update.mockResolvedValue({});
     prismaMock.productVariant.findMany.mockResolvedValue([VARIANT]);
     prismaMock.productVariant.update.mockResolvedValue({});
+    prismaMock.productVariant.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.orderItem.create.mockResolvedValue({ id: 1, orderId: 99, variantId: 1, quantity: 1, unitPrice: new Prisma.Decimal(20) });
     orderingConstraintsMock.getOrderingConstraints.mockResolvedValue({
       minimumDeliveryOrder: 0,

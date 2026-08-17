@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
+    "typecheck": "tsc --noEmit && npm run typecheck:seed",
+    "typecheck:seed": "tsc --noEmit -p tsconfig.seed.json",
     "start": "node dist/index.js",
     "start:prod": "npx prisma migrate deploy && node dist/index.js",
     "test": "vitest run",
@@ -14,14 +16,15 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "prisma:seed:prod": "node prisma/seed-prod.js",
-    "prisma:backfill-categories": "ts-node prisma/backfill-categories.ts",
-    "migrate-password": "ts-node prisma/migrate-password.ts",
+    "prisma:seed:demo": "ts-node --transpile-only prisma/seed-demo.ts",
+    "prisma:backfill-categories": "ts-node --transpile-only prisma/backfill-categories.ts",
+    "migrate-password": "ts-node --transpile-only prisma/migrate-password.ts",
     "test:coverage": "vitest run --coverage"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "keywords": [
     "ecommerce",
@@ -37,6 +40,7 @@
     "archiver": "^7.0.1",
     "authorizenet": "^1.0.10",
     "bcrypt": "^5.1.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
@@ -55,6 +59,7 @@
   "devDependencies": {
     "@types/archiver": "^6.0.3",
     "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.5",

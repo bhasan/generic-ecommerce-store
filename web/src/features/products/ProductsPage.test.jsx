@@ -1,9 +1,35 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProductsPage from './ProductsPage';
 import { ROLES } from '../../utils/roles';
+import * as productsApi from '../../services/productsApi';
+
+vi.mock('../../services/productsApi', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    searchProducts: vi.fn(),
+  };
+});
+
+// ── IntersectionObserver mock (required in jsdom) ──────────────────────────
+let _ioCallback = null;
+
+function setupIntersectionObserverMock() {
+  _ioCallback = null;
+  global.IntersectionObserver = function MockIO(cb) {
+    _ioCallback = cb;
+    return { observe: vi.fn(), disconnect: vi.fn() };
+  };
+}
+
+const fireIntersection = async (isIntersecting = true) => {
+  await act(async () => {
+    if (_ioCallback) _ioCallback([{ isIntersecting }]);
+  });
+};
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -61,7 +87,6 @@ vi.mock('./ProductItemModal', () => ({
   ),
 }));
 
-vi.mock('./ManageProductsPanel', () => ({ default: () => <div>ManageProductsPanel</div> }));
 vi.mock('../../components/common/EmptyState', () => ({ default: ({ message }) => <p>{message}</p> }));
 vi.mock('../../components/common/HeaderDivider', () => ({ default: () => <hr /> }));
 
@@ -179,6 +204,182 @@ describe('ProductsPage', () => {
       const ids = capturedGridProps.products.map((p) => p.id);
       expect(ids).toContain(visibleProduct.id);
       expect(ids).toContain(hiddenProduct.id);
+    });
+  });
+
+  describe('search', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      useAppMock.mockReturnValue(
+        makeAppState({ id: 1, username: 'customer', roles: [ROLES.CUSTOMER] })
+      );
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('calls searchProducts after debounce when user types a query', async () => {
+      productsApi.searchProducts.mockResolvedValue([visibleProduct]);
+      renderProductsPage();
+
+      const input = screen.getByRole('searchbox', { name: /search products/i });
+      fireEvent.change(input, { target: { value: 'dream' } });
+
+      // Not called yet — debounce hasn't fired
+      expect(productsApi.searchProducts).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+      });
+
+      expect(productsApi.searchProducts).toHaveBeenCalledWith('dream');
+    });
+
+    it('renders search results in a flat grid when searchProducts resolves', async () => {
+      productsApi.searchProducts.mockResolvedValue([visibleProduct]);
+      renderProductsPage();
+
+      const input = screen.getByRole('searchbox', { name: /search products/i });
+      fireEvent.change(input, { target: { value: 'dream' } });
+
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+        // flush the resolved promise
+        await Promise.resolve();
+      });
+
+      expect(screen.getByTestId('products-grid')).toBeInTheDocument();
+      expect(screen.getByTestId(`product-card-${visibleProduct.id}`)).toBeInTheDocument();
+    });
+
+    it('restores the grouped view when query is cleared', async () => {
+      productsApi.searchProducts.mockResolvedValue([visibleProduct]);
+      renderProductsPage();
+
+      const input = screen.getByRole('searchbox', { name: /search products/i });
+
+      // Type a query first
+      fireEvent.change(input, { target: { value: 'dream' } });
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+        await Promise.resolve();
+      });
+      expect(productsApi.searchProducts).toHaveBeenCalledTimes(1);
+
+      // Clear it
+      fireEvent.change(input, { target: { value: '' } });
+      await act(async () => {
+        vi.advanceTimersByTime(250);
+        await Promise.resolve();
+      });
+
+      // searchProducts should not have been called again for empty query
+      expect(productsApi.searchProducts).toHaveBeenCalledTimes(1);
+      // The products-grid renders from the normal flat/grouped path
+      expect(screen.getByTestId('products-grid')).toBeInTheDocument();
+    });
+  });
+
+  describe('progressive reveal (grouped path)', () => {
+    // Build a fixture with 6 top-level categories so we can assert on slicing
+    const makeCategories = (n) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: i + 1,
+        name: `Cat ${i + 1}`,
+        parentId: null,
+        sortOrder: i,
+      }));
+
+    const makeProductsForCategories = (cats) =>
+      cats.map((c) => ({
+        id: c.id * 100,
+        name: `Product in ${c.name}`,
+        price: 10,
+        hidden: false,
+        vipOnly: false,
+        categoryId: c.id,
+        reviews: [],
+      }));
+
+    beforeEach(() => {
+      setupIntersectionObserverMock();
+    });
+
+    it('renders only the first 4 category sections on initial load when there are more than 4', () => {
+      const cats = makeCategories(6);
+      const prods = makeProductsForCategories(cats);
+
+      useAppMock.mockReturnValue({
+        currentUser: { id: 1, username: 'customer', roles: [ROLES.CUSTOMER] },
+        products: prods,
+        addToCart: vi.fn(),
+        isLoadingProducts: false,
+        categories: cats,
+        isLoadingCategories: false,
+        loadCategories: vi.fn(),
+      });
+
+      renderProductsPage();
+
+      // First 4 category sections should be present
+      for (let i = 1; i <= 4; i++) {
+        expect(screen.getByTestId(`category-section-${i}`)).toBeInTheDocument();
+      }
+      // 5th and 6th should NOT be rendered yet
+      expect(screen.queryByTestId('category-section-5')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('category-section-6')).not.toBeInTheDocument();
+    });
+
+    it('reveals more categories when the intersection observer fires', async () => {
+      const cats = makeCategories(6);
+      const prods = makeProductsForCategories(cats);
+
+      useAppMock.mockReturnValue({
+        currentUser: { id: 1, username: 'customer', roles: [ROLES.CUSTOMER] },
+        products: prods,
+        addToCart: vi.fn(),
+        isLoadingProducts: false,
+        categories: cats,
+        isLoadingCategories: false,
+        loadCategories: vi.fn(),
+      });
+
+      renderProductsPage();
+
+      // Trigger the intersection observer (sentinel scrolled into view)
+      await fireIntersection(true);
+
+      // Now all 6 categories should be visible (4 + step=4, capped at 6)
+      await waitFor(() => {
+        for (let i = 1; i <= 6; i++) {
+          expect(screen.getByTestId(`category-section-${i}`)).toBeInTheDocument();
+        }
+      });
+    });
+
+    it('renders all categories without a sentinel when count <= total', () => {
+      const cats = makeCategories(3); // fewer than step=4
+      const prods = makeProductsForCategories(cats);
+
+      useAppMock.mockReturnValue({
+        currentUser: { id: 1, username: 'customer', roles: [ROLES.CUSTOMER] },
+        products: prods,
+        addToCart: vi.fn(),
+        isLoadingProducts: false,
+        categories: cats,
+        isLoadingCategories: false,
+        loadCategories: vi.fn(),
+      });
+
+      renderProductsPage();
+
+      // All 3 render
+      for (let i = 1; i <= 3; i++) {
+        expect(screen.getByTestId(`category-section-${i}`)).toBeInTheDocument();
+      }
+      // Sentinel not needed — observer callback should never have been set
+      expect(_ioCallback).toBeNull();
     });
   });
 });

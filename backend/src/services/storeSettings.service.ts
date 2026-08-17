@@ -3,6 +3,8 @@ import { SettingsStore, parseOrThrow } from './settingsStore';
 import { DeliveryEligibilityService, invalidateStoreAddressCache } from './deliveryEligibility.service';
 import { invalidateOfflineZipsCache } from './orderingConstraints.service';
 import { invalidateStoreNameCache } from './thermalPrinter.service';
+import { encrypt, decrypt } from '../utils/crypto.util';
+import { logger } from '../utils/logger';
 
 export interface NotificationEmailRouting {
   adminEmail: string;
@@ -10,38 +12,46 @@ export interface NotificationEmailRouting {
   employeeEmail: string;
 }
 
+export interface PosConfig {
+  baseUrl?: string;
+  username?: string;
+  password?: string;
+  apiKey?: string;
+  sakCatchAllProductId?: number;
+  sakCatchAllVariantId?: number;
+}
+
 export interface StoreSettings {
   name: string;
   address: string;
   phoneNumber: string;
   tagline: string;
+  // Per-tenant reporting locale. Empty = fall back to the platform reporting
+  // defaults (see reportingConfig). timezone is an IANA name (e.g. America/New_York);
+  // currency is an ISO-4217 code (e.g. USD).
+  timezone: string;
+  currency: string;
   notificationEmails: NotificationEmailRouting;
+  posProvider: string | null;
+  posConfig: PosConfig;
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ADMIN_EMAIL_FALLBACK_ENV_KEYS = [
-  'STORE_SUPPORT_EMAIL',
-  'SUPPORT_EMAIL',
-  'ADMIN_ALERT_EMAIL',
-  'ADMIN_EMAIL',
-] as const;
-
-const resolveDefaultAdminNotificationEmail = () => {
-  for (const key of ADMIN_EMAIL_FALLBACK_ENV_KEYS) {
-    const rawValue = process.env[key];
-    if (typeof rawValue !== 'string') continue;
-    const value = rawValue.trim();
-    if (!value) continue;
-    if (EMAIL_PATTERN.test(value)) {
-      return value;
-    }
+function safePosDecrypt(value: string | undefined, key: string, field: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    return decrypt(value, key);
+  } catch {
+    logger.warn('Stored POS credential could not be decrypted — treating as unconfigured', { field });
+    return undefined;
   }
+}
 
-  return '';
-};
+const POS_ENCRYPTION_KEY = process.env.POS_ENCRYPTION_KEY ?? '';
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const getDefaultNotificationEmailRouting = (): NotificationEmailRouting => ({
-  adminEmail: resolveDefaultAdminNotificationEmail(),
+  adminEmail: '',
   managementEmail: '',
   employeeEmail: '',
 });
@@ -51,7 +61,11 @@ const getDefaultStoreSettings = (): StoreSettings => ({
   address: '',
   phoneNumber: '',
   tagline: '',
+  timezone: '',
+  currency: '',
   notificationEmails: getDefaultNotificationEmailRouting(),
+  posProvider: null,
+  posConfig: {},
 });
 
 const deliveryEligibilityService = new DeliveryEligibilityService();
@@ -80,6 +94,8 @@ function normalize(
     address: typeof data?.address === 'string' ? data.address : defaults.address,
     phoneNumber: typeof data?.phoneNumber === 'string' ? data.phoneNumber : defaults.phoneNumber,
     tagline: typeof data?.tagline === 'string' ? data.tagline : defaults.tagline,
+    timezone: typeof data?.timezone === 'string' ? data.timezone : defaults.timezone,
+    currency: typeof data?.currency === 'string' ? data.currency : defaults.currency,
     notificationEmails: {
       adminEmail: normalizeEmailField(
         data?.notificationEmails?.adminEmail,
@@ -96,6 +112,15 @@ function normalize(
         defaults.notificationEmails.employeeEmail,
         sanitizeInvalidEmails,
       ),
+    },
+    posProvider: data?.posProvider ?? null,
+    posConfig: {
+      baseUrl: data?.posConfig?.baseUrl,
+      username: data?.posConfig?.username,
+      password: data?.posConfig?.password,
+      apiKey: data?.posConfig?.apiKey,
+      sakCatchAllProductId: data?.posConfig?.sakCatchAllProductId,
+      sakCatchAllVariantId: data?.posConfig?.sakCatchAllVariantId,
     },
   };
 }
@@ -119,6 +144,14 @@ const StoreSettingsSchema = z.object({
     .string('Invalid store settings: phoneNumber must be a string')
     .max(32, 'Invalid store settings: phoneNumber must be 32 characters or fewer'),
   tagline: z.string(),
+  timezone: z
+    .string('Invalid store settings: timezone must be a string')
+    .max(64, 'Invalid store settings: timezone must be 64 characters or fewer')
+    .default(''),
+  currency: z
+    .string('Invalid store settings: currency must be a string')
+    .max(8, 'Invalid store settings: currency must be 8 characters or fewer')
+    .default(''),
   notificationEmails: z.object(
     {
       adminEmail: emailField('adminEmail'),
@@ -127,13 +160,47 @@ const StoreSettingsSchema = z.object({
     },
     'Invalid store settings: notificationEmails must be an object',
   ),
+  posProvider: z.string().nullable().default(null),
+  posConfig: z.object({
+    baseUrl: z.string().optional(),
+    username: z.string().optional(),
+    password: z.string().optional(),
+    apiKey: z.string().optional(),
+    sakCatchAllProductId: z.number().int().optional(),
+    sakCatchAllVariantId: z.number().int().optional(),
+  }).default({}),
 });
 
 const store = new SettingsStore<StoreSettings>({
   key: 'store_settings',
+  storeScoped: true,
   schema: StoreSettingsSchema,
   defaults: getDefaultStoreSettings,
-  onRead: (raw) => normalize(raw),
+  onRead: (raw) => {
+    const normalized = normalize(raw);
+    if (!POS_ENCRYPTION_KEY) return normalized;
+    return {
+      ...normalized,
+      posConfig: {
+        ...normalized.posConfig,
+        username: safePosDecrypt(normalized.posConfig.username, POS_ENCRYPTION_KEY, 'username'),
+        password: safePosDecrypt(normalized.posConfig.password, POS_ENCRYPTION_KEY, 'password'),
+        apiKey: safePosDecrypt(normalized.posConfig.apiKey, POS_ENCRYPTION_KEY, 'apiKey'),
+      },
+    };
+  },
+  onWrite: (data) => {
+    if (!POS_ENCRYPTION_KEY) return data;
+    return {
+      ...data,
+      posConfig: {
+        ...data.posConfig,
+        username: data.posConfig.username ? encrypt(data.posConfig.username, POS_ENCRYPTION_KEY) : undefined,
+        password: data.posConfig.password ? encrypt(data.posConfig.password, POS_ENCRYPTION_KEY) : undefined,
+        apiKey: data.posConfig.apiKey ? encrypt(data.posConfig.apiKey, POS_ENCRYPTION_KEY) : undefined,
+      },
+    };
+  },
 });
 
 export class StoreSettingsService {

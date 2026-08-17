@@ -1,7 +1,8 @@
 import { OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../../../generated/prisma';
-import { PaymentStrategy, OrderContext } from './PaymentStrategy';
+import { OrderContext } from './PaymentStrategy';
+import { BasePaymentStrategy } from './BasePaymentStrategy';
 
-export class ExternalPaymentStrategy implements PaymentStrategy {
+export class ExternalPaymentStrategy extends BasePaymentStrategy {
   readonly method = PaymentMethodEnum.EXTERNAL;
 
   validate(_ctx: OrderContext): void {

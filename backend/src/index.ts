@@ -2,9 +2,19 @@ import express, { Application } from 'express';
 import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import prisma from './config/database';
 import { logger } from './utils/logger';
+import { resolveTenant } from './middleware/tenant.middleware';
+import { authenticate } from './middleware/auth.middleware';
+import { getTenantContext } from './config/tenantContext';
+import { resolveTenantUploadPath } from './utils/fileUtils';
+import { verifyDefaultTenant } from './config/verifyDefaultTenant';
+import { getUnscopedPrisma } from './config/database';
+
+// Import subscribers to register event listeners
+import './subscribers/order.subscriber';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -18,11 +28,14 @@ import notificationRoutes from './routes/notification.routes';
 import uploadRoutes from './routes/upload.routes';
 import paymentSettingsRoutes from './routes/paymentSettings.routes';
 import storeSettingsRoutes from './routes/storeSettings.routes';
+import storeRoutes from './routes/store.routes';
 import orderingConstraintsRoutes from './routes/orderingConstraints.routes';
 import landingPageSettingsRoutes from './routes/landingPageSettings.routes';
 import creditRoutes from './routes/credit.routes';
 import printJobRoutes from './routes/printJob.routes';
 import reportingRoutes from './routes/reporting.routes';
+import tenantManagementRoutes from './routes/tenantManagement.routes';
+import storeVariantOverrideRoutes from './routes/storeVariantOverride.routes';
 import { DEFAULT_TAX_RATE } from './constants/settings';
 import { PaymentSettingsService } from './services/paymentSettings.service';
 import { StoreSettingsService } from './services/storeSettings.service';
@@ -32,6 +45,7 @@ import { brandingController } from './controllers/branding.controller';
 import { asyncHandler } from './utils/asyncHandler.util';
 import brandingRoutes from './routes/branding.routes';
 import { parsePositiveInt } from './utils/request.util';
+import { startOutboxWorker } from './services/pos/orders/outboxWorker';
 
 // Import middleware
 import { errorHandler, notFoundHandler } from './middleware/error.middleware';
@@ -78,6 +92,7 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 
 // ========================================
 // TIMEOUT SAFETY
@@ -103,6 +118,15 @@ app.use((req, res, next) => {
 // ========================================
 // LOGGING MIDDLEWARE
 // ========================================
+
+app.use('/api', resolveTenant);
+
+app.use('/api', (req, _res, next) => {
+  if ((req as any).logger) {
+    (req as any).logger = (req as any).logger.child({ tenantId: req.tenantId ?? 'super-admin' });
+  }
+  next();
+});
 
 // Prometheus metrics collection (before requestLogger so every request is counted)
 app.use(metricsMiddleware);
@@ -157,14 +181,17 @@ const storeSettingsService = new StoreSettingsService();
 const orderingConstraintsService = new OrderingConstraintsService();
 const brandingService = new BrandingService();
 
-// Config check route
-app.get('/api/config', asyncHandler(async (_req, res) => {
+// Config check route — AUTHENTICATED: the store is login-gated, and this exposes
+// store address, payment handles, and settings. The login/register page uses the
+// public /api/branding/public + /api/branding/css for theming instead.
+app.get('/api/config', authenticate, asyncHandler(async (_req, res) => {
   const [paymentSettings, storeSettings, orderingConstraints, branding] = await Promise.all([
     paymentSettingsService.getPaymentSettings(),
     storeSettingsService.getStoreSettings(),
     orderingConstraintsService.getOrderingConstraints(),
     brandingService.getBranding(),
   ]);
+  res.setHeader('Cache-Control', 'public, max-age=30, must-revalidate');
   res.json({
     taxRate: DEFAULT_TAX_RATE,
     minimumDeliveryOrder: orderingConstraints.minimumDeliveryOrder,
@@ -185,6 +212,30 @@ app.get('/api/config', asyncHandler(async (_req, res) => {
 }));
 
 app.get('/api/branding/css', generalLimiter, brandingController.getCss);
+// Public, unauthenticated: minimal brand identity (name/logo/favicon/colors) for
+// theming the login/register page. Full branding + store config stay behind auth.
+app.get('/api/branding/public', generalLimiter, brandingController.getPublicBranding);
+
+// Tenant-scoped uploads: a tenant may only fetch files under its own id.
+// resolveTenant (mounted on /api above) has already set the ALS context.
+app.get('/api/uploads/tenants/:tenantId/:filename', (req, res) => {
+  const filePath = resolveTenantUploadPath(
+    Number(req.params.tenantId),
+    req.params.filename,
+    getTenantContext(),
+  );
+  if (!filePath) {
+    res.status(404).json({ error: 'Not found' });
+    return;
+  }
+  res.sendFile(filePath, { maxAge: '30d', immutable: true }, (err) => {
+    if (err && !res.headersSent) res.status(404).json({ error: 'Not found' });
+  });
+});
+
+// Any /api/uploads/tenants/* shape not matched by the guarded route above must NOT
+// be served by the broad legacy static mount below. Deny it explicitly.
+app.use('/api/uploads/tenants', (_req, res) => { res.status(404).json({ error: 'Not found' }); });
 
 // Serve uploaded files (must be before /api routes so /api/uploads is not caught by other routes)
 app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
@@ -195,8 +246,11 @@ app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads'), {
 // API routes
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/upload', generalLimiter, uploadRoutes);
-app.use('/api/products', generalLimiter, productRoutes);
-app.use('/api/categories', generalLimiter, categoryRoutes);
+// Store is login-gated — the catalog requires authentication (the admin mutation
+// routes inside also enforce roles). This closes the public-catalog leak where a
+// direct API call bypassed the frontend login gate.
+app.use('/api/products', generalLimiter, authenticate, productRoutes);
+app.use('/api/categories', generalLimiter, authenticate, categoryRoutes);
 app.use('/api/orders', readWriteLimiter, orderRoutes);
 app.use('/api/users', generalLimiter, userRoutes);
 app.use('/api/announcements', generalLimiter, announcementRoutes);
@@ -204,12 +258,15 @@ app.use('/api/contact', readWriteLimiter, contactRoutes);
 app.use('/api/notifications', readWriteLimiter, notificationRoutes);
 app.use('/api/payment-settings', generalLimiter, paymentSettingsRoutes);
 app.use('/api/store-settings', generalLimiter, storeSettingsRoutes);
+app.use('/api/stores', generalLimiter, storeRoutes);
+app.use('/api/store-overrides', generalLimiter, storeVariantOverrideRoutes);
 app.use('/api/ordering-constraints', generalLimiter, orderingConstraintsRoutes);
 app.use('/api/landing-page-settings', generalLimiter, landingPageSettingsRoutes);
 app.use('/api/branding', generalLimiter, brandingRoutes);
 app.use('/api/storecredit', generalLimiter, creditRoutes);
 app.use('/api/print-jobs', readWriteLimiter, printJobRoutes);
 app.use('/api/reporting/v1', reportingRoutes);
+app.use('/api/admin/tenants', generalLimiter, tenantManagementRoutes);
 
 // ========================================
 // ERROR HANDLING
@@ -238,18 +295,30 @@ function validateProductionEnv() {
   }
 }
 
-validateProductionEnv();
+async function startServer() {
+  validateProductionEnv();
 
-// Starts the Express app with the configured port, which defaults to 3000 when PORT is unset.
-app.listen(PORT, () => {
-  logger.info('Proxy trust configured', {
-    trustProxyHops: app.get('trust proxy'),
+  if (process.env.NODE_ENV !== 'test') {
+    await verifyDefaultTenant(getUnscopedPrisma());
+  }
+
+  // Starts the Express app with the configured port, which defaults to 3000 when PORT is unset.
+  app.listen(PORT, () => {
+    logger.info('Proxy trust configured', {
+      trustProxyHops: app.get('trust proxy'),
+    });
+    startOutboxWorker();
+    console.log('========================================');
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
+    console.log('========================================');
   });
-  console.log('========================================');
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 Health check: http://localhost:${PORT}/api/health`);
-  console.log('========================================');
+}
+
+startServer().catch((err) => {
+  logger.error('FATAL: Failed to start server', err);
+  process.exit(1);
 });
 
 // Handle unhandled promise rejections

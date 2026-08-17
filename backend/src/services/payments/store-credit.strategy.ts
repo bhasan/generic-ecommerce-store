@@ -1,8 +1,9 @@
 import { OrderStatus, PaymentMethodEnum, PaymentStatus, Prisma } from '../../../generated/prisma';
-import { PaymentStrategy, OrderContext } from './PaymentStrategy';
+import { OrderContext } from './PaymentStrategy';
+import { BasePaymentStrategy } from './BasePaymentStrategy';
 import storeCreditService from '../store-credit.service';
 
-export class StoreCreditPaymentStrategy implements PaymentStrategy {
+export class StoreCreditPaymentStrategy extends BasePaymentStrategy {
   readonly method = PaymentMethodEnum.STORE_CREDIT;
 
   validate(_ctx: OrderContext): void {

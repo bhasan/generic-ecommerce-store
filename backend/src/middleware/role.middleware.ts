@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { RoleName, hasAnyRole } from '../constants/roles';
+import { RoleName } from '../constants/roles';
 import { logger } from '../utils/logger';
 
 /**
@@ -21,7 +21,21 @@ export const authorize = (...allowedRoles: RoleName[]) => {
       return;
     }
 
-    if (!hasAnyRole(req.user.roles, allowedRoles)) {
+    const roles = req.user.roles ?? [];
+    const actingStore = req.store?.id ?? null;
+
+    const hasMatch = roles.some((r: any) => {
+      const roleName = typeof r === 'string' ? r : r.name;
+      const storeId = typeof r === 'string' ? null : r.storeId;
+
+      const isAllowed = allowedRoles.includes(roleName as RoleName) || roleName === 'SUPER_ADMIN';
+      // storeId 0 (and legacy null) = "all stores"; a real store id matches only that store.
+      const isStoreMatched = storeId === null || storeId === 0 || storeId === actingStore || roleName === 'SUPER_ADMIN';
+
+      return isAllowed && isStoreMatched;
+    });
+
+    if (!hasMatch) {
       // Required/current role snapshots are intentionally included here because
       // frontend redirects can otherwise hide why access was denied.
       logger.warn('Authorization failed: insufficient permissions', {
@@ -58,3 +72,35 @@ export const authorizeManagement = authorize('MANAGEMENT', 'ADMIN');
  * Check if user is ADMIN only
  */
 export const authorizeAdmin = authorize('ADMIN');
+
+/**
+ * SUPER_ADMIN gate for platform-wide (cross-tenant) management endpoints, e.g.
+ * tenant provisioning. Tenant management is a PLATFORM function — managing every
+ * business on the shared instance — so it must be restricted to the SUPER_ADMIN
+ * role. A regular per-tenant ADMIN (including the default 'app' tenant's admin) is
+ * NOT a super-admin and is rejected with 403. (This will move behind a dedicated
+ * super-admin portal later; for now the screen lives in website-management but is
+ * only visible/usable to a SUPER_ADMIN.)
+ */
+export const requireSuperAdmin = (req: Request, res: Response, next: NextFunction): void => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+  const roles = (req.user.roles ?? []) as Array<string | { name: string }>;
+  const roleNames = roles.map((r) => (typeof r === 'string' ? r : r.name));
+
+  if (!roleNames.includes('SUPER_ADMIN')) {
+    logger.warn('Super-admin access denied', {
+      requestId: req.requestId || 'unknown',
+      path: req.path,
+      method: req.method,
+      userId: req.user.userId,
+      tenantSlug: req.tenant?.slug ?? null,
+      currentRoles: roleNames,
+    });
+    res.status(403).json({ error: 'Super administrator access required.' });
+    return;
+  }
+  next();
+};

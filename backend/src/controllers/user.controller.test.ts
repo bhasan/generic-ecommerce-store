@@ -61,8 +61,9 @@ describe('user controller logging', () => {
       targetUserId: 2,
     }));
     expect(res.json).toHaveBeenCalledWith({
+      success: true,
       message: 'User approved successfully',
-      user: { id: 2 },
+      data: { user: { id: 2 } },
     });
     expect(next).not.toHaveBeenCalled();
   });

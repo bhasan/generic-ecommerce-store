@@ -27,7 +27,12 @@ router.post(
   asyncHandler(authController.login)
 );
 
+// Refresh-token validation lives in the service (returns 401 on missing/invalid).
+// Rate limiting is already applied to all /api/auth routes at the app level
+// (app.use('/api/auth', authLimiter, ...)), so no route-level limiter here.
+router.post('/refresh', asyncHandler(authController.refresh));
+
 router.get('/profile', authenticate, asyncHandler(authController.getProfile));
-router.post('/logout', authController.logout);
+router.post('/logout', asyncHandler(authController.logout));
 
 export default router;

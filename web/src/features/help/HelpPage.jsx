@@ -3,10 +3,11 @@ import './HelpPage.css';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { 
-  HelpCircle, 
-  Phone, 
-  MapPin, 
-  MessageSquare, 
+  HelpCircle,
+  Phone,
+  MapPin,
+  MessageSquare,
+  MessageCircle,
   Mail,
   ExternalLink,
 } from 'lucide-react';

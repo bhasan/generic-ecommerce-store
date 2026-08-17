@@ -2,6 +2,16 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   fullyParallel: false,
+  // Serialize across files (workers: 1), not just within a file. Several flows
+  // (stock-race, multi-store-customer, admin-multi-store) create a transient
+  // second store in the SHARED default tenant. With multi-store live, any store
+  // that briefly exists makes the customer store-picker modal gate EVERY other
+  // browser flow — so a store-mutating spec running on a parallel worker would
+  // fail unrelated concurrent specs. One worker removes that cross-file race.
+  // (If CI wall-clock becomes a problem, the alternative is to isolate the
+  // store-mutating specs into their own Playwright project that the browser
+  // projects `dependencies: [...]` on, so they run in a separate phase.)
+  workers: 1,
   retries: 0,
   globalSetup: './e2e/global-setup.ts',
   use: {

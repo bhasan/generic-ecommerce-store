@@ -73,3 +73,20 @@ export const getStructuredDeliveryAddressCacheKey = (
 
 export const extractZipCodeFromFreeformAddress = (address?: string | null): string | null =>
   normalizeZipCode(address);
+
+/**
+ * Pull a non-blank `address` string out of a persisted `store_settings` JSON value
+ * (a `UiSetting.value`), returning '' when absent or empty. Used to derive the
+ * delivery origin from the tenant-default and per-store settings rows.
+ */
+export const extractAddressFromSettingsValue = (value: unknown): string => {
+  if (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as { address?: unknown }).address === 'string' &&
+    (value as { address: string }).address.trim()
+  ) {
+    return (value as { address: string }).address;
+  }
+  return '';
+};

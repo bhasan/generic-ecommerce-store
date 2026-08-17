@@ -9,6 +9,9 @@ declare global {
         roles: RoleName[];
       };
       requestId?: string;
+      tenantId?: number | null;
+      tenant?: { id: number; slug: string; status: string } | null;
+      store?: { id: number } | null;
     }
   }
 }

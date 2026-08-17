@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, Loader2, UploadCloud, RefreshCw, PlayCircle, Grid, List as ListIcon, CheckCircle2 } from 'lucide-react';
 import { getImages, deleteImage, uploadFile, uploadFiles } from '../../services/uploadApi';
-import { MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile } from '../../utils/mediaUpload';
+import { MEDIA_INPUT_ACCEPT, UNSUPPORTED_MEDIA_MESSAGE, isSupportedMediaFile, isVideoUrl } from '../../utils/mediaUpload';
 import ImageCropModal from './ImageCropModal';
 import './MediaLibraryModal.css';
+import BaseModal from './BaseModal';
 
-// Helper to check if a url is a video
-const isVideo = (url) => {
-  if (!url) return false;
-  return url.match(/\.(mp4|webm)$/i);
-};
-
-function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hideInsertButton = false }) {
+function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hideInsertButton = false, hideCloseButton = false }) {
   const [images, setImages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -45,13 +40,13 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
   const loadDimensions = (items) => {
     items.forEach((item) => {
-      if (isVideo(item.url)) return;
+      if (isVideoUrl(item.url)) return;
       const img = new Image();
       img.onload = () => {
-        setDimensions((prev) => ({
-          ...prev,
-          [item.url]: { width: img.naturalWidth, height: img.naturalHeight },
-        }));
+        setDimensions((prev) => {
+          if (prev[item.url]) return prev;
+          return { ...prev, [item.url]: { width: img.naturalWidth, height: img.naturalHeight } };
+        });
       };
       img.src = item.url;
     });
@@ -88,7 +83,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
           await deleteImage(filename);
         }
       }
-      
+
       // Update state
       setImages((prev) => prev.filter((img) => !selectedItems.includes(img.url)));
       setSelectedItems([]);
@@ -114,7 +109,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
     if (files.length > 1) {
       // Multiple files: upload all directly without crop
-      performMultiUpload(files);
+      performUpload(files);
     } else {
       const file = files[0];
       if (file.type.startsWith('video/')) {
@@ -125,10 +120,11 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     }
   };
 
-  const performUpload = async (file) => {
+  const performUpload = async (files) => {
+    const fileList = Array.isArray(files) ? files : [files];
     setIsUploading(true);
     try {
-      await uploadFile(file);
+      await (fileList.length === 1 ? uploadFile(fileList[0]) : uploadFiles(fileList));
       await fetchImages();
     } catch (err) {
       alert(`Upload failed: ${err.message}`);
@@ -137,26 +133,9 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     }
   };
 
-  const performMultiUpload = async (files) => {
-    setIsUploading(true);
-    try {
-      await uploadFiles(files);
-      await fetchImages();
-    } catch (err) {
-      alert(`Upload failed: ${err.message}`);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleCropConfirm = (croppedFile) => {
+  const handleCropDone = (file) => {
     setCropFile(null);
-    performUpload(croppedFile);
-  };
-
-  const handleCropSkip = (originalFile) => {
-    setCropFile(null);
-    performUpload(originalFile);
+    performUpload(file);
   };
 
   const formatSize = (bytes) => {
@@ -169,8 +148,8 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
 
   const handleItemClick = (url) => {
     if (multiSelect) {
-      setSelectedItems(prev => 
-        prev.includes(url) 
+      setSelectedItems(prev =>
+        prev.includes(url)
           ? prev.filter(item => item !== url)
           : [...prev, url]
       );
@@ -183,26 +162,23 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
     onSelect(multiSelect ? selectedItems : selectedItems[0]);
   };
 
-  if (!isOpen) return null;
-
   return (
     <>
-    <div className="media-modal-overlay" onClick={onClose}>
-      <div className="media-modal-content surface-card-accent" onClick={(e) => e.stopPropagation()}>
+      <BaseModal isOpen={isOpen} onClose={onClose} className="media-modal-content surface-card-accent" maxWidth="1000px">
         <div className="media-modal-header">
           <h3 className="media-modal-title">Media Library</h3>
-          
+
           <div className="media-modal-actions">
             <div className="view-mode-toggle">
-              <button 
-                className={`btn-icon ${viewMode === 'grid' ? 'active' : ''}`} 
+              <button
+                className={`btn-icon ${viewMode === 'grid' ? 'active' : ''}`}
                 onClick={() => setViewMode('grid')}
                 title="Grid View"
               >
                 <Grid size={18} />
               </button>
-              <button 
-                className={`btn-icon ${viewMode === 'list' ? 'active' : ''}`} 
+              <button
+                className={`btn-icon ${viewMode === 'list' ? 'active' : ''}`}
                 onClick={() => setViewMode('list')}
                 title="List View"
               >
@@ -217,19 +193,21 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
               <span>{isUploading ? 'Uploading...' : 'Upload New'}</span>
               <input type="file" accept={MEDIA_INPUT_ACCEPT} multiple onChange={handleUpload} disabled={isUploading} hidden />
             </label>
-            
+
             <button className="btn btn-secondary btn-icon" onClick={fetchImages} title="Refresh Library">
               <RefreshCw size={18} />
             </button>
-            <button className="btn btn-ghost btn-icon btn-close" onClick={onClose} aria-label="Close">
-              <X size={20} />
-            </button>
+            {!hideCloseButton && (
+              <button className="btn btn-ghost btn-icon btn-close" onClick={onClose} aria-label="Close">
+                <X size={20} />
+              </button>
+            )}
           </div>
         </div>
 
         <div className="media-modal-body">
           {error && <div className="media-error-banner">{error}</div>}
-          
+
           {isLoading ? (
             <div className="media-loading-state">
               <Loader2 size={32} className="spin text-primary" />
@@ -246,9 +224,9 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
               {images.map((image) => {
                 const isSelected = selectedItems.includes(image.url);
                 return (
-                  <div 
-                    key={image.filename} 
-                    className={`media-item ${isSelected ? 'selected' : ''}`} 
+                  <div
+                    key={image.filename}
+                    className={`media-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleItemClick(image.url)}
                   >
                     <div className="media-item-preview">
@@ -257,8 +235,8 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                           <CheckCircle2 size={24} className="check-icon" />
                         </div>
                       )}
-                      
-                      {isVideo(image.url) ? (
+
+                      {isVideoUrl(image.url) ? (
                         <>
                           <video src={image.url} className="media-thumbnail-video" />
                           <div className="video-thumbnail-overlay">
@@ -269,7 +247,7 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                         <img src={image.url} alt={image.filename} loading="lazy" />
                       )}
                     </div>
-                    
+
                     <div className="media-item-info">
                       <div className="media-item-name" title={image.filename}>{image.filename}</div>
                       <div className="media-item-meta">
@@ -278,8 +256,8 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
                           <span className="media-item-size">{dimensions[image.url].width}×{dimensions[image.url].height}</span>
                         )}
                         <span className="media-item-date">{new Date(image.createdAt).toLocaleDateString()}</span>
-                        <button 
-                          className="btn btn-ghost btn-icon btn-sm btn-delete-media" 
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm btn-delete-media"
                           onClick={(e) => handleDelete(image.filename, e)}
                           title="Delete Media"
                         >
@@ -293,13 +271,13 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
             </div>
           )}
         </div>
-        
+
         {multiSelect && selectedItems.length > 0 && (
           <div className="media-modal-footer">
             <span className="media-selected-count">{selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected</span>
             <div className="media-footer-actions">
-              <button 
-                className="btn btn-ghost" 
+              <button
+                className="btn btn-ghost"
                 style={{ color: 'var(--danger-color)' }}
                 onClick={handleBulkDelete}
               >
@@ -315,16 +293,15 @@ function MediaLibraryModal({ isOpen, onClose, onSelect, multiSelect = false, hid
             </div>
           </div>
         )}
-      </div>
-    </div>
-    {cropFile && (
-      <ImageCropModal
-        file={cropFile}
-        onConfirm={handleCropConfirm}
-        onSkip={handleCropSkip}
-        onCancel={() => setCropFile(null)}
-      />
-    )}
+      </BaseModal>
+      {cropFile && (
+        <ImageCropModal
+          file={cropFile}
+          onConfirm={handleCropDone}
+          onSkip={handleCropDone}
+          onCancel={() => setCropFile(null)}
+        />
+      )}
     </>
   );
 }

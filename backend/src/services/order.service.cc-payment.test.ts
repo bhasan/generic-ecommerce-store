@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll, vi } from 'vitest';
 import { OrderStatus, Prisma } from '../../generated/prisma';
 const D = (n: number) => new Prisma.Decimal(n);
 import { PaymentMethod } from '../constants/orderMethods';
+
 
 // ── Shared mocks ──────────────────────────────────────────────────────────────
 
@@ -33,8 +34,12 @@ vi.mock('../config/database', () => ({ default: prismaMock }));
 vi.mock('../utils/logger', () => ({ logger }));
 vi.mock('./paymentSettings.service', () => ({
   PaymentSettingsService: vi.fn(() => paymentSettingsInstance),
+  default: {
+    PaymentSettingsService: vi.fn(() => paymentSettingsInstance),
+  }
 }));
 vi.mock('./authorizenet.service', () => ({
+  default: authorizeNetServiceMock,
   authorizeNetService: authorizeNetServiceMock,
 }));
 vi.mock('./notificationEvents.service', () => ({ notificationEventsService }));
@@ -63,6 +68,10 @@ const basePendingOrder = {
   paymentMethod: PaymentMethod.CC,
   status: OrderStatus.PENDING_PAYMENT,
 };
+
+beforeAll(async () => {
+  await import('../subscribers/order.subscriber');
+});
 
 // ── getPaymentToken ───────────────────────────────────────────────────────────
 

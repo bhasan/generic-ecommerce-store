@@ -40,7 +40,8 @@ export const uploadFile = async (file) => {
     throw error;
   }
 
-  return response.json();
+  const json = await response.json();
+  return json.data ?? json;
 };
 
 /**
@@ -82,7 +83,8 @@ export const uploadFiles = async (files) => {
     throw error;
   }
 
-  return response.json();
+  const json = await response.json();
+  return json.data ?? json;
 };
 
 /**
@@ -118,7 +120,8 @@ export const getImages = async () => {
     throw error;
   }
 
-  return response.json();
+  const json = await response.json();
+  return json.data ?? json;
 };
 
 /**
@@ -153,7 +156,8 @@ export const importImagesZip = async (file) => {
     throw error;
   }
 
-  return response.json();
+  const json = await response.json();
+  return json.data ?? json;
 };
 
 /**
@@ -190,5 +194,6 @@ export const deleteImage = async (filename) => {
     throw error;
   }
 
-  return response.json();
+  const json = await response.json();
+  return json.data ?? json;
 };

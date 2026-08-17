@@ -21,10 +21,13 @@ import fs from 'fs';
 import path from 'path';
 import unzipper from 'unzipper';
 import { errorHandler } from '../middleware/error.middleware';
+import { setDefaultTenantId } from '../config/defaultTenant';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const UPLOADS_DIR = path.join(process.cwd(), 'uploads');
+const TENANT_ID = 1;
+const TENANT_UPLOADS_DIR = path.join(UPLOADS_DIR, 'tenants', String(TENANT_ID));
 
 // Unique prefix so test files never collide with real uploads
 const PREFIX = 'e2e-roundtrip-';
@@ -48,11 +51,16 @@ const prismaMock = vi.hoisted(() => ({
 }));
 
 vi.mock('../utils/jwt.util', () => ({ verifyToken, extractTokenFromHeader }));
-vi.mock('../config/database', () => ({ default: prismaMock }));
+vi.mock('../config/database', () => ({ default: prismaMock, getTenantPrisma: () => prismaMock, getUnscopedPrisma: () => prismaMock }));
 vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 vi.mock('sharp', () => ({ default: vi.fn() }));
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn().mockReturnValue({ tenantId: 1, storeId: null, scope: 'tenant' }),
+  getTenantContext: vi.fn().mockReturnValue({ tenantId: 1, storeId: null, scope: 'tenant' }),
+  runWithTenant: vi.fn((_ctx: unknown, fn: () => unknown) => fn()),
+}));
 
 // ── Server factory ────────────────────────────────────────────────────────────
 
@@ -106,20 +114,27 @@ async function importZip(
     body: form,
   });
   expect(res.status).toBe(200);
-  return res.json();
+  const json = await res.json();
+  return json.data ?? json;
 }
 
 // ── Fixture setup / teardown ──────────────────────────────────────────────────
 
 beforeAll(async () => {
   await fs.promises.mkdir(UPLOADS_DIR, { recursive: true });
+  await fs.promises.mkdir(TENANT_UPLOADS_DIR, { recursive: true });
+  // Flat files: the export service reads these when products use /api/uploads/<f> URLs.
   await fs.promises.writeFile(path.join(UPLOADS_DIR, FILE_A), CONTENT_A);
   await fs.promises.writeFile(path.join(UPLOADS_DIR, FILE_B), CONTENT_B);
+  // Tenant-dir files: importZip (post-R1) writes and checks the active tenant's dir.
+  await fs.promises.writeFile(path.join(TENANT_UPLOADS_DIR, FILE_A), CONTENT_A);
+  await fs.promises.writeFile(path.join(TENANT_UPLOADS_DIR, FILE_B), CONTENT_B);
 });
 
 afterAll(async () => {
   for (const file of [FILE_A, FILE_B]) {
     await fs.promises.unlink(path.join(UPLOADS_DIR, file)).catch(() => {});
+    await fs.promises.unlink(path.join(TENANT_UPLOADS_DIR, file)).catch(() => {});
   }
 });
 
@@ -131,6 +146,7 @@ describe('export / import round-trip', () => {
   let zipBuf: Buffer;
 
   beforeAll(async () => {
+    setDefaultTenantId(1);
     // Two products — one with each test image as thumbnail
     prismaMock.product.findMany.mockResolvedValue([
       {
@@ -204,8 +220,8 @@ describe('export / import round-trip', () => {
   });
 
   it('restores a deleted image and reports correct imported/skipped counts', async () => {
-    // Delete one of the test images from disk
-    await fs.promises.unlink(path.join(UPLOADS_DIR, FILE_A));
+    // Delete one of the test images from the tenant dir (importZip now writes there).
+    await fs.promises.unlink(path.join(TENANT_UPLOADS_DIR, FILE_A));
 
     const result = await importZip(baseUrl, zipBuf);
 
@@ -213,7 +229,7 @@ describe('export / import round-trip', () => {
   });
 
   it('restored image has the exact original file content', async () => {
-    const restored = await fs.promises.readFile(path.join(UPLOADS_DIR, FILE_A));
+    const restored = await fs.promises.readFile(path.join(TENANT_UPLOADS_DIR, FILE_A));
     expect(restored).toEqual(CONTENT_A);
   });
 

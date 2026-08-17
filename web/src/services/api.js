@@ -47,29 +47,67 @@ const notifyBackendUnavailable = (message) => {
 };
 
 /**
- * Get stored auth token from localStorage
+ * The access token lives in memory only — never localStorage — so an injected
+ * script can't exfiltrate it from storage. It is intentionally lost on a hard
+ * refresh and re-minted from the httpOnly refresh cookie via refresh-on-mount.
+ */
+let accessToken = null;
+
+/**
+ * Get the in-memory access token.
  */
 const getAuthToken = () => {
-  return localStorage.getItem('authToken');
+  return accessToken;
 };
 
 /**
- * Store auth token in localStorage
+ * Set the in-memory access token.
  */
 const setAuthToken = (token) => {
-  if (token) {
-    localStorage.setItem('authToken', token);
-  } else {
-    localStorage.removeItem('authToken');
-  }
+  accessToken = token || null;
 };
 
 /**
- * Clear auth token from localStorage
+ * Clear the in-memory access token and cached user data. The refresh token is
+ * an httpOnly cookie cleared by the backend on logout — JS cannot touch it.
  */
 const clearAuthToken = () => {
-  localStorage.removeItem('authToken');
+  accessToken = null;
   localStorage.removeItem('userData');
+};
+
+/**
+ * Single-flight refresh: exchange the httpOnly refresh cookie for a new access
+ * token. The refresh token rides in the cookie (credentials: 'include'), never
+ * in the body. All concurrent 401s share one in-flight promise so the server
+ * performs exactly one rotation — preventing a thundering herd that would trip
+ * reuse-detection and revoke the family.
+ *
+ * Returns the new access token, or null if refresh failed (no/expired cookie).
+ */
+let refreshPromise = null;
+const refreshAccessToken = () => {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Refresh failed');
+        const json = await res.json();
+        const token = json?.data?.token ?? json?.token;
+        setAuthToken(token);
+        return token;
+      })
+      .finally(() => {
+        // Clears the single-flight lock whether the refresh succeeded or failed
+        // (no cookie / expired / revoked / reuse-detected). The caller falls
+        // through to the normal auth:unauthorized path on rejection.
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
 };
 
 /**
@@ -128,7 +166,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isRetryableStatus = (status) => status >= 500 && status <= 599;
 
-const apiClient = async (url, options = {}) => {
+const apiClient = async (url, options = {}, alreadyRefreshed = false) => {
   const token = getAuthToken();
   const sessionId = currentSessionId;
   const { retries, skipAutoLogout, ...requestOptions } = options;
@@ -143,9 +181,16 @@ const apiClient = async (url, options = {}) => {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Forward the active store selection to the backend
+  const sid = localStorage.getItem('selectedStoreId');
+  if (sid) headers['X-Store-Id'] = sid;
+
   const config = {
     ...requestOptions,
     headers,
+    // Send the httpOnly refresh cookie on auth endpoints (and harmlessly
+    // elsewhere, since it is path-scoped to /api/auth by the backend).
+    credentials: 'include',
   };
 
   let lastError;
@@ -175,15 +220,40 @@ const apiClient = async (url, options = {}) => {
         requestId: response.headers.get('x-request-id') || undefined,
       });
 
+      // On a 401 for the active session, try a single-flight token refresh and
+      // replay the request once before surfacing the failure. The
+      // alreadyRefreshed guard bounds this to exactly one refresh attempt.
+      if (
+        response.status === 401 &&
+        !skipAutoLogout &&
+        !alreadyRefreshed &&
+        Boolean(token) &&
+        getAuthToken() === token
+      ) {
+        let newToken = null;
+        try {
+          newToken = await refreshAccessToken();
+        } catch {
+          newToken = null;
+        }
+        if (newToken) {
+          clearTimeout(timeoutId);
+          return apiClient(url, options, true);
+        }
+      }
+
       const processedResponse = await handleError(response, {
         skipAutoLogout,
         authToken: token,
       });
       
-      // Handle empty responses
       const contentType = processedResponse.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        return await processedResponse.json();
+        const result = await processedResponse.json();
+        if (result && typeof result === 'object' && 'success' in result && 'data' in result) {
+          return result.data;
+        }
+        return result;
       }
       
       return processedResponse;
@@ -255,56 +325,33 @@ const apiClient = async (url, options = {}) => {
 /**
  * GET request
  */
-export const get = (url, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'GET',
-  });
-};
+export const get = (url, options = {}) =>
+  apiClient(url, { ...options, method: 'GET' }).then(res => res?.data ?? res);
 
 /**
  * POST request
  */
-export const post = (url, data, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-};
+export const post = (url, data, options = {}) =>
+  apiClient(url, { ...options, method: 'POST', body: JSON.stringify(data) }).then(res => res?.data ?? res);
 
 /**
  * PUT request
  */
-export const put = (url, data, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'PUT',
-    body: JSON.stringify(data),
-  });
-};
+export const put = (url, data, options = {}) =>
+  apiClient(url, { ...options, method: 'PUT', body: JSON.stringify(data) }).then(res => res?.data ?? res);
 
 /**
  * PATCH request
  */
-export const patch = (url, data, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'PATCH',
-    body: JSON.stringify(data),
-  });
-};
+export const patch = (url, data, options = {}) =>
+  apiClient(url, { ...options, method: 'PATCH', body: JSON.stringify(data) }).then(res => res?.data ?? res);
 
 /**
  * DELETE request
  */
-export const del = (url, options = {}) => {
-  return apiClient(url, {
-    ...options,
-    method: 'DELETE',
-  });
-};
+export const del = (url, options = {}) =>
+  apiClient(url, { ...options, method: 'DELETE' }).then(res => res?.data ?? res);
 
 // Export token management functions
-export { getAuthToken, setAuthToken, clearAuthToken };
+export { getAuthToken, setAuthToken, clearAuthToken, refreshAccessToken };
 

@@ -3,6 +3,9 @@ import { OrderStatus, PaymentMethodEnum, Prisma } from '../../generated/prisma';
 import { getReportingConfig } from '../utils/reportingConfig';
 import { ReportingPaginationInput } from '../utils/reportingPagination';
 import { toUtcIso } from '../utils/reportingTime';
+import { StoreSettingsService } from './storeSettings.service';
+
+const storeSettingsService = new StoreSettingsService();
 
 interface ReportingDateFilters {
   updatedSince?: Date;
@@ -112,15 +115,30 @@ export class ReportingService {
     };
   }
 
-  getMetadata() {
+  /**
+   * Resolve the active tenant's reporting locale. Reporting runs inside the
+   * token's tenant context, so the tenant's store_settings timezone/currency are
+   * used; empty values fall back to the platform reporting defaults.
+   */
+  private async resolveReportingLocale(): Promise<{ timezone: string; currency: string }> {
     const config = getReportingConfig();
+    const settings = await storeSettingsService.getStoreSettings();
+    return {
+      timezone: settings.timezone?.trim() || config.timezone,
+      currency: settings.currency?.trim() || config.currency,
+    };
+  }
+
+  async getMetadata() {
+    const config = getReportingConfig();
+    const { timezone, currency } = await this.resolveReportingLocale();
     return {
       provider_key: config.providerKey,
       source_system: config.sourceSystem,
       source_display_name: config.sourceDisplayName,
       schema_version: config.schemaVersion,
-      store_timezone: config.timezone,
-      currency: config.currency,
+      store_timezone: timezone,
+      currency: currency,
       supports: {
         products: true,
         variants: false,
@@ -238,11 +256,13 @@ export class ReportingService {
       itemsByOrder.set(item.orderId, existing);
     }
 
+    const { currency } = await this.resolveReportingLocale();
     return orders.map((order) => this.mapOrder(
       order,
       itemsByOrder.get(order.id) || [],
       productMap,
-      userMap
+      userMap,
+      currency,
     ));
   }
 
@@ -310,7 +330,8 @@ export class ReportingService {
     order: OrderRecord,
     items: OrderItemRecord[],
     productMap: Map<number, ProductRecord>,
-    userMap: Map<number, UserRecord>
+    userMap: Map<number, UserRecord>,
+    currency: string,
   ) {
     const config = getReportingConfig();
     const lineItems = items.map((item) => this.mapOrderLineItem(order, item, productMap.get(item.variantId)));
@@ -335,13 +356,13 @@ export class ReportingService {
       tax_total: taxTotal,
       shipping_total: 0,
       grand_total: grandTotal,
-      currency: config.currency,
+      currency: currency,
       payment_status: mapPaymentStatus(order),
       fulfillment_status: mapFulfillmentStatus(order.status),
       fulfillment_method: order.deliveryMethod.toLowerCase(),
       customer_id: config.includeCustomers && customer ? `customer_${customer.id}` : null,
       line_items: lineItems,
-      payments: this.mapPayments(order),
+      payments: this.mapPayments(order, currency),
       limitations: {
         subtotal_tax_split: 'The current order schema stores final total, not persisted subtotal/tax fields; subtotal and tax are reconstructed from current line items and total.',
         line_item_snapshots: 'The current order item schema stores product id, quantity, and unit price; product name is resolved from the current product record.',
@@ -377,7 +398,7 @@ export class ReportingService {
     };
   }
 
-  private mapPayments(order: OrderRecord) {
+  private mapPayments(order: OrderRecord, currency: string) {
     if (order.status === OrderStatus.NOT_FULFILLING) return [];
     const config = getReportingConfig();
     const status = mapPaymentStatus(order);
@@ -389,7 +410,7 @@ export class ReportingService {
         payment_type: mapPaymentType(order.paymentMethod),
         provider: mapPaymentProvider(order.paymentMethod),
         amount: status === 'pending' ? 0 : roundMoney(total),
-        currency: config.currency,
+        currency: currency,
         status: status === 'paid' ? 'captured' : status,
         paid_at: status === 'paid' ? toUtcIso(order.updatedAt) : null,
         processor_reference: config.includePaymentDetails && order.paymentMethod === PaymentMethodEnum.CC

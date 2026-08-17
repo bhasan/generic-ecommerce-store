@@ -14,11 +14,11 @@ ENV_FILE=".env.prod"
 SSH_USER="${SSH_USER:-root}"
 REMOTE_DIR="/docker/smoke-station"
 
-COMPOSE_CMD="docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.prod.yml \
-  -f docker-compose.shared-edge.override.yml \
-  -f monitoring/docker-compose.monitoring.yml"
+# Run monitoring as its own compose project — do NOT merge with the main stack compose files.
+# Merging causes Docker to use the monitoring project name for all volumes, which prefixes
+# the db volume as smoke-station-monitoring_postgres_data_prod instead of the correct
+# smoke-station_postgres_data_prod, wiping out the database on next deploy.
+COMPOSE_CMD="docker compose -f monitoring/docker-compose.monitoring.yml"
 
 usage() {
   cat <<USAGE

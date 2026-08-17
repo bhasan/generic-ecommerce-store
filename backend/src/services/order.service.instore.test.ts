@@ -38,6 +38,30 @@ vi.mock('./notificationEvents.service', () => ({
 }));
 vi.mock('./store-credit.service', () => ({ default: { useCredit: vi.fn() } }));
 
+// Provide a default-store tenant context so createOrder doesn't throw
+// MissingTenantContextError. isDefaultStore=true preserves existing test behaviour.
+vi.mock('../config/tenantContext', () => ({
+  getTenantContextOrThrow: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  getTenantContext: vi.fn(() => ({
+    tenantId: 1,
+    storeId: 1,
+    isDefaultStore: true,
+    scope: 'tenant' as const,
+  })),
+  MissingTenantContextError: class MissingTenantContextError extends Error {
+    constructor() {
+      super('Execution context is missing active tenantScope. Wrap database operations inside runWithTenant(...) first.');
+      this.name = 'MissingTenantContextError';
+    }
+  },
+  runWithTenant: vi.fn((ctx: unknown, fn: () => unknown) => fn()),
+}));
+
 describe('order service — IN_STORE payment', () => {
   beforeEach(() => vi.clearAllMocks());
 

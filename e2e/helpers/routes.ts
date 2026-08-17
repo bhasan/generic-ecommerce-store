@@ -50,12 +50,12 @@ export const ROUTES: RouteEntry[] = [
     landmark: 'Help',
   },
   {
-    path: '/manage-products',
+    path: '/manage-store/products',
     allowed: ['admin', 'manager'],
     landmark: 'Manage',
   },
   {
-    path: '/dashboard',
+    path: '/dashboard/pending-registrations',
     allowed: ['admin', 'manager'],
     landmark: 'Dashboard',
   },
